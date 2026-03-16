@@ -388,10 +388,10 @@ function renderDebugOverlay(cell, ch) {
   metricsWidget.innerHTML = rows.map((row) => `<div>${row}</div>`).join("");
 }
 
-function createVideoCell(ch, idx) {
+function createVideoCell(ch) {
   const statusText = statusTextForChannel(ch);
   const cell = document.createElement("div");
-  cell.className = `video-cell ${idx === 0 ? "active" : ""}`;
+  cell.className = "video-cell";
   cell.dataset.channelId = String(ch.id);
   cell.dataset.previewLoaded = "0";
   cell.dataset.statusText = statusText;
@@ -426,10 +426,9 @@ function createVideoCell(ch, idx) {
   return cell;
 }
 
-function updateVideoCell(cell, ch, idx) {
+function updateVideoCell(cell, ch) {
   const statusText = statusTextForChannel(ch);
   cell.dataset.statusText = statusText;
-  cell.classList.toggle("active", idx === 0);
   const label = cell.querySelector(".cam-label");
   if (label) label.textContent = ch.name;
   const hasPreviewSignal = getCellPreviewSignal(cell, ch);
@@ -489,9 +488,9 @@ function renderVideoGrid() {
   for (const [idx, ch] of visible.entries()) {
     let cell = grid.querySelector(`.video-cell[data-channel-id='${ch.id}']`);
     if (!cell) {
-      cell = createVideoCell(ch, idx);
+      cell = createVideoCell(ch);
     } else {
-      updateVideoCell(cell, ch, idx);
+      updateVideoCell(cell, ch);
     }
     grid.appendChild(cell);
   }
