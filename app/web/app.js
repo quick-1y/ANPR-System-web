@@ -266,6 +266,13 @@ function getPreviewDisplayRect(cell, overlayData) {
 }
 
 
+
+function applyMotionHighlight(cell, ch) {
+  if (!cell) return;
+  const motionActive = Boolean((ch?.metrics || {}).motion_active);
+  cell.classList.toggle("motion-active", motionActive);
+}
+
 function refreshVideoCellOverlayState(cell, ch) {
   if (!cell || !ch) return;
   const statusText = statusTextForChannel(ch);
@@ -277,6 +284,7 @@ function refreshVideoCellOverlayState(cell, ch) {
     statusDot.classList.toggle("off", !hasPreviewSignal);
   }
   setNoSignalVisibility(cell, !hasPreviewSignal, statusText);
+  applyMotionHighlight(cell, ch);
   renderDebugOverlay(cell, ch);
 }
 
@@ -485,7 +493,7 @@ function renderVideoGrid() {
     }
   });
 
-  for (const [idx, ch] of visible.entries()) {
+  for (const ch of visible) {
     let cell = grid.querySelector(`.video-cell[data-channel-id='${ch.id}']`);
     if (!cell) {
       cell = createVideoCell(ch);
