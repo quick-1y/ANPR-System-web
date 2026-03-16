@@ -19,8 +19,8 @@ Each channel must work independently from the others.
 - Keep ANPR logic on the server side. Do not move detection, OCR, tracking, or postprocessing into the browser.
 - Keep channels isolated. Failure or restart of one channel must not break other channels.
 - Keep service boundaries clear:
-  - `apps/api` — API, web entrypoint, channel management, SSE, settings
-  - `apps/worker` — retention and background jobs
+  - `app/api` — API, web entrypoint, channel management, SSE, settings
+  - `app/worker` — retention and background jobs
   - `packages/anpr_core` — channel runtime and orchestration
   - `anpr` — domain logic, pipeline, OCR, detection, storage, controllers
 
