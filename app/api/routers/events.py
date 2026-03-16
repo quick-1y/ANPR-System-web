@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
@@ -16,12 +17,33 @@ router = APIRouter()
 
 
 @router.get("/api/events")
-def list_events(limit: int = 100, container: AppContainer = Depends(get_container)) -> List[Dict[str, Any]]:
+def list_events(
+    limit: int = 100,
+    before_ts: Optional[datetime] = None,
+    before_id: Optional[int] = None,
+    channel_id: Optional[int] = None,
+    plate: Optional[str] = None,
+    container: AppContainer = Depends(get_container),
+) -> List[Dict[str, Any]]:
+    safe_limit = max(1, min(int(limit), 200))
+    if (before_ts is None) ^ (before_id is None):
+        raise HTTPException(status_code=400, detail="before_ts и before_id должны передаваться вместе")
+    use_cursor = before_ts is not None and before_id is not None
     try:
-        rows = container.events_db.fetch_recent(limit=limit)
+        if use_cursor or channel_id is not None or plate:
+            rows = container.events_db.fetch_journal_page(
+                limit=safe_limit,
+                before_ts=before_ts,
+                before_id=before_id,
+                channel_id=channel_id,
+                plate=plate,
+            )
+        else:
+            rows = container.events_db.fetch_recent(limit=safe_limit)
         return [dict(row) for row in rows]
     except StorageUnavailableError as exc:
         raise container.storage_503(exc) from exc
+
 
 
 def _fetch_event_by_id(container: AppContainer, event_id: int) -> Dict[str, Any] | None:

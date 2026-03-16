@@ -101,9 +101,45 @@ class PostgresEventDatabase:
                 with conn.cursor() as cursor:
                     cursor.execute(
                         "SELECT id, timestamp, channel_id, channel, plate, country, confidence, source, frame_path, plate_path, direction "
-                        "FROM events ORDER BY timestamp DESC LIMIT %s",
+                        "FROM events ORDER BY timestamp DESC, id DESC LIMIT %s",
                         (limit,),
                     )
+                    return [self._to_dict(row) for row in cursor.fetchall()]
+        except Exception as exc:  # noqa: BLE001
+            raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
+
+    def fetch_journal_page(
+        self,
+        *,
+        limit: int,
+        before_ts: Optional[Any] = None,
+        before_id: Optional[int] = None,
+        channel_id: Optional[int] = None,
+        plate: Optional[str] = None,
+    ) -> list[dict[str, Any]]:
+        self._ensure_schema()
+        page_limit = max(1, min(int(limit), 200))
+        filters: list[str] = []
+        params: list[Any] = []
+        if before_ts is not None and before_id is not None:
+            filters.append("(timestamp, id) < (%s, %s)")
+            params.extend([before_ts, int(before_id)])
+        if channel_id is not None:
+            filters.append("channel_id = %s")
+            params.append(int(channel_id))
+        if plate:
+            filters.append("plate ILIKE %s")
+            params.append(f"%{plate}%")
+        where = f"WHERE {' AND '.join(filters)}" if filters else ""
+        query = (
+            "SELECT id, timestamp, channel_id, channel, plate, country, confidence, source, frame_path, plate_path, direction "
+            f"FROM events {where} ORDER BY timestamp DESC, id DESC LIMIT %s"
+        )
+        params.append(page_limit)
+        try:
+            with self._connect() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(query, tuple(params))
                     return [self._to_dict(row) for row in cursor.fetchall()]
         except Exception as exc:  # noqa: BLE001
             raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc

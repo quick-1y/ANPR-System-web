@@ -2,7 +2,12 @@ const state = {
   channels: [],
   lists: [],
   selectedListId: null,
-  allEvents: [],
+  liveEvents: [],
+  journalItems: [],
+  journalCursor: null,
+  journalHasMore: false,
+  journalLoading: false,
+  journalPageSize: 100,
   lastPlatesByChannelId: {},
 };
 let eventSource = null;
@@ -583,7 +588,7 @@ function renderEventFeed() {
   const feed = document.getElementById("eventFeed");
   if (!feed) return;
   feed.innerHTML = "";
-  const events = state.allEvents;
+  const events = state.liveEvents;
   for (const [i, item] of events.entries()) {
     const conf = Number(item.confidence || 0);
     const direction = formatDirection(item.direction);
@@ -613,36 +618,33 @@ function renderEventFeed() {
 
 function pushEvent(ev) {
   applyLastPlate(ev);
-  state.allEvents.unshift(ev);
-  if (state.allEvents.length > 500) state.allEvents.pop();
+  state.liveEvents.unshift(ev);
+  if (state.liveEvents.length > 500) state.liveEvents.pop();
   renderEventFeed();
-  renderJournal();
   addDebug(
     `[INFO] event: ${ev.plate || "-"} conf=${Number(ev.confidence || 0).toFixed(2)}`,
     "ok",
   );
 }
-async function loadJournal() {
-  state.allEvents = await jfetch(api("/api/events?limit=500"));
-  renderEventFeed();
-  renderJournal();
+
+function buildJournalQuery({ append = false } = {}) {
+  const params = new URLSearchParams();
+  params.set("limit", String(state.journalPageSize + 1));
+  const plate = String(document.getElementById("fltPlate").value || "").trim();
+  const channelId = String(document.getElementById("fltChannel").value || "").trim();
+  if (plate) params.set("plate", plate);
+  if (channelId) params.set("channel_id", channelId);
+  if (append && state.journalCursor) {
+    if (state.journalCursor.before_ts) params.set("before_ts", state.journalCursor.before_ts);
+    if (state.journalCursor.before_id != null) params.set("before_id", String(state.journalCursor.before_id));
+  }
+  return params.toString();
 }
-function renderJournal() {
-  const needle = (
-    document.getElementById("fltPlate").value || ""
-  ).toUpperCase();
-  const chan = document.getElementById("fltChannel").value;
-  const rows = state.allEvents.filter(
-    (e) =>
-      (!needle ||
-        String(e.plate || "")
-          .toUpperCase()
-          .includes(needle)) &&
-      (!chan || String(e.channel || e.channel_id || "") === chan),
-  );
+
+function renderJournalRows() {
   const body = document.getElementById("journalBody");
   body.innerHTML = "";
-  rows.forEach((ev) => {
+  state.journalItems.forEach((ev) => {
     const conf = Number(ev.confidence || 0);
     const direction = formatDirection(ev.direction);
     const tr = document.createElement("tr");
@@ -650,6 +652,49 @@ function renderJournal() {
     tr.onclick = () => openEventDetails(ev);
     body.appendChild(tr);
   });
+}
+
+function syncJournalLoadMoreButton() {
+  const btn = document.getElementById("btnJournalMore");
+  if (!btn) return;
+  btn.style.display = state.journalHasMore ? "inline-flex" : "none";
+  btn.disabled = state.journalLoading;
+  btn.textContent = state.journalLoading ? "Загрузка..." : "Загрузить ещё";
+}
+
+async function loadJournal({ append = false } = {}) {
+  if (state.journalLoading) return;
+  state.journalLoading = true;
+  syncJournalLoadMoreButton();
+  try {
+    const query = buildJournalQuery({ append });
+    const fetched = await jfetch(api(`/api/events?${query}`));
+    const hasMore = fetched.length > state.journalPageSize;
+    const items = hasMore ? fetched.slice(0, state.journalPageSize) : fetched;
+    if (append) {
+      state.journalItems = state.journalItems.concat(items);
+    } else {
+      state.journalItems = items;
+      if (state.liveEvents.length === 0) {
+        state.liveEvents = items.slice(0, 100);
+        renderEventFeed();
+      }
+    }
+    const nextCursor = items.length > 0
+      ? { before_ts: items[items.length - 1].timestamp, before_id: items[items.length - 1].id }
+      : null;
+    state.journalCursor = nextCursor;
+    state.journalHasMore = hasMore && Boolean(nextCursor);
+    renderJournalRows();
+  } finally {
+    state.journalLoading = false;
+    syncJournalLoadMoreButton();
+  }
+}
+
+async function loadMoreJournal() {
+  if (!state.journalHasMore || state.journalLoading) return;
+  await loadJournal({ append: true });
 }
 
 function formatDirection(directionValue) {
@@ -1619,7 +1664,7 @@ function fillChannelFilter() {
   sel.innerHTML = '<option value="">Все каналы</option>';
   state.channels.forEach((c) => {
     const o = document.createElement("option");
-    o.value = String(c.channel || c.id);
+    o.value = String(c.id);
     o.textContent = `CAM-${String(c.id).padStart(2, "0")}`;
     sel.appendChild(o);
   });
@@ -1704,11 +1749,12 @@ document
     (el) => (el.onclick = () => switchChannelSettingsTab(el.dataset.chTab)),
   );
 document.getElementById("gridSelect").onchange = () => scheduleVideoGridLayout(true);
-document.getElementById("btnFind").onclick = renderJournal;
+document.getElementById("btnFind").onclick = () => loadJournal({ append: false });
+document.getElementById("btnJournalMore").onclick = () => loadMoreJournal();
 document.getElementById("btnReset").onclick = () => {
   document.getElementById("fltPlate").value = "";
   document.getElementById("fltChannel").value = "";
-  renderJournal();
+  loadJournal({ append: false });
 };
 document.getElementById("btnExport").onclick = () =>
   window.open(api("/api/data/export/events.csv"), "_blank");
@@ -1827,7 +1873,7 @@ window.addEventListener("resize", renderEventFeed);
   updateTopbarTitle();
   await refreshChannels();
   await hydrateChannelLastPlates();
-  await loadJournal();
+  await loadJournal({ append: false });
   await loadLists();
   await loadGlobalSettings();
   await refreshOverlayStates();

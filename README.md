@@ -459,8 +459,8 @@ flowchart TD
 После записи событие публикуется в `EventBus`, а затем попадает в браузер через `/api/events/stream`.
 
 UI параллельно:
-- держит live stream для новых событий;
-- подгружает исторические события через `/api/events`;
+- держит live stream для новых событий (отдельное состояние live feed);
+- подгружает историю журнала страницами через `/api/events` (cursor-based, без `OFFSET`);
 - открывает детали события и связанные изображения через `/api/events/item/{id}` и `/api/events/item/{id}/media/{kind}`.
 
 ---
@@ -555,7 +555,7 @@ Debug-слой централизован:
 
 ### События
 
-- `GET /api/events`
+- `GET /api/events` (`limit`, `before_ts`, `before_id`, `channel_id`, `plate`; сортировка `timestamp DESC, id DESC`)
 - `GET /api/events/item/{event_id}`
 - `GET /api/events/item/{event_id}/media/{kind}` (`kind = frame|plate`)
 - `GET /api/events/stream`
