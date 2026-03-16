@@ -347,21 +347,6 @@ class SettingsManager:
         except (TypeError, ValueError):
             return 0
 
-    def get_best_shots(self) -> int:
-        with self._file_lock:
-            tracking = self.settings.get("tracking", {})
-            return int(tracking.get("best_shots", 3))
-
-    def get_cooldown_seconds(self) -> int:
-        with self._file_lock:
-            tracking = self.settings.get("tracking", {})
-            return int(tracking.get("cooldown_seconds", 5))
-
-    def get_min_confidence(self) -> float:
-        with self._file_lock:
-            tracking = self.settings.get("tracking", {})
-            return float(tracking.get("ocr_min_confidence", 0.6))
-
     def get_plate_settings(self) -> Dict[str, Any]:
         with self._file_lock:
             if self._normalizer._fill_plate_defaults(self.settings, self._plate_defaults()):
