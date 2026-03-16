@@ -66,3 +66,11 @@ Each channel must work independently from the others.
 - Do not couple channels together.
 - Do not move core business logic into frontend code.
 - Do not make large cleanup-only refactors outside the task scope.
+
+## Settings schema versioning rules
+
+- Любое изменение схемы `config/settings.yaml` (новый параметр, удаление/переименование поля, изменение структуры, изменение формата значения) обязательно требует повышения версии схемы настроек.
+- При повышении версии схемы обязательно добавляйте/обновляйте путь совместимости (upgrade/migration) до новой актуальной версии для старых конфигов.
+- Нельзя добавлять новые параметры в схему без учета versioning/compatibility механизма.
+- Нельзя добавлять, переименовывать или удалять поля настроек без обновления механизма совместимости (compatibility/upgrade path).
+- Нельзя считать задачу завершенной, если схема настроек изменилась, а механизм подтягивания старых конфигов до актуальной версии не обновлен.

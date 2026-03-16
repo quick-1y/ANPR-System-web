@@ -433,37 +433,56 @@ class SettingsNormalizer:
         data["logging"] = logging_section
         return changed
 
-    def normalize(self, data: dict) -> dict:
+    def normalize_with_meta(self, data: dict) -> tuple[dict, bool]:
         normalized = copy.deepcopy(data)
-        normalized, _ = run_settings_migrations(normalized, SETTINGS_VERSION)
+        normalized, changed = run_settings_migrations(normalized, SETTINGS_VERSION)
         tracking_defaults = normalized.get("tracking", {})
 
         if not normalized.get("theme"):
             normalized["theme"] = "dark"
+            changed = True
 
         direction_defaults = self._direction_defaults()
         direction_settings = tracking_defaults.get("direction")
         if direction_settings is None:
             tracking_defaults["direction"] = direction_defaults
             normalized["tracking"] = tracking_defaults
+            changed = True
         else:
             for key, value in direction_defaults.items():
                 if key not in direction_settings:
                     direction_settings[key] = value
+                    changed = True
 
         for channel in normalized.get("channels", []):
-            self._fill_channel_defaults(channel, tracking_defaults)
+            if self._fill_channel_defaults(channel, tracking_defaults):
+                changed = True
 
-        self._fill_reconnect_defaults(normalized, self._reconnect_defaults())
-        self._fill_model_defaults(normalized, self._model_defaults())
-        self._fill_ocr_defaults(normalized, self._ocr_defaults())
-        self._fill_detector_defaults(normalized, self._detector_defaults())
-        self._fill_inference_defaults(normalized, self._inference_defaults())
-        self._fill_storage_defaults(normalized, self._storage_defaults())
-        self._fill_plate_defaults(normalized, self._plate_defaults())
-        self._fill_time_defaults(normalized, self._time_defaults())
-        self._fill_logging_defaults(normalized, self._logging_defaults())
-        self._fill_debug_defaults(normalized, self._debug_defaults())
-        self._fill_controller_defaults(normalized)
+        if self._fill_reconnect_defaults(normalized, self._reconnect_defaults()):
+            changed = True
+        if self._fill_model_defaults(normalized, self._model_defaults()):
+            changed = True
+        if self._fill_ocr_defaults(normalized, self._ocr_defaults()):
+            changed = True
+        if self._fill_detector_defaults(normalized, self._detector_defaults()):
+            changed = True
+        if self._fill_inference_defaults(normalized, self._inference_defaults()):
+            changed = True
+        if self._fill_storage_defaults(normalized, self._storage_defaults()):
+            changed = True
+        if self._fill_plate_defaults(normalized, self._plate_defaults()):
+            changed = True
+        if self._fill_time_defaults(normalized, self._time_defaults()):
+            changed = True
+        if self._fill_logging_defaults(normalized, self._logging_defaults()):
+            changed = True
+        if self._fill_debug_defaults(normalized, self._debug_defaults()):
+            changed = True
+        if self._fill_controller_defaults(normalized):
+            changed = True
 
+        return normalized, changed
+
+    def normalize(self, data: dict) -> dict:
+        normalized, _ = self.normalize_with_meta(data)
         return normalized
