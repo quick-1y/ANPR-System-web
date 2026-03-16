@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
-from anpr.infrastructure.storage import StorageUnavailableError
+from database.errors import StorageUnavailableError
 from app.api.container import AppContainer
 from app.api.deps import get_container
 from app.api.schemas import ExportBundlePayload, GlobalSettingsPayload, RetentionPolicyPayload

@@ -7,9 +7,10 @@ from typing import Any, Dict, List
 
 from fastapi import HTTPException
 
-from anpr.infrastructure.list_database import ListDatabase
+from database.plate_lists_repository import ListDatabase
 from config.settings_manager import SettingsManager
-from anpr.infrastructure.storage import PostgresEventDatabase, StorageUnavailableError
+from database.postgres_event_repository import PostgresEventDatabase
+from database.errors import StorageUnavailableError
 from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 from common.logging import configure_logging, get_live_log_bus, get_logger
 from controllers import ControllerAutomationService, ControllerService

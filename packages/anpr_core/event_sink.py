@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from anpr.infrastructure.storage import PostgresEventDatabase
+from database.postgres_event_repository import PostgresEventDatabase
 
 
 class EventSink:

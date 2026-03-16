@@ -1,13 +1,16 @@
 # database/
 
-Каталог `database/` содержит артефакты PostgreSQL для Docker-only развёртывания.
+Каталог `database/` содержит SQL-артефакты PostgreSQL и Python-адаптеры доступа к БД для backend-приложения.
 
 ## Содержимое
 
 - `postgres/schema.sql` — SQL-схема и индексы для таблиц ANPR.
+- `postgres/` — SQL/schema assets для PostgreSQL.
+- `*.py` в `database/` — repository/adaptor layer приложения для работы с PostgreSQL
+  (например, репозитории событий и списков, общие ошибки слоя хранения).
 
 ## Важно
 
 - Схема подключается автоматически через `docker-compose.yml` в контейнере `postgres`.
-- Здесь **не** размещается Python-код приложения и бизнес-логика.
-- Runtime-код доступа к БД остаётся в пакетах приложения (`anpr/`, `app/`, `packages/`).
+- Python-код в `database/` ограничен слоем репозиториев/адаптеров PostgreSQL;
+  бизнес-логика ANPR остаётся в `anpr/`, orchestration/API — в `packages/` и `app/`.

@@ -5,15 +5,11 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Optional, Sequence
 
-from .logging_manager import get_logger
+from common.logging import get_logger
+from database.errors import StorageUnavailableError
 
 logger = get_logger(__name__)
-_SCHEMA_SQL_PATH = Path(__file__).resolve().parents[2] / "database" / "postgres" / "schema.sql"
-
-
-class StorageUnavailableError(RuntimeError):
-    """БД PostgreSQL временно недоступна."""
-
+_SCHEMA_SQL_PATH = Path(__file__).resolve().parents[1] / "database" / "postgres" / "schema.sql"
 
 class PostgresEventDatabase:
     """PostgreSQL-only хранилище событий с ленивым bootstrap схемы."""

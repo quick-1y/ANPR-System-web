@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from anpr.infrastructure.storage import StorageUnavailableError
+from database.errors import StorageUnavailableError
 from app.api.container import AppContainer
 from app.api.deps import get_container
 from app.api.schemas import EntryPayload, ListPayload
