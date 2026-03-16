@@ -488,3 +488,5 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; }
   .ch-layout { grid-template-columns: 170px 1fr; }
   .settings-nav { width: 190px; }
 }
+
+.journal-more-wrap { display: flex; justify-content: center; padding: 4px 0 8px; }
