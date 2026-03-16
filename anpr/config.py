@@ -1,34 +1,39 @@
 # /anpr/config.py
-"""Централизованная точка доступа к настройкам приложения.
-
-Config выступает фасадом над SettingsManager и предоставляет единообразные
-пути к моделям и параметры инференса. Все модули работают через этот класс,
-избегая прямого чтения файла настроек напрямую.
-"""
-
 from __future__ import annotations
 
 from typing import Any, Dict
-
+import threading
 import torch
 
 from anpr.infrastructure.settings_manager import SettingsManager
 from common.logging import get_logger
 
-
 logger = get_logger(__name__)
-
 
 class Config:
     """Синглтон, предоставляющий доступ к конфигурации приложения."""
 
     _instance: "Config | None" = None
+    _instance_lock = threading.Lock()
 
-    def __new__(cls) -> "Config":  # noqa: D401 - стандартный паттерн синглтона
+    def __new__(cls) -> "Config":
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._settings = SettingsManager()
+            with cls._instance_lock:
+                if cls._instance is None:
+                    instance = super().__new__(cls)
+                    instance._settings = SettingsManager()
+                    cls._instance = instance
         return cls._instance
+
+    def __getattr__(self, name: str):
+        try:
+            settings = object.__getattribute__(self, "_settings")
+        except AttributeError:
+            raise AttributeError(name) from None
+
+        if hasattr(settings, name):
+            return getattr(settings, name)
+        raise AttributeError(name)
 
     # ------------------------- Модель и инференс -------------------------
     @property
