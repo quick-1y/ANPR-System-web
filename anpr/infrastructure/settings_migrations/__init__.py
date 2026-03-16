@@ -1,5 +1,5 @@
-"""Пакет миграций настроек."""
+"""Механизм совместимости/upgrade системных настроек до актуальной схемы."""
 
-from .runner import detect_version, run_settings_migrations
+from .runner import run_settings_migrations
 
-__all__ = ["detect_version", "run_settings_migrations"]
+__all__ = ["run_settings_migrations"]

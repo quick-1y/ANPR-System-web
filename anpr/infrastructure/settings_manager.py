@@ -42,8 +42,14 @@ class SettingsManager:
     def __init__(self, path: str | None = None) -> None:
         self._normalizer = SettingsNormalizer()
         self._repo = SettingsRepository(self, path)
-        self.settings = self._normalizer.normalize(self._repo.settings)
         self._file_lock = self._repo._file_lock
+        self.settings = self._normalize_and_persist_if_changed(self._repo.settings)
+
+    def _normalize_and_persist_if_changed(self, raw_settings: Dict[str, Any]) -> Dict[str, Any]:
+        normalized, changed = self._normalizer.normalize_with_meta(raw_settings)
+        if changed:
+            self._repo.save(normalized)
+        return normalized
 
     def _default(self) -> Dict[str, Any]:
         return build_default_settings()
@@ -425,8 +431,8 @@ class SettingsManager:
             return copy.deepcopy(self.settings.get("inference", {}))
 
     def refresh(self) -> None:
-        self._repo.refresh()
-        self.settings = self._normalizer.normalize(self._repo.settings)
+        raw_settings = self._repo.load()
+        self.settings = self._normalize_and_persist_if_changed(raw_settings)
 
     def update_channel(self, channel_id: int, data: Dict[str, Any]) -> None:
         channels = self.get_channels()
