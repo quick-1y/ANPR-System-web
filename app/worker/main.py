@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 from fastapi import FastAPI, Request
 
-from anpr.infrastructure.settings_manager import SettingsManager
+from config.settings_manager import SettingsManager
 from anpr.infrastructure.storage import StorageUnavailableError
 from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 from common.logging import configure_logging, get_logger

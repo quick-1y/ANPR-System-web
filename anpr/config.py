@@ -5,7 +5,7 @@ from typing import Any, Dict
 import threading
 import torch
 
-from anpr.infrastructure.settings_manager import SettingsManager
+from config.settings_manager import SettingsManager
 from common.logging import get_logger
 
 logger = get_logger(__name__)

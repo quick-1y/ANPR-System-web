@@ -8,8 +8,8 @@ from typing import Any, Dict, Optional
 from common.logging import get_logger
 from controllers import SUPPORTED_CONTROLLER_TYPES
 
-from anpr.infrastructure.settings_migrations import run_settings_migrations
-from anpr.infrastructure.settings_schema import (
+from config.settings_migrations import run_settings_migrations
+from config.settings_schema import (
     SETTINGS_VERSION,
     channel_defaults,
     debug_defaults,
