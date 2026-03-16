@@ -1,3 +1,11 @@
+"""Нормализация и валидация системных настроек.
+
+Примечание: модуль сохраняет зависимость от `controllers.SUPPORTED_CONTROLLER_TYPES`
+для проверки типов контроллеров. Это известная архитектурная связность,
+которая не меняет runtime-поведение и не блокирует текущий перенос ownership
+settings в пакет `config`.
+"""
+
 #!/usr/bin/env python3
 
 from __future__ import annotations

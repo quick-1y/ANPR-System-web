@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#/anpr/infrastructure/settings_manager.py
+#/config/settings_manager.py
 import copy
 import os
 from typing import Any, Dict, List, Optional
