@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from anpr.infrastructure.storage import PostgresEventDatabase
+from database.postgres_event_repository import PostgresEventDatabase
 
 
 @dataclass

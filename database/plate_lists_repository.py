@@ -4,7 +4,7 @@ import threading
 from collections import OrderedDict
 from typing import Any, Dict, Iterable, Optional
 
-from anpr.infrastructure.storage import StorageUnavailableError
+from database.errors import StorageUnavailableError
 
 LIST_TYPES = OrderedDict([
     ("white", "Белый список"),
