@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-#/anpr/infrastructure/settings_manager.py
+#/config/settings_manager.py
 import copy
 import os
 from typing import Any, Dict, List, Optional
 
 from common.logging import get_logger
 
-from anpr.infrastructure.settings_normalizer import SettingsNormalizer
-from anpr.infrastructure.settings_repository import SettingsRepository
-from anpr.infrastructure.settings_schema import (
+from config.settings_normalizer import SettingsNormalizer
+from config.settings_repository import SettingsRepository
+from config.settings_schema import (
     build_default_settings,
     channel_defaults,
     debug_defaults,

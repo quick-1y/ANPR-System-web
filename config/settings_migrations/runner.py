@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 from typing import Any, Dict, Tuple
 
-from anpr.infrastructure.settings_schema import (
+from config.settings_schema import (
     SETTINGS_LINEAGE,
     SETTINGS_LINEAGE_KEY,
     SETTINGS_VERSION,
