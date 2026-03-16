@@ -683,7 +683,12 @@ ANPR-System-v0.8_web/
 ├── .env
 ├── .env.example
 ├── config/
-│   └── settings.yaml
+│   ├── settings.yaml          # рабочий системный конфиг
+│   ├── settings_manager.py    # orchestration/use-case слой настроек
+│   ├── settings_repository.py # чтение/запись settings.yaml
+│   ├── settings_normalizer.py # нормализация/upgrade/defaults
+│   ├── settings_schema.py     # схема/контракты настроек
+│   └── settings_migrations/   # эволюция формата settings
 ```
 
 ---
