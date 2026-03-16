@@ -1,4 +1,5 @@
-settings_version: 2
+settings_version: 1
+settings_lineage: mainline
 models:
   yolo_model_path: anpr/models/yolo/best.pt
   ocr_model_path: anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth
@@ -52,10 +53,21 @@ tracking:
     min_area_change_ratio: 0.02
 plates:
   config_dir: anpr/countries
-  enabled_countries: [RU, UA, BY, KZ]
+  enabled_countries:
+  - RU
+  - UA
+  - BY
+  - KZ
 logging:
   level: INFO
   retention_days: 30
+  allowed_levels:
+  - ALL
+  - DEBUG
+  - INFO
+  - WARNING
+  - ERROR
+  - CRITICAL
 time:
   timezone: UTC+00:00
   offset_minutes: 0

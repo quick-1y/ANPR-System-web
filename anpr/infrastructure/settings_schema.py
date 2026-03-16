@@ -6,7 +6,9 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
-SETTINGS_VERSION = 2
+SETTINGS_VERSION = 1
+SETTINGS_LINEAGE_KEY = "settings_lineage"
+SETTINGS_LINEAGE = "mainline"
 LOG_LEVELS = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
 
@@ -167,6 +169,7 @@ def channel_defaults(tracking: Dict[str, Any]) -> Dict[str, Any]:
 def build_default_settings() -> Dict[str, Any]:
     return {
         "settings_version": SETTINGS_VERSION,
+        SETTINGS_LINEAGE_KEY: SETTINGS_LINEAGE,
         "models": model_defaults(),
         "ocr": ocr_defaults(),
         "detector": detector_defaults(),
