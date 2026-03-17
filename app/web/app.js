@@ -12,6 +12,9 @@ let debugLogReconnectTimer = null;
 let lastDebugLogId = 0;
 let debugSettingsCache = null;
 let overlayRefreshTimer = null;
+let eventFeedResizeObserver = null;
+let eventFeedRenderScheduled = false;
+let eventFeedRenderFrame = null;
 function api(path) {
   return `${document.getElementById("apiBase").value.trim()}${path}`;
 }
@@ -49,7 +52,10 @@ function switchTab(name) {
     .forEach((p) => p.classList.remove("active"));
   document.getElementById(`tab-${name}`).classList.add("active");
   updateTopbarTitle();
-  if (name === "obs") scheduleVideoGridLayout();
+  if (name === "obs") {
+    scheduleVideoGridLayout();
+    renderEventFeed(true);
+  }
 }
 function switchSettings(name) {
   document
@@ -545,6 +551,38 @@ function setupVideoGridLayoutGuards() {
   if (grid) videoGridResizeObserver.observe(grid);
 }
 
+function trimEventFeedOverflow(feed) {
+  if (!feed) return;
+  while (feed.lastElementChild && feed.scrollHeight > feed.clientHeight) {
+    feed.removeChild(feed.lastElementChild);
+  }
+}
+
+function scheduleEventFeedRender(forceRebuild = true) {
+  if (eventFeedRenderScheduled) return;
+  eventFeedRenderScheduled = true;
+  eventFeedRenderFrame = requestAnimationFrame(() => {
+    eventFeedRenderScheduled = false;
+    eventFeedRenderFrame = null;
+    if (getActiveTabName() !== "obs") return;
+    const feed = document.getElementById("eventFeed");
+    if (!feed || feed.clientHeight <= 0) return;
+    renderEventFeed(forceRebuild);
+  });
+}
+
+function setupEventFeedLayoutGuards() {
+  if (typeof ResizeObserver !== "function") return;
+  const obsRight = document.querySelector("#tab-obs .obs-right");
+  const feed = document.getElementById("eventFeed");
+  if (!obsRight && !feed) return;
+  eventFeedResizeObserver = new ResizeObserver(() => {
+    scheduleEventFeedRender(true);
+  });
+  if (obsRight) eventFeedResizeObserver.observe(obsRight);
+  if (feed) eventFeedResizeObserver.observe(feed);
+}
+
 
 function resolveChannelIdFromEvent(ev) {
   const directId = Number(ev.channel_id);
@@ -625,49 +663,20 @@ function renderEventFeed(forceRebuild = false) {
     return div;
   }
 
-  function getFeedGapPx() {
-    const styles = window.getComputedStyle(feed);
-    const gap = Number.parseFloat(styles.rowGap || styles.gap || "0");
-    return Number.isFinite(gap) ? gap : 0;
-  }
-
-  function calcVisibleItemsLimit() {
-    const feedHeight = feed.clientHeight || 0;
-    if (feedHeight <= 0) return 1;
-
-    let measuredItemHeight = 0;
-    const firstItem = feed.querySelector(".ev-item");
-    if (firstItem) {
-      measuredItemHeight = firstItem.getBoundingClientRect().height;
-    }
-
-    if (!measuredItemHeight) {
-      const probe = makeItem(events[0], false);
-      probe.style.visibility = "hidden";
-      probe.style.pointerEvents = "none";
-      feed.appendChild(probe);
-      measuredItemHeight = probe.getBoundingClientRect().height;
-      feed.removeChild(probe);
-    }
-
-    if (!measuredItemHeight) return 1;
-    const unit = measuredItemHeight + getFeedGapPx();
-    if (unit <= 0) return 1;
-    return Math.max(1, Math.floor((feedHeight + getFeedGapPx()) / unit));
-  }
-
-  const maxItems = calcVisibleItemsLimit();
-
   const existingEls = Array.from(feed.children);
   const existingKeys = new Set(existingEls.map(el => el.dataset.evKey).filter(Boolean));
   const needsFullRebuild = forceRebuild || existingKeys.size === 0;
 
   if (needsFullRebuild) {
     feed.innerHTML = "";
-    const slice = events.slice(0, maxItems);
-    for (const item of slice) {
+    for (const item of events) {
       feed.appendChild(makeItem(item, false));
+      if (feed.scrollHeight > feed.clientHeight) {
+        feed.removeChild(feed.lastElementChild);
+        break;
+      }
     }
+    trimEventFeedOverflow(feed);
     return;
   }
 
@@ -683,11 +692,7 @@ function renderEventFeed(forceRebuild = false) {
   for (let i = newItems.length - 1; i >= 0; i--) {
     feed.prepend(makeItem(newItems[i], true));
   }
-
-  // Обрезаем снизу строго по лимиту — без схлопывания карточек
-  while (feed.children.length > maxItems) {
-    feed.removeChild(feed.lastElementChild);
-  }
+  trimEventFeedOverflow(feed);
 }
 
 function pushEvent(ev) {
@@ -1872,6 +1877,11 @@ window.addEventListener("beforeunload", () => {
     clearInterval(overlayRefreshTimer);
     overlayRefreshTimer = null;
   }
+  if (eventFeedRenderFrame !== null) {
+    cancelAnimationFrame(eventFeedRenderFrame);
+    eventFeedRenderFrame = null;
+    eventFeedRenderScheduled = false;
+  }
 });
 window.addEventListener("pagehide", () => {
   if (eventSource) {
@@ -1890,8 +1900,13 @@ window.addEventListener("pagehide", () => {
     clearInterval(overlayRefreshTimer);
     overlayRefreshTimer = null;
   }
+  if (eventFeedRenderFrame !== null) {
+    cancelAnimationFrame(eventFeedRenderFrame);
+    eventFeedRenderFrame = null;
+    eventFeedRenderScheduled = false;
+  }
 });
-window.addEventListener("resize", () => renderEventFeed(true));
+window.addEventListener("resize", () => scheduleEventFeedRender(true));
 (async function init() {
   document.getElementById("apiBase").value = window.location.origin;
   try {
@@ -1902,6 +1917,7 @@ window.addEventListener("resize", () => renderEventFeed(true));
   syncChannelConfigVisibility();
   syncControllerConfigVisibility();
   setupVideoGridLayoutGuards();
+  setupEventFeedLayoutGuards();
   setupROI();
   switchChannelSettingsTab("channel");
   updateTopbarTitle();
