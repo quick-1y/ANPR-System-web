@@ -647,12 +647,14 @@ function renderEventFeed(forceRebuild = false) {
     const conf = Number(item.confidence || 0);
     const direction = formatDirection(item.direction);
     const key = String(item.id ?? item.timestamp ?? "");
+    const channelName = item.channel || `CAM-${item.channel_id || ""}`;
+    const timeStr = new Date(item.timestamp || Date.now()).toLocaleTimeString();
     const div = document.createElement("div");
     div.className = isNew ? "ev-item ev-new" : "ev-item";
     div.dataset.evKey = key;
     div.setAttribute("role", "button");
     div.setAttribute("tabindex", "0");
-    div.innerHTML = `${flagHtml(item.country)}<div class='ev-body'><div class='ev-plate'>${item.plate || "—"}</div><div class='ev-meta'>${item.channel || `CAM-${item.channel_id || ""}`} · <span>${new Date(item.timestamp || Date.now()).toLocaleTimeString()}</span> · <span class='badge ${direction.badgeClass}'>${direction.label}</span></div></div><div class='ev-conf ${conf < 0.85 ? "warn" : ""}'>${conf.toFixed(2)}</div>`;
+    div.innerHTML = `${flagHtml(item.country)}<div class='ev-row-top'><span class='ev-plate'>${item.plate || "—"}</span><span class='ev-direction badge ${direction.badgeClass}'>${direction.label}</span></div><div class='ev-row-bottom'><span class='ev-meta-channel'>${channelName}</span><span class='ev-meta-time'>${timeStr}</span><span class='ev-conf ${conf < 0.85 ? "warn" : ""}'>${conf.toFixed(2)}</span></div>`;
     div.onclick = () => openEventDetails(item);
     div.onkeydown = (e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEventDetails(item); }
@@ -1857,6 +1859,17 @@ document.addEventListener("keydown", (event) => {
   event.preventDefault();
   triggerHotkey(hotkey);
 });
+
+function updateTopbarDateTime() {
+  const el = document.getElementById("topbarDateTime");
+  if (!el) return;
+  const now = new Date();
+  const date = now.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const time = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  el.textContent = `${date}  ${time}`;
+}
+updateTopbarDateTime();
+setInterval(updateTopbarDateTime, 1000);
 
 refreshSystemResources();
 setInterval(refreshSystemResources, 2000);

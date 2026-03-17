@@ -46,19 +46,24 @@
         </div>
       
         <div class="rail-bottom">
-          <div class="sys-stat"><span>CPU</span> <b id="cpuStat">12%</b></div>
-          <div class="sys-stat"><span>RAM</span> <b id="ramStat">38%</b></div>
           <button class="icon-btn" id="themeToggleBtn" title="Тема">◐</button>
         </div>
       </aside>
       <div class="main-shell">
         <div class="topbar">
-          <div class="topbar-title" id="topbarTitle">Наблюдение</div>
+          <div class="topbar-left">
+            <div class="topbar-title" id="topbarTitle">Наблюдение</div>
+          </div>
+          <div class="topbar-center">
+            <span class="topbar-datetime" id="topbarDateTime"></span>
+          </div>
           <div class="topbar-right">
             <div class="topbar-pill">
               <div class="live-dot"></div>
               <span id="channelsCount">0 каналов</span>
             </div>
+            <div class="topbar-sys-stat"><span>CPU</span> <b id="cpuStat">12%</b></div>
+            <div class="topbar-sys-stat"><span>RAM</span> <b id="ramStat">38%</b></div>
             <input id="apiBase" class="api-input" placeholder="API" />
           </div>
         </div>
