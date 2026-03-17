@@ -59,7 +59,7 @@ plates:
   - BY
   - KZ
 logging:
-  level: INFO
+  level: ALL
   retention_days: 30
   allowed_levels:
   - ALL
