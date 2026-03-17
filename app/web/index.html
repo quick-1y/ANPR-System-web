@@ -790,6 +790,26 @@
       </div>
     </div>
 
+    <!-- Auth overlay — shown when API_KEY is required and not yet entered -->
+    <div id="auth-overlay">
+      <div class="auth-card">
+        <div class="auth-title">Введите API-ключ</div>
+        <input id="auth-key-input" type="password" class="auth-input" placeholder="API ключ" autocomplete="current-password" />
+        <div id="auth-error" class="auth-error"></div>
+        <button id="auth-submit" class="auth-btn">Войти</button>
+      </div>
+    </div>
+    <style>
+      #auth-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:9999; align-items:center; justify-content:center; }
+      #auth-overlay.active { display:flex; }
+      .auth-card { background:var(--bg-2,#1e1e2e); border:1px solid var(--border,#333); border-radius:10px; padding:2rem; min-width:300px; display:flex; flex-direction:column; gap:.75rem; }
+      .auth-title { font-size:1.1rem; font-weight:600; }
+      .auth-input { padding:.5rem .75rem; border-radius:6px; border:1px solid var(--border,#444); background:var(--bg-1,#141421); color:inherit; font-size:.95rem; }
+      .auth-error { color:#e55; font-size:.85rem; min-height:1.1em; }
+      .auth-btn { padding:.5rem 1rem; border-radius:6px; border:none; background:var(--accent,#7c6fcd); color:#fff; font-size:.95rem; cursor:pointer; }
+      .auth-btn:hover { opacity:.85; }
+    </style>
+
     <script src="/web/app.js"></script>
   </body>
 </html>

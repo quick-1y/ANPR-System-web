@@ -1,27 +1,28 @@
 #!/usr/bin/env python3
-# /anpr/pipeline/factory.py
 from __future__ import annotations
 
-import os
 import threading
-from typing import Dict, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
-from anpr.config import Config
 from anpr.detection.yolo_detector import YOLODetector
 from anpr.pipeline.anpr_pipeline import ANPRPipeline
 from anpr.postprocessing.country_config import CountryConfigLoader
 from anpr.postprocessing.validator import PlatePostProcessor
 from anpr.recognition.crnn_recognizer import CRNNRecognizer
 
+if TYPE_CHECKING:
+    import os
+    from anpr.model_config import AnprModelConfig
+
 
 _RECOGNIZER_LOCK = threading.RLock()
 _RECOGNIZER_INITIALIZING = False
 _RECOGNIZER_READY = threading.Event()
-_RECOGNIZER_SINGLETON: CRNNRecognizer | None = None
+_RECOGNIZER_SINGLETON: Optional[CRNNRecognizer] = None
 
 
 class _FallbackRecognizer:
-    """Неблокирующий заглушка, пока OCR ещё не инициализирован."""
+    """Неблокирующая заглушка, пока OCR ещё не инициализирован."""
 
     def recognize(self, _plate_image):
         return "", 0.0
@@ -33,20 +34,11 @@ class _FallbackRecognizer:
 _NOOP_RECOGNIZER = _FallbackRecognizer()
 
 
-def _initialize_recognizer_threadsafe() -> CRNNRecognizer:
-    config = Config()
-    return CRNNRecognizer(config.ocr_model_path, config.device)
-
-
-def _get_fallback_recognizer() -> CRNNRecognizer:
-    return _RECOGNIZER_SINGLETON or _NOOP_RECOGNIZER
-
-
-def _get_shared_recognizer() -> CRNNRecognizer:
+def _get_shared_recognizer(model_config: "AnprModelConfig") -> CRNNRecognizer:
     """Lazily initializes a single OCR recognizer instance for all pipelines.
 
     CRNN quantization with ``prepare_fx`` is not thread-safe, so creating the
-    recognizer concurrently for multiple channels can crash. By guarding
+    recognizer concurrently for multiple channels can crash.  By guarding
     initialization with a lock and reusing the instance across pipelines, we
     avoid the race while keeping inference stateless and reusable.
     """
@@ -58,12 +50,20 @@ def _get_shared_recognizer() -> CRNNRecognizer:
             if _RECOGNIZER_SINGLETON is None and not _RECOGNIZER_INITIALIZING:
                 _RECOGNIZER_INITIALIZING = True
                 _RECOGNIZER_READY.clear()
+                _captured_config = model_config
 
                 def _init() -> None:
                     global _RECOGNIZER_INITIALIZING, _RECOGNIZER_SINGLETON
 
                     try:
-                        _RECOGNIZER_SINGLETON = _initialize_recognizer_threadsafe()
+                        cfg = _captured_config
+                        _RECOGNIZER_SINGLETON = CRNNRecognizer(
+                            cfg.ocr_model_path,
+                            cfg.device,
+                            ocr_height=cfg.ocr_height,
+                            ocr_width=cfg.ocr_width,
+                            ocr_alphabet=cfg.ocr_alphabet,
+                        )
                     finally:
                         _RECOGNIZER_INITIALIZING = False
                         _RECOGNIZER_READY.set()
@@ -73,10 +73,11 @@ def _get_shared_recognizer() -> CRNNRecognizer:
     if not _RECOGNIZER_READY.wait(timeout=0.1):
         _RECOGNIZER_READY.wait()
 
-    return _RECOGNIZER_SINGLETON or _get_fallback_recognizer()
+    return _RECOGNIZER_SINGLETON or _NOOP_RECOGNIZER
 
 
 def _build_postprocessor(config: Dict[str, object]) -> PlatePostProcessor:
+    import os
     config_dir = str(config.get("config_dir") or "anpr/countries")
     enabled_countries = config.get("enabled_countries")
     loader = CountryConfigLoader(os.path.abspath(config_dir))
@@ -88,26 +89,32 @@ def build_components(
     best_shots: int,
     cooldown_seconds: int,
     min_confidence: float,
-    plate_config: Dict[str, object] | None = None,
-    direction_config: Dict[str, object] | None = None,
-    min_plate_size: Dict[str, int] | None = None,
-    max_plate_size: Dict[str, int] | None = None,
+    model_config: "Optional[AnprModelConfig]" = None,
+    plate_config: Optional[Dict[str, object]] = None,
+    direction_config: Optional[Dict[str, object]] = None,
+    min_plate_size: Optional[Dict[str, int]] = None,
+    max_plate_size: Optional[Dict[str, int]] = None,
     size_filter_enabled: bool = True,
 ) -> Tuple[ANPRPipeline, YOLODetector]:
     """Создаёт независимые компоненты пайплайна (детектор, OCR и агрегация)."""
 
-    config = Config()
+    if model_config is None:
+        # Fallback for callers that have not yet migrated to passing model_config.
+        # This path should not be reached in normal operation.
+        from anpr.model_config import AnprModelConfig
+        model_config = AnprModelConfig(yolo_model_path="", ocr_model_path="")
+
     detector = YOLODetector(
-        config.yolo_model_path,
-        config.device,
+        model_config.yolo_model_path,
+        model_config.device,
         min_plate_size=min_plate_size,
         max_plate_size=max_plate_size,
         size_filter_enabled=size_filter_enabled,
-        detection_confidence_threshold=config.detection_confidence_threshold,
-        bbox_padding_ratio=config.bbox_padding_ratio,
-        min_padding_pixels=config.min_padding_pixels,
+        detection_confidence_threshold=model_config.detection_confidence_threshold,
+        bbox_padding_ratio=model_config.bbox_padding_ratio,
+        min_padding_pixels=model_config.min_padding_pixels,
     )
-    recognizer = _get_shared_recognizer()
+    recognizer = _get_shared_recognizer(model_config)
     postprocessor = _build_postprocessor(plate_config or {})
     pipeline = ANPRPipeline(
         recognizer,

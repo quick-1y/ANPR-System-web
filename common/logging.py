@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from logging.handlers import QueueHandler, QueueListener
 from typing import Any, Optional
 
-from packages.anpr_core.debug import DebugLogBus
+from runtime.debug import DebugLogBus
 
 LOG_FILENAME_TIME_FORMAT = "%Y-%m-%d_%H-00"
 DEFAULT_LEVEL = "INFO"

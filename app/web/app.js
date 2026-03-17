@@ -18,12 +18,55 @@ let eventFeedRenderFrame = null;
 function api(path) {
   return `${document.getElementById("apiBase").value.trim()}${path}`;
 }
+
+// --- API key auth helpers ---
+const AUTH_KEY_STORAGE = "anpr_api_key";
+function getApiKey() { return localStorage.getItem(AUTH_KEY_STORAGE) || ""; }
+function setApiKey(k) { if (k) localStorage.setItem(AUTH_KEY_STORAGE, k); else localStorage.removeItem(AUTH_KEY_STORAGE); }
+
+/** Append ?api_key=<key> when a key is configured (for EventSource / MJPEG URLs). */
+function apiUrl(path) {
+  const k = getApiKey();
+  return k ? `${api(path)}${path.includes("?") ? "&" : "?"}api_key=${encodeURIComponent(k)}` : api(path);
+}
+
+function showAuthOverlay(onSuccess) {
+  const overlay = document.getElementById("auth-overlay");
+  if (!overlay) return;
+  overlay.classList.add("active");
+  const btn = document.getElementById("auth-submit");
+  const inp = document.getElementById("auth-key-input");
+  const err = document.getElementById("auth-error");
+  if (err) err.textContent = "";
+  const handler = async () => {
+    const key = (inp ? inp.value : "").trim();
+    if (!key) return;
+    try {
+      const r = await fetch(api("/api/health"), { headers: { "X-Api-Key": key } });
+      if (r.ok) {
+        setApiKey(key);
+        overlay.classList.remove("active");
+        if (btn) btn.removeEventListener("click", handler);
+        if (onSuccess) onSuccess();
+      } else {
+        if (err) err.textContent = "Неверный ключ";
+      }
+    } catch {
+      if (err) err.textContent = "Ошибка соединения";
+    }
+  };
+  if (btn) { btn.removeEventListener("click", handler); btn.addEventListener("click", handler); }
+}
+
 async function jfetch(url, method = "GET", body = null) {
-  const r = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : null,
-  });
+  const headers = { "Content-Type": "application/json" };
+  const k = getApiKey();
+  if (k) headers["X-Api-Key"] = k;
+  const r = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : null });
+  if (r.status === 401) {
+    showAuthOverlay(() => jfetch(url, method, body));
+    throw new Error("Требуется аутентификация");
+  }
   if (!r.ok) throw new Error(await r.text());
   return r.status === 204 ? null : r.json();
 }
@@ -221,7 +264,7 @@ function bindPreviewLifecycle(cell, img) {
 
 function ensurePreviewStream(img, channelId) {
   if (!img) return;
-  const url = api(`/api/channels/${channelId}/preview.mjpg`);
+  const url = apiUrl(`/api/channels/${channelId}/preview.mjpg`);
   if (img.dataset.url !== url) {
     const cell = img.closest(".video-cell");
     if (cell) {
@@ -1051,7 +1094,7 @@ async function refreshROISnapshot() {
   const channelId = selectedChannelId;
   try {
     const res = await fetch(
-      api(`/api/channels/${channelId}/snapshot.jpg?t=${Date.now()}`),
+      apiUrl(`/api/channels/${channelId}/snapshot.jpg?t=${Date.now()}`),
       { cache: "no-store" },
     );
     if (!res.ok) {
@@ -1654,7 +1697,7 @@ function setupDebugLogStream() {
   if (debugLogSource) {
     try { debugLogSource.close(); } catch (_e) {}
   }
-  debugLogSource = new EventSource(api(`/api/debug/logs/stream?last_id=${lastDebugLogId}`));
+  debugLogSource = new EventSource(apiUrl(`/api/debug/logs/stream?last_id=${lastDebugLogId}`));
   debugLogSource.onmessage = (evt) => {
     try {
       const item = JSON.parse(evt.data);
@@ -1686,7 +1729,7 @@ async function setupStream() {
       eventSource.close();
     } catch (_e) {}
   }
-  eventSource = new EventSource(api("/api/events/stream"));
+  eventSource = new EventSource(apiUrl("/api/events/stream"));
   eventSource.onmessage = (m) => {
     try {
       pushEvent(JSON.parse(m.data));

@@ -14,8 +14,8 @@ from database.errors import StorageUnavailableError
 from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 from common.logging import configure_logging, get_live_log_bus, get_logger
 from controllers import ControllerAutomationService, ControllerService
-from packages.anpr_core.debug import DebugRegistry
-from packages.anpr_core.event_bus import EventBus
+from runtime.debug import DebugRegistry
+from runtime.event_bus import EventBus
 
 logger = get_logger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -76,14 +76,21 @@ class AppContainer:
         return container
 
     def _create_processor(self) -> Any:
-        from packages.anpr_core.channel_runtime import ChannelProcessor
+        from runtime.channel_runtime import ChannelProcessor
+        from anpr.model_config import AnprModelConfig
 
+        model_config = AnprModelConfig.from_settings(
+            self.settings.get_model_settings(),
+            self.settings.get_ocr_settings(),
+            self.settings.get_detector_settings(),
+        )
         return ChannelProcessor(
             event_callback=self.publish_event_sync,
             plate_settings=self.settings.get_plate_settings(),
             storage_settings=self.settings.get_storage_settings(),
             reconnect_settings=self.settings.get_reconnect(),
             debug_registry=self.debug_registry,
+            model_config=model_config,
         )
 
     def _build_lifecycle(self) -> DataLifecycleService:
