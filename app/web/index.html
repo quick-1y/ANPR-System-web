@@ -112,7 +112,7 @@
                   <option value="">Все каналы</option>
                 </select>
               </div>
-              <div style="display: flex; gap: 7px; align-self: flex-end">
+              <div class="filter-actions">
                 <button class="btn btn-primary" id="btnFind">Найти</button>
                 <button class="btn btn-ghost" id="btnReset">Сброс</button>
                 <button class="btn btn-ghost" id="btnExport">
@@ -153,25 +153,13 @@
             <div class="lists-main-title" id="listTitle">—</div>
             <span class="type-badge type-white" id="listTypeBadge"
               >Белый список</span>
-            <button
-              class="btn btn-ghost"
-              style="font-size: 11px; padding: 5px 12px"
-              id="addEntryBtn"
-            >
-              + Добавить</button>
-            <button
-              class="btn btn-ghost"
-              style="font-size: 11px; padding: 5px 12px"
-              id="exportListBtn"
-            >
+            <button class="btn btn-ghost btn-sm" id="addEntryBtn">+ Добавить</button>
+            <button class="btn btn-ghost btn-sm" id="exportListBtn">
               <img class="btn-icon ui-icon-sm" src="/web/assets/icons/export.svg" alt="" />
               <span>Экспорт</span>
             </button>
           </div>
-          <div
-            class="data-table-wrap"
-            style="margin: 12px; border-radius: 10px"
-          >
+          <div class="data-table-wrap lists-data-wrap">
             <table class="data-table">
               <thead>
                 <tr>
@@ -320,7 +308,7 @@
                 </div>
                 <div class="ch-list" id="channelsList"></div>
               </div>
-              <div style="flex: 1" id="channelConfigPane">
+              <div class="ch-config-pane" id="channelConfigPane">
                 <div
                   style="
                     display: flex;
@@ -380,9 +368,7 @@
                     </div>
                     <div class="s-row" id="c_custom_lists_hint" style="display: none">
                       <div class="s-row-label"></div>
-                      <div style="font-size: 12px; color: var(--text3)">
-                        Черный список применяется всегда автоматически.
-                      </div>
+                      <div class="roi-hint" style="margin-top:0">Черный список применяется всегда автоматически.</div>
                     </div>
                   </div>
                 </div>
@@ -539,29 +525,12 @@
                       </div>
                       <input type="checkbox" id="c_roi_enabled" />
                     </div>
-                    <canvas
-                      id="roiCanvas"
-                      width="640"
-                      height="360"
-                      style="
-                        border: 1px solid var(--border2);
-                        background: #0d1018;
-                        border-radius: 8px;
-                      "
-                    ></canvas>
-                    <div style="display: flex; gap: 8px; margin-top: 8px">
-                      <button class="btn btn-ghost" id="roiRefreshBtn">
-                        Обновить кадр</button
-                      ><button class="btn btn-ghost" id="roiClearBtn">
-                        Очистить ROI</button>
+                    <canvas id="roiCanvas" width="640" height="360"></canvas>
+                    <div class="form-actions">
+                      <button class="btn btn-ghost" id="roiRefreshBtn">Обновить кадр</button>
+                      <button class="btn btn-ghost" id="roiClearBtn">Очистить ROI</button>
                     </div>
-                    <div
-                      style="
-                        margin-top: 8px;
-                        color: var(--text2);
-                        font-size: 11px;
-                      "
-                    >
+                    <div class="roi-hint">
                       ЛКМ по линии ROI: добавить точку, ЛКМ по точке: перетащить.
                       ПКМ по точке: удалить. Область всегда замкнутая.
                     </div>
@@ -601,10 +570,8 @@
                     </div>
                   </div>
                 </div>
-                <div style="display: flex; gap: 8px">
-                  <button class="btn btn-primary" id="saveChannelBtn">
-                    Сохранить канал
-                  </button>
+                <div class="form-actions">
+                  <button class="btn btn-primary" id="saveChannelBtn">Сохранить канал</button>
                 </div>
               </div>
               <div class="empty-pane" id="channelConfigEmpty">
@@ -621,7 +588,7 @@
                 </div>
                 <div class="ch-list" id="controllerItems"></div>
               </div>
-              <div style="flex: 1" id="controllerConfigPane">
+              <div class="ch-config-pane" id="controllerConfigPane">
                 <div class="s-card">
                   <div class="s-card-header">Параметры контроллера</div>
                   <div class="s-card-body">
@@ -681,10 +648,8 @@
                       </div>
                       <input class="s-input" id="ctrlR0Hotkey" />
                     </div>
-                    <div style="display: flex; gap: 8px">
-                      <button class="btn btn-ghost" id="testRelay0Btn">
-                        Тест реле 1
-                      </button>
+                    <div class="form-actions">
+                      <button class="btn btn-ghost" id="testRelay0Btn">Тест реле 1</button>
                     </div>
                   </div>
                 </div>
@@ -718,10 +683,8 @@
                       </div>
                       <input class="s-input" id="ctrlR1Hotkey" />
                     </div>
-                    <div style="display: flex; gap: 8px">
-                      <button class="btn btn-ghost" id="testRelay1Btn">
-                        Тест реле 2
-                      </button>
+                    <div class="form-actions">
+                      <button class="btn btn-ghost" id="testRelay1Btn">Тест реле 2</button>
                     </div>
                   </div>
                 </div>
@@ -790,6 +753,15 @@
       </div>
     </div>
 
+    <!-- Auth overlay — shown when API_KEY is required and not yet entered -->
+    <div id="auth-overlay">
+      <div class="auth-card">
+        <div class="auth-title">Введите API-ключ</div>
+        <input id="auth-key-input" type="password" class="auth-input" placeholder="API ключ" autocomplete="current-password" />
+        <div id="auth-error" class="auth-error"></div>
+        <button id="auth-submit" class="auth-btn">Войти</button>
+      </div>
+    </div>
     <script src="/web/app.js"></script>
   </body>
 </html>

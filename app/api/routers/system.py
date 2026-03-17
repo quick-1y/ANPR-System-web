@@ -36,6 +36,11 @@ def system_resources() -> Dict[str, float]:
     }
 
 
+@router.get("/api/storage/status")
+def storage_status(container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+    return container.db_status()
+
+
 @router.get("/api/telemetry/channels")
 def channels_telemetry(container: AppContainer = Depends(get_container)) -> List[Dict[str, Any]]:
     channels = {int(item["id"]): item for item in container.settings.get_channels()}

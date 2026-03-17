@@ -6,14 +6,17 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import cv2
 import numpy as np
 
 from common.logging import get_logger
-from packages.anpr_core.debug import DebugRegistry
-from packages.anpr_core.event_sink import EventSink
+from runtime.debug import DebugRegistry
+from runtime.event_sink import EventSink
+
+if TYPE_CHECKING:
+    from anpr.model_config import AnprModelConfig
 
 logger = get_logger(__name__)
 
@@ -69,6 +72,7 @@ class ChannelProcessor:
         storage_settings: Dict[str, Any] | None = None,
         reconnect_settings: Dict[str, Any] | None = None,
         debug_registry: DebugRegistry | None = None,
+        model_config: "AnprModelConfig | None" = None,
     ) -> None:
         self._event_callback = event_callback
         self._contexts: Dict[int, ChannelContext] = {}
@@ -78,6 +82,7 @@ class ChannelProcessor:
         self._plate_settings = plate_settings or {}
         self._reconnect_config = self._build_reconnect_config(reconnect_settings or {})
         self._debug_registry = debug_registry or DebugRegistry()
+        self._model_config = model_config
         screenshots_dir = str(self._storage_settings.get("screenshots_dir", "data/screenshots")).strip() or "data/screenshots"
         self._screenshots_dir = Path(screenshots_dir).expanduser().resolve()
         self._screenshots_dir.mkdir(parents=True, exist_ok=True)
@@ -209,7 +214,6 @@ class ChannelProcessor:
     def restart(self, channel_id: int) -> None:
         self.stop(channel_id)
         self.start(channel_id)
-
 
     @staticmethod
     def _sanitize_for_filename(value: str) -> str:
@@ -352,6 +356,7 @@ class ChannelProcessor:
                 best_shots=int(channel.get("best_shots", 3)),
                 cooldown_seconds=int(channel.get("cooldown_seconds", 5)),
                 min_confidence=float(channel.get("ocr_min_confidence", 0.6)),
+                model_config=self._model_config,
                 plate_config=self._plate_settings,
                 direction_config=channel.get("direction", {}),
                 min_plate_size=channel.get("min_plate_size"),

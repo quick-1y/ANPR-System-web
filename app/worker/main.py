@@ -65,7 +65,7 @@ class WorkerContainer:
         return cls(settings=settings, lifecycle=lifecycle, scheduler=scheduler)
 
 
-app = FastAPI(title="ANPR Retention Worker", version="0.8-stage7")
+app = FastAPI(title="ANPR Retention Worker", version="0.8-stage8")
 
 
 def _get_container(request: Request) -> WorkerContainer:

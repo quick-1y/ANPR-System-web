@@ -12,7 +12,6 @@ import torch.ao.quantization.quantize_fx as quantize_fx
 from torch.ao.quantization import QConfigMapping
 from torchvision import transforms
 
-from anpr.config import Config
 from anpr.recognition.crnn import CRNN
 from common.logging import get_logger
 
@@ -22,7 +21,15 @@ logger = get_logger(__name__)
 class CRNNRecognizer:
     """Подготовка, загрузка и инференс CRNN."""
 
-    def __init__(self, model_path: str, device: torch.device) -> None:
+    def __init__(
+        self,
+        model_path: str,
+        device: torch.device,
+        *,
+        ocr_height: int = 32,
+        ocr_width: int = 128,
+        ocr_alphabet: str = "",
+    ) -> None:
         target_device = device
         if device.type != "cpu":
             logger.warning(
@@ -31,24 +38,23 @@ class CRNNRecognizer:
             target_device = torch.device("cpu")
 
         self.device = target_device
-        config = Config()
         self.transform = transforms.Compose(
             [
                 transforms.ToPILImage(),
                 transforms.Grayscale(),
-                transforms.Resize((config.ocr_height, config.ocr_width)),
+                transforms.Resize((ocr_height, ocr_width)),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.5], std=[0.5]),
             ]
         )
-        self.int_to_char: Dict[int, str] = {i + 1: char for i, char in enumerate(config.ocr_alphabet)}
+        self.int_to_char: Dict[int, str] = {i + 1: char for i, char in enumerate(ocr_alphabet)}
         self.int_to_char[0] = ""
 
-        num_classes = len(config.ocr_alphabet) + 1
+        num_classes = len(ocr_alphabet) + 1
 
         model_to_load = CRNN(num_classes).eval()
         qconfig_mapping = QConfigMapping().set_global(torch.ao.quantization.get_default_qconfig("fbgemm"))
-        example_inputs = (torch.randn(1, 1, config.ocr_height, config.ocr_width),)
+        example_inputs = (torch.randn(1, 1, ocr_height, ocr_width),)
         model_prepared = quantize_fx.prepare_fx(model_to_load, qconfig_mapping, example_inputs)
         model_quantized = quantize_fx.convert_fx(model_prepared)
 

@@ -12,8 +12,6 @@ CREATE TABLE IF NOT EXISTS events (
     direction TEXT
 );
 
-ALTER TABLE events ADD COLUMN IF NOT EXISTS channel_id INTEGER;
-
 CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_events_channel_id ON events(channel_id, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_events_channel ON events(channel);
