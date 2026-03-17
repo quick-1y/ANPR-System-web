@@ -4,25 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="06b8a8fb-2f64-458a-bd26-ddb87203470a" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/.env.example" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/anpr/config.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/anpr/pipeline/factory.py" beforeDir="false" afterPath="$PROJECT_DIR$/anpr/pipeline/factory.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/anpr/recognition/crnn_recognizer.py" beforeDir="false" afterPath="$PROJECT_DIR$/anpr/recognition/crnn_recognizer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/container.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/container.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/routers/storage.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/routers/system.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/routers/system.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/web/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/web/app.js" afterDir="false" />
+    <list default="true" id="06b8a8fb-2f64-458a-bd26-ddb87203470a" name="Changes" comment="claude review">
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/app/web/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/worker/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/worker/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/common/logging.py" beforeDir="false" afterPath="$PROJECT_DIR$/common/logging.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/database/postgres/schema.sql" beforeDir="false" afterPath="$PROJECT_DIR$/database/postgres/schema.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/anpr_core/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/anpr_core/channel_runtime.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/anpr_core/debug.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/anpr_core/event_bus.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/packages/anpr_core/event_sink.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/web/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/app/web/styles.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/settings.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.yaml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -30,6 +17,11 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -58,7 +50,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "claude",
     "last_opened_file_path": "D:/Users/qu1ck1y/Documents/pyProjects/ANPR-System-v0.8_web/app/web",
     "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
@@ -83,6 +75,38 @@
       <option name="presentableId" value="Default" />
       <updated>1773760254178</updated>
     </task>
+    <task id="LOCAL-00001" summary="claude review">
+      <option name="closed" value="true" />
+      <created>1773767256382</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1773767256382</updated>
+    </task>
+    <task id="LOCAL-00002" summary="claude review">
+      <option name="closed" value="true" />
+      <created>1773767268971</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1773767268971</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="claude review" />
+    <option name="LAST_COMMIT_MESSAGE" value="claude review" />
   </component>
 </project>
