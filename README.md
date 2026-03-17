@@ -7,7 +7,7 @@
 ![CRNN](https://img.shields.io/badge/OCR-CRNN-orange.svg)
 ![Storage](https://img.shields.io/badge/Data-PostgreSQL-blue.svg)
 
-Web-first система автоматического распознавания автомобильных номеров.
+Система автоматического распознавания автомобильных номеров.
 
 Проект выполняет server-side обработку видеопотоков, распознаёт номера, сохраняет события, публикует live-обновления в браузер и отдаёт live preview без отдельного медиасервера.
 
@@ -714,14 +714,6 @@ ANPR-System-v0.8_web/
 - если чтение потока ломается, runtime пытается открыть источник заново;
 - live события идут отдельно от preview: preview — через MJPEG, события — через SSE;
 - endpoint `/api/events/stream` реализован как long-lived SSE stream: сервер держит соединение открытым, отправляет keepalive `: ping` и задаёт `retry`; клиентская часть автоматически переподключается при обрыве.
-
----
-
-## Статус проекта
-
-Текущая версия — **web-only ANPR system с Docker-only deployment model**.
-
----
 
 ## License
 
