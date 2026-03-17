@@ -131,12 +131,12 @@ def time_defaults() -> Dict[str, Any]:
 
 
 def logging_defaults() -> Dict[str, Any]:
-    return {"level": "INFO", "retention_days": 30, "allowed_levels": list(LOG_LEVELS)}
+    return {"level": "ALL", "retention_days": 30, "allowed_levels": list(LOG_LEVELS)}
 
 
 def debug_defaults() -> Dict[str, Any]:
     return {
-        "show_channel_metrics": True,
+        "show_channel_metrics": False,
         "log_panel_enabled": False,
     }
 
@@ -155,7 +155,7 @@ def channel_defaults(tracking: Dict[str, Any]) -> Dict[str, Any]:
         "motion_threshold": 0.01,
         "motion_frame_stride": 1,
         "motion_activation_frames": 3,
-        "motion_release_frames": 6,
+        "motion_release_frames": 100,
         "size_filter_enabled": True,
         "min_plate_size": size_defaults["min_plate_size"].copy(),
         "max_plate_size": size_defaults["max_plate_size"].copy(),
