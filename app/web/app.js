@@ -566,13 +566,14 @@ function updateChannelLastPlate(channelId, plateData) {
     if (!wasVisible || prevText !== plateText) {
       plateNode.textContent = plateText;
       plateNode.style.display = "block";
-      plateNode.style.animation = "none";
+      plateNode.classList.remove("plate-animate");
       void plateNode.offsetWidth; // reflow
-      plateNode.style.animation = "";
+      plateNode.classList.add("plate-animate");
     }
   } else {
     plateNode.style.display = "none";
     plateNode.textContent = "";
+    plateNode.classList.remove("plate-animate");
   }
 }
 
