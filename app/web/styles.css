@@ -348,7 +348,7 @@ select.s-input, select.api-input, select.grid-select, select.filter-input {
 
 /* ─── Event Feed ───────────────────────────────────── */
 .event-feed {
-  flex: 1; min-height: 0; overflow: auto; padding: 8px;
+  flex: 1; min-height: 0; overflow: hidden; padding: 8px;
   display: flex; flex-direction: column; gap: 5px;
 }
 .ev-item {

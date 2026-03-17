@@ -540,7 +540,7 @@ class ChannelProcessor:
                             "plate_path": plate_path,
                             "direction": detection.get("direction", "UNKNOWN"),
                         }
-                        self._sink.insert_event(**{
+                        event_id = self._sink.insert_event(**{
                             k: event[k]
                             for k in (
                                 "channel",
@@ -555,6 +555,8 @@ class ChannelProcessor:
                                 "direction",
                             )
                         })
+                        if int(event_id or 0) > 0:
+                            event["id"] = int(event_id)
                         self._event_callback(event)
                         metrics.last_event_at = event["timestamp"]
                     postprocess_ms = (time.monotonic() - postprocess_started) * 1000.0
