@@ -17,7 +17,7 @@ inference:
   workers: 2
   shared_memory: true
 debug:
-  show_channel_metrics: true
+  show_channel_metrics: false
   log_panel_enabled: false
 grid: 2x2
 theme: dark
