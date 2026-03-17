@@ -499,18 +499,15 @@ function renderVideoGrid() {
     }
   });
 
-  visible.forEach((ch, index) => {
+  for (const ch of visible) {
     let cell = grid.querySelector(`.video-cell[data-channel-id='${ch.id}']`);
     if (!cell) {
       cell = createVideoCell(ch);
     } else {
       updateVideoCell(cell, ch);
     }
-    const targetPositionNode = grid.children[index] || null;
-    if (targetPositionNode !== cell) {
-      grid.insertBefore(cell, targetPositionNode);
-    }
-  });
+    grid.appendChild(cell);
+  }
 }
 
 let videoGridLayoutFrame = null;
