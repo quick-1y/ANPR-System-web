@@ -605,11 +605,6 @@ function renderEventFeed(forceRebuild = false) {
   const events = state.allEvents;
   if (!events.length) { feed.innerHTML = ""; return; }
 
-  // Вычисляем максимум видимых элементов по высоте контейнера.
-  // Типичная высота события ~56px (52px + 5px gap). Берём пессимистично ~52px.
-  const ITEM_H = 54;
-  const maxItems = Math.max(1, Math.floor((feed.clientHeight || 400) / ITEM_H));
-
   function makeItem(item, isNew) {
     const conf = Number(item.confidence || 0);
     const direction = formatDirection(item.direction);
@@ -629,6 +624,39 @@ function renderEventFeed(forceRebuild = false) {
     }
     return div;
   }
+
+  function getFeedGapPx() {
+    const styles = window.getComputedStyle(feed);
+    const gap = Number.parseFloat(styles.rowGap || styles.gap || "0");
+    return Number.isFinite(gap) ? gap : 0;
+  }
+
+  function calcVisibleItemsLimit() {
+    const feedHeight = feed.clientHeight || 0;
+    if (feedHeight <= 0) return 1;
+
+    let measuredItemHeight = 0;
+    const firstItem = feed.querySelector(".ev-item");
+    if (firstItem) {
+      measuredItemHeight = firstItem.getBoundingClientRect().height;
+    }
+
+    if (!measuredItemHeight) {
+      const probe = makeItem(events[0], false);
+      probe.style.visibility = "hidden";
+      probe.style.pointerEvents = "none";
+      feed.appendChild(probe);
+      measuredItemHeight = probe.getBoundingClientRect().height;
+      feed.removeChild(probe);
+    }
+
+    if (!measuredItemHeight) return 1;
+    const unit = measuredItemHeight + getFeedGapPx();
+    if (unit <= 0) return 1;
+    return Math.max(1, Math.floor((feedHeight + getFeedGapPx()) / unit));
+  }
+
+  const maxItems = calcVisibleItemsLimit();
 
   const existingEls = Array.from(feed.children);
   const existingKeys = new Set(existingEls.map(el => el.dataset.evKey).filter(Boolean));
@@ -656,7 +684,7 @@ function renderEventFeed(forceRebuild = false) {
     feed.prepend(makeItem(newItems[i], true));
   }
 
-  // Обрезаем снизу строго по лимиту — без scrollHeight
+  // Обрезаем снизу строго по лимиту — без схлопывания карточек
   while (feed.children.length > maxItems) {
     feed.removeChild(feed.lastElementChild);
   }

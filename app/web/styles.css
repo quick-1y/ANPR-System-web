@@ -356,6 +356,7 @@ select.s-input, select.api-input, select.grid-select, select.filter-input {
   border-radius: 8px; padding: 8px 10px;
   display: flex; gap: 9px; align-items: center; cursor: pointer;
   transition: var(--t); position: relative; overflow: hidden;
+  flex: 0 0 auto;
 }
 .ev-item::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0;
@@ -666,10 +667,10 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
   from { opacity: 0; transform: translateX(6px); }
   to   { opacity: 1; transform: translateX(0); }
 }
-.ev-item { animation: ev-slide-in 0.22s ease-out both; }
-.ev-item:nth-child(1) { animation-delay: 0ms; }
-.ev-item:nth-child(2) { animation-delay: 30ms; }
-.ev-item:nth-child(3) { animation-delay: 55ms; }
+.ev-item.ev-new { animation: ev-slide-in 0.22s ease-out both; }
+.ev-item.ev-new:nth-child(1) { animation-delay: 0ms; }
+.ev-item.ev-new:nth-child(2) { animation-delay: 30ms; }
+.ev-item.ev-new:nth-child(3) { animation-delay: 55ms; }
 
 /* ─── Event Feed: better "hot" accent ─────────────── */
 .ev-item.hot .ev-plate {
