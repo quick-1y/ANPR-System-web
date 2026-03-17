@@ -2,12 +2,7 @@ const state = {
   channels: [],
   lists: [],
   selectedListId: null,
-  liveEvents: [],
-  journalItems: [],
-  journalCursor: null,
-  journalHasMore: false,
-  journalLoading: false,
-  journalPageSize: 100,
+  allEvents: [],
   lastPlatesByChannelId: {},
 };
 let eventSource = null;
@@ -488,8 +483,14 @@ function renderVideoGrid() {
   grid.style.gridTemplateRows = stableRowHeight
     ? `repeat(${effectiveRows}, ${stableRowHeight}px)`
     : `repeat(${effectiveRows}, minmax(0, 1fr))`;
-  document.getElementById("channelsCount").textContent =
-    `${state.channels.length} канала`;
+  const countEl = document.getElementById("channelsCount");
+  const newCount = `${state.channels.length} канала`;
+  if (countEl && countEl.textContent !== newCount) {
+    countEl.textContent = newCount;
+    countEl.style.animation = "none";
+    void countEl.offsetHeight;
+    countEl.style.animation = "count-bump 0.3s ease-out";
+  }
 
   const visibleIds = new Set(visible.map((ch) => String(ch.id)));
   Array.from(grid.children).forEach((cell) => {
@@ -558,8 +559,21 @@ function updateChannelLastPlate(channelId, plateData) {
   const plateNode = document.getElementById(`plate-${id}`);
   if (!plateNode) return;
   const plateText = String((plateData || {}).plate || "").trim();
-  plateNode.textContent = plateText;
-  plateNode.style.display = plateText ? "block" : "none";
+  const wasVisible = plateNode.style.display === "block";
+  const prevText = plateNode.textContent;
+  if (plateText) {
+    // Анимация только при смене номера
+    if (!wasVisible || prevText !== plateText) {
+      plateNode.textContent = plateText;
+      plateNode.style.display = "block";
+      plateNode.style.animation = "none";
+      void plateNode.offsetWidth; // reflow
+      plateNode.style.animation = "";
+    }
+  } else {
+    plateNode.style.display = "none";
+    plateNode.textContent = "";
+  }
 }
 
 function applyLastPlate(ev) {
@@ -584,67 +598,102 @@ async function hydrateChannelLastPlates() {
   });
 }
 
-function renderEventFeed() {
+function renderEventFeed(forceRebuild = false) {
   const feed = document.getElementById("eventFeed");
   if (!feed) return;
-  feed.innerHTML = "";
-  const events = state.liveEvents;
-  for (const [i, item] of events.entries()) {
+
+  const events = state.allEvents;
+  if (!events.length) { feed.innerHTML = ""; return; }
+
+  // Вычисляем максимум видимых элементов по высоте контейнера.
+  // Типичная высота события ~56px (52px + 5px gap). Берём пессимистично ~52px.
+  const ITEM_H = 54;
+  const maxItems = Math.max(1, Math.floor((feed.clientHeight || 400) / ITEM_H));
+
+  function makeItem(item, isNew) {
     const conf = Number(item.confidence || 0);
     const direction = formatDirection(item.direction);
+    const key = String(item.id ?? item.timestamp ?? "");
     const div = document.createElement("div");
-    div.className = `ev-item ${i === 0 ? "hot" : ""}`;
+    div.className = isNew ? "ev-item ev-new" : "ev-item";
+    div.dataset.evKey = key;
     div.setAttribute("role", "button");
     div.setAttribute("tabindex", "0");
     div.innerHTML = `${flagHtml(item.country)}<div class='ev-body'><div class='ev-plate'>${item.plate || "—"}</div><div class='ev-meta'>${item.channel || `CAM-${item.channel_id || ""}`} · <span>${new Date(item.timestamp || Date.now()).toLocaleTimeString()}</span> · <span class='badge ${direction.badgeClass}'>${direction.label}</span></div></div><div class='ev-conf ${conf < 0.85 ? "warn" : ""}'>${conf.toFixed(2)}</div>`;
     div.onclick = () => openEventDetails(item);
-    div.onkeydown = (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        openEventDetails(item);
-      }
+    div.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEventDetails(item); }
     };
-    feed.appendChild(div);
-
-    if (feed.scrollHeight > feed.clientHeight) {
-      feed.removeChild(div);
-      if (feed.children.length === 0) {
-        feed.appendChild(div);
-      }
-      break;
+    if (isNew) {
+      div.addEventListener("animationend", () => div.classList.remove("ev-new"), { once: true });
     }
+    return div;
+  }
+
+  const existingEls = Array.from(feed.children);
+  const existingKeys = new Set(existingEls.map(el => el.dataset.evKey).filter(Boolean));
+  const needsFullRebuild = forceRebuild || existingKeys.size === 0;
+
+  if (needsFullRebuild) {
+    feed.innerHTML = "";
+    const slice = events.slice(0, maxItems);
+    for (const item of slice) {
+      feed.appendChild(makeItem(item, false));
+    }
+    return;
+  }
+
+  // Инкрементальное: только новые события сверху
+  const newItems = [];
+  for (const ev of events) {
+    const key = String(ev.id ?? ev.timestamp ?? "");
+    if (existingKeys.has(key)) break;
+    newItems.push(ev);
+  }
+  if (!newItems.length) return;
+
+  for (let i = newItems.length - 1; i >= 0; i--) {
+    feed.prepend(makeItem(newItems[i], true));
+  }
+
+  // Обрезаем снизу строго по лимиту — без scrollHeight
+  while (feed.children.length > maxItems) {
+    feed.removeChild(feed.lastElementChild);
   }
 }
 
 function pushEvent(ev) {
   applyLastPlate(ev);
-  state.liveEvents.unshift(ev);
-  if (state.liveEvents.length > 500) state.liveEvents.pop();
+  state.allEvents.unshift(ev);
+  if (state.allEvents.length > 500) state.allEvents.pop();
   renderEventFeed();
+  renderJournal();
   addDebug(
     `[INFO] event: ${ev.plate || "-"} conf=${Number(ev.confidence || 0).toFixed(2)}`,
     "ok",
   );
 }
-
-function buildJournalQuery({ append = false } = {}) {
-  const params = new URLSearchParams();
-  params.set("limit", String(state.journalPageSize + 1));
-  const plate = String(document.getElementById("fltPlate").value || "").trim();
-  const channelId = String(document.getElementById("fltChannel").value || "").trim();
-  if (plate) params.set("plate", plate);
-  if (channelId) params.set("channel_id", channelId);
-  if (append && state.journalCursor) {
-    if (state.journalCursor.before_ts) params.set("before_ts", state.journalCursor.before_ts);
-    if (state.journalCursor.before_id != null) params.set("before_id", String(state.journalCursor.before_id));
-  }
-  return params.toString();
+async function loadJournal() {
+  state.allEvents = await jfetch(api("/api/events?limit=500"));
+  renderEventFeed();
+  renderJournal();
 }
-
-function renderJournalRows() {
+function renderJournal() {
+  const needle = (
+    document.getElementById("fltPlate").value || ""
+  ).toUpperCase();
+  const chan = document.getElementById("fltChannel").value;
+  const rows = state.allEvents.filter(
+    (e) =>
+      (!needle ||
+        String(e.plate || "")
+          .toUpperCase()
+          .includes(needle)) &&
+      (!chan || String(e.channel || e.channel_id || "") === chan),
+  );
   const body = document.getElementById("journalBody");
   body.innerHTML = "";
-  state.journalItems.forEach((ev) => {
+  rows.forEach((ev) => {
     const conf = Number(ev.confidence || 0);
     const direction = formatDirection(ev.direction);
     const tr = document.createElement("tr");
@@ -652,49 +701,6 @@ function renderJournalRows() {
     tr.onclick = () => openEventDetails(ev);
     body.appendChild(tr);
   });
-}
-
-function syncJournalLoadMoreButton() {
-  const btn = document.getElementById("btnJournalMore");
-  if (!btn) return;
-  btn.style.display = state.journalHasMore ? "inline-flex" : "none";
-  btn.disabled = state.journalLoading;
-  btn.textContent = state.journalLoading ? "Загрузка..." : "Загрузить ещё";
-}
-
-async function loadJournal({ append = false } = {}) {
-  if (state.journalLoading) return;
-  state.journalLoading = true;
-  syncJournalLoadMoreButton();
-  try {
-    const query = buildJournalQuery({ append });
-    const fetched = await jfetch(api(`/api/events?${query}`));
-    const hasMore = fetched.length > state.journalPageSize;
-    const items = hasMore ? fetched.slice(0, state.journalPageSize) : fetched;
-    if (append) {
-      state.journalItems = state.journalItems.concat(items);
-    } else {
-      state.journalItems = items;
-      if (state.liveEvents.length === 0) {
-        state.liveEvents = items.slice(0, 100);
-        renderEventFeed();
-      }
-    }
-    const nextCursor = items.length > 0
-      ? { before_ts: items[items.length - 1].timestamp, before_id: items[items.length - 1].id }
-      : null;
-    state.journalCursor = nextCursor;
-    state.journalHasMore = hasMore && Boolean(nextCursor);
-    renderJournalRows();
-  } finally {
-    state.journalLoading = false;
-    syncJournalLoadMoreButton();
-  }
-}
-
-async function loadMoreJournal() {
-  if (!state.journalHasMore || state.journalLoading) return;
-  await loadJournal({ append: true });
 }
 
 function formatDirection(directionValue) {
@@ -1248,6 +1254,7 @@ async function triggerHotkey(hotkey) {
 async function selectChannel(id) {
   selectedChannelId = id;
   syncChannelConfigVisibility();
+  switchChannelSettingsTab("channel");
   const requestToken = ++channelConfigRequestToken;
   renderChannelsList();
   const c = await jfetch(api(`/api/channels/${id}/config`));
@@ -1664,7 +1671,7 @@ function fillChannelFilter() {
   sel.innerHTML = '<option value="">Все каналы</option>';
   state.channels.forEach((c) => {
     const o = document.createElement("option");
-    o.value = String(c.id);
+    o.value = String(c.channel || c.id);
     o.textContent = `CAM-${String(c.id).padStart(2, "0")}`;
     sel.appendChild(o);
   });
@@ -1749,12 +1756,11 @@ document
     (el) => (el.onclick = () => switchChannelSettingsTab(el.dataset.chTab)),
   );
 document.getElementById("gridSelect").onchange = () => scheduleVideoGridLayout(true);
-document.getElementById("btnFind").onclick = () => loadJournal({ append: false });
-document.getElementById("btnJournalMore").onclick = () => loadMoreJournal();
+document.getElementById("btnFind").onclick = renderJournal;
 document.getElementById("btnReset").onclick = () => {
   document.getElementById("fltPlate").value = "";
   document.getElementById("fltChannel").value = "";
-  loadJournal({ append: false });
+  renderJournal();
 };
 document.getElementById("btnExport").onclick = () =>
   window.open(api("/api/data/export/events.csv"), "_blank");
@@ -1857,7 +1863,7 @@ window.addEventListener("pagehide", () => {
     overlayRefreshTimer = null;
   }
 });
-window.addEventListener("resize", renderEventFeed);
+window.addEventListener("resize", () => renderEventFeed(true));
 (async function init() {
   document.getElementById("apiBase").value = window.location.origin;
   try {
@@ -1873,7 +1879,7 @@ window.addEventListener("resize", renderEventFeed);
   updateTopbarTitle();
   await refreshChannels();
   await hydrateChannelLastPlates();
-  await loadJournal({ append: false });
+  await loadJournal();
   await loadLists();
   await loadGlobalSettings();
   await refreshOverlayStates();
