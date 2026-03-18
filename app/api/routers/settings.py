@@ -82,10 +82,12 @@ def export_events_csv(
     start: Optional[str] = None,
     end: Optional[str] = None,
     channel: Optional[str] = None,
+    plate: Optional[str] = None,
+    channel_id: Optional[int] = None,
     container: AppContainer = Depends(get_container),
 ) -> FileResponse:
     try:
-        path = container.lifecycle.export_events_csv(start=start, end=end, channel=channel)
+        path = container.lifecycle.export_events_csv(start=start, end=end, channel=channel, plate=plate, channel_id=channel_id)
         return FileResponse(path=path, filename=Path(path).name, media_type="text/csv")
     except StorageUnavailableError as exc:
         raise container.storage_503(exc) from exc

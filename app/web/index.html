@@ -99,7 +99,7 @@
           <div class="tab-pane" id="tab-journal">
             <div class="filter-card">
               <div class="filter-group">
-                <div class="filter-label">Номер</div>
+                <div class="filter-label">Поиск</div>
                 <input
                   class="filter-input"
                   id="fltPlate"
@@ -112,6 +112,14 @@
                   <option value="">Все каналы</option>
                 </select>
               </div>
+              <div class="filter-group">
+                <div class="filter-label">С</div>
+                <input class="filter-input filter-input-dt" type="datetime-local" id="fltDateFrom" />
+              </div>
+              <div class="filter-group">
+                <div class="filter-label">По</div>
+                <input class="filter-input filter-input-dt" type="datetime-local" id="fltDateTo" />
+              </div>
               <div class="filter-actions">
                 <button class="btn btn-primary" id="btnFind">Найти</button>
                 <button class="btn btn-ghost" id="btnReset">Сброс</button>
@@ -122,21 +130,22 @@
               </div>
             </div>
             <div class="data-table-wrap">
-              <div class="table-scroll">
+              <div class="table-scroll" id="journalScroll">
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th>Время</th>
-                      <th>Канал</th>
-                      <th>Страна</th>
-                      <th>Направление</th>
-                      <th>Номер</th>
-                      <th>Уверенность</th>
-                      <th>Источник</th>
+                      <th class="col-time">Время</th>
+                      <th class="col-channel">Канал</th>
+                      <th class="col-country">Страна</th>
+                      <th class="col-dir">Направление</th>
+                      <th class="col-plate">Номер</th>
+                      <th class="col-conf">Увер.</th>
+                      <th class="col-source">Источник</th>
                     </tr>
                   </thead>
                   <tbody id="journalBody"></tbody>
                 </table>
+                <div id="journalSentinel" class="journal-sentinel"></div>
               </div>
             </div>
           </div>

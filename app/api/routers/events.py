@@ -23,24 +23,32 @@ def list_events(
     before_id: Optional[int] = None,
     channel_id: Optional[int] = None,
     plate: Optional[str] = None,
+    start_ts: Optional[datetime] = None,
+    end_ts: Optional[datetime] = None,
     container: AppContainer = Depends(get_container),
-) -> List[Dict[str, Any]]:
+) -> Dict[str, Any]:
     safe_limit = max(1, min(int(limit), 200))
+    fetch_limit = safe_limit + 1
     if (before_ts is None) ^ (before_id is None):
         raise HTTPException(status_code=400, detail="before_ts и before_id должны передаваться вместе")
     use_cursor = before_ts is not None and before_id is not None
+    use_filtered = use_cursor or channel_id is not None or plate or start_ts is not None or end_ts is not None
     try:
-        if use_cursor or channel_id is not None or plate:
+        if use_filtered:
             rows = container.events_db.fetch_journal_page(
-                limit=safe_limit,
+                limit=fetch_limit,
                 before_ts=before_ts,
                 before_id=before_id,
                 channel_id=channel_id,
                 plate=plate,
+                start_ts=start_ts,
+                end_ts=end_ts,
             )
         else:
-            rows = container.events_db.fetch_recent(limit=safe_limit)
-        return [dict(row) for row in rows]
+            rows = container.events_db.fetch_recent(limit=fetch_limit)
+        has_more = len(rows) > safe_limit
+        items = [dict(row) for row in rows[:safe_limit]]
+        return {"items": items, "has_more": has_more}
     except StorageUnavailableError as exc:
         raise container.storage_503(exc) from exc
 

@@ -121,11 +121,11 @@ class DataLifecycleService:
         result.update(self.enforce_storage_limit())
         return result
 
-    def export_events_csv(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None) -> str:
+    def export_events_csv(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None, plate: Optional[str] = None, channel_id: Optional[int] = None) -> str:
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         export_path = Path(self.policy.export_dir) / f"events_{ts}.csv"
-        rows = self.pg_events.fetch_for_export(start=start, end=end, channel=channel)
-        fieldnames = ["id", "timestamp", "channel", "plate", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
+        rows = self.pg_events.fetch_for_export(start=start, end=end, channel=channel, plate=plate, channel_id=channel_id)
+        fieldnames = ["id", "timestamp", "channel_id", "channel", "plate", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
         with export_path.open("w", newline="", encoding="utf-8") as file_obj:
             writer = csv.DictWriter(file_obj, fieldnames=fieldnames)
             writer.writeheader()

@@ -745,40 +745,130 @@ function pushEvent(ev) {
   state.allEvents.unshift(ev);
   if (state.allEvents.length > 500) state.allEvents.pop();
   renderEventFeed();
-  renderJournal();
+  // Prepend new live event to journal if it matches active filters
+  const needle = (document.getElementById("fltPlate").value || "").trim().toUpperCase();
+  const channelId = document.getElementById("fltChannel").value;
+  const plateMatch = !needle || String(ev.plate || "").toUpperCase().includes(needle);
+  const chanMatch = !channelId || String(ev.channel_id || "") === channelId;
+  if (plateMatch && chanMatch) {
+    journalState.items.unshift(ev);
+    const body = document.getElementById("journalBody");
+    const row = makeJournalRow(ev);
+    body.insertBefore(row, body.firstChild);
+  }
   addDebug(
     `[INFO] event: ${ev.plate || "-"} conf=${Number(ev.confidence || 0).toFixed(2)}`,
     "ok",
   );
 }
-async function loadJournal() {
-  state.allEvents = await jfetch(api("/api/events?limit=500"));
+async function loadEventFeedHistory() {
+  const data = await jfetch(api("/api/events?limit=50"));
+  const items = Array.isArray(data) ? data : (data.items || []);
+  state.allEvents = items;
   renderEventFeed();
-  renderJournal();
 }
-function renderJournal() {
-  const needle = (
-    document.getElementById("fltPlate").value || ""
-  ).toUpperCase();
-  const chan = document.getElementById("fltChannel").value;
-  const rows = state.allEvents.filter(
-    (e) =>
-      (!needle ||
-        String(e.plate || "")
-          .toUpperCase()
-          .includes(needle)) &&
-      (!chan || String(e.channel || e.channel_id || "") === chan),
-  );
+
+const journalState = {
+  items: [],
+  cursor: null,
+  hasMore: false,
+  loading: false,
+};
+let journalObserver = null;
+
+function buildJournalParams(cursor) {
+  const params = new URLSearchParams();
+  params.set("limit", "100");
+  const plate = (document.getElementById("fltPlate").value || "").trim();
+  const channelId = document.getElementById("fltChannel").value;
+  const dateFrom = document.getElementById("fltDateFrom").value;
+  const dateTo = document.getElementById("fltDateTo").value;
+  if (plate) params.set("plate", plate);
+  if (channelId) params.set("channel_id", channelId);
+  if (dateFrom) params.set("start_ts", new Date(dateFrom).toISOString());
+  if (dateTo) params.set("end_ts", new Date(dateTo).toISOString());
+  if (cursor) {
+    params.set("before_ts", cursor.ts);
+    params.set("before_id", String(cursor.id));
+  }
+  return params;
+}
+
+async function loadJournal() {
+  journalState.items = [];
+  journalState.cursor = null;
+  journalState.hasMore = false;
+  journalState.loading = false;
+  document.getElementById("journalBody").innerHTML = "";
+  await fetchJournalPage();
+}
+
+async function fetchJournalPage() {
+  if (journalState.loading) return;
+  journalState.loading = true;
+  const params = buildJournalParams(journalState.cursor);
+  try {
+    const data = await jfetch(api(`/api/events?${params}`));
+    const items = Array.isArray(data) ? data : (data.items || []);
+    const hasMore = typeof data === "object" && !Array.isArray(data) ? !!data.has_more : false;
+    journalState.items.push(...items);
+    journalState.hasMore = hasMore;
+    if (items.length > 0) {
+      const last = items[items.length - 1];
+      journalState.cursor = { ts: last.timestamp, id: last.id };
+    }
+    appendJournalRows(items);
+    updateJournalSentinel();
+  } catch (err) {
+    addDebug(`[WARN] loadJournal: ${err.message}`, "warn");
+  } finally {
+    journalState.loading = false;
+  }
+}
+
+function makeJournalRow(ev) {
+  const conf = Number(ev.confidence || 0);
+  const direction = formatDirection(ev.direction);
+  const ts = new Date(ev.timestamp);
+  const timeStr = ts.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) +
+    " " + ts.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const tr = document.createElement("tr");
+  const srcText = ev.source || "";
+  tr.innerHTML = `<td class="col-time">${timeStr}</td>` +
+    `<td class="col-channel">${ev.channel || `CAM-${ev.channel_id || ""}`}</td>` +
+    `<td class="col-country">${flagHtml(ev.country)} ${ev.country || ""}</td>` +
+    `<td class="col-dir"><span class="badge ${direction.badgeClass}">${direction.label}</span></td>` +
+    `<td class="col-plate plate-cell">${ev.plate || ""}</td>` +
+    `<td class="col-conf conf-cell" style="color:${conf < 0.85 ? "var(--warning)" : "var(--success)"}">${conf.toFixed(2)}</td>` +
+    `<td class="col-source" title="${srcText.replace(/"/g, "&quot;")}">${srcText}</td>`;
+  tr.onclick = () => openEventDetails(ev);
+  return tr;
+}
+
+function appendJournalRows(items) {
   const body = document.getElementById("journalBody");
-  body.innerHTML = "";
-  rows.forEach((ev) => {
-    const conf = Number(ev.confidence || 0);
-    const direction = formatDirection(ev.direction);
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${new Date(ev.timestamp).toLocaleTimeString()}</td><td>${ev.channel || `CAM-${ev.channel_id || ""}`}</td><td>${flagHtml(ev.country)} ${ev.country || ""}</td><td><span class='badge ${direction.badgeClass}'>${direction.label}</span></td><td class='plate-cell'>${ev.plate || ""}</td><td class='conf-cell' style='color:${conf < 0.85 ? "var(--warning)" : "var(--success)"}'>${conf.toFixed(2)}</td><td>${ev.source || ""}</td>`;
-    tr.onclick = () => openEventDetails(ev);
-    body.appendChild(tr);
-  });
+  items.forEach((ev) => body.appendChild(makeJournalRow(ev)));
+}
+
+function updateJournalSentinel() {
+  const sentinel = document.getElementById("journalSentinel");
+  if (!sentinel) return;
+  sentinel.style.display = journalState.hasMore ? "block" : "none";
+}
+
+function initJournalScroll() {
+  const sentinel = document.getElementById("journalSentinel");
+  if (!sentinel) return;
+  if (journalObserver) journalObserver.disconnect();
+  journalObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting && journalState.hasMore && !journalState.loading) {
+        fetchJournalPage();
+      }
+    },
+    { root: document.getElementById("journalScroll"), threshold: 0.1 }
+  );
+  journalObserver.observe(sentinel);
 }
 
 function formatDirection(directionValue) {
@@ -1749,8 +1839,8 @@ function fillChannelFilter() {
   sel.innerHTML = '<option value="">Все каналы</option>';
   state.channels.forEach((c) => {
     const o = document.createElement("option");
-    o.value = String(c.channel || c.id);
-    o.textContent = `CAM-${String(c.id).padStart(2, "0")}`;
+    o.value = String(c.id);
+    o.textContent = c.name || `CAM-${String(c.id).padStart(2, "0")}`;
     sel.appendChild(o);
   });
   sel.value = cur;
@@ -1834,14 +1924,27 @@ document
     (el) => (el.onclick = () => switchChannelSettingsTab(el.dataset.chTab)),
   );
 document.getElementById("gridSelect").onchange = () => scheduleVideoGridLayout(true);
-document.getElementById("btnFind").onclick = renderJournal;
+document.getElementById("btnFind").onclick = loadJournal;
 document.getElementById("btnReset").onclick = () => {
   document.getElementById("fltPlate").value = "";
   document.getElementById("fltChannel").value = "";
-  renderJournal();
+  document.getElementById("fltDateFrom").value = "";
+  document.getElementById("fltDateTo").value = "";
+  loadJournal();
 };
-document.getElementById("btnExport").onclick = () =>
-  window.open(api("/api/data/export/events.csv"), "_blank");
+document.getElementById("btnExport").onclick = () => {
+  const params = new URLSearchParams();
+  const plate = (document.getElementById("fltPlate").value || "").trim();
+  const channelId = document.getElementById("fltChannel").value;
+  const dateFrom = document.getElementById("fltDateFrom").value;
+  const dateTo = document.getElementById("fltDateTo").value;
+  if (plate) params.set("plate", plate);
+  if (channelId) params.set("channel_id", channelId);
+  if (dateFrom) params.set("start", new Date(dateFrom).toISOString());
+  if (dateTo) params.set("end", new Date(dateTo).toISOString());
+  const qs = params.toString();
+  window.open(api(`/api/data/export/events.csv${qs ? "?" + qs : ""}`), "_blank");
+};
 document.getElementById("addListBtn").onclick = async () => {
   const name = prompt("Название списка");
   if (!name) return;
@@ -1979,6 +2082,8 @@ window.addEventListener("resize", () => scheduleEventFeedRender(true));
   updateTopbarTitle();
   await refreshChannels();
   await hydrateChannelLastPlates();
+  initJournalScroll();
+  await loadEventFeedHistory();
   await loadJournal();
   await loadLists();
   await loadGlobalSettings();

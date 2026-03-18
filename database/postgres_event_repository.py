@@ -116,11 +116,19 @@ class PostgresEventDatabase:
         before_id: Optional[int] = None,
         channel_id: Optional[int] = None,
         plate: Optional[str] = None,
+        start_ts: Optional[Any] = None,
+        end_ts: Optional[Any] = None,
     ) -> list[dict[str, Any]]:
         self._ensure_schema()
-        page_limit = max(1, min(int(limit), 200))
+        page_limit = max(1, int(limit))
         filters: list[str] = []
         params: list[Any] = []
+        if start_ts is not None:
+            filters.append("timestamp >= %s")
+            params.append(start_ts)
+        if end_ts is not None:
+            filters.append("timestamp <= %s")
+            params.append(end_ts)
         if before_ts is not None and before_id is not None:
             filters.append("(timestamp, id) < (%s, %s)")
             params.extend([before_ts, int(before_id)])
@@ -202,7 +210,7 @@ class PostgresEventDatabase:
             for row in rows
         }
 
-    def fetch_for_export(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None) -> list[dict[str, Any]]:
+    def fetch_for_export(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None, plate: Optional[str] = None, channel_id: Optional[int] = None) -> list[dict[str, Any]]:
         self._ensure_schema()
         filters: list[str] = []
         params: list[Any] = []
@@ -212,9 +220,15 @@ class PostgresEventDatabase:
         if end:
             filters.append("timestamp <= %s")
             params.append(end)
-        if channel:
+        if channel_id is not None:
+            filters.append("channel_id = %s")
+            params.append(int(channel_id))
+        elif channel:
             filters.append("channel = %s")
             params.append(channel)
+        if plate:
+            filters.append("plate ILIKE %s")
+            params.append(f"%{plate}%")
         where = f"WHERE {' AND '.join(filters)}" if filters else ""
         query = (
             "SELECT id, timestamp, channel_id, channel, plate, country, confidence, source, frame_path, plate_path, direction "

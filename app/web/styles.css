@@ -462,13 +462,13 @@ select.s-input, select.api-input, select.grid-select, select.filter-input {
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table thead tr { background: rgba(255,255,255,0.012); position: sticky; top: 0; z-index: 2; }
 .data-table th {
-  padding: 10px 12px; border-bottom: 1px solid var(--border2);
+  padding: 7px 10px; border-bottom: 1px solid var(--border2);
   font-size: 10px; color: var(--text2); font-family: var(--mono);
   text-transform: uppercase; letter-spacing: 0.1em; text-align: left; white-space: nowrap;
 }
 .data-table td {
-  padding: 8px 12px; border-bottom: 1px solid var(--border);
-  color: #9aa3bc; font-size: 12px;
+  padding: 5px 10px; border-bottom: 1px solid var(--border);
+  color: #9aa3bc; font-size: 12px; white-space: nowrap;
 }
 .data-table tbody tr { transition: background var(--t); cursor: pointer; }
 .data-table tbody tr:hover { background: rgba(255,255,255,0.016); }
@@ -749,16 +749,37 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
 }
 
 /* ─── Journal: time column mono + dimmed ───────────── */
-.data-table td:first-child {
+.data-table td.col-time {
   font-family: var(--mono);
   font-size: 11px;
   color: var(--text2);
   white-space: nowrap;
+  width: 130px;
 }
-.data-table td:nth-child(2) {
+.data-table th.col-time { width: 130px; }
+.data-table td.col-channel {
   font-family: var(--mono);
   font-size: 11px;
   color: var(--text2);
+  width: 110px;
+  max-width: 140px;
+}
+.data-table th.col-channel { width: 110px; }
+.data-table td.col-country { width: 60px; white-space: nowrap; }
+.data-table th.col-country { width: 60px; }
+.data-table td.col-dir { width: 130px; }
+.data-table th.col-dir { width: 130px; }
+.data-table td.col-plate { width: 120px; }
+.data-table th.col-plate { width: 120px; }
+.data-table td.col-conf { width: 60px; text-align: right; }
+.data-table th.col-conf { width: 60px; text-align: right; }
+.data-table td.col-source {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text2);
+  font-size: 11px;
 }
 
 /* ─── Journal: row appear animation ────────────────── */
@@ -953,3 +974,21 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
 /* ─── s-row-name: prevent overflow for long labels ─── */
 .s-row-name { font-size: 12px; color: var(--text1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .s-row-desc { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+/* ─── Journal: datetime-local filter input ─────────── */
+.filter-input-dt {
+  width: 168px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color-scheme: dark;
+}
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+  cursor: pointer;
+}
+
+/* ─── Journal: infinite scroll sentinel ────────────── */
+.journal-sentinel {
+  height: 1px;
+  display: none;
+}

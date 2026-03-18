@@ -5,11 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="06b8a8fb-2f64-458a-bd26-ddb87203470a" name="Changes" comment="claude review">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/routers/events.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/routers/events.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/routers/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/routers/settings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/shared/data_lifecycle.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/shared/data_lifecycle.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/web/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/app/web/app.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/app/web/index.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/web/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/app/web/styles.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config/settings.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/postgres_event_repository.py" beforeDir="false" afterPath="$PROJECT_DIR$/database/postgres_event_repository.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -19,7 +23,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="claude" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -50,7 +54,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "claude",
+    "git-widget-placeholder": "main",
     "last_opened_file_path": "D:/Users/qu1ck1y/Documents/pyProjects/ANPR-System-v0.8_web/app/web",
     "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
