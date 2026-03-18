@@ -679,7 +679,7 @@ ANPR-System-v0.8_web/
 │   └── README.md
 ├── docker-compose.yml
 ├── nginx/
-├── requirements.txt
+├── pyproject.toml          # Poetry-манифест зависимостей Python
 ├── .env
 ├── .env.example
 ├── config/

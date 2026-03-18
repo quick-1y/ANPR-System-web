@@ -1,7 +1,0 @@
-ultralytics==8.3.20
-opencv-python
-psutil
-PyYAML
-fastapi
-uvicorn
-psycopg[binary]
