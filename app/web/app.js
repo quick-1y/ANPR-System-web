@@ -2030,13 +2030,37 @@ async function openEventDetails(ev) {
     ["Направление", formatDirection(payload.direction).plain],
     ["Источник", payload.source || "—"],
   ];
+
+  // Look up matched list entry for this plate
+  let listHtml = "";
+  const plate = payload.plate;
+  if (plate) {
+    try {
+      const entry = await jfetch(api(`/api/lists/entry-by-plate?plate=${encodeURIComponent(plate)}`));
+      if (entry) {
+        let info = {};
+        try { info = JSON.parse(entry.comment || "{}"); } catch (_e) {}
+        const typeLabels = { white: "Белый список", info: "Информационный список", black: "Черный список" };
+        const listRows = [
+          ["Список", `${entry.list_name}\u2002·\u2002${typeLabels[entry.list_type] || entry.list_type}`],
+          ["Имя", info.first_name || "—"],
+          ["Фамилия", info.last_name || "—"],
+          ["Отчество", info.patronymic || "—"],
+          ["Телефон", info.phone || "—"],
+          ["Марка авто", info.car_make || "—"],
+        ];
+        listHtml = `<div class="event-meta-divider">Данные из списка</div>` +
+          listRows.map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
+      }
+    } catch (_e) {
+      // 404 = plate not in any list; no section shown
+    }
+  }
+
   const meta = document.getElementById("eventMeta");
   meta.innerHTML = rows
-    .map(
-      (r) =>
-        `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`,
-    )
-    .join("");
+    .map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`)
+    .join("") + listHtml;
   if (id > 0) {
     setModalImage("eventFrameImg", api(`/api/events/item/${id}/media/frame`));
     setModalImage("eventPlateImg", api(`/api/events/item/${id}/media/plate`));

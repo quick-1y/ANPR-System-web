@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from database.errors import StorageUnavailableError
 from app.api.container import AppContainer
@@ -25,6 +25,17 @@ def create_plate_list(payload: ListPayload, container: AppContainer = Depends(ge
     try:
         list_id = container.lists_db.create_list(payload.name, payload.type)
         return {"id": list_id, "name": payload.name, "type": payload.type}
+    except StorageUnavailableError as exc:
+        raise container.storage_503(exc) from exc
+
+
+@router.get("/api/lists/entry-by-plate")
+def entry_by_plate(plate: str = Query(..., min_length=1), container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+    try:
+        result = container.lists_db.find_entry_by_plate(plate)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Запись не найдена")
+        return result
     except StorageUnavailableError as exc:
         raise container.storage_503(exc) from exc
 

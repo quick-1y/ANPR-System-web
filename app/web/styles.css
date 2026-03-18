@@ -684,6 +684,13 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
 .event-meta-row:last-child { border-bottom: none; }
 .event-meta-row span { font-size: 10px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.06em; }
 .event-meta-row b { font-size: 12px; color: var(--text1); font-weight: 600; }
+.event-meta-divider {
+  margin: 10px -12px 6px;
+  padding: 6px 12px 0;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono); font-size: 9px; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--text3);
+}
 
 /* ─── Responsive ───────────────────────────────────── */
 @media (max-width: 1180px) {

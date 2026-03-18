@@ -214,6 +214,29 @@ class ListDatabase:
                 )
                 return cursor.fetchone() is not None
 
+    def find_entry_by_plate(self, plate: str) -> Optional[Dict[str, Any]]:
+        """Return the first list entry matching the given plate, or None."""
+        self._ensure_schema()
+        normalized = normalize_plate(plate)
+        if not normalized:
+            return None
+        with self._connect() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT e.plate, e.comment, l.type, l.name
+                    FROM plate_list_entries e
+                    JOIN plate_lists l ON l.id = e.list_id
+                    WHERE e.plate_normalized = %s
+                    LIMIT 1
+                    """,
+                    (normalized,),
+                )
+                row = cursor.fetchone()
+        if not row:
+            return None
+        return {"plate": row[0], "comment": row[1] or "", "list_type": row[2], "list_name": row[3]}
+
     def plate_in_lists(self, plate: str, list_ids: Iterable[int]) -> bool:
         self._ensure_schema()
         normalized = normalize_plate(plate)
