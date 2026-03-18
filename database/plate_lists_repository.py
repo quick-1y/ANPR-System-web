@@ -8,6 +8,7 @@ from database.errors import StorageUnavailableError
 
 LIST_TYPES = OrderedDict([
     ("white", "Белый список"),
+    ("info", "Информационный список"),
     ("black", "Черный список"),
 ])
 
@@ -126,6 +127,42 @@ class ListDatabase:
             conn.commit()
         return int(row[0]) if row else None
 
+
+    def delete_list(self, list_id: int) -> bool:
+        self._ensure_schema()
+        with self._connect() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM plate_lists WHERE id = %s", (int(list_id),))
+                deleted = cursor.rowcount > 0
+            conn.commit()
+        return deleted
+
+    def update_list(self, list_id: int, name: str, list_type: str) -> bool:
+        self._ensure_schema()
+        list_type = list_type if list_type in LIST_TYPES else "white"
+        name = (name or "").strip() or "Список"
+        with self._connect() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE plate_lists SET name = %s, type = %s WHERE id = %s",
+                    (name, list_type, int(list_id)),
+                )
+                updated = cursor.rowcount > 0
+            conn.commit()
+        return updated
+
+    def all_plates_with_type(self) -> list[Dict[str, str]]:
+        self._ensure_schema()
+        with self._connect() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT e.plate_normalized, l.type
+                    FROM plate_list_entries e
+                    JOIN plate_lists l ON l.id = e.list_id
+                    """
+                )
+                return [{"plate": row[0], "list_type": row[1]} for row in cursor.fetchall()]
 
     def plate_in_list_type(self, plate: str, list_type: str) -> bool:
         self._ensure_schema()

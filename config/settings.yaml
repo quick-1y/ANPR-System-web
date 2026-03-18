@@ -17,8 +17,8 @@ inference:
   workers: 2
   shared_memory: true
 debug:
-  show_channel_metrics: false
-  log_panel_enabled: false
+  show_channel_metrics: true
+  log_panel_enabled: true
 grid: 2x2
 theme: dark
 channels:
@@ -139,11 +139,7 @@ tracking:
     min_area_change_ratio: 0.02
 plates:
   config_dir: anpr/countries
-  enabled_countries:
-  - RU
-  - UA
-  - BY
-  - KZ
+  enabled_countries: []
 logging:
   level: ALL
   retention_days: 30

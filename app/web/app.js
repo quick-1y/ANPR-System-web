@@ -4,6 +4,8 @@ const state = {
   selectedListId: null,
   allEvents: [],
   lastPlatesByChannelId: {},
+  plateLookup: {},
+  currentEntries: [],
 };
 let eventSource = null;
 let streamReconnectTimer = null;
@@ -693,7 +695,13 @@ function renderEventFeed(forceRebuild = false) {
     const channelName = item.channel || `CAM-${item.channel_id || ""}`;
     const timeStr = new Date(item.timestamp || Date.now()).toLocaleTimeString();
     const div = document.createElement("div");
-    div.className = isNew ? "ev-item ev-new" : "ev-item";
+    const normalizedPlate = normalizePlate(item.plate);
+    const listType = state.plateLookup[normalizedPlate];
+    let cls = isNew ? "ev-item ev-new" : "ev-item";
+    if (listType === "white") cls += " list-white";
+    else if (listType === "black") cls += " list-black";
+    else if (listType === "info") cls += " list-info";
+    div.className = cls;
     div.dataset.evKey = key;
     div.setAttribute("role", "button");
     div.setAttribute("tabindex", "0");
@@ -905,19 +913,49 @@ function formatDirection(directionValue) {
   };
 }
 
+function normalizePlate(plate) {
+  return (plate || "").toUpperCase().replace(/\s/g, "");
+}
+
+async function refreshPlateLookup() {
+  try {
+    const plates = await jfetch(api("/api/lists/plates"));
+    const priority = { white: 1, info: 2, black: 3 };
+    const lookup = {};
+    (plates || []).forEach(({ plate, list_type }) => {
+      if (!lookup[plate] || (priority[list_type] || 0) > (priority[lookup[plate]] || 0)) {
+        lookup[plate] = list_type;
+      }
+    });
+    state.plateLookup = lookup;
+  } catch (_e) {
+    state.plateLookup = {};
+  }
+}
+
 async function loadLists() {
   state.lists = await jfetch(api("/api/lists"));
   renderLists();
   renderCustomListOptions(currentChannelCustomListIds);
+  await refreshPlateLookup();
+  renderEventFeed(true);
 }
+
+function listTypeDot(type) {
+  if (type === "black") return "dot-black";
+  if (type === "info") return "dot-info";
+  return "dot-white";
+}
+
 function renderLists() {
   const items = document.getElementById("listItems");
   items.innerHTML = "";
   state.lists.forEach((l, idx) => {
-    const div = document.createElement("div");
-    div.className = `list-item ${l.id === state.selectedListId || (!state.selectedListId && idx === 0) ? "active" : ""}`;
+    const isActive = l.id === state.selectedListId || (!state.selectedListId && idx === 0);
     if (!state.selectedListId && idx === 0) state.selectedListId = l.id;
-    div.innerHTML = `<div class='list-item-dot ${l.type === "white" ? "dot-white" : "dot-black"}'></div><div class='list-item-name'>${l.name}</div><div class='list-item-count'>…</div>`;
+    const div = document.createElement("div");
+    div.className = `list-item type-${l.type}${isActive ? " active" : ""}`;
+    div.innerHTML = `<div class='list-item-dot ${listTypeDot(l.type)}'></div><div class='list-item-name'>${l.name}</div><div class='list-item-count'>${l.entries_count ?? "…"}</div>`;
     div.onclick = () => {
       state.selectedListId = l.id;
       renderLists();
@@ -927,20 +965,44 @@ function renderLists() {
   });
   if (state.selectedListId) loadEntries(state.selectedListId);
 }
+
 async function loadEntries(listId) {
   const rows = await jfetch(api(`/api/lists/${listId}/entries`));
+  state.currentEntries = rows;
   const list = state.lists.find((x) => x.id === listId);
   document.getElementById("listTitle").textContent = list ? list.name : "—";
-  const b = document.getElementById("listTypeBadge");
-  b.textContent = list?.type === "black" ? "Черный список" : "Белый список";
-  b.className = `type-badge ${list?.type === "black" ? "type-black" : "type-white"}`;
   const body = document.getElementById("entriesBody");
   body.innerHTML = "";
   rows.forEach((r) => {
+    let info = {};
+    try { info = JSON.parse(r.comment || "{}"); } catch (_e) {}
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class='plate-cell'>${r.plate}</td><td>${r.comment || ""}</td>`;
+    tr.innerHTML = `<td class='plate-cell'>${r.plate}</td><td>${info.first_name || ""}</td><td>${info.last_name || ""}</td><td>${info.patronymic || ""}</td><td>${info.phone || ""}</td><td>${info.car_make || ""}</td>`;
     body.appendChild(tr);
   });
+}
+
+function exportCurrentListCSV() {
+  if (!state.selectedListId) return;
+  const list = state.lists.find((l) => l.id === state.selectedListId);
+  const headers = ["Гос. номер", "Имя", "Фамилия", "Отчество", "Телефон", "Марка авто"];
+  const lines = [headers.join(",")];
+  (state.currentEntries || []).forEach((r) => {
+    let info = {};
+    try { info = JSON.parse(r.comment || "{}"); } catch (_e) {}
+    const cells = [r.plate, info.first_name || "", info.last_name || "", info.patronymic || "", info.phone || "", info.car_make || ""]
+      .map((v) => `"${String(v).replace(/"/g, '""')}"`);
+    lines.push(cells.join(","));
+  });
+  const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${list ? list.name : "list"}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 let selectedChannelId = null;
@@ -1325,9 +1387,8 @@ function renderCustomListOptions(selectedIds = []) {
 
     const caption = document.createElement("span");
     const typeRaw = String(list.type || "").toLowerCase();
-    let listType = "Пользовательский список";
-    if (typeRaw === "white") listType = "Белый список";
-    else if (typeRaw === "black") listType = "Черный список";
+    let listType = "Белый список";
+    if (typeRaw === "info") listType = "Информационный список";
     caption.textContent = `${list.name} (${listType})`;
 
     item.appendChild(checkbox);
@@ -1945,26 +2006,124 @@ document.getElementById("btnExport").onclick = () => {
   const qs = params.toString();
   window.open(api(`/api/data/export/events.csv${qs ? "?" + qs : ""}`), "_blank");
 };
-document.getElementById("addListBtn").onclick = async () => {
-  const name = prompt("Название списка");
-  if (!name) return;
-  const type = prompt("Тип: white/black", "white") || "white";
-  await jfetch(api("/api/lists"), "POST", { name, type });
+// ── Modal helpers ────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add("active"); }
+function closeModal(id) { document.getElementById(id).classList.remove("active"); }
+
+// ── Create List Modal ────────────────────────────────
+document.getElementById("addListBtn").onclick = () => {
+  document.getElementById("newListName").value = "";
+  openModal("createListModal");
+  setTimeout(() => document.getElementById("newListName").focus(), 50);
+};
+document.getElementById("createListModalClose").onclick = () => closeModal("createListModal");
+document.getElementById("createListCancel").onclick = () => closeModal("createListModal");
+document.getElementById("createListConfirm").onclick = async () => {
+  const name = document.getElementById("newListName").value.trim();
+  if (!name) { document.getElementById("newListName").focus(); return; }
+  await jfetch(api("/api/lists"), "POST", { name, type: "white" });
+  closeModal("createListModal");
   await loadLists();
 };
-document.getElementById("addEntryBtn").onclick = async () => {
-  if (!state.selectedListId) return;
-  const plate = prompt("Номер");
-  if (!plate) return;
-  const comment = prompt("Комментарий", "") || "";
-  await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", {
-    plate,
-    comment,
-  });
-  await loadEntries(state.selectedListId);
+document.getElementById("createListModal").onclick = (e) => {
+  if (e.target.id === "createListModal") closeModal("createListModal");
 };
-document.getElementById("exportListBtn").onclick = () =>
-  window.open(api("/api/data/export/events.csv"), "_blank");
+document.getElementById("newListName").onkeydown = (e) => {
+  if (e.key === "Enter") document.getElementById("createListConfirm").click();
+};
+
+// ── Add Entry Modal ──────────────────────────────────
+document.getElementById("addEntryBtn").onclick = () => {
+  if (!state.selectedListId) return;
+  ["entryLastName","entryFirstName","entryPatronymic","entryPhone","entryCarMake","entryPlate"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("addEntryError").textContent = "";
+  openModal("addEntryModal");
+  setTimeout(() => document.getElementById("entryLastName").focus(), 50);
+};
+document.getElementById("addEntryModalClose").onclick = () => closeModal("addEntryModal");
+document.getElementById("addEntryCancel").onclick = () => closeModal("addEntryModal");
+document.getElementById("addEntryConfirm").onclick = async () => {
+  const firstName = document.getElementById("entryFirstName").value.trim();
+  const plate = document.getElementById("entryPlate").value.trim();
+  const errEl = document.getElementById("addEntryError");
+  if (!firstName || !plate) {
+    errEl.textContent = "Поля «Имя» и «Гос. номер автомобиля» обязательны.";
+    return;
+  }
+  errEl.textContent = "";
+  const comment = JSON.stringify({
+    last_name: document.getElementById("entryLastName").value.trim(),
+    first_name: firstName,
+    patronymic: document.getElementById("entryPatronymic").value.trim(),
+    phone: document.getElementById("entryPhone").value.trim(),
+    car_make: document.getElementById("entryCarMake").value.trim(),
+  });
+  try {
+    await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", { plate, comment });
+  } catch (_e) {
+    errEl.textContent = "Не удалось сохранить: возможно, номер уже существует.";
+    return;
+  }
+  closeModal("addEntryModal");
+  await loadEntries(state.selectedListId);
+  await refreshPlateLookup();
+  renderEventFeed(true);
+};
+document.getElementById("addEntryModal").onclick = (e) => {
+  if (e.target.id === "addEntryModal") closeModal("addEntryModal");
+};
+
+// ── Export List ──────────────────────────────────────
+document.getElementById("exportListBtn").onclick = exportCurrentListCSV;
+
+// ── List Settings Modal ──────────────────────────────
+document.getElementById("listSettingsBtn").onclick = () => {
+  if (!state.selectedListId) return;
+  const list = state.lists.find((l) => l.id === state.selectedListId);
+  if (!list) return;
+  document.getElementById("settingsListName").value = list.name;
+  document.getElementById("settingsListType").value = list.type || "white";
+  openModal("listSettingsModal");
+  setTimeout(() => document.getElementById("settingsListName").focus(), 50);
+};
+document.getElementById("listSettingsModalClose").onclick = () => closeModal("listSettingsModal");
+document.getElementById("listSettingsCancel").onclick = () => closeModal("listSettingsModal");
+document.getElementById("listSettingsConfirm").onclick = async () => {
+  const name = document.getElementById("settingsListName").value.trim();
+  const type = document.getElementById("settingsListType").value;
+  if (!name || !state.selectedListId) return;
+  await jfetch(api(`/api/lists/${state.selectedListId}`), "PUT", { name, type });
+  closeModal("listSettingsModal");
+  await loadLists();
+};
+document.getElementById("listSettingsModal").onclick = (e) => {
+  if (e.target.id === "listSettingsModal") closeModal("listSettingsModal");
+};
+
+// ── Delete List Modal ────────────────────────────────
+document.getElementById("deleteListBtn").onclick = () => {
+  if (!state.selectedListId) return;
+  const list = state.lists.find((l) => l.id === state.selectedListId);
+  if (!list) return;
+  document.getElementById("deleteListNameLabel").textContent = list.name;
+  openModal("deleteListModal");
+};
+document.getElementById("deleteListCancel").onclick = () => closeModal("deleteListModal");
+document.getElementById("deleteListConfirm").onclick = async () => {
+  if (!state.selectedListId) return;
+  await jfetch(api(`/api/lists/${state.selectedListId}`), "DELETE");
+  closeModal("deleteListModal");
+  state.selectedListId = null;
+  state.currentEntries = [];
+  document.getElementById("listTitle").textContent = "—";
+  document.getElementById("entriesBody").innerHTML = "";
+  await loadLists();
+};
+document.getElementById("deleteListModal").onclick = (e) => {
+  if (e.target.id === "deleteListModal") closeModal("deleteListModal");
+};
 document.getElementById("eventModalClose").onclick = closeEventModal;
 document.getElementById("eventModal").onclick = (e) => {
   if (e.target.id === "eventModal") closeEventModal();

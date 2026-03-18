@@ -151,29 +151,35 @@
           </div>
       <div class="tab-pane" id="tab-lists">
         <div class="lists-sidebar">
-          <div class="panel-header">Списки номеров</div>
-          <div class="sidebar-toolbar">
-            <button class="icon-btn-sm" id="addListBtn">+</button>
+          <div class="panel-header">
+            <span>СПИСКИ НОМЕРОВ</span>
+            <div style="display:flex;gap:4px">
+              <button class="icon-btn-sm" id="addListBtn" title="Создать список">+</button>
+              <button class="icon-btn-sm" id="deleteListBtn" title="Удалить список">−</button>
+            </div>
           </div>
           <div class="list-items" id="listItems"></div>
         </div>
         <div class="lists-main">
           <div class="lists-main-header">
             <div class="lists-main-title" id="listTitle">—</div>
-            <span class="type-badge type-white" id="listTypeBadge"
-              >Белый список</span>
-            <button class="btn btn-ghost btn-sm" id="addEntryBtn">+ Добавить</button>
+            <button class="btn btn-ghost btn-sm" id="addEntryBtn">Добавить запись</button>
             <button class="btn btn-ghost btn-sm" id="exportListBtn">
               <img class="btn-icon ui-icon-sm" src="/web/assets/icons/export.svg" alt="" />
-              <span>Экспорт</span>
+              <span>Экспорт списка</span>
             </button>
+            <button class="btn btn-ghost btn-sm" id="listSettingsBtn">Настройки</button>
           </div>
           <div class="data-table-wrap lists-data-wrap">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Номер</th>
-                  <th>Комментарий</th>
+                  <th>Гос. номер</th>
+                  <th>Имя</th>
+                  <th>Фамилия</th>
+                  <th>Отчество</th>
+                  <th>Телефон</th>
+                  <th>Марка авто</th>
                 </tr>
               </thead>
               <tbody id="entriesBody"></tbody>
@@ -364,14 +370,14 @@
                         <div class="s-row-name">Режим фильтра списков</div>
                       </div>
                       <select class="s-input" id="c_list_filter_mode">
-                        <option>all</option>
-                        <option>whitelist</option>
-                        <option>custom</option>
+                        <option value="all">Все</option>
+                        <option value="whitelist">Белые списки</option>
+                        <option value="custom">Свои списки</option>
                       </select>
                     </div>
                     <div class="s-row" id="c_custom_lists_block" style="display: none">
                       <div class="s-row-label">
-                        <div class="s-row-name">Списки для custom</div>
+                        <div class="s-row-name">Выбрать списки</div>
                       </div>
                       <div class="s-input wide" id="c_list_ids_select"></div>
                     </div>
@@ -758,6 +764,111 @@
             </div>
           </div>
           <div class="event-meta" id="eventMeta"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create List Modal -->
+    <div class="app-modal" id="createListModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Новый список</span>
+          <button class="btn btn-ghost btn-sm" id="createListModalClose">✕</button>
+        </div>
+        <div class="app-modal-body">
+          <div class="modal-field">
+            <label class="modal-label">Название списка</label>
+            <input class="s-input" style="width:100%" id="newListName" placeholder="Введите название" autocomplete="off" />
+          </div>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="createListCancel">Отменить</button>
+          <button class="btn btn-primary" id="createListConfirm">Создать</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Entry Modal -->
+    <div class="app-modal" id="addEntryModal">
+      <div class="app-modal-card">
+        <div class="app-modal-head">
+          <span>Добавить запись</span>
+          <button class="btn btn-ghost btn-sm" id="addEntryModalClose">✕</button>
+        </div>
+        <div class="app-modal-body">
+          <div class="modal-field">
+            <label class="modal-label">Фамилия</label>
+            <input class="s-input" style="width:100%" id="entryLastName" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Имя <span class="modal-required">*</span></label>
+            <input class="s-input" style="width:100%" id="entryFirstName" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Отчество</label>
+            <input class="s-input" style="width:100%" id="entryPatronymic" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Телефон</label>
+            <input class="s-input" style="width:100%" id="entryPhone" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Марка автомобиля</label>
+            <input class="s-input" style="width:100%" id="entryCarMake" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Гос. номер автомобиля <span class="modal-required">*</span></label>
+            <input class="s-input" style="width:100%" id="entryPlate" autocomplete="off" />
+          </div>
+          <div class="modal-error" id="addEntryError"></div>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="addEntryCancel">Отменить</button>
+          <button class="btn btn-primary" id="addEntryConfirm">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- List Settings Modal -->
+    <div class="app-modal" id="listSettingsModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Настройки списка</span>
+          <button class="btn btn-ghost btn-sm" id="listSettingsModalClose">✕</button>
+        </div>
+        <div class="app-modal-body">
+          <div class="modal-field">
+            <label class="modal-label">Название списка</label>
+            <input class="s-input" style="width:100%" id="settingsListName" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Тип списка</label>
+            <select class="s-input" style="width:100%" id="settingsListType">
+              <option value="white">Белый список</option>
+              <option value="info">Информационный список</option>
+              <option value="black">Черный список</option>
+            </select>
+          </div>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="listSettingsCancel">Отменить</button>
+          <button class="btn btn-primary" id="listSettingsConfirm">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete List Confirmation Modal -->
+    <div class="app-modal" id="deleteListModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Удалить список</span>
+        </div>
+        <div class="app-modal-body">
+          <p class="modal-confirm-text">Вы уверены, что хотите удалить список <strong id="deleteListNameLabel"></strong>? Это действие необратимо.</p>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="deleteListCancel">Отменить</button>
+          <button class="btn btn-danger" id="deleteListConfirm">Удалить</button>
         </div>
       </div>
     </div>

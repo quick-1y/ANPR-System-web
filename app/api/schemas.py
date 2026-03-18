@@ -159,6 +159,11 @@ class EntryPayload(BaseModel):
     comment: str = ""
 
 
+class UpdateListPayload(BaseModel):
+    name: str
+    type: str = "white"
+
+
 class RetentionPolicyPayload(BaseModel):
     auto_cleanup_enabled: bool = True
     cleanup_interval_minutes: int = 30
