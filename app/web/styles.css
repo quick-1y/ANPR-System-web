@@ -1117,13 +1117,15 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   opacity: 1; transform: translateY(0);
 }
 
-/* ─── Event feed cards: list type right border + glow ─ */
-.ev-item.list-white {
-  box-shadow: inset -3px 0 0 rgba(220,225,255,0.75), 0 0 10px rgba(232,168,56,0.14);
-}
-.ev-item.list-black {
-  box-shadow: inset -3px 0 0 var(--danger), 0 0 10px rgba(232,168,56,0.14);
-}
-.ev-item.list-info {
-  box-shadow: inset -3px 0 0 var(--success), 0 0 10px rgba(232,168,56,0.14);
-}
+/* ─── Observation event cards: list type left border + glow ─ */
+.ev-item.list-white { box-shadow: inset 3px 0 0 rgba(220,225,255,0.75), 0 0 10px rgba(232,168,56,0.14); }
+.ev-item.list-black { box-shadow: inset 3px 0 0 var(--danger), 0 0 10px rgba(232,168,56,0.14); }
+.ev-item.list-info  { box-shadow: inset 3px 0 0 var(--success), 0 0 10px rgba(232,168,56,0.14); }
+
+/* ─── Journal table rows: list type left border + glow ─ */
+/* box-shadow on <tr> is clipped with border-collapse:collapse — target first cell instead */
+tr.list-white > td:first-child { box-shadow: inset 3px 0 0 rgba(220,225,255,0.75); }
+tr.list-black > td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+tr.list-info  > td:first-child { box-shadow: inset 3px 0 0 var(--success); }
+tr.list-white, tr.list-black, tr.list-info { background: rgba(232,168,56,0.06); }
+tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(232,168,56,0.10); }

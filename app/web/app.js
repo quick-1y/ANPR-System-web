@@ -841,6 +841,10 @@ function makeJournalRow(ev) {
   const timeStr = ts.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) +
     " " + ts.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const tr = document.createElement("tr");
+  const listType = state.plateLookup[normalizePlate(ev.plate || "")];
+  if (listType === "white") tr.classList.add("list-white");
+  else if (listType === "black") tr.classList.add("list-black");
+  else if (listType === "info") tr.classList.add("list-info");
   const srcText = ev.source || "";
   tr.innerHTML = `<td class="col-time">${timeStr}</td>` +
     `<td class="col-channel">${ev.channel || `CAM-${ev.channel_id || ""}`}</td>` +
@@ -2384,8 +2388,8 @@ window.addEventListener("resize", () => scheduleEventFeedRender(true));
   await hydrateChannelLastPlates();
   initJournalScroll();
   await loadEventFeedHistory();
-  await loadJournal();
   await loadLists();
+  await loadJournal();
   await loadGlobalSettings();
   await refreshOverlayStates();
   await loadDebugLogHistory();

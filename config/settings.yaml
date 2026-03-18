@@ -61,10 +61,11 @@ channels:
   max_plate_size:
     width: 600
     height: 240
-  controller_id: null
+  controller_id: 1
   controller_relay: 0
   list_filter_mode: custom
-  list_filter_list_ids: []
+  list_filter_list_ids:
+  - 2
 - id: 2
   name: Выезд
   source: rtsp://admin:admin@78.138.142.26:2001/0
