@@ -76,3 +76,25 @@ def add_entry(list_id: int, payload: EntryPayload, container: AppContainer = Dep
         return {"id": entry_id}
     except StorageUnavailableError as exc:
         raise container.storage_503(exc) from exc
+
+
+@router.put("/api/lists/{list_id}/entries/{entry_id}")
+def update_entry(list_id: int, entry_id: int, payload: EntryPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+    try:
+        ok = container.lists_db.update_entry(entry_id, plate=payload.plate, comment=payload.comment)
+        if not ok:
+            raise HTTPException(status_code=409, detail="Не удалось обновить: номер уже существует или запись не найдена")
+        return {"id": entry_id}
+    except StorageUnavailableError as exc:
+        raise container.storage_503(exc) from exc
+
+
+@router.delete("/api/lists/{list_id}/entries/{entry_id}")
+def delete_entry(list_id: int, entry_id: int, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+    try:
+        ok = container.lists_db.delete_entry(entry_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Запись не найдена")
+        return {"ok": True}
+    except StorageUnavailableError as exc:
+        raise container.storage_503(exc) from exc

@@ -161,7 +161,7 @@
           <div class="list-items" id="listItems"></div>
         </div>
         <div class="lists-main">
-          <div class="lists-main-header">
+          <div class="lists-main-header" id="listsMainHeader">
             <div class="lists-main-title" id="listTitle">—</div>
             <button class="btn btn-ghost btn-sm" id="addEntryBtn">Добавить запись</button>
             <button class="btn btn-ghost btn-sm" id="exportListBtn">
@@ -170,7 +170,10 @@
             </button>
             <button class="btn btn-ghost btn-sm" id="listSettingsBtn">Настройки</button>
           </div>
-          <div class="data-table-wrap lists-data-wrap">
+          <div class="lists-empty-state" id="listsEmptyState">
+            <span>Выберите список или создайте новый</span>
+          </div>
+          <div class="data-table-wrap lists-data-wrap" id="listsDataWrap">
             <table class="data-table">
               <thead>
                 <tr>
@@ -180,6 +183,7 @@
                   <th>Отчество</th>
                   <th>Телефон</th>
                   <th>Марка авто</th>
+                  <th class="col-actions"></th>
                 </tr>
               </thead>
               <tbody id="entriesBody"></tbody>
@@ -210,7 +214,7 @@
         
           <div class="snav-item" data-sp="debug">
             <img class="ui-icon ui-icon-sm" src="/web/assets/icons/debug.svg" alt="" />
-            Debug
+            Отладка
           </div>
         </div>
         <div class="settings-content">
@@ -311,7 +315,7 @@
               </div>
             </div>
             <button class="btn btn-primary" id="saveGeneralBtn">
-              Сохранить / Применить
+              Сохранить настройки
             </button>
           </div>
           <div class="settings-pane" id="sp-channels">
@@ -379,7 +383,7 @@
                       <div class="s-row-label">
                         <div class="s-row-name">Выбрать списки</div>
                       </div>
-                      <div class="s-input wide" id="c_list_ids_select"></div>
+                      <div class="custom-lists-container" id="c_list_ids_select"></div>
                     </div>
                     <div class="s-row" id="c_custom_lists_hint" style="display: none">
                       <div class="s-row-label"></div>
@@ -714,7 +718,7 @@
           </div>
           <div class="settings-pane" id="sp-debug">
             <div class="s-card">
-              <div class="s-card-header">Глобальные debug настройки</div>
+              <div class="s-card-header">Настройки отладки</div>
               <div class="s-card-body">
                 <div class="s-row">
                   <div class="s-row-label">
@@ -731,7 +735,7 @@
               </div>
             </div>
             <button class="btn btn-primary" id="saveDebugBtn">
-              Сохранить debug
+              Сохранить
             </button>
 </div>
         </div>
@@ -788,11 +792,11 @@
       </div>
     </div>
 
-    <!-- Add Entry Modal -->
+    <!-- Add / Edit Entry Modal -->
     <div class="app-modal" id="addEntryModal">
       <div class="app-modal-card">
         <div class="app-modal-head">
-          <span>Добавить запись</span>
+          <span id="addEntryModalTitle">Добавить запись</span>
           <button class="btn btn-ghost btn-sm" id="addEntryModalClose">✕</button>
         </div>
         <div class="app-modal-body">
@@ -869,6 +873,78 @@
         <div class="app-modal-footer">
           <button class="btn btn-ghost" id="deleteListCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteListConfirm">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Channel Modal -->
+    <div class="app-modal" id="createChannelModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Новый канал</span>
+          <button class="btn btn-ghost btn-sm" id="createChannelModalClose">✕</button>
+        </div>
+        <div class="app-modal-body">
+          <div class="modal-field">
+            <label class="modal-label">Название канала</label>
+            <input class="s-input" style="width:100%" id="newChannelName" placeholder="Введите название" autocomplete="off" />
+          </div>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="createChannelCancel">Отменить</button>
+          <button class="btn btn-primary" id="createChannelConfirm">Создать</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Channel Modal -->
+    <div class="app-modal" id="deleteChannelModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Удалить канал</span>
+        </div>
+        <div class="app-modal-body">
+          <p class="modal-confirm-text">Вы уверены, что хотите удалить канал <strong id="deleteChannelNameLabel"></strong>? Это действие необратимо.</p>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="deleteChannelCancel">Отменить</button>
+          <button class="btn btn-danger" id="deleteChannelConfirm">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Controller Modal -->
+    <div class="app-modal" id="createControllerModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Новый контроллер</span>
+          <button class="btn btn-ghost btn-sm" id="createControllerModalClose">✕</button>
+        </div>
+        <div class="app-modal-body">
+          <div class="modal-field">
+            <label class="modal-label">Название контроллера</label>
+            <input class="s-input" style="width:100%" id="newControllerName" placeholder="Введите название" autocomplete="off" />
+          </div>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="createControllerCancel">Отменить</button>
+          <button class="btn btn-primary" id="createControllerConfirm">Создать</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Controller Modal -->
+    <div class="app-modal" id="deleteControllerModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Удалить контроллер</span>
+        </div>
+        <div class="app-modal-body">
+          <p class="modal-confirm-text">Вы уверены, что хотите удалить контроллер <strong id="deleteControllerNameLabel"></strong>? Это действие необратимо.</p>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="deleteControllerCancel">Отменить</button>
+          <button class="btn btn-danger" id="deleteControllerConfirm">Удалить</button>
         </div>
       </div>
     </div>

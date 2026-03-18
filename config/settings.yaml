@@ -63,7 +63,7 @@ channels:
     height: 240
   controller_id: null
   controller_relay: 0
-  list_filter_mode: all
+  list_filter_mode: custom
   list_filter_list_ids: []
 - id: 2
   name: Выезд
@@ -106,9 +106,21 @@ channels:
     height: 240
   controller_id: null
   controller_relay: 0
-  list_filter_mode: all
+  list_filter_mode: whitelist
   list_filter_list_ids: []
-controllers: []
+controllers:
+- id: 1
+  name: Контроллер
+  type: DTWONDER2CH
+  address: 192.168.1.100
+  password: '0'
+  relays:
+  - mode: pulse
+    timer_seconds: 1
+    hotkey: ''
+  - mode: pulse
+    timer_seconds: 1
+    hotkey: ''
 reconnect:
   signal_loss:
     enabled: true

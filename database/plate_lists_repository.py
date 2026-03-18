@@ -128,6 +128,37 @@ class ListDatabase:
         return int(row[0]) if row else None
 
 
+    def update_entry(self, entry_id: int, plate: str, comment: str = "") -> bool:
+        self._ensure_schema()
+        normalized = normalize_plate(plate)
+        if not normalized:
+            return False
+        try:
+            with self._connect() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE plate_list_entries
+                        SET plate = %s, plate_normalized = %s, comment = %s
+                        WHERE id = %s
+                        """,
+                        (plate.strip(), normalized, (comment or "").strip(), int(entry_id)),
+                    )
+                    updated = cursor.rowcount > 0
+                conn.commit()
+            return updated
+        except Exception:  # noqa: BLE001
+            return False
+
+    def delete_entry(self, entry_id: int) -> bool:
+        self._ensure_schema()
+        with self._connect() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM plate_list_entries WHERE id = %s", (int(entry_id),))
+                deleted = cursor.rowcount > 0
+            conn.commit()
+        return deleted
+
     def delete_list(self, list_id: int) -> bool:
         self._ensure_schema()
         with self._connect() as conn:

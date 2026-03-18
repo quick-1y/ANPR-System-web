@@ -1064,6 +1064,59 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   box-shadow: inset 3px 0 0 var(--success), 0 0 12px rgba(232,168,56,0.16);
 }
 
+/* ─── Lists: empty state ────────────────────────────── */
+.lists-empty-state {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; color: var(--text3);
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+
+/* ─── Custom lists checkbox container ───────────────── */
+.custom-lists-container {
+  background: var(--field); border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); padding: 8px 10px;
+  width: 320px; max-width: 100%;
+}
+.custom-lists-container label {
+  cursor: pointer; font-size: 12px; color: var(--text1);
+}
+.custom-lists-container label:last-child { margin-bottom: 0 !important; }
+.custom-lists-container input[type="checkbox"] {
+  width: 14px; height: 14px; border-radius: 3px !important;
+  appearance: auto; -webkit-appearance: auto;
+  cursor: pointer; flex-shrink: 0;
+}
+
+/* ─── Entries table: actions column ─────────────────── */
+.col-actions { width: 60px; text-align: right; }
+.data-table td.col-actions { padding-right: 8px; text-align: right; }
+.entry-edit-btn {
+  height: 24px; padding: 0 8px; font-size: 10px;
+  border-radius: 5px; border: 1px solid var(--border2);
+  background: transparent; color: var(--text2); cursor: pointer;
+  font-family: var(--mono); letter-spacing: 0.04em;
+  transition: var(--t); white-space: nowrap;
+}
+.entry-edit-btn:hover {
+  color: var(--accent2); border-color: var(--accent-border);
+  background: var(--accent-glow);
+}
+
+/* ─── Toast notification ─────────────────────────────── */
+.app-toast {
+  position: fixed; top: 58px; right: 16px; z-index: 9500;
+  padding: 10px 16px; border-radius: var(--radius);
+  background: var(--card); border: 1px solid var(--border2);
+  color: var(--success); font-size: 11px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02);
+  opacity: 0; transform: translateY(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  font-family: var(--mono); letter-spacing: 0.06em; pointer-events: none;
+}
+.app-toast.app-toast-visible {
+  opacity: 1; transform: translateY(0);
+}
+
 /* ─── Event feed cards: list type right border + glow ─ */
 .ev-item.list-white {
   box-shadow: inset -3px 0 0 rgba(220,225,255,0.75), 0 0 10px rgba(232,168,56,0.14);

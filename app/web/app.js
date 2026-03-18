@@ -913,6 +913,25 @@ function formatDirection(directionValue) {
   };
 }
 
+let editingEntryId = null;
+
+function showToast(message, duration = 2000) {
+  const existing = document.getElementById("appToast");
+  if (existing) existing.remove();
+  const toast = document.createElement("div");
+  toast.id = "appToast";
+  toast.className = "app-toast";
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add("app-toast-visible"));
+  });
+  setTimeout(() => {
+    toast.classList.remove("app-toast-visible");
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
 function normalizePlate(plate) {
   return (plate || "").toUpperCase().replace(/\s/g, "");
 }
@@ -941,6 +960,16 @@ async function loadLists() {
   renderEventFeed(true);
 }
 
+function syncListMainVisibility() {
+  const hasSelection = !!state.selectedListId && state.lists.length > 0;
+  const header = document.getElementById("listsMainHeader");
+  const dataWrap = document.getElementById("listsDataWrap");
+  const emptyState = document.getElementById("listsEmptyState");
+  if (header) header.style.display = hasSelection ? "" : "none";
+  if (dataWrap) dataWrap.style.display = hasSelection ? "" : "none";
+  if (emptyState) emptyState.style.display = hasSelection ? "none" : "";
+}
+
 function listTypeDot(type) {
   if (type === "black") return "dot-black";
   if (type === "info") return "dot-info";
@@ -963,6 +992,7 @@ function renderLists() {
     };
     items.appendChild(div);
   });
+  syncListMainVisibility();
   if (state.selectedListId) loadEntries(state.selectedListId);
 }
 
@@ -977,9 +1007,26 @@ async function loadEntries(listId) {
     let info = {};
     try { info = JSON.parse(r.comment || "{}"); } catch (_e) {}
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class='plate-cell'>${r.plate}</td><td>${info.first_name || ""}</td><td>${info.last_name || ""}</td><td>${info.patronymic || ""}</td><td>${info.phone || ""}</td><td>${info.car_make || ""}</td>`;
+    tr.innerHTML = `<td class='plate-cell'>${r.plate}</td><td>${info.first_name || ""}</td><td>${info.last_name || ""}</td><td>${info.patronymic || ""}</td><td>${info.phone || ""}</td><td>${info.car_make || ""}</td><td class="col-actions"><button class="entry-edit-btn">Изменить</button></td>`;
+    tr.querySelector(".entry-edit-btn").onclick = () => openEditEntryModal(r);
     body.appendChild(tr);
   });
+}
+
+function openEditEntryModal(entry) {
+  editingEntryId = entry.id;
+  let info = {};
+  try { info = JSON.parse(entry.comment || "{}"); } catch (_e) {}
+  document.getElementById("addEntryModalTitle").textContent = "Изменить запись";
+  document.getElementById("entryLastName").value = info.last_name || "";
+  document.getElementById("entryFirstName").value = info.first_name || "";
+  document.getElementById("entryPatronymic").value = info.patronymic || "";
+  document.getElementById("entryPhone").value = info.phone || "";
+  document.getElementById("entryCarMake").value = info.car_make || "";
+  document.getElementById("entryPlate").value = entry.plate || "";
+  document.getElementById("addEntryError").textContent = "";
+  openModal("addEntryModal");
+  setTimeout(() => document.getElementById("entryLastName").focus(), 50);
 }
 
 function exportCurrentListCSV() {
@@ -1124,6 +1171,7 @@ async function saveGeneral() {
   applyDebugPanelVisibility();
   scheduleVideoGridLayout(true);
   addDebug("[OK] global settings saved", "ok");
+  showToast("Настройки сохранены");
 }
 
 function renderChannelsList() {
@@ -1585,11 +1633,18 @@ async function saveChannel() {
   );
   addDebug(`[OK] channel ${selectedChannelId} saved`, "ok");
   await refreshChannels();
+  showToast("Настройки сохранены");
 }
 async function createChannel() {
+  document.getElementById("newChannelName").value = "";
+  document.getElementById("newChannelName").placeholder = "Введите название";
+  openModal("createChannelModal");
+  setTimeout(() => document.getElementById("newChannelName").focus(), 50);
+}
+async function _doCreateChannel(name) {
   try {
     await jfetch(api("/api/channels"), "POST", {
-      name: "Канал",
+      name: name || "Канал",
       source: "0",
       enabled: true,
       roi_enabled: true,
@@ -1608,7 +1663,12 @@ async function createChannel() {
 }
 async function deleteChannel() {
   if (!selectedChannelId) return;
-  if (!confirm(`Удалить канал #${selectedChannelId}?`)) return;
+  const ch = state.channels.find((c) => c.id === selectedChannelId);
+  const label = ch ? ch.name : `#${selectedChannelId}`;
+  document.getElementById("deleteChannelNameLabel").textContent = label;
+  openModal("deleteChannelModal");
+}
+async function _doDeleteChannel() {
   await jfetch(api(`/api/channels/${selectedChannelId}`), "DELETE");
   selectedChannelId = null;
   roiPoints = [];
@@ -1732,10 +1792,14 @@ function controllerPayload() {
   };
 }
 async function createController() {
+  document.getElementById("newControllerName").value = "";
+  document.getElementById("newControllerName").placeholder = "Введите название";
+  openModal("createControllerModal");
+  setTimeout(() => document.getElementById("newControllerName").focus(), 50);
+}
+async function _doCreateController(name) {
   const body = controllerPayload();
-  if (!body.name) {
-    body.name = "Контроллер";
-  }
+  body.name = name || "Контроллер";
   try {
     await jfetch(api("/api/controllers"), "POST", body);
     await loadControllers();
@@ -1749,6 +1813,23 @@ async function createController() {
     alert(`Не удалось создать контроллер: ${err.message}`);
   }
 }
+async function deleteController() {
+  if (!selectedControllerId) return;
+  const ctrl = controllersCache.find((c) => c.id === selectedControllerId);
+  const label = ctrl ? ctrl.name : `#${selectedControllerId}`;
+  document.getElementById("deleteControllerNameLabel").textContent = label;
+  openModal("deleteControllerModal");
+}
+async function _doDeleteController() {
+  try {
+    await jfetch(api(`/api/controllers/${selectedControllerId}`), "DELETE");
+    await loadControllers();
+    addDebug("[OK] controller deleted", "ok");
+  } catch (err) {
+    addDebug(`[ERR] ${err.message}`, "err");
+    alert(err.message);
+  }
+}
 async function saveController() {
   if (!selectedControllerId) return;
   try {
@@ -1759,6 +1840,7 @@ async function saveController() {
     );
     await loadControllers();
     addDebug("[OK] controller updated", "ok");
+    showToast("Настройки сохранены");
   } catch (err) {
     addDebug(`[ERR] ${err.message}`, "err");
     alert(`Не удалось сохранить контроллер: ${err.message}`);
@@ -2032,9 +2114,11 @@ document.getElementById("newListName").onkeydown = (e) => {
   if (e.key === "Enter") document.getElementById("createListConfirm").click();
 };
 
-// ── Add Entry Modal ──────────────────────────────────
+// ── Add / Edit Entry Modal ───────────────────────────
 document.getElementById("addEntryBtn").onclick = () => {
   if (!state.selectedListId) return;
+  editingEntryId = null;
+  document.getElementById("addEntryModalTitle").textContent = "Добавить запись";
   ["entryLastName","entryFirstName","entryPatronymic","entryPhone","entryCarMake","entryPlate"].forEach(id => {
     document.getElementById(id).value = "";
   });
@@ -2061,18 +2145,25 @@ document.getElementById("addEntryConfirm").onclick = async () => {
     car_make: document.getElementById("entryCarMake").value.trim(),
   });
   try {
-    await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", { plate, comment });
+    if (editingEntryId !== null) {
+      await jfetch(api(`/api/lists/${state.selectedListId}/entries/${editingEntryId}`), "PUT", { plate, comment });
+    } else {
+      await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", { plate, comment });
+    }
   } catch (_e) {
-    errEl.textContent = "Не удалось сохранить: возможно, номер уже существует.";
+    errEl.textContent = editingEntryId !== null
+      ? "Не удалось обновить: возможно, номер уже существует."
+      : "Не удалось сохранить: возможно, номер уже существует.";
     return;
   }
+  editingEntryId = null;
   closeModal("addEntryModal");
   await loadEntries(state.selectedListId);
   await refreshPlateLookup();
   renderEventFeed(true);
 };
 document.getElementById("addEntryModal").onclick = (e) => {
-  if (e.target.id === "addEntryModal") closeModal("addEntryModal");
+  if (e.target.id === "addEntryModal") { editingEntryId = null; closeModal("addEntryModal"); }
 };
 
 // ── Export List ──────────────────────────────────────
@@ -2135,6 +2226,56 @@ document.getElementById("createChannelBtn").onclick = createChannel;
 document.getElementById("createControllerBtn").onclick = createController;
 document.getElementById("saveControllerBtn").onclick = saveController;
 document.getElementById("deleteControllerBtn").onclick = deleteController;
+
+// ── Create Channel Modal ─────────────────────────────
+document.getElementById("createChannelModalClose").onclick = () => closeModal("createChannelModal");
+document.getElementById("createChannelCancel").onclick = () => closeModal("createChannelModal");
+document.getElementById("createChannelModal").onclick = (e) => {
+  if (e.target.id === "createChannelModal") closeModal("createChannelModal");
+};
+document.getElementById("newChannelName").onkeydown = (e) => {
+  if (e.key === "Enter") document.getElementById("createChannelConfirm").click();
+};
+document.getElementById("createChannelConfirm").onclick = async () => {
+  const name = document.getElementById("newChannelName").value.trim() || "Канал";
+  closeModal("createChannelModal");
+  await _doCreateChannel(name);
+};
+
+// ── Delete Channel Modal ─────────────────────────────
+document.getElementById("deleteChannelCancel").onclick = () => closeModal("deleteChannelModal");
+document.getElementById("deleteChannelModal").onclick = (e) => {
+  if (e.target.id === "deleteChannelModal") closeModal("deleteChannelModal");
+};
+document.getElementById("deleteChannelConfirm").onclick = async () => {
+  closeModal("deleteChannelModal");
+  await _doDeleteChannel();
+};
+
+// ── Create Controller Modal ──────────────────────────
+document.getElementById("createControllerModalClose").onclick = () => closeModal("createControllerModal");
+document.getElementById("createControllerCancel").onclick = () => closeModal("createControllerModal");
+document.getElementById("createControllerModal").onclick = (e) => {
+  if (e.target.id === "createControllerModal") closeModal("createControllerModal");
+};
+document.getElementById("newControllerName").onkeydown = (e) => {
+  if (e.key === "Enter") document.getElementById("createControllerConfirm").click();
+};
+document.getElementById("createControllerConfirm").onclick = async () => {
+  const name = document.getElementById("newControllerName").value.trim() || "Контроллер";
+  closeModal("createControllerModal");
+  await _doCreateController(name);
+};
+
+// ── Delete Controller Modal ──────────────────────────
+document.getElementById("deleteControllerCancel").onclick = () => closeModal("deleteControllerModal");
+document.getElementById("deleteControllerModal").onclick = (e) => {
+  if (e.target.id === "deleteControllerModal") closeModal("deleteControllerModal");
+};
+document.getElementById("deleteControllerConfirm").onclick = async () => {
+  closeModal("deleteControllerModal");
+  await _doDeleteController();
+};
 document.getElementById("testRelay0Btn").onclick = () => testController(0);
 document.getElementById("testRelay1Btn").onclick = () => testController(1);
 document.getElementById("ctrlR0Mode").onchange = () => updateRelayTimerState(0);
