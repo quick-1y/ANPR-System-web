@@ -226,6 +226,7 @@ class PlatesPayload(BaseModel):
 class DebugPayload(BaseModel):
     show_channel_metrics: bool = True
     log_panel_enabled: bool = False
+    disable_video_output: bool = False
 
 
 class GlobalSettingsPayload(BaseModel):

@@ -12,6 +12,7 @@ from typing import Any, Deque, Dict, List, Optional
 class DebugSettings:
     show_channel_metrics: bool = True
     log_panel_enabled: bool = False
+    disable_video_output: bool = False
 
     @classmethod
     def from_dict(cls, payload: Dict[str, Any] | None) -> "DebugSettings":
@@ -19,12 +20,14 @@ class DebugSettings:
         return cls(
             show_channel_metrics=bool(data.get("show_channel_metrics", True)),
             log_panel_enabled=bool(data.get("log_panel_enabled", False)),
+            disable_video_output=bool(data.get("disable_video_output", False)),
         )
 
     def to_dict(self) -> Dict[str, bool]:
         return {
             "show_channel_metrics": self.show_channel_metrics,
             "log_panel_enabled": self.log_panel_enabled,
+            "disable_video_output": self.disable_video_output,
         }
 
 

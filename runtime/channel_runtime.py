@@ -572,16 +572,17 @@ class ChannelProcessor:
                         postprocess_ms=postprocess_ms,
                     )
 
-                ok_enc, preview_buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-                if ok_enc:
-                    now_ts = time.time()
-                    with self._lock:
-                        channel_ctx = self._contexts.get(channel_id)
-                        if channel_ctx:
-                            channel_ctx.latest_jpeg = preview_buf.tobytes()
-                            channel_ctx.latest_frame_ts = now_ts
-                    metrics.preview_ready = True
-                    metrics.preview_last_frame_at = datetime.now(timezone.utc).isoformat()
+                if not self._debug_registry.get_settings().disable_video_output:
+                    ok_enc, preview_buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                    if ok_enc:
+                        now_ts = time.time()
+                        with self._lock:
+                            channel_ctx = self._contexts.get(channel_id)
+                            if channel_ctx:
+                                channel_ctx.latest_jpeg = preview_buf.tobytes()
+                                channel_ctx.latest_frame_ts = now_ts
+                        metrics.preview_ready = True
+                        metrics.preview_last_frame_at = datetime.now(timezone.utc).isoformat()
                 frames += 1
                 elapsed = time.monotonic() - window_start
                 if elapsed >= 1.0:

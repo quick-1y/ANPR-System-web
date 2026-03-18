@@ -255,11 +255,13 @@ function bindPreviewLifecycle(cell, img) {
   });
   img.addEventListener("error", () => {
     cell.dataset.previewLoaded = "0";
-    setNoSignalVisibility(cell, true, cell.dataset.statusText || "Ожидание кадра...");
     const statusDot = cell.querySelector(".cam-status");
     if (statusDot) {
       statusDot.classList.remove("live");
       statusDot.classList.add("off");
+    }
+    if (!Boolean((debugSettingsCache || {}).disable_video_output)) {
+      setNoSignalVisibility(cell, true, cell.dataset.statusText || "Ожидание кадра...");
     }
   });
 }
@@ -328,6 +330,19 @@ function refreshVideoCellOverlayState(cell, ch) {
   if (!cell || !ch) return;
   const statusText = statusTextForChannel(ch);
   cell.dataset.statusText = statusText;
+
+  if (Boolean((debugSettingsCache || {}).disable_video_output)) {
+    const statusDot = cell.querySelector(".cam-status");
+    if (statusDot) {
+      statusDot.classList.remove("live");
+      statusDot.classList.add("off");
+    }
+    setNoSignalVisibility(cell, true, "Видеопоток отключён настройками отладки");
+    applyMotionHighlight(cell, ch);
+    renderDebugOverlay(cell, ch);
+    return;
+  }
+
   const hasPreviewSignal = getCellPreviewSignal(cell, ch);
   const statusDot = cell.querySelector(".cam-status");
   if (statusDot) {
@@ -367,8 +382,9 @@ function renderDebugOverlay(cell, ch) {
   const dirEl = overlayLayer.querySelector(".cam-direction-label");
   if (!box || !ocrEl || !dirEl) return;
 
+  const showMetrics = Boolean((debugSettingsCache || {}).show_channel_metrics);
   const displayRect = getPreviewDisplayRect(cell, overlayData);
-  if (!bbox || bbox.length < 4 || !displayRect) {
+  if (!bbox || bbox.length < 4 || !displayRect || !showMetrics) {
     box.style.display = "none";
     ocrEl.style.display = "none";
     dirEl.style.display = "none";
@@ -424,7 +440,6 @@ function renderDebugOverlay(cell, ch) {
 
   const metricsWidget = cell.querySelector(".cam-metrics-widget");
   if (!metricsWidget) return;
-  const showMetrics = Boolean((debugSettingsCache || {}).show_channel_metrics);
   metricsWidget.style.display = showMetrics ? "grid" : "none";
   if (!showMetrics) return;
   const metrics = ch.metrics || {};
@@ -1117,6 +1132,7 @@ async function loadGlobalSettings() {
   setVal("g_countries", (g.plates.enabled_countries || []).join(","));
   setChk("d_metrics", g.debug.show_channel_metrics);
   setChk("d_log", g.debug.log_panel_enabled);
+  setChk("d_video_off", g.debug.disable_video_output);
   debugSettingsCache = g.debug || {};
   applyDebugPanelVisibility();
 }
@@ -1168,10 +1184,19 @@ async function saveGeneral() {
     debug: {
       show_channel_metrics: document.getElementById("d_metrics").checked,
       log_panel_enabled: document.getElementById("d_log").checked,
+      disable_video_output: document.getElementById("d_video_off").checked,
     },
   };
   const updated = await jfetch(api("/api/settings"), "PUT", payload);
   debugSettingsCache = (updated || {}).debug || payload.debug;
+  setChk("d_video_off", Boolean(debugSettingsCache.disable_video_output));
+  setChk("d_metrics", Boolean(debugSettingsCache.show_channel_metrics));
+  setChk("d_log", Boolean(debugSettingsCache.log_panel_enabled));
+  if (!debugSettingsCache.disable_video_output) {
+    document.querySelectorAll(".cam-preview").forEach((img) => {
+      img.dataset.url = "";
+    });
+  }
   applyDebugPanelVisibility();
   scheduleVideoGridLayout(true);
   addDebug("[OK] global settings saved", "ok");

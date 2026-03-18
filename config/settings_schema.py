@@ -138,6 +138,7 @@ def debug_defaults() -> Dict[str, Any]:
     return {
         "show_channel_metrics": False,
         "log_panel_enabled": False,
+        "disable_video_output": False,
     }
 
 

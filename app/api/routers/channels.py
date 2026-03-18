@@ -78,10 +78,15 @@ async def channel_preview_stream(channel_id: int, request: Request, container: A
     if channel_id not in channels:
         raise HTTPException(status_code=404, detail="Канал не найден")
 
+    if container.debug_registry.get_settings().disable_video_output:
+        raise HTTPException(status_code=503, detail="Видеовыход отключён")
+
     async def frame_generator():
         last_ts = 0.0
         while not container.stream_shutdown.is_set():
             if await request.is_disconnected():
+                break
+            if container.debug_registry.get_settings().disable_video_output:
                 break
             frame, frame_ts = container.processor.get_preview_frame(channel_id)
             if frame and frame_ts > last_ts:
