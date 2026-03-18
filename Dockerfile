@@ -5,17 +5,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+ENV POETRY_VERSION=2.1.1 \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_CREATE=false
+
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libglib2.0-0 libgl1 libgomp1 \
+    && apt-get install -y --no-install-recommends curl libglib2.0-0 libgl1 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
+RUN curl -sSL https://install.python-poetry.org | python3 -
+ENV PATH="/root/.local/bin:${PATH}"
 
-RUN pip install --no-cache-dir \
-    --index-url https://download.pytorch.org/whl/cpu \
-    --extra-index-url https://pypi.org/simple \
-    torch==2.8.0 torchvision==0.23.0
+COPY pyproject.toml ./
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN poetry install --no-ansi --only main
 
 COPY . .
