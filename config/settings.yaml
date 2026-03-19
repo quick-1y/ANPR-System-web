@@ -19,7 +19,7 @@ inference:
 debug:
   show_channel_metrics: false
   log_panel_enabled: false
-  disable_video_output: true
+  disable_video_output: false
 grid: 2x2
 theme: dark
 channels:

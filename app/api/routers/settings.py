@@ -1,33 +1,16 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import FileResponse
 
-from database.errors import StorageUnavailableError
 from app.api.container import AppContainer
 from app.api.deps import get_container
-from app.api.schemas import ExportBundlePayload, GlobalSettingsPayload, RetentionPolicyPayload
-from app.shared.data_lifecycle import RetentionPolicy
+from app.api.schemas import GlobalSettingsPayload
 from common.logging import configure_logging, get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
-
-
-@router.get("/api/data/policy")
-def get_data_policy(container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
-    return container.lifecycle.policy.to_storage()
-
-
-@router.put("/api/data/policy")
-def update_data_policy(payload: RetentionPolicyPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
-    policy = RetentionPolicy(**payload.model_dump())
-    container.lifecycle.update_policy(policy)
-    container.settings.save_storage_settings(policy.to_storage())
-    return {"status": "updated", "policy": policy.to_storage()}
 
 
 @router.get("/api/settings")
@@ -46,6 +29,10 @@ def get_global_settings(container: AppContainer = Depends(get_container)) -> Dic
 
 @router.put("/api/settings")
 def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+    # Snapshot pipeline-relevant settings before saving to detect changes
+    old_plates = container.settings.get_plate_settings()
+    old_storage = container.settings.get_storage_settings()
+
     container.settings.save_grid(payload.grid)
     container.settings.save_theme(payload.theme)
     reconnect_config = payload.reconnect.model_dump()
@@ -64,44 +51,15 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
     configure_logging(container.settings.get_logging_config(), service_name="api")
 
     container.refresh_storage_clients()
-    container.restart_processor_for_settings()
+
+    new_plates = payload.plates.model_dump()
+    new_storage = payload.storage.model_dump()
+    pipeline_changed = (
+        old_plates != new_plates
+        or old_storage.get("postgres_dsn") != new_storage.get("postgres_dsn")
+        or old_storage.get("screenshots_dir") != new_storage.get("screenshots_dir")
+    )
+    if pipeline_changed:
+        container.restart_processor_for_settings()
+
     return get_global_settings(container)
-
-
-@router.post("/api/data/retention/run")
-def run_retention(container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
-    try:
-        result = container.lifecycle.run_retention_cycle()
-        return {"status": "ok", **result}
-    except StorageUnavailableError as exc:
-        return {"status": "error", "detail": str(exc)}
-
-
-@router.get("/api/data/export/events.csv")
-def export_events_csv(
-    start: Optional[str] = None,
-    end: Optional[str] = None,
-    channel: Optional[str] = None,
-    plate: Optional[str] = None,
-    channel_id: Optional[int] = None,
-    container: AppContainer = Depends(get_container),
-) -> FileResponse:
-    try:
-        path = container.lifecycle.export_events_csv(start=start, end=end, channel=channel, plate=plate, channel_id=channel_id)
-        return FileResponse(path=path, filename=Path(path).name, media_type="text/csv")
-    except StorageUnavailableError as exc:
-        raise container.storage_503(exc) from exc
-
-
-@router.post("/api/data/export/bundle")
-def export_events_bundle(payload: ExportBundlePayload, container: AppContainer = Depends(get_container)) -> FileResponse:
-    try:
-        path = container.lifecycle.export_events_bundle(
-            start=payload.start,
-            end=payload.end,
-            channel=payload.channel,
-            include_media=payload.include_media,
-        )
-        return FileResponse(path=path, filename=Path(path).name, media_type="application/zip")
-    except StorageUnavailableError as exc:
-        raise container.storage_503(exc) from exc

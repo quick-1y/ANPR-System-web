@@ -250,7 +250,6 @@ class ChannelProcessor:
         if image is None or getattr(image, "size", 0) == 0:
             return None
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
             if cv2.imwrite(str(path), image, [int(cv2.IMWRITE_JPEG_QUALITY), 90]):
                 return str(path.resolve())
             logger.error("Не удалось сохранить snapshot по пути %s", path)
@@ -491,16 +490,13 @@ class ChannelProcessor:
                     self._debug_registry.cleanup_stale(channel_id)
                     continue
 
-                detector_frame = self._apply_roi_mask(frame, channel)
-
                 now_monotonic = read_finished_at
                 last_frame_at = now_monotonic
-                self._debug_registry.cleanup_stale(channel_id)
 
                 motion_active = True
                 should_process = True
                 if motion_detector is not None:
-                    motion_active = bool(motion_detector.update(detector_frame))
+                    motion_active = bool(motion_detector.update(frame))
                     metrics.motion_active = motion_active
                     if not motion_active:
                         metrics.motion_skipped_frames += 1
@@ -512,9 +508,12 @@ class ChannelProcessor:
                         metrics.detector_skipped_frames += 1
                         should_process = False
 
+                if not should_process:
+                    self._debug_registry.cleanup_stale(channel_id)
+
                 if should_process:
                     detection_started = time.monotonic()
-                    detections = detector.track(detector_frame)
+                    detections = detector.track(frame)
                     detections = self._filter_detections_by_roi(detections, frame.shape, channel)
                     detection_ms = (time.monotonic() - detection_started) * 1000.0
                     self._debug_registry.update_from_detections(channel_id, detections, frame_shape=frame.shape)

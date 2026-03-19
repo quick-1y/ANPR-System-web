@@ -25,19 +25,35 @@ class BatchRecognizer(Protocol):
 class TrackAggregator:
     """Агрегирует результаты распознавания в рамках одного трека."""
 
-    def __init__(self, best_shots: int):
+    _EVICT_INTERVAL = 10.0  # seconds between stale-track sweeps
+
+    def __init__(self, best_shots: int, ttl_seconds: float = 30.0):
         self.best_shots = max(1, best_shots)
-        self.track_texts: Dict[int, List[tuple[str, float]]] = {}
+        self.ttl_seconds = max(5.0, float(ttl_seconds))
+        self.track_texts: Dict[int, deque[tuple[str, float]]] = {}
         self.last_emitted: Dict[int, str] = {}
+        self._track_ts: Dict[int, float] = {}
+        self._last_evict: float = 0.0
+
+    def _evict_stale(self, now: float) -> None:
+        stale = [tid for tid, ts in self._track_ts.items() if now - ts > self.ttl_seconds]
+        for tid in stale:
+            self.track_texts.pop(tid, None)
+            self.last_emitted.pop(tid, None)
+            self._track_ts.pop(tid, None)
 
     def add_result(self, track_id: int, text: str, confidence: float) -> str:
         if not text:
             return ""
 
-        bucket = self.track_texts.setdefault(track_id, [])
+        now = time.monotonic()
+        self._track_ts[track_id] = now
+        if now - self._last_evict > self._EVICT_INTERVAL:
+            self._evict_stale(now)
+            self._last_evict = now
+
+        bucket = self.track_texts.setdefault(track_id, deque(maxlen=self.best_shots))
         bucket.append((text, max(0.0, float(confidence))))
-        if len(bucket) > self.best_shots:
-            bucket.pop(0)
 
         weights: Dict[str, float] = {}
         counts: Counter[str] = Counter()
@@ -62,13 +78,11 @@ class TrackAggregator:
             return consensus
         return ""
 
-    def clear_last(self, track_id: int) -> None:
-        self.last_emitted.pop(track_id, None)
-
     def reset(self, track_id: int) -> None:
         """Полностью сбрасывает историю и последний результат трека."""
         self.track_texts.pop(track_id, None)
         self.last_emitted.pop(track_id, None)
+        self._track_ts.pop(track_id, None)
 
 
 class TrackDirectionEstimator:
@@ -78,6 +92,8 @@ class TrackDirectionEstimator:
     RECEDING = "RECEDING"
     UNKNOWN = "UNKNOWN"
 
+    _EVICT_INTERVAL = 10.0  # seconds between stale-track sweeps
+
     def __init__(
         self,
         history_size: int = 12,
@@ -86,6 +102,7 @@ class TrackDirectionEstimator:
         confidence_threshold: float = 0.55,
         jitter_pixels: float = 1.0,
         min_area_change_ratio: float = 0.02,
+        history_ttl_seconds: float = 30.0,
     ) -> None:
         self.history_size = max(1, history_size)
         self.min_track_length = max(1, min_track_length)
@@ -93,7 +110,10 @@ class TrackDirectionEstimator:
         self.confidence_threshold = max(0.0, min(1.0, confidence_threshold))
         self.jitter_pixels = max(0.0, jitter_pixels)
         self.min_area_change_ratio = max(0.0, min_area_change_ratio)
+        self.history_ttl_seconds = max(5.0, float(history_ttl_seconds))
         self._history: Dict[int, deque[tuple[float, float]]] = {}
+        self._history_ts: Dict[int, float] = {}
+        self._last_evict: float = 0.0
 
     @classmethod
     def from_config(cls, config: Dict[str, float | int]) -> "TrackDirectionEstimator":
@@ -137,6 +157,12 @@ class TrackDirectionEstimator:
         density = min(1.0, vote_count / max(1, self.min_track_length))
         return float(normalized * density)
 
+    def _evict_stale_history(self, now: float) -> None:
+        stale = [tid for tid, ts in self._history_ts.items() if now - ts > self.history_ttl_seconds]
+        for tid in stale:
+            self._history.pop(tid, None)
+            self._history_ts.pop(tid, None)
+
     def update(self, track_id: int, bbox: list[int]) -> Dict[str, str]:
         if not bbox or len(bbox) != 4:
             return {"direction": self.UNKNOWN}
@@ -145,6 +171,12 @@ class TrackDirectionEstimator:
         height = max(1.0, float(bbox[3] - bbox[1]))
         center_y = (float(bbox[1]) + float(bbox[3])) / 2.0
         area = width * height
+
+        now = time.monotonic()
+        self._history_ts[track_id] = now
+        if now - self._last_evict > self._EVICT_INTERVAL:
+            self._evict_stale_history(now)
+            self._last_evict = now
 
         history = self._history.setdefault(track_id, deque(maxlen=self.history_size))
         history.append((center_y, area))
@@ -196,10 +228,16 @@ class ANPRPipeline:
         self.direction_estimator = TrackDirectionEstimator.from_config(direction_config or {})
 
     def _on_cooldown(self, plate: str) -> bool:
+        now = time.monotonic()
+        if self.cooldown_seconds > 0:
+            threshold = self.cooldown_seconds * 2
+            stale = [p for p, ts in self._last_seen.items() if now - ts > threshold]
+            for p in stale:
+                del self._last_seen[p]
         last_seen = self._last_seen.get(plate)
         if last_seen is None:
             return False
-        return (time.monotonic() - last_seen) < self.cooldown_seconds
+        return (now - last_seen) < self.cooldown_seconds
 
     def _touch_plate(self, plate: str) -> None:
         self._last_seen[plate] = time.monotonic()
