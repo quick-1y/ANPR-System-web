@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional
 
 
 @dataclass(frozen=True)
@@ -348,21 +347,12 @@ class DebugLogEntry:
 class DebugLogBus:
     def __init__(self, capacity: int = 1000) -> None:
         self._lock = threading.RLock()
+        self._condition = threading.Condition(self._lock)
         self._buffer: Deque[DebugLogEntry] = deque(maxlen=max(100, int(capacity)))
         self._seq = 0
-        self._subscribers: List[Tuple[asyncio.AbstractEventLoop, asyncio.Queue[Dict[str, Any]]]] = []
-
-    @staticmethod
-    def _put_or_drop(queue: asyncio.Queue, item: Dict[str, Any]) -> None:
-        if queue.full():
-            try:
-                queue.get_nowait()
-            except asyncio.QueueEmpty:
-                pass
-        queue.put_nowait(item)
 
     def publish(self, *, level: str, logger_name: str, message: str, service: str, channel_id: Optional[int]) -> DebugLogEntry:
-        with self._lock:
+        with self._condition:
             self._seq += 1
             entry = DebugLogEntry(
                 id=self._seq,
@@ -374,25 +364,8 @@ class DebugLogBus:
                 channel_id=channel_id,
             )
             self._buffer.append(entry)
-            subscribers = list(self._subscribers)
-        entry_dict = entry.to_dict()
-        for loop, queue in subscribers:
-            try:
-                loop.call_soon_threadsafe(self._put_or_drop, queue, entry_dict)
-            except RuntimeError:
-                pass  # loop closed
-        return entry
-
-    def subscribe(self) -> asyncio.Queue[Dict[str, Any]]:
-        loop = asyncio.get_running_loop()
-        queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue(maxsize=512)
-        with self._lock:
-            self._subscribers.append((loop, queue))
-        return queue
-
-    def unsubscribe(self, queue: asyncio.Queue[Dict[str, Any]]) -> None:
-        with self._lock:
-            self._subscribers = [(l, q) for l, q in self._subscribers if q is not queue]
+            self._condition.notify_all()
+            return entry
 
     def snapshot(self, *, limit: int = 200) -> List[Dict[str, Any]]:
         with self._lock:
@@ -400,13 +373,7 @@ class DebugLogBus:
             return [item.to_dict() for item in items]
 
     def wait_for_entries(self, last_id: int, timeout: float = 15.0) -> List[Dict[str, Any]]:
-        """Kept for non-SSE callers. Blocks the calling thread."""
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            with self._lock:
-                items = [item.to_dict() for item in self._buffer if item.id > last_id]
-                if items:
-                    return items
-            time.sleep(0.1)
-        with self._lock:
+        with self._condition:
+            if self._seq <= last_id:
+                self._condition.wait(timeout=timeout)
             return [item.to_dict() for item in self._buffer if item.id > last_id]

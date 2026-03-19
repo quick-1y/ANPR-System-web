@@ -49,8 +49,6 @@ class ChannelContext:
     metrics: ChannelMetrics = field(default_factory=ChannelMetrics)
     latest_jpeg: Optional[bytes] = None
     latest_frame_ts: float = 0.0
-    active_preview_clients: int = 0
-    latest_raw_frame: Optional[np.ndarray] = None
 
 
 @dataclass(frozen=True)
@@ -174,27 +172,6 @@ class ChannelProcessor:
             if not ctx:
                 return None, 0.0
             return ctx.latest_jpeg, ctx.latest_frame_ts
-
-    def get_snapshot_jpeg(self, channel_id: int) -> Optional[bytes]:
-        with self._lock:
-            ctx = self._contexts.get(channel_id)
-            if not ctx or ctx.latest_raw_frame is None:
-                return None
-            frame = ctx.latest_raw_frame
-        ok, buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
-        return buf.tobytes() if ok else None
-
-    def increment_preview_clients(self, channel_id: int) -> None:
-        with self._lock:
-            ctx = self._contexts.get(channel_id)
-            if ctx:
-                ctx.active_preview_clients += 1
-
-    def decrement_preview_clients(self, channel_id: int) -> None:
-        with self._lock:
-            ctx = self._contexts.get(channel_id)
-            if ctx:
-                ctx.active_preview_clients = max(0, ctx.active_preview_clients - 1)
 
     def ensure_channel(self, channel: Dict[str, Any]) -> None:
         channel_id = int(channel["id"])
@@ -346,8 +323,8 @@ class ChannelProcessor:
         detections: list[dict[str, Any]],
         frame_shape: tuple[int, ...],
         channel: dict,
-        roi_polygon: Optional[np.ndarray] = None,
     ) -> list[dict[str, Any]]:
+        roi_polygon = self._get_roi_polygon(frame_shape, channel)
         if roi_polygon is None:
             return detections
 
@@ -514,12 +491,7 @@ class ChannelProcessor:
                     self._debug_registry.cleanup_stale(channel_id)
                     continue
 
-                roi_polygon = self._get_roi_polygon(frame.shape, channel)
-
-                with self._lock:
-                    channel_ctx = self._contexts.get(channel_id)
-                    if channel_ctx:
-                        channel_ctx.latest_raw_frame = frame
+                detector_frame = self._apply_roi_mask(frame, channel)
 
                 now_monotonic = read_finished_at
                 last_frame_at = now_monotonic
@@ -528,7 +500,7 @@ class ChannelProcessor:
                 motion_active = True
                 should_process = True
                 if motion_detector is not None:
-                    motion_active = bool(motion_detector.update(frame))
+                    motion_active = bool(motion_detector.update(detector_frame))
                     metrics.motion_active = motion_active
                     if not motion_active:
                         metrics.motion_skipped_frames += 1
@@ -542,8 +514,8 @@ class ChannelProcessor:
 
                 if should_process:
                     detection_started = time.monotonic()
-                    detections = detector.track(frame)
-                    detections = self._filter_detections_by_roi(detections, frame.shape, channel, roi_polygon)
+                    detections = detector.track(detector_frame)
+                    detections = self._filter_detections_by_roi(detections, frame.shape, channel)
                     detection_ms = (time.monotonic() - detection_started) * 1000.0
                     self._debug_registry.update_from_detections(channel_id, detections, frame_shape=frame.shape)
                     ocr_started = time.monotonic()
@@ -600,10 +572,7 @@ class ChannelProcessor:
                         postprocess_ms=postprocess_ms,
                     )
 
-                with self._lock:
-                    channel_ctx = self._contexts.get(channel_id)
-                    has_clients = bool(channel_ctx and channel_ctx.active_preview_clients > 0)
-                if has_clients and not self._debug_registry.get_settings().disable_video_output:
+                if not self._debug_registry.get_settings().disable_video_output:
                     ok_enc, preview_buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
                     if ok_enc:
                         now_ts = time.time()
@@ -635,6 +604,5 @@ class ChannelProcessor:
                 if channel_ctx:
                     channel_ctx.latest_jpeg = None
                     channel_ctx.latest_frame_ts = 0.0
-                    channel_ctx.latest_raw_frame = None
             if cap is not None:
                 cap.release()
