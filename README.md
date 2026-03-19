@@ -270,12 +270,16 @@ flowchart TD
     D --> E["cv2.VideoCapture(source)"]
     E --> F["cap.read() to frame"]
 
-    F --> G["Preview ветка"]
-    G --> H["cv2.imencode jpg"]
-    H --> I["latest_jpeg в памяти<br/>ChannelContext"]
-    I --> J["Snapshot endpoint"]
+    F --> G["latest_raw_frame сохраняется в ChannelContext"]
+
+    G --> H{"active_preview_clients > 0?"}
+    H -->|Да| I["cv2.imencode jpg → latest_jpeg"]
+    H -->|Нет| J["Кодирование пропускается"]
+
     I --> K["Preview MJPEG endpoint"]
     K --> L["Web UI"]
+
+    G --> SN["Snapshot endpoint<br/>get_snapshot_jpeg()<br/>on-demand encode из latest_raw_frame"]
 
     F --> M["ANPR ветка"]
     M --> N["YOLODetector.track(frame)"]
@@ -290,20 +294,16 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["Frame (full-size)"] --> B{"ROI enabled?"}
-    B -->|Нет| C["detector_frame = frame"]
-    B -->|Да| D["detector_frame = ROI masked frame<br/>(размер кадра и координаты bbox сохраняются)"]
-
-    C --> E{"detection_mode == motion?"}
-    D --> E
-    E -->|Да| F["MotionDetector.update(detector_frame)"]
-    E -->|Нет| H["Пропустить motion gate"]
+    A["Frame (full-size)"] --> B{"detection_mode == motion?"}
+    B -->|Да| F["MotionDetector.update(frame)"]
+    B -->|Нет| H["Пропустить motion gate"]
     F --> G{"Движение активно?"}
     G -->|Нет| Z["Пропуск кадра"]
     G -->|Да| H
 
-    H --> I["YOLODetector.track(detector_frame)"]
-    I --> J{"ROI filter detections<br/>(центр bbox внутри polygon)?"}
+    H --> ROI["ROI enabled?<br/>polygon вычисляется один раз на кадр"]
+    ROI --> I["YOLODetector.track(frame)"]
+    I --> J{"ROI filter detections<br/>центр bbox внутри polygon?<br/>(point-in-polygon, без маски)"}
     J -->|Нет detections| Z
     J -->|Есть detections| K["ANPRPipeline.process_frame(full frame, detections)"]
 
@@ -353,17 +353,18 @@ flowchart TD
 
 ## Диаграмма 5. Как работает video preview для UI
 
-Здесь важно, что браузер получает не прямой RTSP, а уже подготовленный сервером MJPEG поток.
+Браузер получает не прямой RTSP, а уже подготовленный сервером MJPEG поток. JPEG кодируется только при наличии активных просмотрщиков.
 
 ```mermaid
 flowchart LR
-    A["Камера / RTSP"] --> B["Server-side ChannelProcessor"]
-    B --> C["cap.read()"]
-    C --> D["cv2.imencode jpg"]
-    D --> E["latest_jpeg cache"]
-    E --> F["Snapshot endpoint"]
-    E --> G["Preview MJPEG endpoint"]
+    A["Камера / RTSP"] --> B["channel thread cap.read()"]
+    B --> C["latest_raw_frame в ChannelContext"]
+    C --> D{"active_preview_clients > 0?"}
+    D -->|Да| E["cv2.imencode jpg → latest_jpeg"]
+    D -->|Нет| F["Кодирование пропускается"]
+    E --> G["Preview MJPEG endpoint<br/>increment/decrement clients"]
     G --> H["img / preview блок в Web UI"]
+    C --> SN["Snapshot endpoint<br/>get_snapshot_jpeg() on-demand"]
 ```
 
 ---
@@ -415,15 +416,15 @@ flowchart TD
 
 ### 3. Формирование preview
 
-Примерно раз в `0.2` секунды текущий кадр кодируется в JPEG и сохраняется в память:
-- `latest_jpeg`
-- `latest_frame_ts`
-- `preview_ready`
-- `preview_last_frame_at`
+Каждый прочитанный кадр сохраняется в `latest_raw_frame` (raw numpy array) в `ChannelContext`.
 
-Дальше API отдаёт этот же буфер:
-- как единичный снимок через `/api/channels/{id}/snapshot.jpg`;
-- как multipart MJPEG поток через `/api/channels/{id}/preview.mjpg`.
+JPEG кодируется только если есть активные клиенты preview (`active_preview_clients > 0`):
+- при наличии клиентов кадр кодируется в `latest_jpeg` и отдаётся через MJPEG поток;
+- при отсутствии клиентов кодирование пропускается (CPU экономится).
+
+Snapshot (единичный снимок) работает независимо от MJPEG:
+- `/api/channels/{id}/snapshot.jpg` вызывает `get_snapshot_jpeg()`, которая кодирует `latest_raw_frame` on-demand в момент запроса;
+- MJPEG поток: `/api/channels/{id}/preview.mjpg` — инкрементирует `active_preview_clients` при подключении и декрементирует при завершении.
 
 ### 4. Детекция и распознавание
 
@@ -471,9 +472,10 @@ UI параллельно:
 
 - `app/api/main.py` — главный FastAPI backend;
 - `app/shared/data_lifecycle.py` — общая retention/cleanup/export логика для API и worker;
-- `packages/anpr_core/channel_runtime.py` — runtime каналов;
-- `packages/anpr_core/event_bus.py` — in-memory pub/sub для live событий;
-- `packages/anpr_core/event_sink.py` — запись событий в PostgreSQL.
+- `runtime/channel_runtime.py` — runtime каналов;
+- `runtime/event_bus.py` — in-memory pub/sub для live событий;
+- `runtime/event_sink.py` — запись событий в PostgreSQL;
+- `runtime/debug.py` — `DebugLogBus`: async subscriber queue для live лог-панели.
 
 ### ANPR
 
@@ -605,8 +607,14 @@ Debug-слой централизован:
 
 - `GET /api/lists`
 - `POST /api/lists`
+- `PUT /api/lists/{list_id}`
+- `DELETE /api/lists/{list_id}`
+- `GET /api/lists/entry-by-plate`
+- `GET /api/lists/plates`
 - `GET /api/lists/{list_id}/entries`
 - `POST /api/lists/{list_id}/entries`
+- `PUT /api/lists/{list_id}/entries/{entry_id}`
+- `DELETE /api/lists/{list_id}/entries/{entry_id}`
 
 ### Хранение и экспорт
 
@@ -658,8 +666,11 @@ ANPR-System-v0.8_web/
 │   ├── worker/              # retention worker
 │   ├── web/                 # web UI (включая статические флаги: web/images/flags)
 │   └── shared/              # общая runtime-логика для API/worker (retention, export)
-├── packages/
-│   └── anpr_core/           # channel runtime, event bus, sink
+├── runtime/
+│   ├── channel_runtime.py   # channel runtime, preview, ANPR loop
+│   ├── event_bus.py         # in-memory pub/sub для live событий
+│   ├── event_sink.py        # запись событий в PostgreSQL
+│   └── debug.py             # DebugLogBus (async subscriber queue)
 ├── anpr/
 │   ├── detection/
 │   ├── pipeline/
