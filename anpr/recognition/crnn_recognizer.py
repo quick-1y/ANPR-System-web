@@ -74,25 +74,41 @@ class CRNNRecognizer:
         preds = self.model(batch)
         return self._decode_batch(preds)
 
-    def _decode_batch(self, log_probs: torch.Tensor) -> List[Tuple[str, float]]:
-        batch_probs = log_probs.permute(1, 0, 2)          # [batch, time, classes]
-        char_indices = batch_probs.argmax(dim=-1)           # [batch, time]
-        char_confs = batch_probs.exp().max(dim=-1).values   # [batch, time]
-        # Single device-to-host transfer for the entire batch
-        indices_np = char_indices.cpu().numpy()             # [batch, time]
-        confs_np = char_confs.cpu().numpy()                 # [batch, time]
+    @torch.no_grad()
+    def recognize(self, plate_image) -> Tuple[str, float]:
+        batch_result = self.recognize_batch([plate_image])
+        if not batch_result:
+            return "", 0.0
+        return batch_result[0]
 
+    def _decode_batch(self, log_probs: torch.Tensor) -> List[Tuple[str, float]]:
+        batch_probs = log_probs.permute(1, 0, 2)
         results: List[Tuple[str, float]] = []
-        for b in range(indices_np.shape[0]):
-            chars: List[str] = []
-            confidences: List[float] = []
-            prev = 0
-            for t, idx in enumerate(indices_np[b]):
-                if idx != 0 and idx != prev:
-                    chars.append(self.int_to_char.get(int(idx), ""))
-                    confidences.append(float(confs_np[b, t]))
-                prev = idx
-            text = "".join(chars)
-            avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
-            results.append((text, avg_conf))
+
+        for probs in batch_probs:
+            time_steps = probs.size(0)
+
+            decoded_chars: List[str] = []
+            char_confidences: List[float] = []
+            last_char_idx = 0
+
+            for t in range(time_steps):
+                timestep_log_probs = probs[t]
+                char_idx = int(torch.argmax(timestep_log_probs).item())
+                char_conf = float(torch.exp(torch.max(timestep_log_probs)).item())
+
+                if char_idx != 0 and char_idx != last_char_idx:
+                    decoded_chars.append(self.int_to_char.get(char_idx, ""))
+                    char_confidences.append(char_conf)
+
+                last_char_idx = char_idx
+
+            text = "".join(decoded_chars)
+            if not char_confidences:
+                results.append((text, 0.0))
+                continue
+
+            avg_confidence = sum(char_confidences) / len(char_confidences)
+            results.append((text, avg_confidence))
+
         return results

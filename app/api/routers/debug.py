@@ -58,21 +58,19 @@ def debug_logs(limit: int = 200, container: AppContainer = Depends(get_container
 
 @router.get("/api/debug/logs/stream")
 async def stream_debug_logs(request: Request, last_id: int = 0, container: AppContainer = Depends(get_container)) -> StreamingResponse:
-    queue = container.debug_log_bus.subscribe()
-
     async def generator():
-        try:
-            yield "retry: 2000\n\n"
-            while not container.stream_shutdown.is_set():
-                if await request.is_disconnected():
-                    break
-                try:
-                    item = await asyncio.wait_for(queue.get(), timeout=15.0)
-                    yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
-                except asyncio.TimeoutError:
-                    yield ": ping\n\n"
-        finally:
-            container.debug_log_bus.unsubscribe(queue)
+        cursor = max(0, int(last_id))
+        yield "retry: 2000\n\n"
+        while not container.stream_shutdown.is_set():
+            if await request.is_disconnected():
+                break
+            items = await asyncio.to_thread(container.debug_log_bus.wait_for_entries, cursor, 15.0)
+            if not items:
+                yield ": ping\n\n"
+                continue
+            for item in items:
+                cursor = max(cursor, int(item.get("id", cursor)))
+                yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
         generator(),

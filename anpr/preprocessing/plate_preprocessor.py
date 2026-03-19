@@ -12,10 +12,6 @@ import numpy as np
 class PlatePreprocessor:
     """Выполняет коррекцию перспективы и наклона для кропа номера."""
 
-    def __init__(self) -> None:
-        self._clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        self._kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-
     def _order_points(self, pts: np.ndarray) -> np.ndarray:
         rect = np.zeros((4, 2), dtype="float32")
         s = pts.sum(axis=1)
@@ -149,17 +145,16 @@ class PlatePreprocessor:
     def preprocess(self, plate_image: np.ndarray) -> np.ndarray:
         if plate_image.size == 0:
             return plate_image
-        h, w = plate_image.shape[:2]
-        if w < 20 or h < 8:
-            return plate_image  # Too small for preprocessing; let CRNN resize handle it
         gray = cv2.cvtColor(plate_image, cv2.COLOR_BGR2GRAY)
-        enhanced = self._clahe.apply(gray)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
         blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
         thresh = cv2.adaptiveThreshold(
             blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 21, 7
         )
-        cleaned = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, self._kernel, iterations=1)
-        cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, self._kernel, iterations=1)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        cleaned = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
+        cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, kernel, iterations=1)
 
         quadrilateral = self._detect_plate_quadrilateral(cleaned)
         if quadrilateral is not None:
