@@ -162,60 +162,57 @@ class ControllerAutomationService:
             return False, "custom miss"
         return True, "matched:fallback"
 
-    def handle_event(self, event: Dict[str, Any]) -> None:
-        channel_id = int(event.get("channel_id") or 0)
-        plate = str(event.get("plate") or "").strip()
-        if channel_id <= 0 or not plate:
-            return
+    def dispatch_event(self, event: Dict[str, Any]) -> None:
+        try:
+            channel_id = int(event.get("channel_id") or 0)
+            plate = str(event.get("plate") or "").strip()
+            if channel_id <= 0 or not plate:
+                return
 
-        channel = next((item for item in self._get_channels() if int(item.get("id", 0)) == channel_id), None)
-        if not channel:
-            logger.debug("channel %s relay skip: channel not found", channel_id)
-            return
+            channel = next((item for item in self._get_channels() if int(item.get("id", 0)) == channel_id), None)
+            if not channel:
+                logger.debug("channel %s relay skip: channel not found", channel_id)
+                return
 
-        controller_id = channel.get("controller_id")
-        if controller_id is None:
-            logger.debug("channel %s relay skip: no controller", channel_id)
-            return
+            controller_id = channel.get("controller_id")
+            if controller_id is None:
+                logger.debug("channel %s relay skip: no controller", channel_id)
+                return
 
-        allowed, reason = self._resolve_channel_controller_action(channel, plate)
-        if not allowed:
-            logger.debug("channel %s relay skip: %s (plate=%s)", channel_id, reason, plate)
-            return
+            allowed, reason = self._resolve_channel_controller_action(channel, plate)
+            if not allowed:
+                logger.debug("channel %s relay skip: %s (plate=%s)", channel_id, reason, plate)
+                return
 
-        controller = next((item for item in self._get_controllers() if int(item.get("id", 0)) == int(controller_id)), None)
-        if not controller:
-            logger.debug("channel %s relay skip: controller not found (controller_id=%s)", channel_id, controller_id)
-            return
+            controller = next((item for item in self._get_controllers() if int(item.get("id", 0)) == int(controller_id)), None)
+            if not controller:
+                logger.debug("channel %s relay skip: controller not found (controller_id=%s)", channel_id, controller_id)
+                return
 
-        relay_index = int(channel.get("controller_relay", 0) or 0)
-        url = self._controller_service.send_command(
-            controller,
-            relay_index,
-            True,
-            reason=f"anpr channel={channel_id} plate={plate} {reason}",
-        )
-        if not url:
+            relay_index = int(channel.get("controller_relay", 0) or 0)
+            url = self._controller_service.send_command(
+                controller,
+                relay_index,
+                True,
+                reason=f"anpr channel={channel_id} plate={plate} {reason}",
+            )
+            if not url:
+                logger.debug(
+                    "channel %s relay skip: command failed / timeout (controller_id=%s relay=%s plate=%s)",
+                    channel_id,
+                    controller_id,
+                    relay_index,
+                    plate,
+                )
+                return
             logger.debug(
-                "channel %s relay skip: command failed / timeout (controller_id=%s relay=%s plate=%s)",
+                "channel %s relay command sent: controller_id=%s relay=%s plate=%s reason=%s",
                 channel_id,
                 controller_id,
                 relay_index,
                 plate,
+                reason,
             )
-            return
-        logger.debug(
-            "channel %s relay command sent: controller_id=%s relay=%s plate=%s reason=%s",
-            channel_id,
-            controller_id,
-            relay_index,
-            plate,
-            reason,
-        )
-
-    def dispatch_event(self, event: Dict[str, Any]) -> None:
-        try:
-            self.handle_event(event)
         except Exception as exc:  # noqa: BLE001
             logger.error("controller binding processing failed: %s", exc)
 

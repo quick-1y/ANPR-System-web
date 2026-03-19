@@ -44,7 +44,7 @@ def channel_snapshot(channel_id: int, container: AppContainer = Depends(get_cont
     if channel_id not in channels:
         raise HTTPException(status_code=404, detail="Канал не найден")
 
-    frame, _ = container.processor.get_preview_frame(channel_id)
+    frame = container.processor.get_snapshot_jpeg(channel_id)
     if not frame:
         metrics = container.processor.list_states().get(channel_id)
         detail = "Preview кадр ещё не готов"
@@ -81,25 +81,30 @@ async def channel_preview_stream(channel_id: int, request: Request, container: A
     if container.debug_registry.get_settings().disable_video_output:
         raise HTTPException(status_code=503, detail="Видеовыход отключён")
 
+    container.processor.increment_preview_clients(channel_id)
+
     async def frame_generator():
-        last_ts = 0.0
-        while not container.stream_shutdown.is_set():
-            if await request.is_disconnected():
-                break
-            if container.debug_registry.get_settings().disable_video_output:
-                break
-            frame, frame_ts = container.processor.get_preview_frame(channel_id)
-            if frame and frame_ts > last_ts:
-                last_ts = frame_ts
-                yield (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n"
-                    + f"Content-Length: {len(frame)}\r\n\r\n".encode("ascii")
-                    + frame
-                    + b"\r\n"
-                )
-            else:
-                await asyncio.sleep(0.08)
+        try:
+            last_ts = 0.0
+            while not container.stream_shutdown.is_set():
+                if await request.is_disconnected():
+                    break
+                if container.debug_registry.get_settings().disable_video_output:
+                    break
+                frame, frame_ts = container.processor.get_preview_frame(channel_id)
+                if frame and frame_ts > last_ts:
+                    last_ts = frame_ts
+                    yield (
+                        b"--frame\r\n"
+                        b"Content-Type: image/jpeg\r\n"
+                        + f"Content-Length: {len(frame)}\r\n\r\n".encode("ascii")
+                        + frame
+                        + b"\r\n"
+                    )
+                else:
+                    await asyncio.sleep(0.08)
+        finally:
+            container.processor.decrement_preview_clients(channel_id)
 
     return StreamingResponse(
         frame_generator(),
@@ -124,7 +129,9 @@ def channel_health(channel_id: int, container: AppContainer = Depends(get_contai
 def create_channel(payload: ChannelPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
     channels = container.settings.get_channels()
     next_id = max([int(item.get("id", 0)) for item in channels] + [0]) + 1
+    config_defaults = ChannelConfigPayload(name=payload.name, source=payload.source).model_dump()
     channel = {
+        **config_defaults,
         "id": next_id,
         "name": payload.name,
         "source": payload.source,

@@ -33,7 +33,7 @@ class ChannelConfigPayload(BaseModel):
     controller_relay: int = Field(default=0, ge=0, le=1)
     list_filter_mode: str = Field(default="all", pattern="^(all|whitelist|custom)$")
     list_filter_list_ids: List[int] = Field(default_factory=list)
-    detection_mode: str = Field(default="motion", pattern="^(always|motion)$")
+    detection_mode: str = Field(default="always", pattern="^(always|motion)$")
     motion_threshold: float = Field(default=0.01, ge=0.0, le=1.0)
     motion_frame_stride: int = Field(default=1, ge=1, le=30)
     motion_activation_frames: int = Field(default=3, ge=1, le=120)

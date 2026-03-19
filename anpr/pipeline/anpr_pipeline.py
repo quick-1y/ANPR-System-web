@@ -27,17 +27,32 @@ class TrackAggregator:
 
     def __init__(self, best_shots: int):
         self.best_shots = max(1, best_shots)
-        self.track_texts: Dict[int, List[tuple[str, float]]] = {}
+        self.track_texts: Dict[int, deque] = {}
         self.last_emitted: Dict[int, str] = {}
+        self._track_last_seen: Dict[int, float] = {}
+        self._stale_ttl: float = max(30.0, best_shots * 2.0)
+        self._last_pruned: float = 0.0
+
+    def _prune_stale(self, now: float) -> None:
+        if now - self._last_pruned < 60.0:
+            return
+        self._last_pruned = now
+        stale = [tid for tid, ts in self._track_last_seen.items() if now - ts > self._stale_ttl]
+        for tid in stale:
+            self.track_texts.pop(tid, None)
+            self.last_emitted.pop(tid, None)
+            del self._track_last_seen[tid]
 
     def add_result(self, track_id: int, text: str, confidence: float) -> str:
         if not text:
             return ""
 
-        bucket = self.track_texts.setdefault(track_id, [])
+        now = time.monotonic()
+        self._track_last_seen[track_id] = now
+        self._prune_stale(now)
+
+        bucket = self.track_texts.setdefault(track_id, deque(maxlen=self.best_shots))
         bucket.append((text, max(0.0, float(confidence))))
-        if len(bucket) > self.best_shots:
-            bucket.pop(0)
 
         weights: Dict[str, float] = {}
         counts: Counter[str] = Counter()
@@ -56,19 +71,16 @@ class TrackAggregator:
         has_quorum = len(bucket) >= self.best_shots and counts[consensus] >= quorum
         has_weighted_majority = consensus_weight >= total_weight * 0.5
         if has_quorum and self.last_emitted.get(track_id) != consensus:
-            if not has_weighted_majority:
-                return ""
-            self.last_emitted[track_id] = consensus
-            return consensus
+            if has_weighted_majority:
+                self.last_emitted[track_id] = consensus
+                return consensus
         return ""
-
-    def clear_last(self, track_id: int) -> None:
-        self.last_emitted.pop(track_id, None)
 
     def reset(self, track_id: int) -> None:
         """Полностью сбрасывает историю и последний результат трека."""
         self.track_texts.pop(track_id, None)
         self.last_emitted.pop(track_id, None)
+        self._track_last_seen.pop(track_id, None)
 
 
 class TrackDirectionEstimator:
@@ -94,6 +106,9 @@ class TrackDirectionEstimator:
         self.jitter_pixels = max(0.0, jitter_pixels)
         self.min_area_change_ratio = max(0.0, min_area_change_ratio)
         self._history: Dict[int, deque[tuple[float, float]]] = {}
+        self._track_last_seen: Dict[int, float] = {}
+        self._stale_ttl: float = max(30.0, history_size * 2.0)
+        self._last_pruned: float = 0.0
 
     @classmethod
     def from_config(cls, config: Dict[str, float | int]) -> "TrackDirectionEstimator":
@@ -105,6 +120,15 @@ class TrackDirectionEstimator:
             jitter_pixels=float(config.get("jitter_pixels", 1.0)),
             min_area_change_ratio=float(config.get("min_area_change_ratio", 0.02)),
         )
+
+    def _prune_stale(self, now: float) -> None:
+        if now - self._last_pruned < 60.0:
+            return
+        self._last_pruned = now
+        stale = [tid for tid, ts in self._track_last_seen.items() if now - ts > self._stale_ttl]
+        for tid in stale:
+            self._history.pop(tid, None)
+            del self._track_last_seen[tid]
 
     def _filtered(self, deltas: np.ndarray, threshold: float) -> np.ndarray:
         if deltas.size == 0:
@@ -145,6 +169,10 @@ class TrackDirectionEstimator:
         height = max(1.0, float(bbox[3] - bbox[1]))
         center_y = (float(bbox[1]) + float(bbox[3])) / 2.0
         area = width * height
+
+        now = time.monotonic()
+        self._track_last_seen[track_id] = now
+        self._prune_stale(now)
 
         history = self._history.setdefault(track_id, deque(maxlen=self.history_size))
         history.append((center_y, area))
@@ -191,6 +219,7 @@ class ANPRPipeline:
         self.cooldown_seconds = max(0, cooldown_seconds)
         self.min_confidence = max(0.0, min(1.0, min_confidence))
         self._last_seen: Dict[str, float] = {}
+        self._last_seen_pruned: float = 0.0
         self.postprocessor = postprocessor
         self.preprocessor = PlatePreprocessor()
         self.direction_estimator = TrackDirectionEstimator.from_config(direction_config or {})
@@ -202,7 +231,14 @@ class ANPRPipeline:
         return (time.monotonic() - last_seen) < self.cooldown_seconds
 
     def _touch_plate(self, plate: str) -> None:
-        self._last_seen[plate] = time.monotonic()
+        now = time.monotonic()
+        self._last_seen[plate] = now
+        if now - self._last_seen_pruned >= 60.0:
+            self._last_seen_pruned = now
+            ttl = max(self.cooldown_seconds * 2, 60)
+            stale = [p for p, ts in self._last_seen.items() if now - ts > ttl]
+            for p in stale:
+                del self._last_seen[p]
 
     def process_frame(self, frame: np.ndarray, detections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         plate_inputs: List[np.ndarray] = []

@@ -7,7 +7,7 @@ Tasks are ordered by impact (highest first).
 
 ---
 
-## TASK-01 — Fix memory leak: unbounded track dicts in recognition pipeline
+## TASK-01 — Fix memory leak: unbounded track dicts in recognition pipeline ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `TrackAggregator.track_texts` and `last_emitted`, `TrackDirectionEstimator._history` — all keyed by `track_id` (int) — grow indefinitely. Track IDs are never removed. After days of operation the dicts hold thousands of stale entries, causing measurable RSS growth.
@@ -27,7 +27,7 @@ Memory usage of the recognition pipeline stabilizes after warmup. No unbounded d
 
 ---
 
-## TASK-02 — Fix memory leak: unbounded cooldown dict in `ANPRPipeline`
+## TASK-02 — Fix memory leak: unbounded cooldown dict in `ANPRPipeline` ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `ANPRPipeline._last_seen: Dict[str, float]` accumulates one entry per unique plate string recognized. It is never pruned. Over months, thousands of unique plates accumulate.
@@ -45,7 +45,7 @@ In `ANPRPipeline._on_cooldown()` or `_touch_plate()`: after updating `_last_seen
 
 ---
 
-## TASK-03 — Eliminate double ROI polygon computation per frame
+## TASK-03 — Eliminate double ROI polygon computation per frame ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `_get_roi_polygon` (parses channel dict, converts units, builds `np.ndarray`) is called twice per processed frame:
@@ -68,7 +68,7 @@ One polygon computation per processed frame instead of two. No full-frame mask a
 
 ---
 
-## TASK-04 — Fix `PlatePreprocessor`: move reusable objects to `__init__`
+## TASK-04 — Fix `PlatePreprocessor`: move reusable objects to `__init__` ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `cv2.createCLAHE(...)` and `cv2.getStructuringElement(MORPH_RECT, (3,3))` are called on every `preprocess()` invocation. These objects are stateless and identical each time.
@@ -91,7 +91,7 @@ No C++ object allocation on each detection. Small but consistent CPU improvement
 
 ---
 
-## TASK-05 — Vectorize `CRNNRecognizer._decode_batch` (CTC greedy decoder)
+## TASK-05 — Vectorize `CRNNRecognizer._decode_batch` (CTC greedy decoder) ✅ COMPLETED 2026-03-19
 
 **Problem:**
 The CTC greedy decoder uses a Python `for t in range(time_steps)` loop. Inside the loop, `torch.argmax` and `torch.exp(torch.max(...))` are called separately on each timestep tensor, causing ~time_steps device-to-host copies per batch item.
@@ -132,7 +132,7 @@ Fewer Python-to-C boundary crossings. Reduced decode time especially for batch s
 
 ---
 
-## TASK-06 — Replace `list.pop(0)` with `deque` in `TrackAggregator`
+## TASK-06 — Replace `list.pop(0)` with `deque` in `TrackAggregator` ✅ COMPLETED 2026-03-19 (implemented as part of TASK-01)
 
 **Problem:**
 `TrackAggregator.track_texts` stores per-track result lists. The list is capped with `list.pop(0)` which is O(n). This is part of the recognition hot path.
@@ -150,7 +150,7 @@ O(1) append + automatic eviction of oldest entry. No behavior change.
 
 ---
 
-## TASK-07 — Move controller plate-list DB query off the channel thread
+## TASK-07 — Move controller plate-list DB query off the channel thread ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `ControllerAutomationService.dispatch_event` is called synchronously from the channel thread (via `publish_event_sync` at `container.py:131`). Inside `dispatch_event`, `plate_in_list_type(plate, "black")` and `plate_in_list_type(plate, "white")` execute PostgreSQL queries. These block the channel thread for 1–10 ms per event.
@@ -178,7 +178,7 @@ Channel thread returns from `publish_event_sync` immediately after scheduling, w
 
 ---
 
-## TASK-08 — Fix settings save to not restart channels on UI-only changes
+## TASK-08 — Fix settings save to not restart channels on UI-only changes ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `PUT /api/settings` always calls `restart_processor_for_settings()` which destroys and rebuilds the entire `ChannelProcessor` including reloading YOLO and CRNN models (~2–5 seconds). This interrupts all camera feeds when saving UI preferences like `grid` or `theme`.
@@ -201,7 +201,7 @@ Saving UI preferences (grid, theme, log level) applies instantly without interru
 
 ---
 
-## TASK-09 — Remove dead code: `CRNNRecognizer.recognize` and `TrackAggregator.clear_last`
+## TASK-09 — Remove dead code: `CRNNRecognizer.recognize` and `TrackAggregator.clear_last` ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `CRNNRecognizer.recognize()` (line 78) and `TrackAggregator.clear_last()` (line 65) are never called anywhere in the codebase. They are dead code.
@@ -222,7 +222,7 @@ Slightly smaller codebase, no ambiguity about which method to call for single-im
 
 ---
 
-## TASK-10 — Add minimum crop size guard in `PlatePreprocessor.preprocess`
+## TASK-10 — Add minimum crop size guard in `PlatePreprocessor.preprocess` ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `PlatePreprocessor.preprocess` only guards against `plate_image.size == 0`. For very small crops (e.g., 30×8 pixels from a distant vehicle), it runs the full preprocessing pipeline (CLAHE, threshold, contour detection, Hough transform) producing meaningless output that wastes CPU.
@@ -247,7 +247,7 @@ Tiny crops skip the expensive preprocessing steps. The CRNN's internal resize ha
 
 ---
 
-## TASK-11 — Align `detection_mode` defaults between schema and runtime
+## TASK-11 — Align `detection_mode` defaults between schema and runtime ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `ChannelConfigPayload.detection_mode` defaults to `"motion"` (schema default). `channel_runtime.py` line 366 falls back to `"always"` when the field is absent from the channel dict. A newly created channel (via `POST /api/channels`) has no `detection_mode` field stored, so the runtime uses `"always"` — but if saved via the config form, it stores `"motion"`. This is a hidden inconsistency.
@@ -269,7 +269,7 @@ New channels always have consistent behavior regardless of whether their config 
 
 ---
 
-## TASK-12 — Skip JPEG preview encoding when no clients are watching
+## TASK-12 — Skip JPEG preview encoding when no clients are watching ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `cv2.imencode('.jpg', frame, ...)` runs on every frame for every channel, regardless of whether any browser is connected to the MJPEG stream. For 4 channels at 25 fps at 1080p, this consumes significant CPU (5–15 ms per encode).
@@ -293,7 +293,7 @@ Zero JPEG encoding CPU when no browser is viewing the preview. Full encoding res
 
 ---
 
-## TASK-13 — Replace `DebugLogBus` polling with async subscriber queue
+## TASK-13 — Replace `DebugLogBus` polling with async subscriber queue ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `stream_debug_logs` uses `asyncio.to_thread(debug_log_bus.wait_for_entries, cursor, 15.0)` which blocks a thread pool thread for up to 15 seconds per connected SSE client. With multiple debug panel clients, multiple threads are permanently blocked.
@@ -316,7 +316,7 @@ No thread pool threads permanently blocked for debug log SSE. Better resource ef
 
 ---
 
-## TASK-14 — Merge `dispatch_event` / `handle_event` in `ControllerAutomationService`
+## TASK-14 — Merge `dispatch_event` / `handle_event` in `ControllerAutomationService` ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `dispatch_event` is a one-line wrapper over `handle_event` adding only exception logging. This indirection adds no semantic value and creates confusion about which method to call.
@@ -334,7 +334,7 @@ Single, clearly-named method `dispatch_event` with the complete logic inline.
 
 ---
 
-## TASK-15 — Split `app/api/routers/settings.py` into `settings.py` and `data.py`
+## TASK-15 — Split `app/api/routers/settings.py` into `settings.py` and `data.py` ✅ COMPLETED 2026-03-19
 
 **Problem:**
 `settings.py` router contains routes for two distinct concerns: (1) global application settings (`/api/settings`) and (2) data lifecycle management (`/api/data/policy`, `/api/data/retention/run`, `/api/data/export/*`). The filename is misleading.

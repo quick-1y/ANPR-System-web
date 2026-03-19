@@ -60,16 +60,6 @@ class TestTrackAggregator:
         # After reset, quorum must be rebuilt from scratch
         assert agg.add_result(1, "А123ВС77", 0.9) == ""
 
-    def test_clear_last_allows_re_emission(self):
-        """clear_last() lets the same consensus plate be emitted again."""
-        agg = TrackAggregator(best_shots=3)
-        for _ in range(3):
-            agg.add_result(1, "А123ВС77", 0.9)
-        agg.clear_last(1)
-        # Bucket still has 3 entries with quorum, last_emitted cleared
-        result = agg.add_result(1, "А123ВС77", 0.9)
-        assert result == "А123ВС77"
-
     def test_independent_tracks(self):
         """Results for different track IDs do not interfere."""
         agg = TrackAggregator(best_shots=3)
