@@ -109,6 +109,92 @@ channels:
   controller_relay: 0
   list_filter_mode: whitelist
   list_filter_list_ids: []
+- id: 3
+  name: молл
+  source: rtsp://admin:admin@195.239.135.49:2003/0
+  enabled: true
+  roi_enabled: true
+  region:
+    unit: percent
+    points:
+    - x: 0.0
+      y: 0.0
+    - x: 100.0
+      y: 0.0
+    - x: 100.0
+      y: 100.0
+    - x: 0.0
+      y: 100.0
+  best_shots: 3
+  cooldown_seconds: 5
+  ocr_min_confidence: 0.6
+  direction:
+    history_size: 12
+    min_track_length: 3
+    smoothing_window: 5
+    confidence_threshold: 0.55
+    jitter_pixels: 1.0
+    min_area_change_ratio: 0.02
+  detection_mode: motion
+  detector_frame_stride: 2
+  motion_threshold: 0.01
+  motion_frame_stride: 1
+  motion_activation_frames: 3
+  motion_release_frames: 100
+  size_filter_enabled: true
+  min_plate_size:
+    width: 80
+    height: 20
+  max_plate_size:
+    width: 600
+    height: 240
+  controller_id: null
+  controller_relay: 0
+  list_filter_mode: all
+  list_filter_list_ids: []
+- id: 4
+  name: молл
+  source: rtsp://admin:admin@195.239.135.49:2002/0
+  enabled: true
+  roi_enabled: true
+  region:
+    unit: percent
+    points:
+    - x: 0.0
+      y: 0.0
+    - x: 100.0
+      y: 0.0
+    - x: 100.0
+      y: 100.0
+    - x: 0.0
+      y: 100.0
+  best_shots: 3
+  cooldown_seconds: 5
+  ocr_min_confidence: 0.6
+  direction:
+    history_size: 12
+    min_track_length: 3
+    smoothing_window: 5
+    confidence_threshold: 0.55
+    jitter_pixels: 1.0
+    min_area_change_ratio: 0.02
+  detection_mode: motion
+  detector_frame_stride: 2
+  motion_threshold: 0.01
+  motion_frame_stride: 1
+  motion_activation_frames: 2
+  motion_release_frames: 100
+  size_filter_enabled: true
+  min_plate_size:
+    width: 80
+    height: 20
+  max_plate_size:
+    width: 600
+    height: 240
+  controller_id: null
+  controller_relay: 0
+  list_filter_mode: all
+  list_filter_list_ids: []
 controllers:
 - id: 1
   name: Контроллер
