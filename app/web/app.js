@@ -207,6 +207,9 @@ async function refreshChannels() {
   renderVideoGrid();
   renderChannelsList();
   fillChannelFilter();
+  if (!selectedChannelId && state.channels.length) {
+    await selectChannel(state.channels[0].id);
+  }
 }
 function gridConfig(v) {
   if (v === "1x1") return [1, 1];
@@ -1259,21 +1262,17 @@ function renderChannelsList() {
     box.innerHTML = '<div class="ch-item">Нет каналов</div>';
     return;
   }
+  const selectedNum = Number(selectedChannelId);
   state.channels.forEach((c) => {
     const run = (c.metrics || {}).state === "running";
     const row = document.createElement("div");
-    row.className = `ch-item ${c.id === selectedChannelId ? "active" : ""}`;
+    row.className = `ch-item ${Number(c.id) === selectedNum ? "active" : ""}`;
     row.innerHTML = `<div class='ch-item-dot ${run ? "" : "off"}'></div> ${c.name}`;
     row.onclick = () => selectChannel(c.id);
     box.appendChild(row);
   });
-  if (!state.channels.some((c) => c.id === selectedChannelId)) {
+  if (selectedChannelId != null && !state.channels.some((c) => Number(c.id) === selectedNum)) {
     selectedChannelId = null;
-  }
-  if (!selectedChannelId) {
-    selectedChannelId = state.channels[0].id;
-    selectChannel(selectedChannelId);
-    return;
   }
   syncChannelConfigVisibility();
 }
