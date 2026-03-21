@@ -7,197 +7,46 @@
 ![CRNN](https://img.shields.io/badge/OCR-CRNN-orange.svg)
 ![Storage](https://img.shields.io/badge/Data-PostgreSQL-blue.svg)
 
-Система автоматического распознавания автомобильных номеров.
+Многоканальная система автоматического распознавания автомобильных номеров с web-интерфейсом оператора.
 
-Проект выполняет server-side обработку видеопотоков, распознаёт номера, сохраняет события, публикует live-обновления в браузер и отдаёт live preview без отдельного медиасервера.
+Система выполняет server-side обработку видеопотоков, распознаёт номера, сохраняет события в PostgreSQL, публикует live-обновления в браузер через SSE и отдаёт live preview по MJPEG без отдельного медиасервера.
 
 ---
 
-## Что умеет система
+## Возможности
 
-- многоканальная обработка видео: отдельный runtime на каждый канал;
-- server-side ANPR pipeline: детекция, OCR, агрегация по треку, постобработка, cooldown;
-- web UI оператора: наблюдение, журнал, списки, настройки;
+- многоканальная обработка видео: отдельный поток исполнения на каждый канал;
+- server-side ANPR pipeline: детекция (YOLOv8), OCR (CRNN), агрегация по треку, постобработка, cooldown;
+- web UI оператора: наблюдение, журнал событий, управление списками, настройки;
 - live preview по MJPEG из того же channel runtime;
-- live-события через SSE;
+- live-события через SSE без опроса (long-lived stream с keepalive);
 - управление каналами через API: создать, изменить, запустить, остановить, перезапустить;
-- настройка ROI, размера номера, OCR порогов, cooldown и direction heuristics;
-- white/black/custom plate lists;
-- управление контроллерами через API;
-- retention / cleanup / CSV / ZIP export;
-- PostgreSQL как единственный supported storage backend.
+- настройка ROI, размера номерного знака, OCR порогов, cooldown, motion gate;
+- white / black / custom plate lists с фильтрацией событий для автоматической сработки реле;
+- управление аппаратными контроллерами через API (тип DTWONDER2CH);
+- retention / cleanup / CSV / ZIP export через отдельный worker-сервис;
+- PostgreSQL — единственный поддерживаемый backend хранения данных.
 
 ---
 
-## Как устроен проект
+## Архитектура
 
-Система разделена на три основных контура:
+Система разделена на три контура:
 
-1. **API service**  
-   FastAPI приложение, которое:
-   - обслуживает web UI;
-   - хранит и отдаёт настройки;
-   - управляет каналами;
-   - публикует live events;
-   - отдаёт snapshot и MJPEG preview.
+1. **API service** (`app/api/`) — FastAPI-приложение: web UI, REST API, управление каналами, SSE-поток событий, preview endpoints.
+2. **Channel runtime / ANPR core** (`runtime/`, `anpr/`) — для каждого канала создаётся отдельный поток, который открывает источник видео, формирует MJPEG preview в памяти и прогоняет кадры через полный ANPR pipeline.
+3. **Retention worker** (`app/worker/`) — отдельный FastAPI-сервис для очистки старых событий, удаления медиа, контроля размера хранилища и экспорта.
 
-2. **Channel runtime / ANPR Core**  
-   Для каждого канала создаётся отдельный поток обработки, который:
-   - открывает источник видео;
-   - читает кадры;
-   - формирует preview JPEG в памяти;
-   - прогоняет кадры через YOLO + OCR pipeline;
-   - сохраняет события в storage;
-   - отправляет события в EventBus.
-
-3. **Retention worker**  
-   Отдельный сервис для:
-   - очистки старых событий;
-   - удаления старых медиа;
-   - контроля размера media storage;
-   - экспорта CSV / ZIP.
-
----
-
-## Быстрый старт
-
-Поддерживаемая модель runtime: Docker Compose.
-
-### Предварительные требования
-
-- Docker Engine 24+
-- Docker Compose v2+
-- Файлы моделей в `anpr/models/`
-
-### Подготовка конфигурации
-
-```bash
-cp .env.example .env
-```
-
-### Рекомендуемый запуск
-
-```bash
-docker compose up -d --build
-```
-
-### Что поднимается
-
-- `nginx` — единственная опубликованная точка входа с хоста;
-- `api` — FastAPI + Web UI + channel runtime orchestration;
-- `retention_worker` — фоновый retention/cleanup;
-- `postgres` — PostgreSQL c инициализацией схемы.
-
-### Порты и доступ
-
-- `HTTP_PORT` (по умолчанию `8080`) публикуется наружу сервисом `nginx`.
-- `postgres` наружу не публикуется и доступен только внутри docker-сети.
-- `api` и `retention_worker` доступны по внутренним DNS-именам контейнерной сети (`api:8080`, `retention_worker:8092`).
-
-Точки доступа:
-- Web UI: `http://localhost:${HTTP_PORT}`
-- API health: `http://localhost:${HTTP_PORT}/api/health`
-- Worker health: `http://localhost:${HTTP_PORT}/worker/health`
-
-### Volumes
-
-- `pgdata` — данные PostgreSQL;
-- `media_data` — `data/screenshots` и `data/exports` для API/worker;
-- `logs_data` — `logs` для API/worker.
-
-### Логи и диагностика
-
-```bash
-docker compose logs -f nginx api retention_worker postgres
-```
-
-Централизованное логирование настроено через единый слой `common/logging.py` для API, worker и runtime-компонентов.
-
-- директория логов берётся из `storage.logs_dir` (по умолчанию `logs`);
-- файлы разделены по сервисам и часу: `api_YYYY-MM-DD_HH-00.log`, `worker_YYYY-MM-DD_HH-00.log`;
-- поддерживаемые уровни: `ALL`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`;
-- `ALL` отключает фильтрацию по уровню (в Python logging соответствует `NOTSET`).
-
-Проверки:
-
-```bash
-curl http://localhost:${HTTP_PORT}/api/health
-curl http://localhost:${HTTP_PORT}/worker/health
-curl http://localhost:${HTTP_PORT}/api/channels
-curl -o snapshot.jpg http://localhost:${HTTP_PORT}/api/channels/1/snapshot.jpg
-```
-
-### Обновление / пересборка
-
-```bash
-docker compose pull
-docker compose build --no-cache
-docker compose up -d
-```
-
-### Остановка
-
-```bash
-docker compose down
-```
-
-### Полный сброс данных (осторожно)
-
-```bash
-docker compose down -v
-```
-
----
-
-## Схема конфигурации
-
-- `.env` — единственный слой переменных окружения для контейнеров (`POSTGRES_*`, `POSTGRES_DSN`, `HTTP_PORT`, `LOG_LEVEL`, `SETTINGS_PATH`) и лежит в корне проекта.
-- `.env.example` — шаблон для Docker Compose, лежит в корне проекта и не используется как runtime-файл.
-- `config/settings.yaml` — единственный рабочий settings-файл ANPR runtime (каналы, ROI, OCR/детекция, retention, контроллеры).
-- `settings.example.yaml` и root `settings.yaml` не используются.
-- `api` и `retention_worker` используют один и тот же путь `SETTINGS_PATH=/app/config/settings.yaml`.
-- PostgreSQL — единственный backend runtime-данных (события, списки, записи).
-
-Перед запуском нужно подготовить:
-- `.env` (из `.env.example`);
-- `config/settings.yaml` (рабочий конфиг приложения).
-
-Бэкап/перенос конфигурации выполняется копированием `config/settings.yaml` и `.env`.
-
-Важно: значения по умолчанию в конфигурации ориентированы на docker-сеть (`postgres` как hostname БД).
-
-### Версионирование и совместимость `settings.yaml`
-
-В проекте действует единый механизм upgrade/compatibility для системных настроек:
-
-- Каноническая линия схемы: `settings_lineage: mainline`.
-- Текущая версия схемы для этой линии: `settings_version: 1`.
-- При загрузке настроек система всегда приводит supported legacy-конфиги к текущему каноническому формату и, если были изменения, сохраняет результат обратно в `config/settings.yaml`.
-
-Как это работает:
-
-1. Если в файле **нет** `settings_lineage`, конфиг трактуется как legacy-формат и проходит compatibility-upgrade (включая нормализацию ROI/direction).
-2. Если `settings_lineage == mainline`, применяется проверка версии для текущей линии:
-   - поддерживаемые версии подтягиваются до актуальной схемы;
-   - future-версия (`settings_version` выше поддерживаемой) считается несовместимой и вызывает явную ошибку (без silent downgrade файла).
-3. Если `settings_lineage` присутствует, но отличается от `mainline`, конфиг считается неподдерживаемой линией схемы и загрузка завершается явной ошибкой (без принудительной перезаписи в `mainline`).
-
-Правило развития схемы:
-
-- любое изменение структуры/формата полей `config/settings.yaml` требует повышения версии схемы и обновления compatibility-path до новой версии.
-
----
-
-## Диаграмма 1. Общая схема взаимодействия сервисов
+### Диаграмма 1. Общая схема взаимодействия сервисов
 
 ```mermaid
 flowchart TD
-    USER["Оператор / Браузер"] --> UI["Web UI<br/>app/web/index.html"]
+    USER["Оператор / Браузер"] --> UI["Web UI\napp/web/index.html"]
 
-    subgraph API["API service / FastAPI<br/>app/api/main.py"]
+    subgraph API["API service / FastAPI\napp/api/main.py"]
         HTTP["REST API"]
         SSE["SSE stream"]
-        PREVIEW["Preview endpoints<br/>snapshot and preview"]
+        PREVIEW["Preview endpoints\nsnapshot / preview.mjpg"]
         PROC["ChannelProcessor"]
         BUS["EventBus"]
         SETTINGS["SettingsManager"]
@@ -207,7 +56,7 @@ flowchart TD
         LIFE["DataLifecycleService"]
     end
 
-    subgraph CORE["ANPR Core runtime"]
+    subgraph CORE["Channel runtime / ANPR core"]
         SRC["RTSP / HTTP / file / camera"]
         CH["Channel thread"]
         YOLO["YOLODetector"]
@@ -215,7 +64,7 @@ flowchart TD
         SINK["EventSink"]
     end
 
-    subgraph WORKER["Retention worker<br/>app/worker/main.py"]
+    subgraph WORKER["Retention worker\napp/worker/main.py"]
         SCH["RetentionScheduler"]
         WLIFE["DataLifecycleService"]
     end
@@ -237,7 +86,6 @@ flowchart TD
     HTTP --> LIFE
 
     PROC --> CH
-    SETTINGS --> CH
     SRC --> CH
     CH --> YOLO
     YOLO --> PIPE
@@ -258,41 +106,118 @@ flowchart TD
 
 ---
 
-## Диаграмма 2. Что происходит после подключения видеопотока
+## Быстрый старт
 
-Эта схема отвечает на вопрос: как канал получает видео, где рождается preview и куда уходит кадр на распознавание.
+Поддерживаемая модель runtime: Docker Compose.
 
-```mermaid
-flowchart TD
-    A["Источник видео<br/>RTSP / HTTP / файл / камера"] --> B["ChannelProcessor.ensure_channel"]
-    B --> C["ChannelProcessor.start"]
-    C --> D["Отдельный поток channel-CHANNEL_ID"]
-    D --> E["cv2.VideoCapture(source)"]
-    E --> F["cap.read() to frame"]
+### Требования
 
-    F --> G["Preview ветка"]
-    G --> H["cv2.imencode jpg"]
-    H --> I["latest_jpeg в памяти<br/>ChannelContext"]
-    I --> J["Snapshot endpoint"]
-    I --> K["Preview MJPEG endpoint"]
-    K --> L["Web UI"]
+- Docker Engine 24+
+- Docker Compose v2+
+- файлы моделей в `anpr/models/yolo/` и `anpr/models/ocr_crnn/`
 
-    F --> M["ANPR ветка"]
-    M --> N["YOLODetector.track(frame)"]
-    N --> O["ANPRPipeline.process_frame(...)"]
+### Подготовка
+
+```bash
+cp .env.example .env
+# при необходимости отредактировать .env
+```
+
+### Запуск
+
+```bash
+docker compose up -d --build
+```
+
+Поднимаются четыре сервиса:
+
+| Сервис | Описание | Внутренний адрес |
+|---|---|---|
+| `nginx` | Reverse proxy, единственная публичная точка входа | `HTTP_PORT` (по умолчанию `8080`) |
+| `api` | FastAPI + Web UI + channel runtime | `api:8080` |
+| `retention_worker` | Retention / cleanup / export | `retention_worker:8092` |
+| `postgres` | PostgreSQL 16 с init-схемой | `postgres:5432` (только внутри сети) |
+
+**Volumes:**
+- `pgdata` — данные PostgreSQL
+- `media_data` — `data/screenshots` и `data/exports`
+- `logs_data` — `logs`
+
+### Проверка
+
+```bash
+curl http://localhost:8080/api/health
+curl http://localhost:8080/worker/health
+curl http://localhost:8080/api/channels
+curl -o snapshot.jpg http://localhost:8080/api/channels/1/snapshot.jpg
+```
+
+### Обновление / сброс
+
+```bash
+# Пересборка
+docker compose build --no-cache && docker compose up -d
+
+# Остановка
+docker compose down
+
+# Полный сброс данных (удаляет volumes)
+docker compose down -v
 ```
 
 ---
 
-## Диаграмма 3. Внутренний ANPR pipeline
+## Конфигурация
 
-Это основная процессная диаграмма распознавания номера в текущем проекте.
+| Файл | Назначение |
+|---|---|
+| `.env` | Переменные окружения для Docker Compose (`POSTGRES_*`, `HTTP_PORT`, `LOG_LEVEL`, `API_KEY`, `SETTINGS_PATH`) |
+| `.env.example` | Шаблон `.env` |
+| `config/settings.yaml` | Runtime-конфигурация: каналы, ROI, OCR, retention, контроллеры |
+
+API и retention_worker используют один и тот же `SETTINGS_PATH=/app/config/settings.yaml`. PostgreSQL — единственный backend runtime-данных.
+
+### Версионирование `settings.yaml`
+
+- `settings_lineage: mainline` — каноническая линия схемы.
+- `settings_version: 1` — текущая версия для этой линии.
+- При загрузке legacy-конфиги (без `settings_lineage`) автоматически мигрируют до текущей схемы и сохраняются обратно.
+- `settings_version` выше поддерживаемой → явная ошибка (без silent downgrade).
+- Неизвестная `settings_lineage` → явная ошибка (без принудительной перезаписи).
+- Любое изменение структуры полей требует повышения версии схемы и обновления migration path.
+
+---
+
+## ANPR Pipeline
+
+### Диаграмма 2. Видеоввод и формирование preview
 
 ```mermaid
 flowchart TD
-    A["Frame (full-size)"] --> B{"ROI enabled?"}
+    A["Источник видео\nRTSP / HTTP / файл / камера"] --> B["ChannelProcessor.start()"]
+    B --> C["Поток channel-{CHANNEL_ID}"]
+    C --> D["cv2.VideoCapture(source)"]
+    D --> E["cap.read() → frame"]
+
+    E --> G["Preview ветка\n~раз в 0.2 с"]
+    G --> H["cv2.imencode('.jpg', frame)"]
+    H --> I["latest_jpeg в памяти\nChannelContext"]
+    I --> J["GET /api/channels/{id}/snapshot.jpg"]
+    I --> K["GET /api/channels/{id}/preview.mjpg"]
+    K --> L["Web UI"]
+
+    E --> M["ANPR ветка"]
+    M --> N["YOLODetector.track(frame)"]
+    N --> O["ANPRPipeline.process_frame(...)"]
+```
+
+### Диаграмма 3. Внутренний ANPR pipeline
+
+```mermaid
+flowchart TD
+    A["Frame"] --> B{"ROI enabled?"}
     B -->|Нет| C["detector_frame = frame"]
-    B -->|Да| D["detector_frame = ROI masked frame<br/>(размер кадра и координаты bbox сохраняются)"]
+    B -->|Да| D["detector_frame = ROI-masked frame"]
 
     C --> E{"detection_mode == motion?"}
     D --> E
@@ -303,22 +228,22 @@ flowchart TD
     G -->|Да| H
 
     H --> I["YOLODetector.track(detector_frame)"]
-    I --> J{"ROI filter detections<br/>(центр bbox внутри polygon)?"}
-    J -->|Нет detections| Z
-    J -->|Есть detections| K["ANPRPipeline.process_frame(full frame, detections)"]
+    I --> J{"Detections в ROI-polygon?"}
+    J -->|Нет| Z
+    J -->|Да| K["ANPRPipeline.process_frame(full frame, detections)"]
 
-    K --> L{"Размер номера подходит?"}
+    K --> L{"Размер номера\nв допустимом диапазоне?"}
     L -->|Нет| Z
     L -->|Да| M["TrackDirectionEstimator.update(...)"]
-    M --> N["Вырезание bbox из full frame"]
+    M --> N["Кроп bbox из full frame"]
     N --> O["PlatePreprocessor.preprocess(...)"]
     O --> P["CRNNRecognizer.recognize_batch(...)"]
 
-    P --> Q{"confidence >= ocr_min_confidence?"}
+    P --> Q{"confidence >=\nocr_min_confidence?"}
     Q -->|Нет| U["Пометить как unreadable"]
     Q -->|Да| R{"Есть track_id?"}
 
-    R -->|Да| S["TrackAggregator<br/>best shots + quorum + weighted majority"]
+    R -->|Да| S["TrackAggregator\nbest shots + quorum + weighted majority"]
     R -->|Нет| T["Использовать текущий OCR текст"]
 
     S --> V["PlatePostProcessor.process(...)"]
@@ -328,324 +253,301 @@ flowchart TD
     W -->|Нет| Z
     W -->|Да| X{"Cooldown прошёл?"}
     X -->|Нет| Z
-    X -->|Да| Y["Сформировать готовое событие"]
+    X -->|Да| Y["Сформировать событие"]
 ```
+
+### Алгоритмы ядра
+
+| Компонент | Алгоритм |
+|---|---|
+| **YOLODetector** | YOLOv8 с CUDA → CPU fallback; tracking fallback при потере трека; padding bbox перед кропом |
+| **MotionDetector** | Абсолютная разность кадров → порог → гистерезис (счётчики активации/деактивации) |
+| **PlatePreprocessor** | CLAHE + морфология → поиск четырёх точек → перспективная коррекция → выравнивание по HoughLines / min-area-rect |
+| **CRNNRecognizer** | INT8-квантованная CRNN (32×128, grayscale); CTC-decode: argmax по шагам, удаление повторов, confidence = exp(mean(max logits)) |
+| **TrackAggregator** | Скользящий буфер (text, confidence) на трек; взвешенное голосование с порогом quorum; TTL-вытеснение |
+| **TrackDirectionEstimator** | История center_y и площади bbox на трек; APPROACHING = center_y ↓ + area ↑; RECEDING = center_y ↑ + area ↓; confidence = tanh(score) × density |
+| **PlatePostProcessor** | Нормализация (uppercase, Ё→Е, strip) → коррекции по стране → валидация против regex-форматов YAML-конфигов |
 
 ---
 
-## Диаграмма 4. Как событие сохраняется и попадает в UI
+## Поток данных
+
+### Диаграмма 4. Сохранение и публикация события
 
 ```mermaid
 flowchart TD
     A["Готовое событие"] --> B["EventSink.insert_event(...)"]
     B --> D["PostgresEventDatabase.insert_event(...)"]
+    D --> PG[("PostgreSQL")]
 
     A --> I["event_callback"]
     I --> J["EventBus.publish(...)"]
-    J --> K["SSE endpoint for events stream"]
+    J --> K["GET /api/events/stream (SSE)"]
     K --> L["EventSource в Web UI"]
 
-    D --> M["REST endpoint for events list"]
-    M --> N["Журнал событий / детали события"]
+    PG --> M["GET /api/events (paginated)"]
+    M --> N["Журнал / детали события"]
 ```
 
----
+### Шаги обработки
 
-## Диаграмма 5. Как работает video preview для UI
-
-Здесь важно, что браузер получает не прямой RTSP, а уже подготовленный сервером MJPEG поток.
-
-```mermaid
-flowchart LR
-    A["Камера / RTSP"] --> B["Server-side ChannelProcessor"]
-    B --> C["cap.read()"]
-    C --> D["cv2.imencode jpg"]
-    D --> E["latest_jpeg cache"]
-    E --> F["Snapshot endpoint"]
-    E --> G["Preview MJPEG endpoint"]
-    G --> H["img / preview блок в Web UI"]
-```
+1. **Подключение канала** — при старте API читает каналы из `config/settings.yaml`; `ChannelProcessor` создаёт `ChannelContext` и запускает поток для каждого `enabled=true` канала.
+2. **Получение кадров** — поток открывает источник через `cv2.VideoCapture(source)` и в цикле вызывает `cap.read()`.
+3. **Reconnect логика**:
+   - `reconnect.signal_loss.enabled` — контроль таймаута чтения; при таймауте увеличивается `timeout_count`, выполняется controlled reconnect.
+   - `reconnect.periodic.enabled` — принудительный reconnect каждые `interval_minutes` независимо от signal-loss.
+   - При каждом reconnect увеличивается `reconnect_count`.
+4. **Preview** — ~раз в 0.2 с кадр кодируется в JPEG и сохраняется в `ChannelContext.latest_jpeg`; отдаётся как snapshot или MJPEG поток.
+5. **Детекция и распознавание** — кадр идёт в `YOLODetector.track()`, затем в `ANPRPipeline.process_frame()`.
+6. **Сохранение события** — валидный номер (с прошедшим cooldown) записывается в PostgreSQL через `EventSink`, затем публикуется в `EventBus` для SSE.
 
 ---
 
-## Диаграмма 6. Retention и обслуживание хранения
+## Модули
 
-```mermaid
-flowchart TD
-    A["Storage policy"] --> B["Retention worker startup"]
-    B --> C["RetentionScheduler.start()"]
-    C --> D{"auto_cleanup_enabled?"}
-    D -->|Да| E["run_retention_cycle()"]
-    D -->|Нет| J["Sleep"]
+### app/ — Приложение
 
-    E --> F["cleanup_old_events()"]
-    E --> G["cleanup_old_media()"]
-    E --> H["enforce_storage_limit()"]
-    E --> I["export and bundle use same lifecycle service"]
+| Файл | Ответственность |
+|---|---|
+| `app/api/main.py` | FastAPI app, middleware, роутеры, lifecycle |
+| `app/api/auth.py` | `APIKeyMiddleware`: валидация ключа из заголовка / query param; исключения для health, SSE, preview |
+| `app/api/container.py` | `AppContainer`: DI-контейнер всех сервисов; `build()`, `startup()`, `shutdown()` |
+| `app/api/deps.py` | FastAPI зависимости (`get_container()`) |
+| `app/api/schemas.py` | Все Pydantic модели запросов и ответов |
+| `app/api/routers/channels.py` | CRUD каналов, start/stop/restart, snapshot, MJPEG, health |
+| `app/api/routers/events.py` | Журнал событий, детали, медиа, SSE-поток |
+| `app/api/routers/controllers.py` | CRUD аппаратных контроллеров, тест реле |
+| `app/api/routers/lists.py` | Управление plate lists и записями |
+| `app/api/routers/settings.py` | Глобальные настройки (с перезапуском pipeline при изменении) |
+| `app/api/routers/data.py` | Retention policy, ручной запуск, CSV/ZIP export |
+| `app/api/routers/system.py` | Health check, CPU/RAM, статус БД, Web UI |
+| `app/api/routers/debug.py` | Debug-настройки, overlay state, лог-панель SSE |
+| `app/worker/main.py` | `RetentionScheduler`: async цикл retention; отдельный FastAPI |
+| `app/shared/data_lifecycle.py` | `DataLifecycleService`: cleanup событий/медиа, контроль размера, CSV/ZIP export |
+| `app/web/` | Статика Web UI (HTML, JS, CSS, флаги стран) |
 
-    F --> K[("PostgreSQL")]
-    G --> L[("media dir")]
-    H --> L
+### runtime/ — Channel Runtime
 
-    J --> C
-    E --> C
-```
+| Файл | Ответственность |
+|---|---|
+| `runtime/channel_runtime.py` | `ChannelProcessor`: запуск/остановка/restart потоков каналов; preview cache; метрики |
+| `runtime/event_bus.py` | `EventBus`: async in-memory pub/sub на `asyncio.Queue` (maxsize 512); drop oldest при переполнении |
+| `runtime/event_sink.py` | `EventSink`: тонкая обёртка над `PostgresEventDatabase` для записи событий |
+| `runtime/debug.py` | `DebugRegistry`: хранит debug overlay state (bbox, OCR, direction) по каналу с TTL |
 
----
+### anpr/ — ANPR Core
 
-## Поток данных по шагам
+| Файл | Ответственность |
+|---|---|
+| `anpr/detection/yolo_detector.py` | `YOLODetector`: YOLOv8 + tracking; CUDA fallback; size filter; bbox padding |
+| `anpr/detection/motion_detector.py` | `MotionDetector`: motion gate; гистерезис по счётчикам кадров |
+| `anpr/preprocessing/plate_preprocessor.py` | `PlatePreprocessor`: CLAHE, морфология, перспективная коррекция, выравнивание |
+| `anpr/recognition/crnn_recognizer.py` | `CRNNRecognizer`: INT8 CRNN; `recognize_batch()`; CTC decode |
+| `anpr/recognition/crnn.py` | Архитектура CRNN (Conv + RNN backbone) |
+| `anpr/pipeline/anpr_pipeline.py` | `ANPRPipeline`, `TrackAggregator`, `TrackDirectionEstimator` |
+| `anpr/postprocessing/validator.py` | `PlatePostProcessor`: нормализация, коррекции, валидация |
+| `anpr/postprocessing/country_config.py` | `CountryConfigLoader`: загрузка YAML-конфигов стран, компиляция regex |
+| `anpr/model_config.py` | `AnprModelConfig`: пути к моделям, параметры |
+| `anpr/countries/` | YAML-конфиги форматов номеров: `russia.yaml`, `ukraine.yaml`, `belarus.yaml`, `kazakhstan.yaml` |
 
-### 1. Подключение канала
+### controllers/ — Аппаратные контроллеры
 
-При старте API читает список каналов из `config/settings.yaml`.  
-Для каждого канала `ChannelProcessor` создаёт `ChannelContext`.  
-Если канал `enabled=true`, для него сразу запускается отдельный thread.
+| Файл | Ответственность |
+|---|---|
+| `controllers/service.py` | `ControllerService`: отправка HTTP-команд контроллерам; error cooldown; async dispatch |
+| `controllers/registry.py` | Реестр типов адаптеров |
+| `controllers/base.py` | `BaseAdapter`: интерфейс адаптера |
+| `controllers/adapters/dtwonder2ch.py` | Адаптер DTWONDER2CH: построение URL команды по relay index и mode |
 
-### 2. Получение кадров
+### database/ — Хранение данных
 
-Поток канала открывает источник через `cv2.VideoCapture(source)` и в цикле вызывает `cap.read()`.
+| Файл | Ответственность |
+|---|---|
+| `database/postgres_event_repository.py` | `PostgresEventDatabase`: события — insert, pagination, fetch, delete, export |
+| `database/plate_lists_repository.py` | `ListDatabase`: plate lists и entries — CRUD, проверка вхождения номера |
+| `database/postgres/schema.sql` | SQL-схема инициализации |
+| `database/errors.py` | `StorageUnavailableError` |
 
-Переподключение управляется глобальным блоком `reconnect` из настроек:
-- `reconnect.signal_loss.enabled` включает/отключает контроль таймаута чтения кадра и времени с последнего валидного кадра (при `false` timeout-watchdog не применяется);
-- при таймауте `reconnect.signal_loss.frame_timeout_seconds` увеличивается `timeout_count` и выполняется controlled reconnect;
-- пауза между попытками при потере сигнала/ошибке чтения берётся из `reconnect.signal_loss.retry_interval_seconds`;
-- `reconnect.periodic.enabled` включает принудительный reconnect каждые `reconnect.periodic.interval_minutes` независимо от signal-loss сценария; при неудачном periodic reopen повтор выполняется с паузой `reconnect.signal_loss.retry_interval_seconds`.
+### config/ — Конфигурация
 
-При любой реальной попытке reconnect увеличивается `reconnect_count`, предыдущий `VideoCapture` освобождается, а после восстановления поток снова отдаёт preview без ручного обновления страницы.
+| Файл | Ответственность |
+|---|---|
+| `config/settings_manager.py` | `SettingsManager`: оркестрация настроек, геттеры/сеттеры всех секций |
+| `config/settings_repository.py` | `SettingsRepository`: чтение/запись `settings.yaml` с file lock |
+| `config/settings_normalizer.py` | `SettingsNormalizer`: defaults, upgrade legacy-конфигов |
+| `config/settings_schema.py` | Схема и дефолты всех секций |
+| `config/settings_migrations/` | Миграции формата схемы |
 
-### 3. Формирование preview
+### common/ — Утилиты
 
-Примерно раз в `0.2` секунды текущий кадр кодируется в JPEG и сохраняется в память:
-- `latest_jpeg`
-- `latest_frame_ts`
-- `preview_ready`
-- `preview_last_frame_at`
-
-Дальше API отдаёт этот же буфер:
-- как единичный снимок через `/api/channels/{id}/snapshot.jpg`;
-- как multipart MJPEG поток через `/api/channels/{id}/preview.mjpg`.
-
-### 4. Детекция и распознавание
-
-Тот же кадр идёт в:
-- `YOLODetector.track(frame)`;
-- затем в `ANPRPipeline.process_frame(frame, detections)`.
-
-Внутри pipeline выполняются:
-- обновление направления движения по треку;
-- кроп bbox номера;
-- preprocessing;
-- batch OCR;
-- агрегация результата по треку;
-- постобработка и валидация;
-- cooldown-фильтр.
-
-### 5. Сохранение события
-
-Если номер валиден и cooldown прошёл, формируется событие с полями:
-- `timestamp`
-- `channel`
-- `channel_id`
-- `plate`
-- `country`
-- `confidence`
-- `source`
-- `direction`
-
-Событие записывается в storage через `EventSink`.
-
-### 6. Публикация события в UI
-
-После записи событие публикуется в `EventBus`, а затем попадает в браузер через `/api/events/stream`.
-
-UI параллельно:
-- держит live stream для новых событий (отдельное состояние live feed);
-- подгружает историю журнала страницами через `/api/events` (cursor-based, без `OFFSET`);
-- открывает детали события и связанные изображения через `/api/events/item/{id}` и `/api/events/item/{id}/media/{kind}`.
+| Файл | Ответственность |
+|---|---|
+| `common/logging.py` | `configure_logging()`: `HourlyFileHandler` (ротация по часу), `LiveDebugHandler` (SSE буфер), `ServiceNameFilter` |
 
 ---
 
-## Основные компоненты
-
-### Backend / API
-
-- `app/api/main.py` — главный FastAPI backend;
-- `app/shared/data_lifecycle.py` — общая retention/cleanup/export логика для API и worker;
-- `packages/anpr_core/channel_runtime.py` — runtime каналов;
-- `packages/anpr_core/event_bus.py` — in-memory pub/sub для live событий;
-- `packages/anpr_core/event_sink.py` — запись событий в PostgreSQL.
-
-### ANPR
-
-- `anpr/detection/yolo_detector.py` — детектор номерных рамок и tracking fallback logic;
-- `anpr/pipeline/anpr_pipeline.py` — OCR pipeline, aggregator, direction estimator, cooldown;
-- `anpr/preprocessing/plate_preprocessor.py` — коррекция перспективы / наклона;
-- `anpr/recognition/crnn_recognizer.py` — OCR CRNN;
-- `anpr/postprocessing/validator.py` — валидация по конфигам стран;
-- `anpr/detection/motion_detector.py` — модуль motion detection; используется в runtime при `detection_mode=motion`.
-
-### Controllers (интеграция с оборудованием)
-
-- `controllers/service.py` — отправка команд контроллерам и автоматическая реакция на готовые ANPR-события;
-- `controllers/registry.py` — реестр поддерживаемых адаптеров;
-- `controllers/base.py` — базовый контракт адаптера;
-- `controllers/adapters/dtwonder2ch.py` — адаптер типа **DTWONDER2CH**.
-
-Слой `controllers` не входит в ANPR core: runtime каналов формирует событие распознавания, а контроллерный слой отдельно принимает это событие и решает, отправлять ли команду на реле.
+## REST и streaming endpoints
 
 ### Web UI
 
-`app/web/index.html` — операторская панель с вкладками:
-- Наблюдение;
-- Журнал;
-- Списки;
-- Настройки.
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/` | Операторская панель (index.html) |
 
-Отображение направления движения в UI использует подписи **«Приближение»** и **«Отдаление»**.
-Эти значения показываются в журнале и в блоке последних событий.
+### Channels
 
-### Worker
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/channels` | Список каналов с метриками и debug state |
+| `POST` | `/api/channels` | Создать канал |
+| `PUT` | `/api/channels/{channel_id}` | Обновить канал |
+| `GET` | `/api/channels/last-plates` | Последний распознанный номер по каждому каналу |
+| `PUT` | `/api/channels/{channel_id}/config` | Обновить базовую конфигурацию |
+| `PUT` | `/api/channels/{channel_id}/ocr` | Обновить OCR-параметры (best_shots, cooldown, confidence) |
+| `PUT` | `/api/channels/{channel_id}/filter` | Обновить фильтры размера и plate lists |
+| `POST` | `/api/channels/{channel_id}/start` | Запустить поток канала |
+| `POST` | `/api/channels/{channel_id}/stop` | Остановить поток канала |
+| `POST` | `/api/channels/{channel_id}/restart` | Перезапустить поток канала |
+| `GET` | `/api/channels/{channel_id}/health` | Метрики канала |
+| `GET` | `/api/channels/{channel_id}/snapshot.jpg` | Единичный JPEG кадр |
+| `GET` | `/api/channels/{channel_id}/preview/status` | Готовность preview |
+| `GET` | `/api/channels/{channel_id}/preview.mjpg` | MJPEG-поток (`multipart/x-mixed-replace`) |
 
-`app/worker/main.py` — отдельный retention worker.
+### Events
 
----
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/events` | Журнал событий; параметры: `limit`, `before_ts`, `before_id`, `channel_id`, `plate`; сортировка `timestamp DESC, id DESC` |
+| `GET` | `/api/events/item/{event_id}` | Детали события |
+| `GET` | `/api/events/item/{event_id}/media/{kind}` | Медиафайл события (`kind=frame` или `plate`) |
+| `GET` | `/api/events/stream` | SSE-поток live событий (`text/event-stream`; keepalive `: ping`; auto-retry) |
 
-## REST / streaming endpoints
+### Controllers
 
-### Базовые
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/controllers` | Список контроллеров |
+| `POST` | `/api/controllers` | Создать контроллер |
+| `PUT` | `/api/controllers/{controller_id}` | Обновить контроллер |
+| `DELETE` | `/api/controllers/{controller_id}` | Удалить контроллер (блокируется, если используется каналом) |
+| `POST` | `/api/controllers/{controller_id}/test` | Отправить тестовую команду реле |
 
-- `GET /` — web UI;
-- `GET /api/health` — health API.
+### Plate Lists
 
-### Каналы
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/lists` | Список всех plate lists |
+| `POST` | `/api/lists` | Создать список |
+| `PUT` | `/api/lists/{list_id}` | Обновить метаданные списка |
+| `DELETE` | `/api/lists/{list_id}` | Удалить список |
+| `GET` | `/api/lists/{list_id}/entries` | Записи в списке |
+| `POST` | `/api/lists/{list_id}/entries` | Добавить запись |
+| `PUT` | `/api/lists/{list_id}/entries/{entry_id}` | Обновить запись |
+| `GET` | `/api/lists/entry-by-plate` | Найти запись по номеру |
+| `GET` | `/api/lists/plates` | Все номера с типами списков |
 
-- `GET /api/channels`
-- `POST /api/channels`
-- `PUT /api/channels/{channel_id}`
-- `DELETE /api/channels/{channel_id}`
-- `GET /api/channels/{channel_id}/config`
-- `PUT /api/channels/{channel_id}/config`
-- `PUT /api/channels/{channel_id}/ocr`
-- `PUT /api/channels/{channel_id}/filter`
-- `POST /api/channels/{channel_id}/start`
-- `POST /api/channels/{channel_id}/stop`
-- `POST /api/channels/{channel_id}/restart`
-- `GET /api/channels/{channel_id}/health`
-- `GET /api/channels/{channel_id}/snapshot.jpg`
-- `GET /api/channels/{channel_id}/preview/status`
-- `GET /api/channels/{channel_id}/preview.mjpg`
+### Settings
 
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/settings` | Все глобальные настройки |
+| `PUT` | `/api/settings` | Обновить настройки (изменение plate config / DSN / screenshots_dir перезапускает pipeline) |
+
+### Data & Export
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/data/policy` | Retention policy |
+| `PUT` | `/api/data/policy` | Обновить retention policy |
+| `POST` | `/api/data/retention/run` | Запустить retention cycle вручную |
+| `GET` | `/api/data/export/events.csv` | Экспорт событий в CSV |
+| `POST` | `/api/data/export/bundle` | Экспорт событий в ZIP (с медиа по выбору) |
+
+### System & Telemetry
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/health` | Health check API |
+| `GET` | `/api/system/resources` | CPU и RAM (psutil) |
+| `GET` | `/api/storage/status` | Статус PostgreSQL |
+| `GET` | `/api/telemetry/channels` | Метрики каналов (FPS, latency, reconnect_count и др.) |
 
 ### Debug
 
-- `GET /api/debug/settings`
-- `PUT /api/debug/settings`
-- `GET /api/debug/state`
-- `GET /api/debug/channels`
-- `GET /api/debug/logs`
-- `GET /api/debug/logs/stream`
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/debug/settings` | Debug-настройки |
+| `PUT` | `/api/debug/settings` | Обновить debug-настройки |
+| `GET` | `/api/debug/channels` | Метрики + debug state каналов |
+| `GET` | `/api/debug/state` | Агрегированный debug state (overlay: bbox, OCR, direction) |
+| `GET` | `/api/debug/logs` | Последние логи (snapshot) |
+| `GET` | `/api/debug/logs/stream` | SSE-поток логов в реальном времени |
 
-Debug-слой централизован:
-- в debug settings остались только `show_channel_metrics` и `log_panel_enabled`;
-- preview (`snapshot.jpg`/`preview.mjpg`) всегда отдается как «чистый» кадр без server-side отрисовки bbox/OCR/метрик/треков;
-- данные для overlay отдаются отдельно в `debug_state.overlay` (нормализованный bbox, OCR-текст, direction), а отрисовка выполняется в web UI поверх `<img>`;
-- visual direction tracks удалены из UI и debug state; направление показывается только текстовой подписью под bbox;
-- live лог-панель получает backend-логи через ring buffer и SSE stream (`/api/debug/logs/stream`);
-- overlay state очищается автоматически по TTL, чтобы bbox/OCR/direction не залипали при исчезновении объекта.
-
-### События
-
-- `GET /api/events` (`limit`, `before_ts`, `before_id`, `channel_id`, `plate`; сортировка `timestamp DESC, id DESC`)
-- `GET /api/events/item/{event_id}`
-- `GET /api/events/item/{event_id}/media/{kind}` (`kind = frame|plate`)
-- `GET /api/events/stream`
-
-### Контроллеры
-
-- `GET /api/controllers`
-- `POST /api/controllers`
-- `PUT /api/controllers/{controller_id}`
-- `DELETE /api/controllers/{controller_id}`
-- `POST /api/controllers/{controller_id}/test`
-
-
-### Настройка контроллеров и привязка к каналам
-
-- Контроллеры настраиваются отдельно в разделе **«Контроллеры»** (имя, тип, адрес, пароль и 2 реле).
-- Выбор текущего контроллера для редактирования выполняется только через левый список; отдельного selector в форме контроллера нет.
-- В разделе **«Каналы»** привязка выполняется через поле **«Контроллер»** (варианты: «Без контроллера» + список созданных контроллеров по имени).
-- В форме канала для пользователя доступны `Название`, `Источник / RTSP`, `Контроллер`, `Реле` и режим фильтрации списков; технические поля `id` и `enabled` в обычном UX канала не отображаются.
-- В конфиг канала сохраняются `controller_id`, `controller_relay`, `list_filter_mode`, `list_filter_list_ids`.
-- Режим действия реле задаётся только в самом контроллере (на уровне его реле), а не в настройках канала.
-- При удалении контроллера, который уже используется каналами, API возвращает ошибку и удаление блокируется.
-
-Текущий поддерживаемый тип контроллера в UI: **DTWONDER2CH** (select подготовлен для расширения в будущем).
-
-#### Фильтрация событий для автосработки реле
-
-Для каждого готового события ANPR слой `controllers` использует привязку канала к контроллеру и `list_filter_mode`:
-
-- `all` — реле срабатывает для любого номера, **кроме** номеров из black list.
-- `whitelist` — реле срабатывает только для номеров из списков типа `white`, но номера из black list блокируются.
-- `custom` — реле срабатывает только для номеров из выбранных пользователем списков (`list_filter_list_ids`), но номера из black list блокируются.
-
-Приоритет black list абсолютный: если номер найден в black list, команда на реле не отправляется независимо от режима.
-
-Режимы реле:
-- `pulse` — таймер не используется (`timer_seconds=1`, поле задержки в UI неактивно);
-- `pulse_timer` — поле задержки активно, значение валидируется как целое число `>= 1`.
-
-Хоткеи реле:
-- хоткей задаётся на конкретное реле конкретного контроллера;
-- при нажатии хоткея в web UI отправляется тестовая команда реле через `POST /api/controllers/{controller_id}/test`;
-- срабатывание блокируется, если фокус в `input/textarea/select/contenteditable` или при `key repeat`;
-- дубликаты хоткеев в одном контроллере запрещены валидацией API.
-
-### Списки
-
-- `GET /api/lists`
-- `POST /api/lists`
-- `GET /api/lists/{list_id}/entries`
-- `POST /api/lists/{list_id}/entries`
-
-### Хранение и экспорт
-
-- `GET /api/data/policy`
-- `PUT /api/data/policy`
-- `POST /api/data/retention/run`
-- `GET /api/data/export/events.csv`
-- `POST /api/data/export/bundle`
-
-### Глобальные настройки
-
-- `GET /api/settings`
-- `PUT /api/settings`
-
-### Системные и служебные (ops/internal)
-
-- `GET /api/system/resources`
-- `GET /api/telemetry/channels`
-- `GET /api/storage/status`
-- `GET /api/channels/last-plates`
+Debug overlay (bbox, OCR-текст, direction) — только данные; отрисовка выполняется в web UI поверх `<img>`. Overlay очищается по TTL.
 
 ### Worker
 
-- `GET /worker/health`
-- `POST /worker/retention/run`
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/worker/health` | Health check worker |
+| `POST` | `/worker/retention/run` | Ручной запуск retention cycle через worker |
 
 ---
 
-## Технологический стек
+## Диаграмма 5. Retention и обслуживание хранилища
 
-- **Backend:** FastAPI, Uvicorn
-- **Detection:** YOLOv8 (Ultralytics)
-- **OCR:** CRNN
-- **Видео:** OpenCV
-- **ML:** PyTorch 2.8.0, torchvision 0.23.0, torchaudio 2.8.0
-- **Live updates:** SSE
-- **Preview:** MJPEG
-- **Storage:** PostgreSQL
-- **Worker:** отдельный FastAPI-based retention service
+```mermaid
+flowchart TD
+    A["Storage policy"] --> B["RetentionScheduler.start()"]
+    B --> C{"auto_cleanup_enabled?"}
+    C -->|Да| D["run_retention_cycle()"]
+    C -->|Нет| J["Sleep до следующего интервала"]
+    J --> B
+
+    D --> F["cleanup_old_events()\nУдалить события старше retention_days\nУдалить связанные медиафайлы"]
+    D --> G["cleanup_old_media()\nУдалить orphan-файлы по mtime"]
+    D --> H["enforce_storage_limit()\nУдалить старейшие файлы при превышении max_screenshots_mb"]
+    D --> B
+
+    F --> PG[("PostgreSQL")]
+    G --> MEDIA[("media dir")]
+    H --> MEDIA
+```
+
+---
+
+## Контроллеры и plate lists
+
+### Привязка контроллера к каналу
+
+- Контроллер настраивается отдельно: имя, тип, адрес, пароль, 2 реле с режимом и хоткеем.
+- В конфиге канала указываются `controller_id`, `controller_relay`, `list_filter_mode`, `list_filter_list_ids`.
+- Режим реле задаётся в контроллере, а не в канале.
+- При удалении контроллера, который используется каналом, API возвращает ошибку.
+
+### Режимы фильтрации для автосработки реле
+
+| Режим | Поведение |
+|---|---|
+| `all` | Реле срабатывает для любого номера, кроме номеров из black list |
+| `whitelist` | Реле срабатывает только для номеров из списков типа `white`; black list блокирует |
+| `custom` | Реле срабатывает только для номеров из выбранных списков (`list_filter_list_ids`); black list блокирует |
+
+Приоритет black list абсолютный.
+
+### Режимы реле
+
+| Режим | Описание |
+|---|---|
+| `pulse` | Без таймера (timer_seconds=1) |
+| `pulse_timer` | С таймером >= 1 с |
+
+### Хоткеи реле
+
+- Хоткей задаётся на конкретное реле конкретного контроллера.
+- По нажатию в web UI отправляется `POST /api/controllers/{controller_id}/test`.
+- Блокируется при фокусе в `input/textarea/select/contenteditable` или при key repeat.
+- Дубликаты хоткеев в одном контроллере запрещены валидацией API.
 
 ---
 
@@ -654,41 +556,88 @@ Debug-слой централизован:
 ```text
 ANPR-System-v0.8_web/
 ├── app/
-│   ├── api/                 # backend API, preview, export, settings
-│   ├── worker/              # retention worker
-│   ├── web/                 # web UI (включая статические флаги: web/images/flags)
-│   └── shared/              # общая runtime-логика для API/worker (retention, export)
-├── packages/
-│   └── anpr_core/           # channel runtime, event bus, sink
-├── anpr/
+│   ├── api/                       # FastAPI backend
+│   │   ├── main.py
+│   │   ├── auth.py
+│   │   ├── container.py
+│   │   ├── deps.py
+│   │   ├── schemas.py
+│   │   └── routers/
+│   │       ├── channels.py
+│   │       ├── events.py
+│   │       ├── controllers.py
+│   │       ├── lists.py
+│   │       ├── settings.py
+│   │       ├── data.py
+│   │       ├── debug.py
+│   │       └── system.py
+│   ├── worker/
+│   │   └── main.py                # Retention worker FastAPI
+│   ├── web/                       # Web UI (HTML, JS, CSS, флаги)
+│   └── shared/
+│       └── data_lifecycle.py      # Retention / cleanup / export
+├── runtime/                       # Channel runtime
+│   ├── channel_runtime.py
+│   ├── event_bus.py
+│   ├── event_sink.py
+│   └── debug.py
+├── anpr/                          # ANPR core
 │   ├── detection/
-│   ├── pipeline/
+│   │   ├── yolo_detector.py
+│   │   └── motion_detector.py
 │   ├── preprocessing/
+│   │   └── plate_preprocessor.py
 │   ├── recognition/
+│   │   ├── crnn_recognizer.py
+│   │   └── crnn.py
 │   ├── postprocessing/
-│   ├── infrastructure/
-│   ├── models/
-│   └── countries/
+│   │   ├── validator.py
+│   │   └── country_config.py
+│   ├── pipeline/
+│   │   ├── anpr_pipeline.py
+│   │   └── factory.py
+│   ├── model_config.py
+│   ├── models/                    # Файлы моделей (не в git)
+│   │   ├── yolo/
+│   │   └── ocr_crnn/
+│   └── countries/                 # YAML-конфиги форматов номеров
+│       ├── russia.yaml
+│       ├── ukraine.yaml
+│       ├── belarus.yaml
+│       └── kazakhstan.yaml
 ├── controllers/
-│   ├── adapters/            # адаптеры конкретных аппаратных контроллеров
-│   ├── base.py              # базовый интерфейс адаптера
-│   ├── registry.py          # реестр поддерживаемых типов
-│   └── service.py           # controller service и automation по ANPR-событиям
+│   ├── service.py
+│   ├── registry.py
+│   ├── base.py
+│   └── adapters/
+│       └── dtwonder2ch.py
 ├── database/
-│   ├── postgres/           # SQL-схема и init-артефакты PostgreSQL
-│   └── README.md
-├── docker-compose.yml
+│   ├── postgres_event_repository.py
+│   ├── plate_lists_repository.py
+│   ├── errors.py
+│   └── postgres/
+│       └── schema.sql
+├── config/
+│   ├── settings.yaml              # Runtime-конфиг (рабочий)
+│   ├── settings_manager.py
+│   ├── settings_repository.py
+│   ├── settings_normalizer.py
+│   ├── settings_schema.py
+│   └── settings_migrations/
+├── common/
+│   └── logging.py
+├── tests/
+│   ├── test_plate_validator.py
+│   ├── test_motion_detector.py
+│   ├── test_direction_estimator.py
+│   └── test_track_aggregator.py
 ├── nginx/
+│   └── default.conf
+├── docker-compose.yml
+├── Dockerfile
 ├── requirements.txt
 ├── .env
-├── .env.example
-├── config/
-│   ├── settings.yaml          # рабочий системный конфиг
-│   ├── settings_manager.py    # orchestration/use-case слой настроек
-│   ├── settings_repository.py # чтение/запись settings.yaml
-│   ├── settings_normalizer.py # нормализация/upgrade/defaults
-│   ├── settings_schema.py     # схема/контракты настроек
-│   └── settings_migrations/   # эволюция формата settings
+└── .env.example
 ```
 
 ---
@@ -697,23 +646,44 @@ ANPR-System-v0.8_web/
 
 ### PostgreSQL (обязательно)
 
-События и списки номеров хранятся только в PostgreSQL через `POSTGRES_DSN`.
+Все события и plate lists хранятся в PostgreSQL через `POSTGRES_DSN`.
+
+**Таблицы:**
+
+| Таблица | Поля |
+|---|---|
+| `events` | `id`, `timestamp`, `channel_id`, `channel`, `plate`, `country`, `confidence`, `source`, `frame_path`, `plate_path`, `direction` |
+| `plate_lists` | `id`, `name`, `type` |
+| `plate_list_entries` | `id`, `list_id`, `plate`, `plate_normalized`, `comment` |
+
+**Индексы:** `(timestamp DESC, id DESC)` по событиям; `plate_normalized` и `(list_id, plate_normalized) UNIQUE` по записям.
 
 ### Медиа и экспорт
 
-- медиа сохраняются в `screenshots_dir`;
-- CSV экспорт создаётся в `export_dir`;
-- bundle export упаковывает CSV и доступные медиа в ZIP.
+- Медиа сохраняются в `storage.screenshots_dir`.
+- CSV-экспорт создаётся в `storage.export_dir`.
+- Bundle export упаковывает CSV и доступные медиафайлы в ZIP.
 
 ---
 
-## Что ещё важно знать
+## Технологический стек
 
-- preview и ANPR используют один и тот же ingest канала;
-- браузер не подключается к RTSP напрямую;
-- если чтение потока ломается, runtime пытается открыть источник заново;
-- live события идут отдельно от preview: preview — через MJPEG, события — через SSE;
-- endpoint `/api/events/stream` реализован как long-lived SSE stream: сервер держит соединение открытым, отправляет keepalive `: ping` и задаёт `retry`; клиентская часть автоматически переподключается при обрыве.
+| Слой | Технологии |
+|---|---|
+| Backend | FastAPI, Uvicorn, Python 3.13 |
+| Detection | YOLOv8 (Ultralytics 8.3.20) |
+| OCR | CRNN (INT8 quantized) |
+| Video I/O | OpenCV |
+| ML runtime | PyTorch 2.8.0, torchvision 0.23.0, torchaudio 2.8.0 (CPU wheel) |
+| Live updates | SSE (`text/event-stream`) |
+| Preview | MJPEG (`multipart/x-mixed-replace`) |
+| Storage | PostgreSQL 16 (psycopg driver) |
+| Config | YAML (PyYAML) |
+| Reverse proxy | Nginx |
+| Containerization | Docker, Docker Compose |
+| Monitoring | psutil (CPU / RAM) |
+
+---
 
 ## License
 

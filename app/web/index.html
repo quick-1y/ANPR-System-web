@@ -45,9 +45,7 @@
           </div>
         </div>
       
-        <div class="rail-bottom">
-          <button class="icon-btn" id="themeToggleBtn" title="Тема">◐</button>
-        </div>
+        <div class="rail-bottom"></div>
       </aside>
       <div class="main-shell">
         <div class="topbar">
@@ -55,16 +53,32 @@
             <div class="topbar-title" id="topbarTitle">Наблюдение</div>
           </div>
           <div class="topbar-center">
-            <span class="topbar-datetime" id="topbarDateTime"></span>
+            <div class="topbar-datetime-block">
+              <span class="topbar-time" id="topbarTime"></span>
+              <span class="topbar-date" id="topbarDate"></span>
+            </div>
           </div>
           <div class="topbar-right">
             <div class="topbar-pill">
               <div class="live-dot"></div>
               <span id="channelsCount">0 каналов</span>
             </div>
-            <div class="topbar-sys-stat"><span>CPU</span> <b id="cpuStat">12%</b></div>
-            <div class="topbar-sys-stat"><span>RAM</span> <b id="ramStat">38%</b></div>
-            <input id="apiBase" class="api-input" placeholder="API" />
+            <div class="topbar-load-stat" title="CPU">
+              <span class="load-stat-label">CPU</span>
+              <div class="load-bar"><div class="load-bar-fill" id="cpuBar"></div></div>
+              <span class="load-stat-val" id="cpuStat">0%</span>
+            </div>
+            <div class="topbar-load-stat" title="RAM">
+              <span class="load-stat-label">RAM</span>
+              <div class="load-bar"><div class="load-bar-fill" id="ramBar"></div></div>
+              <span class="load-stat-val" id="ramStat">0%</span>
+            </div>
+            <div class="topbar-server-pill" id="serverStatusEl">
+              <div class="server-dot off" id="serverDot"></div>
+              <span>Сервер</span>
+            </div>
+            <input id="apiBase" type="hidden" value="" />
+            <button class="icon-btn" id="themeToggleBtn" title="Тема">◐</button>
           </div>
         </div>
         <div class="content">
@@ -91,7 +105,6 @@
             <div class="obs-right">
               <div class="panel-header obs-events-header">
                 <span>События</span>
-                <div class="live-dot"></div>
               </div>
               <div class="event-feed" id="eventFeed"></div>
             </div>

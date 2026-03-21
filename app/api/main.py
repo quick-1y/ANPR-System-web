@@ -10,6 +10,7 @@ from app.api.auth import APIKeyMiddleware
 from app.api.container import AppContainer, WEB_DIR
 from app.api.routers.channels import router as channels_router
 from app.api.routers.controllers import router as controllers_router
+from app.api.routers.data import router as data_router
 from app.api.routers.debug import router as debug_router
 from app.api.routers.events import router as events_router
 from app.api.routers.lists import router as lists_router
@@ -38,6 +39,7 @@ app.include_router(debug_router)
 app.include_router(controllers_router)
 app.include_router(lists_router)
 app.include_router(settings_router)
+app.include_router(data_router)
 
 
 @app.on_event("startup")

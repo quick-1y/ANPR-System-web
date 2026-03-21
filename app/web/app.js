@@ -176,11 +176,30 @@ function syncControllerConfigVisibility() {
 async function refreshSystemResources() {
   try {
     const resources = await jfetch(api("/api/system/resources"));
-    document.getElementById("cpuStat").textContent =
-      `${Math.round(Number(resources.cpu_percent) || 0)}%`;
-    document.getElementById("ramStat").textContent =
-      `${Math.round(Number(resources.ram_percent) || 0)}%`;
+    const cpu = Math.round(Number(resources.cpu_percent) || 0);
+    const ram = Math.round(Number(resources.ram_percent) || 0);
+    const cpuStat = document.getElementById("cpuStat");
+    const ramStat = document.getElementById("ramStat");
+    const cpuBar = document.getElementById("cpuBar");
+    const ramBar = document.getElementById("ramBar");
+    if (cpuStat) cpuStat.textContent = `${cpu}%`;
+    if (ramStat) ramStat.textContent = `${ram}%`;
+    if (cpuBar) cpuBar.style.width = `${cpu}%`;
+    if (ramBar) ramBar.style.width = `${ram}%`;
   } catch (_e) {}
+}
+
+async function checkServerHealth() {
+  const dot = document.getElementById("serverDot");
+  if (!dot) return;
+  try {
+    const k = getApiKey();
+    const headers = k ? { "X-Api-Key": k } : {};
+    const r = await fetch(api("/api/health"), { method: "GET", headers, signal: AbortSignal.timeout(4000) });
+    dot.className = r.ok ? "server-dot live" : "server-dot off";
+  } catch (_e) {
+    dot.className = "server-dot off";
+  }
 }
 
 async function refreshChannels() {
@@ -188,6 +207,9 @@ async function refreshChannels() {
   renderVideoGrid();
   renderChannelsList();
   fillChannelFilter();
+  if (!selectedChannelId && state.channels.length) {
+    await selectChannel(state.channels[0].id);
+  }
 }
 function gridConfig(v) {
   if (v === "1x1") return [1, 1];
@@ -224,9 +246,9 @@ function ensureNoSignalOverlay(cell) {
   if (!cell) return null;
   let overlay = cell.querySelector(".cam-no-signal");
   if (overlay) return overlay;
-  const preview = cell.querySelector(".cam-preview");
-  if (!preview) return null;
-  preview.insertAdjacentHTML("afterend", buildNoSignalHtml("Ожидание кадра..."));
+  const wrapper = cell.querySelector(".cam-media-wrapper");
+  if (!wrapper) return null;
+  wrapper.insertAdjacentHTML("beforeend", buildNoSignalHtml("Ожидание кадра..."));
   return cell.querySelector(".cam-no-signal");
 }
 
@@ -337,6 +359,7 @@ function refreshVideoCellOverlayState(cell, ch) {
       statusDot.classList.remove("live");
       statusDot.classList.add("off");
     }
+    removeCellPreviewImg(cell);
     setNoSignalVisibility(cell, true, "Видеопоток отключён настройками отладки");
     applyMotionHighlight(cell, ch);
     renderDebugOverlay(cell, ch);
@@ -462,8 +485,33 @@ function renderDebugOverlay(cell, ch) {
   metricsWidget.innerHTML = rows.map((row) => `<div>${row}</div>`).join("");
 }
 
+function removeCellPreviewImg(cell) {
+  const img = cell.querySelector(".cam-preview");
+  if (!img) return;
+  img.removeAttribute("src");
+  img.dataset.url = "";
+  img.remove();
+}
+
+function ensureCellPreviewImg(cell, channelId) {
+  let img = cell.querySelector(".cam-preview");
+  if (!img) {
+    const wrapper = cell.querySelector(".cam-media-wrapper");
+    if (!wrapper) return null;
+    img = document.createElement("img");
+    img.className = "cam-preview";
+    img.id = `v-${channelId}`;
+    img.alt = `preview CAM-${channelId}`;
+    const overlayLayer = wrapper.querySelector(".cam-overlay-layer");
+    wrapper.insertBefore(img, overlayLayer || null);
+  }
+  bindPreviewLifecycle(cell, img);
+  return img;
+}
+
 function createVideoCell(ch) {
   const statusText = statusTextForChannel(ch);
+  const videoDisabled = Boolean((debugSettingsCache || {}).disable_video_output);
   const cell = document.createElement("div");
   cell.className = "video-cell";
   cell.dataset.channelId = String(ch.id);
@@ -472,7 +520,6 @@ function createVideoCell(ch) {
   cell.innerHTML = `
     <div class='video-cell-bg'></div>
     <div class='cam-media-wrapper'>
-      <img class='cam-preview' id='v-${ch.id}' alt='preview CAM-${ch.id}' />
       <div class='cam-overlay-layer'>
         <div class='cam-detection-box'>
           <div class='cam-ocr-label'></div>
@@ -484,17 +531,18 @@ function createVideoCell(ch) {
     <div class='cam-status off'></div>
     <div class='cam-metrics-widget'></div>
     <div class='cam-plate' id='plate-${ch.id}'></div>`;
-  const preview = cell.querySelector(".cam-preview");
-  bindPreviewLifecycle(cell, preview);
   ensureNoSignalOverlay(cell);
-  const hasPreviewSignal = getCellPreviewSignal(cell, ch);
-  setNoSignalVisibility(cell, !hasPreviewSignal, statusText);
-  const statusDot = cell.querySelector(".cam-status");
-  if (statusDot) {
-    statusDot.classList.toggle("live", hasPreviewSignal);
-    statusDot.classList.toggle("off", !hasPreviewSignal);
+  if (!videoDisabled) {
+    const preview = ensureCellPreviewImg(cell, ch.id);
+    const hasPreviewSignal = getCellPreviewSignal(cell, ch);
+    setNoSignalVisibility(cell, !hasPreviewSignal, statusText);
+    const statusDot = cell.querySelector(".cam-status");
+    if (statusDot) {
+      statusDot.classList.toggle("live", hasPreviewSignal);
+      statusDot.classList.toggle("off", !hasPreviewSignal);
+    }
+    ensurePreviewStream(preview, ch.id);
   }
-  ensurePreviewStream(preview, ch.id);
   refreshVideoCellOverlayState(cell, ch);
   updateChannelLastPlate(ch.id, state.lastPlatesByChannelId[ch.id]);
   return cell;
@@ -505,16 +553,17 @@ function updateVideoCell(cell, ch) {
   cell.dataset.statusText = statusText;
   const label = cell.querySelector(".cam-label");
   if (label) label.textContent = ch.name;
-  const hasPreviewSignal = getCellPreviewSignal(cell, ch);
-  const statusDot = cell.querySelector(".cam-status");
-  if (statusDot) {
-    statusDot.classList.toggle("live", hasPreviewSignal);
-    statusDot.classList.toggle("off", !hasPreviewSignal);
+  if (!Boolean((debugSettingsCache || {}).disable_video_output)) {
+    const preview = ensureCellPreviewImg(cell, ch.id);
+    const hasPreviewSignal = getCellPreviewSignal(cell, ch);
+    const statusDot = cell.querySelector(".cam-status");
+    if (statusDot) {
+      statusDot.classList.toggle("live", hasPreviewSignal);
+      statusDot.classList.toggle("off", !hasPreviewSignal);
+    }
+    setNoSignalVisibility(cell, !hasPreviewSignal, statusText);
+    ensurePreviewStream(preview, ch.id);
   }
-  setNoSignalVisibility(cell, !hasPreviewSignal, statusText);
-  const preview = cell.querySelector(".cam-preview");
-  bindPreviewLifecycle(cell, preview);
-  ensurePreviewStream(preview, ch.id);
   refreshVideoCellOverlayState(cell, ch);
   updateChannelLastPlate(ch.id, state.lastPlatesByChannelId[ch.id]);
 }
@@ -1192,11 +1241,12 @@ async function saveGeneral() {
   setChk("d_video_off", Boolean(debugSettingsCache.disable_video_output));
   setChk("d_metrics", Boolean(debugSettingsCache.show_channel_metrics));
   setChk("d_log", Boolean(debugSettingsCache.log_panel_enabled));
-  if (!debugSettingsCache.disable_video_output) {
-    document.querySelectorAll(".cam-preview").forEach((img) => {
-      img.dataset.url = "";
-    });
-  }
+  document.querySelectorAll(".cam-preview").forEach((img) => {
+    img.dataset.url = "";
+    if (debugSettingsCache.disable_video_output) {
+      img.removeAttribute("src");
+    }
+  });
   applyDebugPanelVisibility();
   scheduleVideoGridLayout(true);
   addDebug("[OK] global settings saved", "ok");
@@ -1212,21 +1262,17 @@ function renderChannelsList() {
     box.innerHTML = '<div class="ch-item">Нет каналов</div>';
     return;
   }
+  const selectedNum = Number(selectedChannelId);
   state.channels.forEach((c) => {
     const run = (c.metrics || {}).state === "running";
     const row = document.createElement("div");
-    row.className = `ch-item ${c.id === selectedChannelId ? "active" : ""}`;
+    row.className = `ch-item ${Number(c.id) === selectedNum ? "active" : ""}`;
     row.innerHTML = `<div class='ch-item-dot ${run ? "" : "off"}'></div> ${c.name}`;
     row.onclick = () => selectChannel(c.id);
     box.appendChild(row);
   });
-  if (!state.channels.some((c) => c.id === selectedChannelId)) {
+  if (selectedChannelId != null && !state.channels.some((c) => Number(c.id) === selectedNum)) {
     selectedChannelId = null;
-  }
-  if (!selectedChannelId) {
-    selectedChannelId = state.channels[0].id;
-    selectChannel(selectedChannelId);
-    return;
   }
   syncChannelConfigVisibility();
 }
@@ -2360,18 +2406,20 @@ document.addEventListener("keydown", (event) => {
 });
 
 function updateTopbarDateTime() {
-  const el = document.getElementById("topbarDateTime");
-  if (!el) return;
+  const dateEl = document.getElementById("topbarDate");
+  const timeEl = document.getElementById("topbarTime");
+  if (!dateEl && !timeEl) return;
   const now = new Date();
-  const date = now.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const time = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  el.textContent = `${date}  ${time}`;
+  if (dateEl) dateEl.textContent = now.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+  if (timeEl) timeEl.textContent = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 updateTopbarDateTime();
 setInterval(updateTopbarDateTime, 1000);
 
 refreshSystemResources();
 setInterval(refreshSystemResources, 2000);
+checkServerHealth();
+setInterval(checkServerHealth, 10000);
 window.addEventListener("beforeunload", () => {
   if (eventSource) {
     try {
@@ -2420,7 +2468,8 @@ window.addEventListener("pagehide", () => {
 });
 window.addEventListener("resize", () => scheduleEventFeedRender(true));
 (async function init() {
-  document.getElementById("apiBase").value = window.location.origin;
+  const apiBaseEl = document.getElementById("apiBase");
+  if (apiBaseEl) apiBaseEl.value = window.location.origin;
   try {
     applyTheme(localStorage.getItem("anpr_theme") || "dark");
   } catch (_e) {

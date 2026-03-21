@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -155,7 +156,13 @@ def update_channel(channel_id: int, payload: Dict[str, Any], container: AppConta
             channels[idx].update(payload)
             container.settings.save_channels(channels)
             container.processor.ensure_channel(channels[idx])
-            container.sync_channel_runtime(channel_id, bool(channels[idx].get("enabled", True)))
+            enabled = bool(channels[idx].get("enabled", True))
+            threading.Thread(
+                target=container.sync_channel_runtime,
+                args=(channel_id, enabled),
+                daemon=True,
+                name=f"channel-sync-{channel_id}",
+            ).start()
             return channels[idx]
     raise HTTPException(status_code=404, detail="Канал не найден")
 

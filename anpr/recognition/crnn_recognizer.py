@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -63,10 +63,9 @@ class CRNNRecognizer:
         logger.info("Распознаватель OCR (INT8) успешно загружен (model=%s, device=%s)", model_path, self.device)
 
     @torch.no_grad()
-    def recognize_batch(self, plate_images: Iterable[np.ndarray]) -> List[Tuple[str, float]]:
+    def recognize_batch(self, plate_images: List[np.ndarray]) -> List[Tuple[str, float]]:
         """Распознаёт батч изображений номерных знаков."""
 
-        plate_images = list(plate_images)
         if not plate_images:
             return []
 
@@ -74,28 +73,27 @@ class CRNNRecognizer:
         preds = self.model(batch)
         return self._decode_batch(preds)
 
-    @torch.no_grad()
-    def recognize(self, plate_image) -> Tuple[str, float]:
-        batch_result = self.recognize_batch([plate_image])
-        if not batch_result:
-            return "", 0.0
-        return batch_result[0]
-
     def _decode_batch(self, log_probs: torch.Tensor) -> List[Tuple[str, float]]:
-        batch_probs = log_probs.permute(1, 0, 2)
+        # log_probs: [time_steps, batch_size, num_classes]
+        batch_probs = log_probs.permute(1, 0, 2)  # [batch, time, classes]
+
+        # Vectorised: compute argmax and exp(max) over all positions at once
+        indices = batch_probs.argmax(dim=-1)  # [batch, time]
+        confs = batch_probs.max(dim=-1).values.exp()  # [batch, time]
+
+        # Single device-to-host copy for the entire batch
+        indices_np = indices.cpu().numpy()
+        confs_np = confs.cpu().numpy()
+
         results: List[Tuple[str, float]] = []
-
-        for probs in batch_probs:
-            time_steps = probs.size(0)
-
+        for b in range(len(indices_np)):
             decoded_chars: List[str] = []
             char_confidences: List[float] = []
             last_char_idx = 0
 
-            for t in range(time_steps):
-                timestep_log_probs = probs[t]
-                char_idx = int(torch.argmax(timestep_log_probs).item())
-                char_conf = float(torch.exp(torch.max(timestep_log_probs)).item())
+            for t in range(len(indices_np[b])):
+                char_idx = int(indices_np[b, t])
+                char_conf = float(confs_np[b, t])
 
                 if char_idx != 0 and char_idx != last_char_idx:
                     decoded_chars.append(self.int_to_char.get(char_idx, ""))
@@ -104,11 +102,7 @@ class CRNNRecognizer:
                 last_char_idx = char_idx
 
             text = "".join(decoded_chars)
-            if not char_confidences:
-                results.append((text, 0.0))
-                continue
-
-            avg_confidence = sum(char_confidences) / len(char_confidences)
+            avg_confidence = sum(char_confidences) / len(char_confidences) if char_confidences else 0.0
             results.append((text, avg_confidence))
 
         return results

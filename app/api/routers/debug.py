@@ -59,18 +59,28 @@ def debug_logs(limit: int = 200, container: AppContainer = Depends(get_container
 @router.get("/api/debug/logs/stream")
 async def stream_debug_logs(request: Request, last_id: int = 0, container: AppContainer = Depends(get_container)) -> StreamingResponse:
     async def generator():
+        loop = asyncio.get_running_loop()
+        queue = container.debug_log_bus.subscribe(loop)
         cursor = max(0, int(last_id))
-        yield "retry: 2000\n\n"
-        while not container.stream_shutdown.is_set():
-            if await request.is_disconnected():
-                break
-            items = await asyncio.to_thread(container.debug_log_bus.wait_for_entries, cursor, 15.0)
-            if not items:
-                yield ": ping\n\n"
-                continue
-            for item in items:
-                cursor = max(cursor, int(item.get("id", cursor)))
-                yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+        try:
+            yield "retry: 2000\n\n"
+            # Flush backlog: entries that arrived before this subscriber was registered
+            for entry in container.debug_log_bus.snapshot_after(cursor):
+                cursor = entry.id
+                yield f"data: {json.dumps(entry.to_dict(), ensure_ascii=False)}\n\n"
+            # Stream live entries
+            while not container.stream_shutdown.is_set():
+                if await request.is_disconnected():
+                    break
+                try:
+                    entry = await asyncio.wait_for(queue.get(), timeout=15.0)
+                    if entry.id > cursor:
+                        cursor = entry.id
+                        yield f"data: {json.dumps(entry.to_dict(), ensure_ascii=False)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"
+        finally:
+            container.debug_log_bus.unsubscribe(queue)
 
     return StreamingResponse(
         generator(),
