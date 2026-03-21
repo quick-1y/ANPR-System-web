@@ -154,6 +154,9 @@ function switchChannelSettingsTab(name) {
   if (active) {
     active.style.display = "block";
   }
+  if (name === "vision") {
+    refreshPreviewSnapshot();
+  }
 }
 
 function syncChannelConfigVisibility() {
@@ -1128,9 +1131,8 @@ let roiPoints = [];
 let currentChannelCustomListIds = [];
 const hotkeyMap = new Map();
 let roiDrag = -1;
-let roiBgImage = null;
+let previewBgImage = null;
 
-let plateSizeBgImage = null;
 let plateSizeBoxes = {
   min: { x: 200, y: 130, width: 80, height: 20 },
   max: { x: 100, y: 60, width: 600, height: 240 },
@@ -1342,13 +1344,30 @@ function findInsertSegmentIndex(point) {
   }
   return bestIndex;
 }
-function drawROI() {
+function drawPreview() {
   const cv = document.getElementById("roiCanvas");
   const ctx = cv.getContext("2d");
   ctx.clearRect(0, 0, cv.width, cv.height);
-  if (roiBgImage && roiBgImage.complete) {
-    ctx.drawImage(roiBgImage, 0, 0, cv.width, cv.height);
+  if (previewBgImage && previewBgImage.complete) {
+    ctx.drawImage(previewBgImage, 0, 0, cv.width, cv.height);
   }
+  // plate size boxes
+  const boxes = [
+    { key: "max", color: "#f59e0b", fill: "rgba(245,158,11,0.12)", label: "MAX" },
+    { key: "min", color: "#3b82f6", fill: "rgba(59,130,246,0.15)", label: "MIN" },
+  ];
+  boxes.forEach(({ key, color, fill, label }) => {
+    const b = plateSizeBoxes[key];
+    ctx.fillStyle = fill;
+    ctx.fillRect(b.x, b.y, b.width, b.height);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(b.x, b.y, b.width, b.height);
+    ctx.fillStyle = color;
+    ctx.font = "bold 11px sans-serif";
+    ctx.fillText(label + " " + Math.round(b.width) + "\u00d7" + Math.round(b.height), b.x + 4, b.y - 4);
+  });
+  // ROI polygon
   ctx.fillStyle = "rgba(124,107,250,0.15)";
   ctx.strokeStyle = "#9b8fff";
   ctx.lineWidth = 2;
@@ -1364,14 +1383,17 @@ function drawROI() {
     }
     ctx.stroke();
   }
-  roiPoints.forEach((p) => {
+  roiPoints.forEach((p, i) => {
     ctx.fillStyle = "#9b8fff";
     ctx.beginPath();
     ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
     ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 9px sans-serif";
+    ctx.fillText(String(i + 1), p.x + 7, p.y - 4);
   });
 }
-async function refreshROISnapshot() {
+async function refreshPreviewSnapshot() {
   if (!selectedChannelId) return;
   const channelId = selectedChannelId;
   try {
@@ -1388,101 +1410,207 @@ async function refreshROISnapshot() {
     img.onload = () => {
       URL.revokeObjectURL(objectUrl);
       if (Number(selectedChannelId) !== Number(channelId)) return;
-      roiBgImage = img;
-      drawROI();
+      previewBgImage = img;
+      drawPreview();
     };
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      addDebug("[WARN] ROI snapshot decode failed", "warn");
+      addDebug("[WARN] preview snapshot decode failed", "warn");
     };
     img.src = objectUrl;
   } catch (err) {
-    addDebug(`[WARN] ROI snapshot unavailable: ${err.message}`, "warn");
+    addDebug(`[WARN] preview snapshot unavailable: ${err.message}`, "warn");
   }
 }
-function setupROI() {
+function renderROIPointsList() {
+  const container = document.getElementById("roiPointsList");
+  if (!container) return;
+  container.innerHTML = "";
+  roiPoints.forEach((p, i) => {
+    const row = document.createElement("div");
+    row.className = "roi-point-row";
+    row.innerHTML =
+      '<span class="roi-pt-label">Точка ' + (i + 1) + ":</span>" +
+      ' x <input type="number" class="roi-pt-x" data-idx="' + i + '" value="' + Math.round(p.x) + '">' +
+      ' y <input type="number" class="roi-pt-y" data-idx="' + i + '" value="' + Math.round(p.y) + '">' +
+      '<button class="roi-pt-del" data-idx="' + i + '" title="Удалить">\u00d7</button>';
+    container.appendChild(row);
+  });
+  container.querySelectorAll(".roi-pt-x").forEach((el) => {
+    el.addEventListener("input", () => {
+      const idx = Number(el.dataset.idx);
+      const cv = document.getElementById("roiCanvas");
+      roiPoints[idx].x = Math.max(0, Math.min(cv.width, Number(el.value) || 0));
+      drawPreview();
+    });
+  });
+  container.querySelectorAll(".roi-pt-y").forEach((el) => {
+    el.addEventListener("input", () => {
+      const idx = Number(el.dataset.idx);
+      const cv = document.getElementById("roiCanvas");
+      roiPoints[idx].y = Math.max(0, Math.min(cv.height, Number(el.value) || 0));
+      drawPreview();
+    });
+  });
+  container.querySelectorAll(".roi-pt-del").forEach((el) => {
+    el.addEventListener("click", () => {
+      roiPoints.splice(Number(el.dataset.idx), 1);
+      renderROIPointsList();
+      drawPreview();
+    });
+  });
+}
+
+function canvasCoords(e, cv) {
+  const r = cv.getBoundingClientRect();
+  const scaleX = cv.width / r.width;
+  const scaleY = cv.height / r.height;
+  return {
+    x: (e.clientX - r.left) * scaleX,
+    y: (e.clientY - r.top) * scaleY,
+  };
+}
+
+function setupVisionCanvas() {
   const cv = document.getElementById("roiCanvas");
   let moved = false;
   let downPoint = null;
+  let psStartX = 0, psStartY = 0, psStartBox = null;
+
   cv.oncontextmenu = (e) => {
     e.preventDefault();
-    const r = cv.getBoundingClientRect();
-    const x = e.clientX - r.left,
-      y = e.clientY - r.top;
+    const { x, y } = canvasCoords(e, cv);
     const idx = roiPoints.findIndex((p) => Math.hypot(p.x - x, p.y - y) < 10);
     if (idx >= 0) {
       roiPoints.splice(idx, 1);
-      drawROI();
-      setVal("c_roi_points", JSON.stringify(roiPoints));
+      renderROIPointsList();
+      drawPreview();
     }
   };
+
   cv.onmousedown = (e) => {
-    const r = cv.getBoundingClientRect();
-    const x = e.clientX - r.left,
-      y = e.clientY - r.top;
+    const { x, y } = canvasCoords(e, cv);
     downPoint = { x, y };
     moved = false;
+
+    // check plate-size boxes first (left button only)
+    if (e.button === 0) {
+      for (const key of ["min", "max"]) {
+        const hit = hitTestPlateSizeBox(x, y, plateSizeBoxes[key]);
+        if (hit) {
+          plateSizeDrag = { key, hit };
+          psStartX = x;
+          psStartY = y;
+          psStartBox = { ...plateSizeBoxes[key] };
+          e.preventDefault();
+          return;
+        }
+      }
+    }
+
+    // then ROI point drag
     roiDrag = roiPoints.findIndex((p) => Math.hypot(p.x - x, p.y - y) < 10);
   };
+
   cv.onmousemove = (e) => {
-    if (roiDrag < 0) return;
-    const r = cv.getBoundingClientRect();
-    const x = e.clientX - r.left,
-      y = e.clientY - r.top;
-    roiPoints[roiDrag] = { x, y };
-    moved = true;
-    drawROI();
+    const { x, y } = canvasCoords(e, cv);
+
+    // plate size drag in progress
+    if (plateSizeDrag) {
+      const dx = x - psStartX, dy = y - psStartY;
+      const box = plateSizeBoxes[plateSizeDrag.key];
+      const hit = plateSizeDrag.hit;
+      if (hit === "move") {
+        box.x = psStartBox.x + dx;
+        box.y = psStartBox.y + dy;
+      } else {
+        let nx = psStartBox.x, ny = psStartBox.y, nw = psStartBox.width, nh = psStartBox.height;
+        if (hit.includes("l")) { nx = psStartBox.x + dx; nw = psStartBox.width - dx; }
+        if (hit.includes("r")) { nw = psStartBox.width + dx; }
+        if (hit.includes("t")) { ny = psStartBox.y + dy; nh = psStartBox.height - dy; }
+        if (hit.includes("b")) { nh = psStartBox.height + dy; }
+        if (nw < 4) { nw = 4; if (hit.includes("l")) nx = psStartBox.x + psStartBox.width - 4; }
+        if (nh < 4) { nh = 4; if (hit.includes("t")) ny = psStartBox.y + psStartBox.height - 4; }
+        box.x = nx; box.y = ny; box.width = nw; box.height = nh;
+      }
+      clampBoxInCanvas(box, cv);
+      syncPlateSizeInputsFromBoxes();
+      drawPreview();
+      return;
+    }
+
+    // ROI point drag in progress
+    if (roiDrag >= 0) {
+      roiPoints[roiDrag] = { x, y };
+      moved = true;
+      drawPreview();
+      return;
+    }
+
+    // hover cursor
+    let cursor = "default";
+    for (const key of ["min", "max"]) {
+      const hit = hitTestPlateSizeBox(x, y, plateSizeBoxes[key]);
+      if (hit) { cursor = getCursorForHit(hit); break; }
+    }
+    if (cursor === "default") {
+      const nearPt = roiPoints.findIndex((p) => Math.hypot(p.x - x, p.y - y) < 10);
+      if (nearPt >= 0) cursor = "grab";
+    }
+    cv.style.cursor = cursor;
   };
+
   cv.onmouseup = (e) => {
-    const r = cv.getBoundingClientRect();
-    const x = e.clientX - r.left,
-      y = e.clientY - r.top;
+    const { x, y } = canvasCoords(e, cv);
+
+    // finish plate size drag
+    if (plateSizeDrag) {
+      plateSizeDrag = null;
+      enforcePlateSizeConstraints();
+      drawPreview();
+      return;
+    }
+
+    // finish ROI drag
     if (roiDrag >= 0) {
       roiDrag = -1;
       if (moved) {
-        setVal("c_roi_points", JSON.stringify(roiPoints));
+        renderROIPointsList();
         return;
       }
     }
+
     if (e.button !== 0) return;
     if (downPoint && Math.hypot(downPoint.x - x, downPoint.y - y) > 4) return;
+
+    // don't add ROI point if click was on an existing point
     const nearExisting = roiPoints.findIndex(
       (p) => Math.hypot(p.x - x, p.y - y) < 10,
     );
     if (nearExisting !== -1) return;
+
+    // don't add ROI point if click was inside a plate-size box
+    for (const key of ["min", "max"]) {
+      if (hitTestPlateSizeBox(x, y, plateSizeBoxes[key]) === "move") return;
+    }
+
     const insertAfter = findInsertSegmentIndex({ x, y });
     if (insertAfter === -1) return;
     roiPoints.splice(insertAfter + 1, 0, { x, y });
-    drawROI();
-    setVal("c_roi_points", JSON.stringify(roiPoints));
+    renderROIPointsList();
+    drawPreview();
+  };
+
+  cv.onmouseleave = () => {
+    if (plateSizeDrag) {
+      plateSizeDrag = null;
+      enforcePlateSizeConstraints();
+      drawPreview();
+    }
   };
 }
 
 /* ─── Plate Size visual editor ─────────────────────── */
-
-function drawPlateSizeBoxes() {
-  const cv = document.getElementById("plateSizeCanvas");
-  const ctx = cv.getContext("2d");
-  ctx.clearRect(0, 0, cv.width, cv.height);
-  if (plateSizeBgImage && plateSizeBgImage.complete) {
-    ctx.drawImage(plateSizeBgImage, 0, 0, cv.width, cv.height);
-  }
-  const boxes = [
-    { key: "max", color: "#f59e0b", fill: "rgba(245,158,11,0.12)", label: "MAX" },
-    { key: "min", color: "#3b82f6", fill: "rgba(59,130,246,0.15)", label: "MIN" },
-  ];
-  boxes.forEach(({ key, color, fill, label }) => {
-    const b = plateSizeBoxes[key];
-    ctx.fillStyle = fill;
-    ctx.fillRect(b.x, b.y, b.width, b.height);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(b.x, b.y, b.width, b.height);
-    ctx.fillStyle = color;
-    ctx.font = "bold 11px sans-serif";
-    ctx.fillText(label + " " + Math.round(b.width) + "\u00d7" + Math.round(b.height), b.x + 4, b.y - 4);
-  });
-}
 
 function syncPlateSizeInputsFromBoxes() {
   setVal("c_min_w", Math.round(plateSizeBoxes.min.width));
@@ -1492,7 +1620,7 @@ function syncPlateSizeInputsFromBoxes() {
 }
 
 function syncPlateSizeBoxesFromInputs() {
-  const cv = document.getElementById("plateSizeCanvas");
+  const cv = document.getElementById("roiCanvas");
   const minW = Math.max(1, Number(val("c_min_w")) || 1);
   const minH = Math.max(1, Number(val("c_min_h")) || 1);
   const maxW = Math.max(1, Number(val("c_max_w")) || 1);
@@ -1503,7 +1631,7 @@ function syncPlateSizeBoxesFromInputs() {
   plateSizeBoxes.max.height = Math.min(maxH, cv.height);
   clampBoxInCanvas(plateSizeBoxes.min, cv);
   clampBoxInCanvas(plateSizeBoxes.max, cv);
-  drawPlateSizeBoxes();
+  drawPreview();
 }
 
 function clampBoxInCanvas(box, cv) {
@@ -1522,34 +1650,6 @@ function defaultPlateSizeOverlay(cv) {
     min: { x: (cv.width - minW) / 2, y: (cv.height - minH) / 2 + 40, width: minW, height: minH },
     max: { x: (cv.width - maxW) / 2, y: (cv.height - maxH) / 2 - 20, width: maxW, height: maxH },
   };
-}
-
-async function refreshPlateSizeSnapshot() {
-  if (!selectedChannelId) return;
-  const channelId = selectedChannelId;
-  try {
-    const res = await fetch(
-      apiUrl(`/api/channels/${channelId}/snapshot.jpg?t=${Date.now()}`),
-      { cache: "no-store" },
-    );
-    if (!res.ok) throw new Error(`snapshot status ${res.status}`);
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      if (Number(selectedChannelId) !== Number(channelId)) return;
-      plateSizeBgImage = img;
-      drawPlateSizeBoxes();
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      addDebug("[WARN] plate-size snapshot decode failed", "warn");
-    };
-    img.src = objectUrl;
-  } catch (err) {
-    addDebug(`[WARN] plate-size snapshot unavailable: ${err.message}`, "warn");
-  }
 }
 
 function hitTestPlateSizeBox(x, y, box) {
@@ -1588,87 +1688,12 @@ function getCursorForHit(hit) {
   return "default";
 }
 
-function setupPlateSizeEditor() {
-  const cv = document.getElementById("plateSizeCanvas");
-  let startX = 0, startY = 0;
-  let startBox = null;
-
-  cv.onmousedown = (e) => {
-    if (e.button !== 0) return;
-    const r = cv.getBoundingClientRect();
-    const x = e.clientX - r.left, y = e.clientY - r.top;
-
-    for (const key of ["min", "max"]) {
-      const hit = hitTestPlateSizeBox(x, y, plateSizeBoxes[key]);
-      if (hit) {
-        plateSizeDrag = { key, hit };
-        startX = x;
-        startY = y;
-        startBox = { ...plateSizeBoxes[key] };
-        e.preventDefault();
-        return;
-      }
-    }
-  };
-
-  cv.onmousemove = (e) => {
-    const r = cv.getBoundingClientRect();
-    const x = e.clientX - r.left, y = e.clientY - r.top;
-
-    if (!plateSizeDrag) {
-      let cursor = "default";
-      for (const key of ["min", "max"]) {
-        const hit = hitTestPlateSizeBox(x, y, plateSizeBoxes[key]);
-        if (hit) { cursor = getCursorForHit(hit); break; }
-      }
-      cv.style.cursor = cursor;
-      return;
-    }
-
-    const dx = x - startX, dy = y - startY;
-    const box = plateSizeBoxes[plateSizeDrag.key];
-    const hit = plateSizeDrag.hit;
-
-    if (hit === "move") {
-      box.x = startBox.x + dx;
-      box.y = startBox.y + dy;
-    } else {
-      let nx = startBox.x, ny = startBox.y, nw = startBox.width, nh = startBox.height;
-      if (hit.includes("l")) { nx = startBox.x + dx; nw = startBox.width - dx; }
-      if (hit.includes("r")) { nw = startBox.width + dx; }
-      if (hit.includes("t")) { ny = startBox.y + dy; nh = startBox.height - dy; }
-      if (hit.includes("b")) { nh = startBox.height + dy; }
-      if (nw < 4) { nw = 4; if (hit.includes("l")) nx = startBox.x + startBox.width - 4; }
-      if (nh < 4) { nh = 4; if (hit.includes("t")) ny = startBox.y + startBox.height - 4; }
-      box.x = nx; box.y = ny; box.width = nw; box.height = nh;
-    }
-
-    clampBoxInCanvas(box, cv);
-    syncPlateSizeInputsFromBoxes();
-    drawPlateSizeBoxes();
-  };
-
-  cv.onmouseup = () => {
-    if (plateSizeDrag) {
-      plateSizeDrag = null;
-      enforcePlateSizeConstraints();
-      drawPlateSizeBoxes();
-    }
-  };
-
-  cv.onmouseleave = () => {
-    if (plateSizeDrag) {
-      plateSizeDrag = null;
-      enforcePlateSizeConstraints();
-      drawPlateSizeBoxes();
-    }
-  };
-
+function setupPlateSizeInputListeners() {
   ["c_min_w", "c_min_h", "c_max_w", "c_max_h"].forEach((id) => {
     document.getElementById(id).addEventListener("input", () => {
       syncPlateSizeBoxesFromInputs();
       enforcePlateSizeConstraints();
-      drawPlateSizeBoxes();
+      drawPreview();
     });
   });
 }
@@ -1876,30 +1901,24 @@ async function selectChannel(id) {
   if (!roiPoints.length) {
     roiPoints = defaultROIPointsForCanvas(cv);
   }
-  setVal("c_roi_points", JSON.stringify(roiPoints));
-  drawROI();
-  refreshROISnapshot();
+  renderROIPointsList();
 
-  const psCv = document.getElementById("plateSizeCanvas");
   const overlay = c.plate_size_overlay;
   if (overlay && overlay.min_box && overlay.max_box) {
     plateSizeBoxes.min = { ...overlay.min_box };
     plateSizeBoxes.max = { ...overlay.max_box };
   } else {
-    plateSizeBoxes = defaultPlateSizeOverlay(psCv);
+    plateSizeBoxes = defaultPlateSizeOverlay(cv);
   }
-  clampBoxInCanvas(plateSizeBoxes.min, psCv);
-  clampBoxInCanvas(plateSizeBoxes.max, psCv);
-  drawPlateSizeBoxes();
-  refreshPlateSizeSnapshot();
+  clampBoxInCanvas(plateSizeBoxes.min, cv);
+  clampBoxInCanvas(plateSizeBoxes.max, cv);
+  drawPreview();
+  refreshPreviewSnapshot();
 }
 
 async function saveChannel() {
   if (!selectedChannelId) return;
-  let points = roiPoints;
-  try {
-    points = JSON.parse(val("c_roi_points"));
-  } catch (_e) {}
+  const points = roiPoints;
   if (
     document.getElementById("c_roi_enabled").checked &&
     points.length > 0 &&
@@ -2636,19 +2655,18 @@ document.getElementById("themeToggleBtn").onclick = () => {
   setVal("g_theme", nextTheme);
   applyTheme(nextTheme);
 };
-document.getElementById("plateSizeRefreshBtn").onclick = refreshPlateSizeSnapshot;
 document.getElementById("plateSizeResetBtn").onclick = () => {
-  const cv = document.getElementById("plateSizeCanvas");
+  const cv = document.getElementById("roiCanvas");
   plateSizeBoxes = defaultPlateSizeOverlay(cv);
   syncPlateSizeInputsFromBoxes();
-  drawPlateSizeBoxes();
+  drawPreview();
 };
-document.getElementById("roiRefreshBtn").onclick = refreshROISnapshot;
+document.getElementById("roiRefreshBtn").onclick = refreshPreviewSnapshot;
 document.getElementById("roiClearBtn").onclick = () => {
   const cv = document.getElementById("roiCanvas");
   roiPoints = defaultROIPointsForCanvas(cv);
-  setVal("c_roi_points", JSON.stringify(roiPoints));
-  drawROI();
+  renderROIPointsList();
+  drawPreview();
 };
 
 
@@ -2734,8 +2752,8 @@ window.addEventListener("resize", () => scheduleEventFeedRender(true));
   syncControllerConfigVisibility();
   setupVideoGridLayoutGuards();
   setupEventFeedLayoutGuards();
-  setupROI();
-  setupPlateSizeEditor();
+  setupVisionCanvas();
+  setupPlateSizeInputListeners();
   switchChannelSettingsTab("channel");
   updateTopbarTitle();
   await refreshChannels();
@@ -2775,7 +2793,6 @@ const PARAM_HELP = {
   ocr_min_confidence: "Минимальный порог уверенности OCR (0.0–1.0). Результаты ниже порога не попадают в пул кандидатов трека и считаются нечитаемыми. По умолчанию 0.6.",
   max_ocr_attempts: "Максимальное число OCR-попыток для одного трека. После исчерпания бюджета OCR для этого трека прекращается — кроп, предобработка и CRNN-инференс больше не выполняются.\n\nЕсли консенсус был достигнут раньше — трек финализируется досрочно.\nЕсли бюджет исчерпан без консенсуса — выбирается лучший кандидат по весу.\nЕсли кандидатов нет — генерируется одно событие «Нечитаемо».\n\nПо умолчанию 15.",
   roi_enabled: "Включить зону интереса (Region of Interest). Когда включено, только обнаружения с центром bbox внутри ROI-полигона обрабатываются. Детекция YOLO по-прежнему работает по всему кадру, но результаты за пределами ROI отбрасываются.",
-  roi_points: "JSON-представление точек ROI-полигона. Координаты в пикселях канваса. Минимум 3 точки для замкнутой области. Редактируйте визуально на канвасе выше или вручную.",
   controller_id: "Привязка аппаратного контроллера к этому каналу. При распознавании номера, прошедшего фильтр списков, на контроллер отправляется HTTP-команда для срабатывания выбранного реле.",
   controller_relay: "Какое из двух реле контроллера использовать для этого канала (Реле 1 или Реле 2). Режим работы реле (pulse / pulse_timer) настраивается в параметрах контроллера."
 };

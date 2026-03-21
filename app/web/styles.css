@@ -971,8 +971,32 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
 .filter-actions { display: flex; gap: 7px; align-self: flex-end; }
 .form-actions { display: flex; gap: 8px; padding: 4px 0 2px; flex-wrap: wrap; }
 .roi-hint { margin-top: 8px; color: var(--text2); font-size: 11px; line-height: 1.5; }
-#roiCanvas { display: block; max-width: 100%; border: 1px solid var(--border2); background: #0d1018; border-radius: 8px; margin-top: 8px; }
-#plateSizeCanvas { display: block; max-width: 100%; border: 1px solid var(--border2); background: #0d1018; border-radius: 8px; margin-top: 8px; cursor: default; }
+#roiCanvas { display: block; width: 100%; border: 1px solid var(--border2); background: #0d1018; border-radius: 8px; }
+
+/* ─── Vision tab (merged ROI + plate size) ─────────── */
+.vision-layout { display: flex; gap: 14px; }
+.vision-left { flex: 1 1 340px; min-width: 280px; }
+.vision-right { flex: 1 1 420px; min-width: 300px; max-width: 520px; }
+.vision-left .s-card { margin-bottom: 10px; }
+
+.roi-points-list { max-height: 190px; overflow-y: auto; }
+.roi-point-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 0; font-size: 11px; color: var(--text2);
+  border-bottom: 1px solid rgba(255,255,255,0.025);
+}
+.roi-point-row:last-child { border-bottom: none; }
+.roi-point-row .roi-pt-label { flex: 0 0 52px; white-space: nowrap; }
+.roi-point-row input {
+  width: 52px; padding: 2px 4px; font-size: 11px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text1); text-align: right;
+}
+.roi-point-row .roi-pt-del {
+  margin-left: auto; cursor: pointer; color: var(--text2);
+  background: none; border: none; font-size: 13px; padding: 0 4px; line-height: 1;
+}
+.roi-point-row .roi-pt-del:hover { color: #ef4444; }
 .ch-config-pane { flex: 1; min-width: 0; }
 .btn-sm { height: 28px !important; padding: 0 12px !important; font-size: 11px !important; }
 .lists-data-wrap { margin: 12px; border-radius: var(--radius); overflow: hidden; }

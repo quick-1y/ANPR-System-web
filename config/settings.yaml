@@ -57,11 +57,11 @@ channels:
   motion_release_frames: 100
   size_filter_enabled: true
   min_plate_size:
-    width: 125
-    height: 44
+    width: 79
+    height: 37
   max_plate_size:
-    width: 219
-    height: 64
+    width: 233
+    height: 108
   controller_id: null
   controller_relay: 0
   list_filter_mode: all
@@ -69,15 +69,15 @@ channels:
   max_ocr_attempts: 15
   plate_size_overlay:
     min_box:
-      x: 321
-      y: 160
-      width: 125
-      height: 44
+      x: 350
+      y: 139
+      width: 79
+      height: 37
     max_box:
-      x: 22
-      y: 228
-      width: 219
-      height: 64
+      x: 44
+      y: 172
+      width: 233
+      height: 108
 - id: 2
   name: Выезд
   source: rtsp://admin:admin@78.138.142.26:2001/0
