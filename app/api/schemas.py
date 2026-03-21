@@ -45,6 +45,7 @@ class ChannelConfigPayload(BaseModel):
     best_shots: int = Field(default=3, ge=1, le=20)
     cooldown_seconds: int = Field(default=5, ge=0, le=300)
     ocr_min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
+    max_ocr_attempts: int = Field(default=15, ge=1, le=200)
     roi_enabled: bool = True
     region: ROIRegionPayload = Field(default_factory=ROIRegionPayload)
 
@@ -62,6 +63,7 @@ class ChannelOCRPayload(BaseModel):
     best_shots: int = Field(ge=1, le=20)
     cooldown_seconds: int = Field(ge=0, le=300)
     ocr_min_confidence: float = Field(ge=0.0, le=1.0)
+    max_ocr_attempts: int = Field(default=15, ge=1, le=200)
 
 
 class ChannelFilterPayload(BaseModel):

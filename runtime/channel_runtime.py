@@ -361,6 +361,7 @@ class ChannelProcessor:
                 min_plate_size=channel.get("min_plate_size"),
                 max_plate_size=channel.get("max_plate_size"),
                 size_filter_enabled=bool(channel.get("size_filter_enabled", True)),
+                max_ocr_attempts=int(channel.get("max_ocr_attempts", 15)),
             )
             detection_mode_raw = str(channel.get("detection_mode", "always")).strip().lower()
             if detection_mode_raw not in {"always", "motion"}:
