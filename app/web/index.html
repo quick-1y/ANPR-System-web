@@ -361,6 +361,8 @@
                     OCR</button
                   ><button class="btn btn-ghost ch-tab" data-ch-tab="plates">
                     Детектор</button
+                  ><button class="btn btn-ghost ch-tab" data-ch-tab="platesize">
+                    Размер номера</button
                   ><button class="btn btn-ghost ch-tab" data-ch-tab="motion">
                     Движение</button
                   ><button class="btn btn-ghost ch-tab" data-ch-tab="controller">
@@ -490,6 +492,15 @@
                         type="number"
                       />
                     </div>
+                  </div>
+                </div>
+                <div
+                  class="s-card ch-group"
+                  id="ch-group-platesize"
+                  style="display: none"
+                >
+                  <div class="s-card-header">Размер номерной рамки</div>
+                  <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
                         <button class="param-help-btn" data-help="size_filter_enabled">?</button>
@@ -506,7 +517,8 @@
                         class="s-input sm"
                         id="c_min_w"
                         type="number"
-                      /><input class="s-input sm" id="c_min_h" type="number" />
+                        min="1"
+                      /><input class="s-input sm" id="c_min_h" type="number" min="1" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
@@ -517,7 +529,17 @@
                         class="s-input sm"
                         id="c_max_w"
                         type="number"
-                      /><input class="s-input sm" id="c_max_h" type="number" />
+                        min="1"
+                      /><input class="s-input sm" id="c_max_h" type="number" min="1" />
+                    </div>
+                    <canvas id="plateSizeCanvas" width="640" height="360"></canvas>
+                    <div class="form-actions">
+                      <button class="btn btn-ghost" id="plateSizeRefreshBtn">Обновить кадр</button>
+                      <button class="btn btn-ghost" id="plateSizeResetBtn">Сбросить позиции</button>
+                    </div>
+                    <div class="roi-hint">
+                      ЛКМ внутри рамки: перетащить. Тяните за края или углы для изменения размера.
+                      Размеры синхронизированы с полями выше.
                     </div>
                   </div>
                 </div>

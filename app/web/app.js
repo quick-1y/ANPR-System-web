@@ -1130,6 +1130,13 @@ const hotkeyMap = new Map();
 let roiDrag = -1;
 let roiBgImage = null;
 
+let plateSizeBgImage = null;
+let plateSizeBoxes = {
+  min: { x: 200, y: 130, width: 80, height: 20 },
+  max: { x: 100, y: 60, width: 600, height: 240 },
+};
+let plateSizeDrag = null;
+
 function val(id) {
   return document.getElementById(id).value;
 }
@@ -1451,6 +1458,228 @@ function setupROI() {
   };
 }
 
+/* ─── Plate Size visual editor ─────────────────────── */
+
+function drawPlateSizeBoxes() {
+  const cv = document.getElementById("plateSizeCanvas");
+  const ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (plateSizeBgImage && plateSizeBgImage.complete) {
+    ctx.drawImage(plateSizeBgImage, 0, 0, cv.width, cv.height);
+  }
+  const boxes = [
+    { key: "max", color: "#f59e0b", fill: "rgba(245,158,11,0.12)", label: "MAX" },
+    { key: "min", color: "#3b82f6", fill: "rgba(59,130,246,0.15)", label: "MIN" },
+  ];
+  boxes.forEach(({ key, color, fill, label }) => {
+    const b = plateSizeBoxes[key];
+    ctx.fillStyle = fill;
+    ctx.fillRect(b.x, b.y, b.width, b.height);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(b.x, b.y, b.width, b.height);
+    ctx.fillStyle = color;
+    ctx.font = "bold 11px sans-serif";
+    ctx.fillText(label + " " + Math.round(b.width) + "\u00d7" + Math.round(b.height), b.x + 4, b.y - 4);
+  });
+}
+
+function syncPlateSizeInputsFromBoxes() {
+  setVal("c_min_w", Math.round(plateSizeBoxes.min.width));
+  setVal("c_min_h", Math.round(plateSizeBoxes.min.height));
+  setVal("c_max_w", Math.round(plateSizeBoxes.max.width));
+  setVal("c_max_h", Math.round(plateSizeBoxes.max.height));
+}
+
+function syncPlateSizeBoxesFromInputs() {
+  const cv = document.getElementById("plateSizeCanvas");
+  const minW = Math.max(1, Number(val("c_min_w")) || 1);
+  const minH = Math.max(1, Number(val("c_min_h")) || 1);
+  const maxW = Math.max(1, Number(val("c_max_w")) || 1);
+  const maxH = Math.max(1, Number(val("c_max_h")) || 1);
+  plateSizeBoxes.min.width = Math.min(minW, cv.width);
+  plateSizeBoxes.min.height = Math.min(minH, cv.height);
+  plateSizeBoxes.max.width = Math.min(maxW, cv.width);
+  plateSizeBoxes.max.height = Math.min(maxH, cv.height);
+  clampBoxInCanvas(plateSizeBoxes.min, cv);
+  clampBoxInCanvas(plateSizeBoxes.max, cv);
+  drawPlateSizeBoxes();
+}
+
+function clampBoxInCanvas(box, cv) {
+  box.width = Math.max(1, Math.min(box.width, cv.width));
+  box.height = Math.max(1, Math.min(box.height, cv.height));
+  box.x = Math.max(0, Math.min(box.x, cv.width - box.width));
+  box.y = Math.max(0, Math.min(box.y, cv.height - box.height));
+}
+
+function defaultPlateSizeOverlay(cv) {
+  const minW = Number(val("c_min_w")) || 80;
+  const minH = Number(val("c_min_h")) || 20;
+  const maxW = Number(val("c_max_w")) || 600;
+  const maxH = Number(val("c_max_h")) || 240;
+  return {
+    min: { x: (cv.width - minW) / 2, y: (cv.height - minH) / 2 + 40, width: minW, height: minH },
+    max: { x: (cv.width - maxW) / 2, y: (cv.height - maxH) / 2 - 20, width: maxW, height: maxH },
+  };
+}
+
+async function refreshPlateSizeSnapshot() {
+  if (!selectedChannelId) return;
+  const channelId = selectedChannelId;
+  try {
+    const res = await fetch(
+      apiUrl(`/api/channels/${channelId}/snapshot.jpg?t=${Date.now()}`),
+      { cache: "no-store" },
+    );
+    if (!res.ok) throw new Error(`snapshot status ${res.status}`);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      if (Number(selectedChannelId) !== Number(channelId)) return;
+      plateSizeBgImage = img;
+      drawPlateSizeBoxes();
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      addDebug("[WARN] plate-size snapshot decode failed", "warn");
+    };
+    img.src = objectUrl;
+  } catch (err) {
+    addDebug(`[WARN] plate-size snapshot unavailable: ${err.message}`, "warn");
+  }
+}
+
+function hitTestPlateSizeBox(x, y, box) {
+  const E = 7;
+  const inX = x >= box.x - E && x <= box.x + box.width + E;
+  const inY = y >= box.y - E && y <= box.y + box.height + E;
+  if (!inX || !inY) return null;
+
+  const nearL = Math.abs(x - box.x) <= E;
+  const nearR = Math.abs(x - (box.x + box.width)) <= E;
+  const nearT = Math.abs(y - box.y) <= E;
+  const nearB = Math.abs(y - (box.y + box.height)) <= E;
+
+  if (nearT && nearL) return "tl";
+  if (nearT && nearR) return "tr";
+  if (nearB && nearL) return "bl";
+  if (nearB && nearR) return "br";
+  if (nearL) return "l";
+  if (nearR) return "r";
+  if (nearT) return "t";
+  if (nearB) return "b";
+
+  if (x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height) {
+    return "move";
+  }
+  return null;
+}
+
+function getCursorForHit(hit) {
+  if (!hit) return "default";
+  if (hit === "move") return "grab";
+  if (hit === "tl" || hit === "br") return "nwse-resize";
+  if (hit === "tr" || hit === "bl") return "nesw-resize";
+  if (hit === "l" || hit === "r") return "ew-resize";
+  if (hit === "t" || hit === "b") return "ns-resize";
+  return "default";
+}
+
+function setupPlateSizeEditor() {
+  const cv = document.getElementById("plateSizeCanvas");
+  let startX = 0, startY = 0;
+  let startBox = null;
+
+  cv.onmousedown = (e) => {
+    if (e.button !== 0) return;
+    const r = cv.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+
+    for (const key of ["min", "max"]) {
+      const hit = hitTestPlateSizeBox(x, y, plateSizeBoxes[key]);
+      if (hit) {
+        plateSizeDrag = { key, hit };
+        startX = x;
+        startY = y;
+        startBox = { ...plateSizeBoxes[key] };
+        e.preventDefault();
+        return;
+      }
+    }
+  };
+
+  cv.onmousemove = (e) => {
+    const r = cv.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+
+    if (!plateSizeDrag) {
+      let cursor = "default";
+      for (const key of ["min", "max"]) {
+        const hit = hitTestPlateSizeBox(x, y, plateSizeBoxes[key]);
+        if (hit) { cursor = getCursorForHit(hit); break; }
+      }
+      cv.style.cursor = cursor;
+      return;
+    }
+
+    const dx = x - startX, dy = y - startY;
+    const box = plateSizeBoxes[plateSizeDrag.key];
+    const hit = plateSizeDrag.hit;
+
+    if (hit === "move") {
+      box.x = startBox.x + dx;
+      box.y = startBox.y + dy;
+    } else {
+      let nx = startBox.x, ny = startBox.y, nw = startBox.width, nh = startBox.height;
+      if (hit.includes("l")) { nx = startBox.x + dx; nw = startBox.width - dx; }
+      if (hit.includes("r")) { nw = startBox.width + dx; }
+      if (hit.includes("t")) { ny = startBox.y + dy; nh = startBox.height - dy; }
+      if (hit.includes("b")) { nh = startBox.height + dy; }
+      if (nw < 4) { nw = 4; if (hit.includes("l")) nx = startBox.x + startBox.width - 4; }
+      if (nh < 4) { nh = 4; if (hit.includes("t")) ny = startBox.y + startBox.height - 4; }
+      box.x = nx; box.y = ny; box.width = nw; box.height = nh;
+    }
+
+    clampBoxInCanvas(box, cv);
+    syncPlateSizeInputsFromBoxes();
+    drawPlateSizeBoxes();
+  };
+
+  cv.onmouseup = () => {
+    if (plateSizeDrag) {
+      plateSizeDrag = null;
+      enforcePlateSizeConstraints();
+      drawPlateSizeBoxes();
+    }
+  };
+
+  cv.onmouseleave = () => {
+    if (plateSizeDrag) {
+      plateSizeDrag = null;
+      enforcePlateSizeConstraints();
+      drawPlateSizeBoxes();
+    }
+  };
+
+  ["c_min_w", "c_min_h", "c_max_w", "c_max_h"].forEach((id) => {
+    document.getElementById(id).addEventListener("input", () => {
+      syncPlateSizeBoxesFromInputs();
+      enforcePlateSizeConstraints();
+      drawPlateSizeBoxes();
+    });
+  });
+}
+
+function enforcePlateSizeConstraints() {
+  const minB = plateSizeBoxes.min;
+  const maxB = plateSizeBoxes.max;
+  if (minB.width > maxB.width) { minB.width = maxB.width; }
+  if (minB.height > maxB.height) { minB.height = maxB.height; }
+  syncPlateSizeInputsFromBoxes();
+}
 
 function hotkeyFromEvent(event) {
   const key = String(event.key || "").trim().toUpperCase();
@@ -1650,6 +1879,19 @@ async function selectChannel(id) {
   setVal("c_roi_points", JSON.stringify(roiPoints));
   drawROI();
   refreshROISnapshot();
+
+  const psCv = document.getElementById("plateSizeCanvas");
+  const overlay = c.plate_size_overlay;
+  if (overlay && overlay.min_box && overlay.max_box) {
+    plateSizeBoxes.min = { ...overlay.min_box };
+    plateSizeBoxes.max = { ...overlay.max_box };
+  } else {
+    plateSizeBoxes = defaultPlateSizeOverlay(psCv);
+  }
+  clampBoxInCanvas(plateSizeBoxes.min, psCv);
+  clampBoxInCanvas(plateSizeBoxes.max, psCv);
+  drawPlateSizeBoxes();
+  refreshPlateSizeSnapshot();
 }
 
 async function saveChannel() {
@@ -1701,6 +1943,10 @@ async function saveChannel() {
       points: points.map((p) =>
         toPercentPoint(p, document.getElementById("roiCanvas")),
       ),
+    },
+    plate_size_overlay: {
+      min_box: { x: Math.round(plateSizeBoxes.min.x), y: Math.round(plateSizeBoxes.min.y), width: Math.round(plateSizeBoxes.min.width), height: Math.round(plateSizeBoxes.min.height) },
+      max_box: { x: Math.round(plateSizeBoxes.max.x), y: Math.round(plateSizeBoxes.max.y), width: Math.round(plateSizeBoxes.max.width), height: Math.round(plateSizeBoxes.max.height) },
     },
   };
   await jfetch(
@@ -2390,6 +2636,13 @@ document.getElementById("themeToggleBtn").onclick = () => {
   setVal("g_theme", nextTheme);
   applyTheme(nextTheme);
 };
+document.getElementById("plateSizeRefreshBtn").onclick = refreshPlateSizeSnapshot;
+document.getElementById("plateSizeResetBtn").onclick = () => {
+  const cv = document.getElementById("plateSizeCanvas");
+  plateSizeBoxes = defaultPlateSizeOverlay(cv);
+  syncPlateSizeInputsFromBoxes();
+  drawPlateSizeBoxes();
+};
 document.getElementById("roiRefreshBtn").onclick = refreshROISnapshot;
 document.getElementById("roiClearBtn").onclick = () => {
   const cv = document.getElementById("roiCanvas");
@@ -2482,6 +2735,7 @@ window.addEventListener("resize", () => scheduleEventFeedRender(true));
   setupVideoGridLayoutGuards();
   setupEventFeedLayoutGuards();
   setupROI();
+  setupPlateSizeEditor();
   switchChannelSettingsTab("channel");
   updateTopbarTitle();
   await refreshChannels();
