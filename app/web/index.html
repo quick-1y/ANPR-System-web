@@ -372,18 +372,21 @@
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="name">?</button>
                         <div class="s-row-name">Название</div>
                       </div>
                       <input class="s-input" id="c_name" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="source">?</button>
                         <div class="s-row-name">Источник / RTSP</div>
                       </div>
                       <input class="s-input wide" id="c_source" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="list_filter_mode">?</button>
                         <div class="s-row-name">Режим фильтра списков</div>
                       </div>
                       <select class="s-input" id="c_list_filter_mode">
@@ -394,6 +397,7 @@
                     </div>
                     <div class="s-row" id="c_custom_lists_block" style="display: none">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="list_filter_list_ids">?</button>
                         <div class="s-row-name">Выбрать списки</div>
                       </div>
                       <div class="custom-lists-container" id="c_list_ids_select"></div>
@@ -413,6 +417,7 @@
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="detection_mode">?</button>
                         <div class="s-row-name">Режим обнаружения ТС</div>
                       </div>
                       <select class="s-input" id="c_detection_mode">
@@ -422,6 +427,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="motion_threshold">?</button>
                         <div class="s-row-name">Порог движения</div>
                       </div>
                       <input
@@ -433,6 +439,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="motion_frame_stride">?</button>
                         <div class="s-row-name">Частота анализа (кадр)</div>
                       </div>
                       <input
@@ -443,6 +450,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="motion_activation_frames">?</button>
                         <div class="s-row-name">Мин. кадров с движением</div>
                       </div>
                       <input
@@ -453,6 +461,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="motion_release_frames">?</button>
                         <div class="s-row-name">Мин. кадров без движения</div>
                       </div>
                       <input
@@ -472,6 +481,7 @@
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="detector_frame_stride">?</button>
                         <div class="s-row-name">Шаг инференса (кадр)</div>
                       </div>
                       <input
@@ -482,12 +492,14 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="size_filter_enabled">?</button>
                         <div class="s-row-name">Фильтрация размеров</div>
                       </div>
                       <input type="checkbox" id="c_size_filter" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="min_plate_size">?</button>
                         <div class="s-row-name">Мин. размер рамки (ш,в)</div>
                       </div>
                       <input
@@ -498,6 +510,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="max_plate_size">?</button>
                         <div class="s-row-name">Макс. размер рамки (ш,в)</div>
                       </div>
                       <input
@@ -517,6 +530,7 @@
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="best_shots">?</button>
                         <div class="s-row-name">Бестшоты на трек</div>
                       </div>
                       <input
@@ -527,12 +541,14 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="cooldown_seconds">?</button>
                         <div class="s-row-name">Пауза повтора (сек)</div>
                       </div>
                       <input class="s-input sm" id="c_cooldown" type="number" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="ocr_min_confidence">?</button>
                         <div class="s-row-name">Мин. уверенность OCR</div>
                       </div>
                       <input
@@ -540,6 +556,19 @@
                         id="c_ocr_conf"
                         type="number"
                         step="0.01"
+                      />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <button class="param-help-btn" data-help="max_ocr_attempts">?</button>
+                        <div class="s-row-name">Макс. OCR попыток на трек</div>
+                      </div>
+                      <input
+                        class="s-input sm"
+                        id="c_max_ocr_attempts"
+                        type="number"
+                        min="1"
+                        max="200"
                       />
                     </div>
                   </div>
@@ -553,6 +582,7 @@
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="roi_enabled">?</button>
                         <div class="s-row-name">Использование ROI</div>
                       </div>
                       <input type="checkbox" id="c_roi_enabled" />
@@ -568,6 +598,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="roi_points">?</button>
                         <div class="s-row-name">Точки ROI (JSON)</div>
                       </div>
                       <textarea
@@ -587,12 +618,14 @@
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="controller_id">?</button>
                         <div class="s-row-name">Контроллер</div>
                       </div>
                       <select class="s-input" id="c_controller_id"></select>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="controller_relay">?</button>
                         <div class="s-row-name">Реле</div>
                       </div>
                       <select class="s-input sm" id="c_controller_relay">

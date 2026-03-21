@@ -1639,6 +1639,7 @@ async function selectChannel(id) {
   setVal("c_best_shots", c.best_shots ?? 3);
   setVal("c_cooldown", c.cooldown_seconds ?? 5);
   setVal("c_ocr_conf", c.ocr_min_confidence ?? 0.6);
+  setVal("c_max_ocr_attempts", c.max_ocr_attempts ?? 15);
   setChk("c_roi_enabled", c.roi_enabled);
   const cv = document.getElementById("roiCanvas");
   const unit = c.region?.unit || "px";
@@ -1693,6 +1694,7 @@ async function saveChannel() {
     best_shots: Number(val("c_best_shots")),
     cooldown_seconds: Number(val("c_cooldown")),
     ocr_min_confidence: Number(val("c_ocr_conf")),
+    max_ocr_attempts: Number(val("c_max_ocr_attempts")),
     roi_enabled: document.getElementById("c_roi_enabled").checked,
     region: {
       unit: "percent",
@@ -2498,3 +2500,88 @@ window.addEventListener("resize", () => scheduleEventFeedRender(true));
   setInterval(refreshChannels, 8000);
   overlayRefreshTimer = setInterval(refreshOverlayStates, 700);
 })();
+
+/* ─── Parameter help popover system ─────────────────── */
+const PARAM_HELP = {
+  name: "Отображаемое имя канала. Используется в журнале событий, заголовках превью и при сохранении медиафайлов.",
+  source: "Адрес видеопотока. Поддерживаются RTSP, HTTP, локальные файлы и индексы камер (0, 1, …). Канал открывает этот источник через OpenCV VideoCapture.",
+  list_filter_mode: "Определяет, при каких номерах срабатывает реле контроллера.\n• «Все» — реле для любого номера (кроме чёрного списка).\n• «Белые списки» — только номера из списков типа white.\n• «Свои списки» — только номера из выбранных ниже списков.\nЧёрный список блокирует срабатывание всегда.",
+  list_filter_list_ids: "Выбор конкретных списков номеров, которые разрешают срабатывание реле в режиме «Свои списки». Чёрный список применяется автоматически в любом режиме.",
+  detection_mode: "Режим запуска детектора YOLO.\n• «always» — детектор работает на каждом кадре (с учётом шага инференса).\n• «motion» — детектор запускается только при обнаружении движения в кадре. Экономит CPU при пустых сценах.",
+  motion_threshold: "Доля пикселей, изменившихся между кадрами, при которой считается, что в кадре есть движение. Значение 0.01 = 1% пикселей. Меньше — выше чувствительность, больше ложных срабатываний.",
+  motion_frame_stride: "Через сколько кадров проводить анализ движения. При stride=2 движение проверяется на каждом 2-м кадре. Промежуточные кадры пропускаются, но состояние motion сохраняется.",
+  motion_activation_frames: "Сколько подряд проанализированных кадров с движением нужно, чтобы активировать состояние motion и начать запуск детектора YOLO. Защита от разовых шумов.",
+  motion_release_frames: "Сколько подряд проанализированных кадров без движения нужно, чтобы деактивировать состояние motion и прекратить запуск детектора. Защита от преждевременной остановки при кратковременной паузе.",
+  detector_frame_stride: "Через сколько кадров (прошедших motion gate) запускать YOLO-детекцию и трекинг. При stride=2 — каждый второй кадр. Снижает нагрузку CPU/GPU за счёт частоты обнаружения.",
+  size_filter_enabled: "Включить фильтрацию найденных номерных рамок по размеру (ширина и высота в пикселях). Отсекает слишком маленькие и слишком большие обнаружения.",
+  min_plate_size: "Минимальная ширина и высота обнаруженной номерной рамки в пикселях. Рамки меньше этого размера отбрасываются до OCR. Помогает отфильтровать далёкие или нерелевантные объекты.",
+  max_plate_size: "Максимальная ширина и высота обнаруженной номерной рамки в пикселях. Рамки больше этого размера отбрасываются. Помогает отфильтровать ложные детекции на крупных объектах.",
+  best_shots: "Сколько лучших OCR-наблюдений накапливается на один трек для голосования. Из них выбирается консенсус — номер, набравший кворум и наибольший суммарный вес уверенности. По умолчанию 3.",
+  cooldown_seconds: "Пауза (в секундах) между повторными событиями для одного и того же номера. Если номер уже был распознан менее N секунд назад — повторное событие не создаётся. Предотвращает дублирование при медленном проезде.",
+  ocr_min_confidence: "Минимальный порог уверенности OCR (0.0–1.0). Результаты ниже порога не попадают в пул кандидатов трека и считаются нечитаемыми. По умолчанию 0.6.",
+  max_ocr_attempts: "Максимальное число OCR-попыток для одного трека. После исчерпания бюджета OCR для этого трека прекращается — кроп, предобработка и CRNN-инференс больше не выполняются.\n\nЕсли консенсус был достигнут раньше — трек финализируется досрочно.\nЕсли бюджет исчерпан без консенсуса — выбирается лучший кандидат по весу.\nЕсли кандидатов нет — генерируется одно событие «Нечитаемо».\n\nПо умолчанию 15.",
+  roi_enabled: "Включить зону интереса (Region of Interest). Когда включено, только обнаружения с центром bbox внутри ROI-полигона обрабатываются. Детекция YOLO по-прежнему работает по всему кадру, но результаты за пределами ROI отбрасываются.",
+  roi_points: "JSON-представление точек ROI-полигона. Координаты в пикселях канваса. Минимум 3 точки для замкнутой области. Редактируйте визуально на канвасе выше или вручную.",
+  controller_id: "Привязка аппаратного контроллера к этому каналу. При распознавании номера, прошедшего фильтр списков, на контроллер отправляется HTTP-команда для срабатывания выбранного реле.",
+  controller_relay: "Какое из двух реле контроллера использовать для этого канала (Реле 1 или Реле 2). Режим работы реле (pulse / pulse_timer) настраивается в параметрах контроллера."
+};
+
+let _activeHelpPopover = null;
+
+function _closeHelpPopover() {
+  if (_activeHelpPopover) {
+    _activeHelpPopover.remove();
+    _activeHelpPopover = null;
+  }
+}
+
+function _showHelpPopover(btn) {
+  _closeHelpPopover();
+  const key = btn.getAttribute("data-help");
+  const text = PARAM_HELP[key];
+  if (!text) return;
+
+  const pop = document.createElement("div");
+  pop.className = "param-help-popover";
+  pop.innerHTML =
+    '<div class="param-help-popover-title">' +
+    btn.closest(".s-row-label").querySelector(".s-row-name").textContent +
+    "</div>" +
+    text.replace(/\n/g, "<br>");
+  document.body.appendChild(pop);
+
+  const r = btn.getBoundingClientRect();
+  let top = r.bottom + 6;
+  let left = r.left;
+  pop.style.left = left + "px";
+  pop.style.top = top + "px";
+  requestAnimationFrame(() => {
+    const pr = pop.getBoundingClientRect();
+    if (pr.right > window.innerWidth - 8) pop.style.left = Math.max(8, window.innerWidth - pr.width - 8) + "px";
+    if (pr.bottom > window.innerHeight - 8) pop.style.top = Math.max(8, r.top - pr.height - 6) + "px";
+  });
+
+  _activeHelpPopover = pop;
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".param-help-btn");
+  if (btn) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (_activeHelpPopover && _activeHelpPopover._helpBtn === btn) {
+      _closeHelpPopover();
+    } else {
+      _showHelpPopover(btn);
+      if (_activeHelpPopover) _activeHelpPopover._helpBtn = btn;
+    }
+    return;
+  }
+  if (_activeHelpPopover && !e.target.closest(".param-help-popover")) {
+    _closeHelpPopover();
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") _closeHelpPopover();
+});
