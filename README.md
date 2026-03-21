@@ -157,10 +157,12 @@ curl -o snapshot.jpg http://localhost:8080/api/channels/1/snapshot.jpg
 ```bash
 # Пересборка
 docker compose build --no-cache && docker compose up -d
-
+```
+```bash
 # Остановка
 docker compose down
-
+```
+```bash
 # Полный сброс данных (удаляет volumes)
 docker compose down -v
 ```
