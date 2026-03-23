@@ -125,7 +125,7 @@ class DataLifecycleService:
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         export_path = Path(self.policy.export_dir) / f"events_{ts}.csv"
         rows = self.pg_events.fetch_for_export(start=start, end=end, channel=channel, plate=plate, channel_id=channel_id)
-        fieldnames = ["id", "timestamp", "channel_id", "channel", "plate", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
+        fieldnames = ["id", "timestamp", "channel_id", "channel", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
         with export_path.open("w", newline="", encoding="utf-8") as file_obj:
             writer = csv.DictWriter(file_obj, fieldnames=fieldnames)
             writer.writeheader()

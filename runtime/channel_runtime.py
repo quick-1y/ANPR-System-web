@@ -538,6 +538,7 @@ class ChannelProcessor:
                             "channel": channel.get("name", f"Канал {channel_id}"),
                             "channel_id": channel_id,
                             "plate": plate,
+                            "plate_display": detection.get("plate_display") or plate,
                             "country": detection.get("country"),
                             "confidence": float(detection.get("confidence", 0.0)),
                             "source": str(channel.get("source", "")),
@@ -550,6 +551,7 @@ class ChannelProcessor:
                             for k in (
                                 "channel",
                                 "plate",
+                                "plate_display",
                                 "channel_id",
                                 "country",
                                 "confidence",

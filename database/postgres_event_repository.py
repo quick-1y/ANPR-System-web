@@ -29,12 +29,13 @@ class PostgresEventDatabase:
             "channel_id": row[2],
             "channel": row[3],
             "plate": row[4],
-            "country": row[5],
-            "confidence": row[6],
-            "source": row[7],
-            "frame_path": row[8],
-            "plate_path": row[9],
-            "direction": row[10],
+            "plate_display": row[5],
+            "country": row[6],
+            "confidence": row[7],
+            "source": row[8],
+            "frame_path": row[9],
+            "plate_path": row[10],
+            "direction": row[11],
         }
 
     def _connect(self):
@@ -66,6 +67,7 @@ class PostgresEventDatabase:
         channel: str,
         plate: str,
         channel_id: Optional[int] = None,
+        plate_display: Optional[str] = None,
         country: Optional[str] = None,
         confidence: float = 0.0,
         source: str = "",
@@ -81,10 +83,10 @@ class PostgresEventDatabase:
                 with conn.cursor() as cursor:
                     cursor.execute(
                         (
-                            "INSERT INTO events (timestamp, channel_id, channel, plate, country, confidence, source, frame_path, plate_path, direction) "
-                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"
+                            "INSERT INTO events (timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction) "
+                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"
                         ),
-                        (ts, channel_id, channel, plate, country, confidence, source, frame_path, plate_path, direction),
+                        (ts, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction),
                     )
                     row = cursor.fetchone()
                 conn.commit()
@@ -100,7 +102,7 @@ class PostgresEventDatabase:
             with self._connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "SELECT id, timestamp, channel_id, channel, plate, country, confidence, source, frame_path, plate_path, direction "
+                        "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction "
                         "FROM events ORDER BY timestamp DESC, id DESC LIMIT %s",
                         (limit,),
                     )
@@ -140,7 +142,7 @@ class PostgresEventDatabase:
             params.append(f"%{plate}%")
         where = f"WHERE {' AND '.join(filters)}" if filters else ""
         query = (
-            "SELECT id, timestamp, channel_id, channel, plate, country, confidence, source, frame_path, plate_path, direction "
+            "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction "
             f"FROM events {where} ORDER BY timestamp DESC, id DESC LIMIT %s"
         )
         params.append(page_limit)
@@ -158,7 +160,7 @@ class PostgresEventDatabase:
             with self._connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "SELECT id, timestamp, channel_id, channel, plate, country, confidence, source, frame_path, plate_path, direction FROM events WHERE id = %s",
+                        "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction FROM events WHERE id = %s",
                         (int(event_id),),
                     )
                     row = cursor.fetchone()
@@ -188,7 +190,7 @@ class PostgresEventDatabase:
         if not ids:
             return {}
         query = (
-            "SELECT DISTINCT ON (channel_id) channel_id, plate, timestamp, country, confidence, direction "
+            "SELECT DISTINCT ON (channel_id) channel_id, plate, plate_display, timestamp, country, confidence, direction "
             "FROM events WHERE channel_id = ANY(%s) AND channel_id IS NOT NULL "
             "ORDER BY channel_id, timestamp DESC"
         )
@@ -202,10 +204,11 @@ class PostgresEventDatabase:
         return {
             int(row[0]): {
                 "plate": row[1],
-                "timestamp": row[2],
-                "country": row[3],
-                "confidence": row[4],
-                "direction": row[5],
+                "plate_display": row[2],
+                "timestamp": row[3],
+                "country": row[4],
+                "confidence": row[5],
+                "direction": row[6],
             }
             for row in rows
         }
@@ -231,7 +234,7 @@ class PostgresEventDatabase:
             params.append(f"%{plate}%")
         where = f"WHERE {' AND '.join(filters)}" if filters else ""
         query = (
-            "SELECT id, timestamp, channel_id, channel, plate, country, confidence, source, frame_path, plate_path, direction "
+            "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction "
             f"FROM events {where} ORDER BY timestamp DESC"
         )
         try:

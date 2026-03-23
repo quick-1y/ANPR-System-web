@@ -441,6 +441,8 @@ class ANPRPipeline:
 
                 if processed.is_valid:
                     detection["text"] = processed.plate
+                    if processed.plate_display:
+                        detection["plate_display"] = processed.plate_display
                 else:
                     detection["text"] = ""
                     if track_id is not None:

@@ -714,7 +714,8 @@ function updateChannelLastPlate(channelId, plateData) {
   if (!Number.isFinite(id) || id <= 0) return;
   const plateNode = document.getElementById(`plate-${id}`);
   if (!plateNode) return;
-  const plateText = String((plateData || {}).plate || "").trim();
+  const pd = plateData || {};
+  const plateText = String(pd.plate_display || pd.plate || "").trim();
   const wasVisible = plateNode.style.display === "block";
   const prevText = plateNode.textContent;
   if (plateText) {
@@ -737,6 +738,7 @@ function applyLastPlate(ev) {
   if (!channelId) return;
   const payload = {
     plate: ev.plate || "",
+    plate_display: ev.plate_display || null,
     timestamp: ev.timestamp || null,
     country: ev.country || null,
     confidence: ev.confidence ?? null,
@@ -778,7 +780,8 @@ function renderEventFeed(forceRebuild = false) {
     div.dataset.evKey = key;
     div.setAttribute("role", "button");
     div.setAttribute("tabindex", "0");
-    div.innerHTML = `${flagHtml(item.country)}<div class='ev-row-top'><span class='ev-plate'>${item.plate || "—"}</span><span class='ev-direction badge ${direction.badgeClass}'>${direction.label}</span></div><div class='ev-row-bottom'><span class='ev-meta-channel'>${channelName}</span><span class='ev-meta-time'>${timeStr}</span><span class='ev-conf ${conf < 0.85 ? "warn" : ""}'>${conf.toFixed(2)}</span></div>`;
+    const displayPlate = item.plate_display || item.plate || "—";
+    div.innerHTML = `${flagHtml(item.country)}<div class='ev-row-top'><span class='ev-plate'>${displayPlate}</span><span class='ev-direction badge ${direction.badgeClass}'>${direction.label}</span></div><div class='ev-row-bottom'><span class='ev-meta-channel'>${channelName}</span><span class='ev-meta-time'>${timeStr}</span><span class='ev-conf ${conf < 0.85 ? "warn" : ""}'>${conf.toFixed(2)}</span></div>`;
     div.onclick = () => openEventDetails(item);
     div.onkeydown = (e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEventDetails(item); }
@@ -923,7 +926,7 @@ function makeJournalRow(ev) {
     `<td class="col-channel">${ev.channel || `CAM-${ev.channel_id || ""}`}</td>` +
     `<td class="col-country">${flagHtml(ev.country)} ${ev.country || ""}</td>` +
     `<td class="col-dir"><span class="badge ${direction.badgeClass}">${direction.label}</span></td>` +
-    `<td class="col-plate plate-cell">${ev.plate || ""}</td>` +
+    `<td class="col-plate plate-cell">${ev.plate_display || ev.plate || ""}</td>` +
     `<td class="col-conf conf-cell" style="color:${conf < 0.85 ? "var(--warning)" : "var(--success)"}">${conf.toFixed(2)}</td>` +
     `<td class="col-source" title="${srcText.replace(/"/g, "&quot;")}">${srcText}</td>`;
   tr.onclick = () => openEventDetails(ev);
@@ -2359,7 +2362,7 @@ async function openEventDetails(ev) {
     ["Дата/время", ts],
     ["Канал", payload.channel || `CAM-${payload.channel_id || ""}`],
     ["Страна", payload.country || "—"],
-    ["Гос. номер", payload.plate || "—"],
+    ["Гос. номер", payload.plate_display || payload.plate || "—"],
     ["Уверенность", Number(payload.confidence || 0).toFixed(2)],
     ["Направление", formatDirection(payload.direction).plain],
     ["Источник", payload.source || "—"],
