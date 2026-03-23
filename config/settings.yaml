@@ -25,7 +25,7 @@ theme: dark
 channels:
 - id: 1
   name: Въезд
-  source: rtsp://admin:admin@78.138.142.26:2000/0
+  source: rtsp://admin:admin@195.239.135.49:2002/0
   enabled: true
   roi_enabled: true
   region:
@@ -57,12 +57,12 @@ channels:
   motion_release_frames: 100
   size_filter_enabled: true
   min_plate_size:
-    width: 80
-    height: 20
+    width: 102
+    height: 27
   max_plate_size:
     width: 232
     height: 59
-  controller_id: null
+  controller_id: 1
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []
@@ -106,12 +106,24 @@ channels:
   max_plate_size:
     width: 600
     height: 240
-  controller_id: null
+  controller_id: 1
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []
   max_ocr_attempts: 15
-controllers: []
+controllers:
+- id: 1
+  name: Общий контроллер
+  type: DTWONDER2CH
+  address: 192.168.1.100
+  password: '0'
+  relays:
+  - mode: pulse
+    timer_seconds: 1
+    hotkey: ''
+  - mode: pulse
+    timer_seconds: 1
+    hotkey: ''
 reconnect:
   signal_loss:
     enabled: true
@@ -124,7 +136,7 @@ storage:
   screenshots_dir: data/screenshots
   logs_dir: data/logs
   auto_cleanup_enabled: true
-  cleanup_interval_minutes: 31
+  cleanup_interval_minutes: 30
   events_retention_days: 30
   media_retention_days: 14
   max_screenshots_mb: 4096
@@ -156,4 +168,4 @@ logging:
   - CRITICAL
 time:
   timezone: UTC+03:00
-  offset_minutes: 1
+  offset_minutes: 0

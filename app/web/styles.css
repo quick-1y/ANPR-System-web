@@ -1050,6 +1050,12 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
 .auth-btn:hover { box-shadow: 0 3px 16px rgba(232,168,56,0.32); transform: translateY(-1px); }
 .auth-btn:active { transform: translateY(0); }
 
+/* ─── General settings: narrower cards ─────────────── */
+#sp-general .s-card { max-width: 560px; }
+
+/* ─── Readonly inputs ──────────────────────────────── */
+.s-input[readonly] { opacity: 0.5; cursor: not-allowed; }
+
 /* ─── s-row-name: prevent overflow for long labels ─── */
 .s-row-name { font-size: 12px; color: var(--text1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .s-row-desc { font-size: 10px; color: var(--text3); margin-top: 2px; }

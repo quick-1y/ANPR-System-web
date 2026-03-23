@@ -232,12 +232,14 @@
         </div>
         <div class="settings-content">
           <div class="settings-pane active" id="sp-general">
+            <!-- Интерфейс -->
             <div class="s-card">
-              <div class="s-card-header">Общие настройки</div>
+              <div class="s-card-header">Интерфейс</div>
               <div class="s-card-body">
                 <div class="s-row">
                   <div class="s-row-label">
-                    <div class="s-row-name">Сетка</div>
+                    <button class="param-help-btn" data-help="g_grid">?</button>
+                    <div class="s-row-name">Сетка превью</div>
                   </div>
                   <select class="s-input" id="g_grid">
                     <option>1x1</option>
@@ -248,85 +250,236 @@
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
-                    <div class="s-row-name">Тема</div>
+                    <button class="param-help-btn" data-help="g_theme">?</button>
+                    <div class="s-row-name">Тема оформления</div>
                   </div>
                   <select class="s-input" id="g_theme">
-                    <option value="dark">dark</option>
-                    <option value="light">light</option>
+                    <option value="dark">Тёмная</option>
+                    <option value="light">Светлая</option>
                   </select>
                 </div>
               </div>
             </div>
+
+            <!-- Переподключение -->
             <div class="s-card">
               <div class="s-card-header">Переподключение</div>
               <div class="s-card-body">
                 <div class="s-row">
                   <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_sl_enabled">?</button>
                     <div class="s-row-name">Контроль потери сигнала</div>
                   </div>
                   <input type="checkbox" id="g_sl_enabled" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_frame_timeout">?</button>
                     <div class="s-row-name">Таймаут кадра (сек)</div>
                   </div>
                   <input class="s-input sm" id="g_frame_timeout" type="number" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_retry_interval">?</button>
                     <div class="s-row-name">Интервал повтора (сек)</div>
                   </div>
                   <input class="s-input sm" id="g_retry_interval" type="number" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_periodic_enabled">?</button>
                     <div class="s-row-name">Периодическое переподключение</div>
                   </div>
                   <input type="checkbox" id="g_periodic_enabled" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_periodic_minutes">?</button>
                     <div class="s-row-name">Период (мин)</div>
                   </div>
                   <input class="s-input sm" id="g_periodic_minutes" type="number" />
                 </div>
               </div>
             </div>
+
+            <!-- Скриншоты и медиа -->
             <div class="s-card">
-              <div class="s-card-header">Хранилище</div>
+              <div class="s-card-header">Скриншоты и медиа</div>
               <div class="s-card-body">
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Каталог скриншотов</div></div><input class="s-input wide" id="g_screenshots_dir" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Каталог логов</div></div><input class="s-input wide" id="g_logs_dir" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Автоочистка</div></div><input type="checkbox" id="g_auto_cleanup" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Интервал очистки (мин)</div></div><input class="s-input sm" id="g_cleanup_minutes" type="number" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Хранить события (дней)</div></div><input class="s-input sm" id="g_events_retention" type="number" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Хранить медиа (дней)</div></div><input class="s-input sm" id="g_media_retention" type="number" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Лимит скриншотов (МБ)</div></div><input class="s-input sm" id="g_max_screenshots" type="number" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Каталог экспорта</div></div><input class="s-input wide" id="g_export_dir" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">PostgreSQL DSN</div></div><input class="s-input wide" id="g_postgres_dsn" /></div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_screenshots_dir">?</button>
+                    <div class="s-row-name">Каталог скриншотов</div>
+                  </div>
+                  <input class="s-input wide" id="g_screenshots_dir" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_max_screenshots">?</button>
+                    <div class="s-row-name">Лимит хранения (МБ)</div>
+                  </div>
+                  <input class="s-input sm" id="g_max_screenshots" type="number" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_media_retention">?</button>
+                    <div class="s-row-name">Хранить медиа (дней)</div>
+                  </div>
+                  <input class="s-input sm" id="g_media_retention" type="number" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_export_dir">?</button>
+                    <div class="s-row-name">Каталог экспорта</div>
+                  </div>
+                  <input class="s-input wide" id="g_export_dir" />
+                </div>
               </div>
             </div>
+
+            <!-- Логи -->
             <div class="s-card">
               <div class="s-card-header">Логи</div>
               <div class="s-card-body">
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Уровень логов</div></div><select class="s-input" id="g_log_level"><option>ALL</option><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option><option>CRITICAL</option></select></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Хранить логи (дней)</div></div><input class="s-input sm" id="g_log_retention" type="number" /></div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_log_level">?</button>
+                    <div class="s-row-name">Уровень логирования</div>
+                  </div>
+                  <select class="s-input" id="g_log_level">
+                    <option>ALL</option><option>DEBUG</option><option>INFO</option>
+                    <option>WARNING</option><option>ERROR</option><option>CRITICAL</option>
+                  </select>
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_log_retention">?</button>
+                    <div class="s-row-name">Хранить логи (дней)</div>
+                  </div>
+                  <input class="s-input sm" id="g_log_retention" type="number" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_logs_dir">?</button>
+                    <div class="s-row-name">Каталог логов</div>
+                  </div>
+                  <input class="s-input wide" id="g_logs_dir" />
+                </div>
               </div>
             </div>
+
+            <!-- Автоочистка данных -->
             <div class="s-card">
-              <div class="s-card-header">Время</div>
+              <div class="s-card-header">Автоочистка данных</div>
               <div class="s-card-body">
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Часовой пояс</div></div><input class="s-input" id="g_timezone" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Смещение (мин)</div></div><input class="s-input sm" id="g_offset_minutes" type="number" /></div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_auto_cleanup">?</button>
+                    <div class="s-row-name">Автоматическая очистка</div>
+                  </div>
+                  <input type="checkbox" id="g_auto_cleanup" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_cleanup_minutes">?</button>
+                    <div class="s-row-name">Интервал проверки (мин)</div>
+                  </div>
+                  <input class="s-input sm" id="g_cleanup_minutes" type="number" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_events_retention">?</button>
+                    <div class="s-row-name">Хранить события (дней)</div>
+                  </div>
+                  <input class="s-input sm" id="g_events_retention" type="number" />
+                </div>
               </div>
             </div>
+
+            <!-- База данных -->
             <div class="s-card">
-              <div class="s-card-header">Номера</div>
+              <div class="s-card-header">База данных</div>
               <div class="s-card-body">
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Каталог конфигов номеров</div></div><input class="s-input wide" id="g_plates_dir" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Страны (через запятую)</div></div><input class="s-input wide" id="g_countries" /></div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_postgres_dsn">?</button>
+                    <div class="s-row-name">PostgreSQL DSN</div>
+                  </div>
+                  <input class="s-input wide" id="g_postgres_dsn" readonly />
+                </div>
               </div>
             </div>
+
+            <!-- Отображение времени -->
+            <div class="s-card">
+              <div class="s-card-header">Отображение времени</div>
+              <div class="s-card-body">
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_timezone">?</button>
+                    <div class="s-row-name">Часовой пояс</div>
+                  </div>
+                  <select class="s-input" id="g_timezone">
+                    <option value="UTC-12:00">UTC−12:00</option>
+                    <option value="UTC-11:00">UTC−11:00</option>
+                    <option value="UTC-10:00">UTC−10:00</option>
+                    <option value="UTC-09:00">UTC−09:00</option>
+                    <option value="UTC-08:00">UTC−08:00</option>
+                    <option value="UTC-07:00">UTC−07:00</option>
+                    <option value="UTC-06:00">UTC−06:00</option>
+                    <option value="UTC-05:00">UTC−05:00</option>
+                    <option value="UTC-04:00">UTC−04:00</option>
+                    <option value="UTC-03:00">UTC−03:00</option>
+                    <option value="UTC-02:00">UTC−02:00</option>
+                    <option value="UTC-01:00">UTC−01:00</option>
+                    <option value="UTC+00:00">UTC+00:00</option>
+                    <option value="UTC+01:00">UTC+01:00</option>
+                    <option value="UTC+02:00">UTC+02:00</option>
+                    <option value="UTC+03:00">UTC+03:00</option>
+                    <option value="UTC+04:00">UTC+04:00</option>
+                    <option value="UTC+05:00">UTC+05:00</option>
+                    <option value="UTC+05:30">UTC+05:30</option>
+                    <option value="UTC+06:00">UTC+06:00</option>
+                    <option value="UTC+07:00">UTC+07:00</option>
+                    <option value="UTC+08:00">UTC+08:00</option>
+                    <option value="UTC+09:00">UTC+09:00</option>
+                    <option value="UTC+10:00">UTC+10:00</option>
+                    <option value="UTC+11:00">UTC+11:00</option>
+                    <option value="UTC+12:00">UTC+12:00</option>
+                  </select>
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_offset_minutes">?</button>
+                    <div class="s-row-name">Дополнительное смещение (мин)</div>
+                  </div>
+                  <input class="s-input sm" id="g_offset_minutes" type="number" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Номера -->
+            <div class="s-card">
+              <div class="s-card-header">Распознавание номеров</div>
+              <div class="s-card-body">
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_plates_dir">?</button>
+                    <div class="s-row-name">Каталог конфигов номеров</div>
+                  </div>
+                  <input class="s-input wide" id="g_plates_dir" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_countries">?</button>
+                    <div class="s-row-name">Страны (через запятую)</div>
+                  </div>
+                  <input class="s-input wide" id="g_countries" />
+                </div>
+              </div>
+            </div>
+
             <button class="btn btn-primary" id="saveGeneralBtn">
               Сохранить настройки
             </button>
