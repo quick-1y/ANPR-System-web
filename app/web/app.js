@@ -176,6 +176,12 @@ function syncControllerConfigVisibility() {
 }
 
 
+function loadBarColor(pct) {
+  if (pct < 50) return "#2ecc71";
+  if (pct < 80) return "#f5a623";
+  return "#e74c3c";
+}
+
 async function refreshSystemResources() {
   try {
     const resources = await jfetch(api("/api/system/resources"));
@@ -187,8 +193,8 @@ async function refreshSystemResources() {
     const ramBar = document.getElementById("ramBar");
     if (cpuStat) cpuStat.textContent = `${cpu}%`;
     if (ramStat) ramStat.textContent = `${ram}%`;
-    if (cpuBar) cpuBar.style.width = `${cpu}%`;
-    if (ramBar) ramBar.style.width = `${ram}%`;
+    if (cpuBar) { cpuBar.style.width = `${cpu}%`; cpuBar.style.background = loadBarColor(cpu); }
+    if (ramBar) { ramBar.style.width = `${ram}%`; ramBar.style.background = loadBarColor(ram); }
   } catch (_e) {}
 }
 
@@ -1903,13 +1909,7 @@ async function selectChannel(id) {
   }
   renderROIPointsList();
 
-  const overlay = c.plate_size_overlay;
-  if (overlay && overlay.min_box && overlay.max_box) {
-    plateSizeBoxes.min = { ...overlay.min_box };
-    plateSizeBoxes.max = { ...overlay.max_box };
-  } else {
-    plateSizeBoxes = defaultPlateSizeOverlay(cv);
-  }
+  plateSizeBoxes = defaultPlateSizeOverlay(cv);
   clampBoxInCanvas(plateSizeBoxes.min, cv);
   clampBoxInCanvas(plateSizeBoxes.max, cv);
   drawPreview();
@@ -1962,10 +1962,6 @@ async function saveChannel() {
       points: points.map((p) =>
         toPercentPoint(p, document.getElementById("roiCanvas")),
       ),
-    },
-    plate_size_overlay: {
-      min_box: { x: Math.round(plateSizeBoxes.min.x), y: Math.round(plateSizeBoxes.min.y), width: Math.round(plateSizeBoxes.min.width), height: Math.round(plateSizeBoxes.min.height) },
-      max_box: { x: Math.round(plateSizeBoxes.max.x), y: Math.round(plateSizeBoxes.max.y), width: Math.round(plateSizeBoxes.max.width), height: Math.round(plateSizeBoxes.max.height) },
     },
   };
   await jfetch(
@@ -2657,6 +2653,10 @@ document.getElementById("themeToggleBtn").onclick = () => {
 };
 document.getElementById("plateSizeResetBtn").onclick = () => {
   const cv = document.getElementById("roiCanvas");
+  setVal("c_min_w", 80);
+  setVal("c_min_h", 20);
+  setVal("c_max_w", 600);
+  setVal("c_max_h", 240);
   plateSizeBoxes = defaultPlateSizeOverlay(cv);
   syncPlateSizeInputsFromBoxes();
   drawPreview();

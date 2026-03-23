@@ -25,18 +25,6 @@ class PlateSizePayload(BaseModel):
     height: int = Field(ge=1, le=4000)
 
 
-class PlateSizeOverlayBox(BaseModel):
-    x: int = 0
-    y: int = 0
-    width: int = Field(ge=1, le=4000)
-    height: int = Field(ge=1, le=4000)
-
-
-class PlateSizeOverlay(BaseModel):
-    min_box: PlateSizeOverlayBox = Field(default_factory=lambda: PlateSizeOverlayBox(x=280, y=210, width=80, height=20))
-    max_box: PlateSizeOverlayBox = Field(default_factory=lambda: PlateSizeOverlayBox(x=20, y=60, width=600, height=240))
-
-
 class ChannelConfigPayload(BaseModel):
     name: str
     source: str
@@ -60,7 +48,6 @@ class ChannelConfigPayload(BaseModel):
     max_ocr_attempts: int = Field(default=15, ge=1, le=200)
     roi_enabled: bool = True
     region: ROIRegionPayload = Field(default_factory=ROIRegionPayload)
-    plate_size_overlay: Optional[PlateSizeOverlay] = None
 
     @field_validator("controller_id")
     @classmethod

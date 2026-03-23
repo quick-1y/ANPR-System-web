@@ -218,8 +218,8 @@ body {
 }
 .load-bar-fill {
   height: 100%; width: 0%; border-radius: 99px;
-  background: linear-gradient(90deg, var(--accent) 0%, var(--accent2) 100%);
-  transition: width 0.5s ease;
+  background: var(--accent);
+  transition: width 0.5s ease, background 0.4s ease;
 }
 .topbar-server-pill {
   display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px;
@@ -975,22 +975,29 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
 
 /* ─── Vision tab (merged ROI + plate size) ─────────── */
 .vision-layout { display: flex; gap: 14px; }
-.vision-left { flex: 1 1 340px; min-width: 280px; }
-.vision-right { flex: 1 1 420px; min-width: 300px; max-width: 520px; }
+.vision-left { flex: 0 0 264px; min-width: 240px; max-width: 290px; }
+.vision-right { flex: 1 1 0; min-width: 360px; }
 .vision-left .s-card { margin-bottom: 10px; }
+.vision-left .s-row-label { flex: 0 1 auto; min-width: 0; }
+.vision-left .s-input.sm { width: 50px; flex-shrink: 0; }
 
-.roi-points-list { max-height: 190px; overflow-y: auto; }
+.roi-points-list { max-height: 128px; overflow-y: auto; }
 .roi-point-row {
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 5px;
   padding: 3px 0; font-size: 11px; color: var(--text2);
   border-bottom: 1px solid rgba(255,255,255,0.025);
 }
 .roi-point-row:last-child { border-bottom: none; }
-.roi-point-row .roi-pt-label { flex: 0 0 52px; white-space: nowrap; }
+.roi-point-row .roi-pt-label { flex: 0 0 50px; white-space: nowrap; font-size: 11px; }
 .roi-point-row input {
-  width: 52px; padding: 2px 4px; font-size: 11px;
-  background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
-  color: var(--text1); text-align: right;
+  width: 54px; height: 26px; padding: 0 6px; font-size: 11px;
+  background: var(--field); border: 1px solid var(--border2); border-radius: var(--radius-sm);
+  color: var(--text1); text-align: right; outline: none;
+  font-family: var(--sans); transition: var(--t);
+}
+.roi-point-row input:focus {
+  border-color: rgba(232,168,56,0.65); box-shadow: 0 0 0 3px rgba(232,168,56,0.13);
+  background: var(--card);
 }
 .roi-point-row .roi-pt-del {
   margin-left: auto; cursor: pointer; color: var(--text2);

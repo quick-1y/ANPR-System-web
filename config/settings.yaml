@@ -57,27 +57,16 @@ channels:
   motion_release_frames: 100
   size_filter_enabled: true
   min_plate_size:
-    width: 79
-    height: 37
+    width: 80
+    height: 20
   max_plate_size:
-    width: 233
-    height: 108
+    width: 232
+    height: 59
   controller_id: null
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []
   max_ocr_attempts: 15
-  plate_size_overlay:
-    min_box:
-      x: 350
-      y: 139
-      width: 79
-      height: 37
-    max_box:
-      x: 44
-      y: 172
-      width: 233
-      height: 108
 - id: 2
   name: Выезд
   source: rtsp://admin:admin@78.138.142.26:2001/0
@@ -135,7 +124,7 @@ storage:
   screenshots_dir: data/screenshots
   logs_dir: data/logs
   auto_cleanup_enabled: true
-  cleanup_interval_minutes: 30
+  cleanup_interval_minutes: 31
   events_retention_days: 30
   media_retention_days: 14
   max_screenshots_mb: 4096
@@ -154,11 +143,7 @@ tracking:
     min_area_change_ratio: 0.02
 plates:
   config_dir: anpr/countries
-  enabled_countries:
-  - RU
-  - UA
-  - BY
-  - KZ
+  enabled_countries: []
 logging:
   level: ALL
   retention_days: 30
@@ -170,5 +155,5 @@ logging:
   - ERROR
   - CRITICAL
 time:
-  timezone: UTC+00:00
-  offset_minutes: 0
+  timezone: UTC+03:00
+  offset_minutes: 1

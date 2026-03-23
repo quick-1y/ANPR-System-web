@@ -181,8 +181,7 @@ def put_channel_config(channel_id: int, payload: ChannelConfigPayload, container
     data["min_plate_size"] = payload.min_plate_size.model_dump()
     data["max_plate_size"] = payload.max_plate_size.model_dump()
     data["region"] = payload.region.model_dump()
-    if payload.plate_size_overlay is not None:
-        data["plate_size_overlay"] = payload.plate_size_overlay.model_dump()
+    data.pop("plate_size_overlay", None)
     container.validate_channel_controller_binding(data)
     return update_channel(channel_id, data, container)
 
