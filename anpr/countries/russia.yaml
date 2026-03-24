@@ -5,13 +5,13 @@ priority: 1
 license_plate_formats:
   - name: "standard_car"
     regex: '^([ABEKMHOPCTYX]{1})(\d{3})([ABEKMHOPCTYX]{2})(\d{2,3})$'
-    display_format: "{0} {1} {2} {3}"
+    display_format: "{0}{1}{2}{3}"
   - name: "transit"
     regex: '^([ABEKMHOPCTYX]{2})(\d{3})(\d{3})$'
-    display_format: "{0} {1} {2}"
+    display_format: "{0}{1}{2}"
   - name: "trailer"
     regex: '^(\d{4})([ABEKMHOPCTYX]{2})(\d{2,3})$'
-    display_format: "{0} {1} {2}"
+    display_format: "{0}{1}{2}"
 valid_characters:
   letters: "ABEKMHOPCTYX"
   digits: "0123456789"
