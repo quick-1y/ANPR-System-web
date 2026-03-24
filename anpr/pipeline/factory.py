@@ -24,9 +24,6 @@ _RECOGNIZER_SINGLETON: Optional[CRNNRecognizer] = None
 class _FallbackRecognizer:
     """Неблокирующая заглушка, пока OCR ещё не инициализирован."""
 
-    def recognize(self, _plate_image):
-        return "", 0.0
-
     def recognize_batch(self, _plate_images):
         return []
 

@@ -18,8 +18,14 @@ class PostgresEventDatabase:
         self.dsn = str(dsn or "").strip()
         if not self.dsn:
             raise ValueError("postgres_dsn обязателен")
+        if not _SCHEMA_SQL_PATH.is_file():
+            raise StorageUnavailableError(
+                f"SQL-схема не найдена: {_SCHEMA_SQL_PATH}. "
+                "Убедитесь, что файл database/postgres/schema.sql существует."
+            )
         self._init_lock = threading.Lock()
         self._initialized = False
+        self._pool = None
 
     @staticmethod
     def _to_dict(row: Any) -> dict[str, Any]:
@@ -38,10 +44,15 @@ class PostgresEventDatabase:
             "direction": row[11],
         }
 
-    def _connect(self):
-        import psycopg  # type: ignore
+    def _get_pool(self):
+        if self._pool is None:
+            from psycopg_pool import ConnectionPool  # type: ignore
 
-        return psycopg.connect(self.dsn)
+            self._pool = ConnectionPool(self.dsn, min_size=2, max_size=10, open=True)
+        return self._pool
+
+    def _connect(self):
+        return self._get_pool().connection()
 
     def _ensure_schema(self) -> None:
         if self._initialized:
@@ -246,4 +257,4 @@ class PostgresEventDatabase:
             raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
 
 
-__all__ = ["PostgresEventDatabase", "StorageUnavailableError"]
+__all__ = ["PostgresEventDatabase"]

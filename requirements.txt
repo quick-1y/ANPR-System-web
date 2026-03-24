@@ -5,3 +5,4 @@ PyYAML
 fastapi
 uvicorn
 psycopg[binary]
+psycopg_pool

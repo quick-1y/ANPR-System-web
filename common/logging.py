@@ -288,15 +288,3 @@ def get_live_log_bus() -> DebugLogBus:
     return _LIVE_LOG_BUS
 
 
-def log_perf_stage(
-    logger: logging.Logger,
-    channel: str,
-    stage: str,
-    duration_ms: float,
-    level: int = logging.DEBUG,
-    **extra: Any,
-) -> None:
-    payload = {"channel": channel, "stage": stage, "duration_ms": round(float(duration_ms), 2)}
-    payload.update(extra)
-    parts = [f"{key}={value}" for key, value in payload.items()]
-    logger.log(level, "perf %s", " ".join(parts))

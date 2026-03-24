@@ -436,13 +436,3 @@ class SettingsManager:
         self.save_channels(channels)
 
 
-def plate_size_defaults() -> Dict[str, Dict[str, int]]:
-    """Единый источник дефолтов размеров рамки номера."""
-    defaults = SettingsManager._plate_size_defaults()
-    return {key: value.copy() for key, value in defaults.items()}
-
-
-def direction_defaults() -> Dict[str, float | int]:
-    """Единый источник дефолтов определения направления движения."""
-    defaults = SettingsManager._direction_defaults()
-    return dict(defaults)

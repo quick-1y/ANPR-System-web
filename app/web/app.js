@@ -386,6 +386,17 @@ function refreshVideoCellOverlayState(cell, ch) {
   renderDebugOverlay(cell, ch);
 }
 
+function syncOverlayPolling() {
+  const shouldPoll = Boolean((debugSettingsCache || {}).show_channel_metrics);
+  if (shouldPoll && !overlayRefreshTimer) {
+    refreshOverlayStates();
+    overlayRefreshTimer = setInterval(refreshOverlayStates, 700);
+  } else if (!shouldPoll && overlayRefreshTimer) {
+    clearInterval(overlayRefreshTimer);
+    overlayRefreshTimer = null;
+  }
+}
+
 async function refreshOverlayStates() {
   try {
     const payload = await jfetch(api("/api/debug/channels"));
@@ -1261,6 +1272,7 @@ async function saveGeneral() {
     }
   });
   applyDebugPanelVisibility();
+  syncOverlayPolling();
   scheduleVideoGridLayout(true);
   showToast("Настройки сохранены");
 }
@@ -2166,16 +2178,6 @@ async function saveController() {
     alert(`Не удалось сохранить контроллер: ${err.message}`);
   }
 }
-async function deleteController() {
-  if (!selectedControllerId) return;
-  if (!confirm("Удалить выбранный контроллер?")) return;
-  try {
-    await jfetch(api(`/api/controllers/${selectedControllerId}`), "DELETE");
-    await loadControllers();
-  } catch (err) {
-    alert(err.message);
-  }
-}
 async function testController(relay) {
   if (!selectedControllerId) return;
   await jfetch(api(`/api/controllers/${selectedControllerId}/test`), "POST", {
@@ -2662,10 +2664,10 @@ updateTopbarDateTime();
 setInterval(updateTopbarDateTime, 1000);
 
 refreshSystemResources();
-setInterval(refreshSystemResources, 2000);
+setInterval(refreshSystemResources, 10000);
 checkServerHealth();
 setInterval(checkServerHealth, 10000);
-window.addEventListener("beforeunload", () => {
+function cleanupStreamsAndTimers() {
   if (eventSource) {
     try {
       eventSource.close();
@@ -2687,30 +2689,9 @@ window.addEventListener("beforeunload", () => {
     eventFeedRenderFrame = null;
     eventFeedRenderScheduled = false;
   }
-});
-window.addEventListener("pagehide", () => {
-  if (eventSource) {
-    try {
-      eventSource.close();
-    } catch (_e) {}
-    eventSource = null;
-  }
-  if (debugLogSource) {
-    try {
-      debugLogSource.close();
-    } catch (_e) {}
-    debugLogSource = null;
-  }
-  if (overlayRefreshTimer) {
-    clearInterval(overlayRefreshTimer);
-    overlayRefreshTimer = null;
-  }
-  if (eventFeedRenderFrame !== null) {
-    cancelAnimationFrame(eventFeedRenderFrame);
-    eventFeedRenderFrame = null;
-    eventFeedRenderScheduled = false;
-  }
-});
+}
+window.addEventListener("beforeunload", cleanupStreamsAndTimers);
+window.addEventListener("pagehide", cleanupStreamsAndTimers);
 window.addEventListener("resize", () => scheduleEventFeedRender(true));
 (async function init() {
   const apiBaseEl = document.getElementById("apiBase");
@@ -2741,7 +2722,7 @@ window.addEventListener("resize", () => scheduleEventFeedRender(true));
   await loadControllers();
   setupStream();
   setInterval(refreshChannels, 8000);
-  overlayRefreshTimer = setInterval(refreshOverlayStates, 700);
+  syncOverlayPolling();
 })();
 
 /* ─── Parameter help popover system ─────────────────── */

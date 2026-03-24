@@ -41,6 +41,8 @@ def build_command_url(
 class ControllerService:
     """Отправляет команды сетевым контроллерам."""
 
+    _MAX_ERROR_STATE_ENTRIES = 100
+
     def __init__(self, timeout_seconds: float = 2.0, error_cooldown_seconds: float = 10.0) -> None:
         self._timeout_seconds = float(timeout_seconds)
         self._error_cooldown_seconds = float(error_cooldown_seconds)
@@ -56,6 +58,9 @@ class ControllerService:
         return (time.monotonic() - last_error_ts) < self._error_cooldown_seconds
 
     def _register_error(self, controller_name: str) -> int:
+        if controller_name not in self._error_state and len(self._error_state) >= self._MAX_ERROR_STATE_ENTRIES:
+            oldest_key = min(self._error_state, key=lambda k: float(self._error_state[k].get("last_error_ts", 0)))
+            del self._error_state[oldest_key]
         state = self._error_state.setdefault(controller_name, {"errors": 0, "last_error_ts": 0.0})
         state["errors"] = int(state.get("errors", 0)) + 1
         state["last_error_ts"] = time.monotonic()

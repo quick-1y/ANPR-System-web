@@ -21,8 +21,10 @@ Each channel must work independently from the others.
 - Keep service boundaries clear:
   - `app/api` — API, web entrypoint, channel management, SSE, settings
   - `app/worker` — retention and background jobs
-  - `packages/anpr_core` — channel runtime and orchestration
-  - `anpr` — domain logic, pipeline, OCR, detection, storage, controllers
+  - `runtime` — channel runtime and orchestration
+  - `anpr` — domain logic, pipeline, OCR, detection
+  - `controllers` — hardware relay automation
+  - `database` — PostgreSQL repositories
 
 ## Change rules
 

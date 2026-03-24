@@ -75,10 +75,12 @@ channels:
   region:
     unit: percent
     points:
-    - x: 0.0
-      y: 0.0
-    - x: 100.0
-      y: 0.0
+    - x: 1.235
+      y: 31.298
+    - x: 49.27
+      y: 16.247
+    - x: 99.27
+      y: 20.434
     - x: 100.0
       y: 100.0
     - x: 0.0
@@ -104,9 +106,9 @@ channels:
     width: 80
     height: 20
   max_plate_size:
-    width: 600
-    height: 240
-  controller_id: 1
+    width: 447
+    height: 145
+  controller_id: null
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []
@@ -157,7 +159,7 @@ plates:
   config_dir: anpr/countries
   enabled_countries: []
 logging:
-  level: ALL
+  level: INFO
   retention_days: 30
   allowed_levels:
   - ALL

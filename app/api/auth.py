@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import secrets
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -47,7 +49,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             or request.query_params.get("api_key", "")
         )
 
-        if provided != self._api_key:
+        if not secrets.compare_digest(provided, self._api_key):
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Unauthorized"},

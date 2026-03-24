@@ -81,6 +81,8 @@ class ChannelProcessor:
         self._sink = EventSink(postgres_dsn=str(self._storage_settings.get("postgres_dsn", "")))
         self._plate_settings = plate_settings or {}
         self._reconnect_config = self._build_reconnect_config(reconnect_settings or {})
+        self._reconnect_config_cache_ts = 0.0
+        self._reconnect_config_cache: Optional[ReconnectConfig] = None
         self._debug_registry = debug_registry or DebugRegistry()
         self._model_config = model_config
         screenshots_dir = str(self._storage_settings.get("screenshots_dir", "data/screenshots")).strip() or "data/screenshots"
@@ -99,13 +101,23 @@ class ChannelProcessor:
             periodic_interval_minutes=max(1, int(periodic.get("interval_minutes", 60))),
         )
 
+    _RECONNECT_CACHE_TTL = 30.0
+
     def get_reconnect_config(self) -> ReconnectConfig:
+        now = time.monotonic()
+        cached = self._reconnect_config_cache
+        if cached is not None and (now - self._reconnect_config_cache_ts) < self._RECONNECT_CACHE_TTL:
+            return cached
         with self._lock:
+            self._reconnect_config_cache = self._reconnect_config
+            self._reconnect_config_cache_ts = now
             return self._reconnect_config
 
     def update_reconnect_settings(self, reconnect_settings: Dict[str, Any]) -> None:
         with self._lock:
             self._reconnect_config = self._build_reconnect_config(reconnect_settings)
+            self._reconnect_config_cache = self._reconnect_config
+            self._reconnect_config_cache_ts = time.monotonic()
 
     @staticmethod
     def _open_capture(source: str) -> cv2.VideoCapture:
@@ -269,15 +281,6 @@ class ChannelProcessor:
         if crop.size == 0:
             return None
         return crop
-
-    def _apply_roi_mask(self, frame: np.ndarray, channel: dict) -> np.ndarray:
-        roi_polygon = self._get_roi_polygon(frame.shape, channel)
-        if roi_polygon is None:
-            return frame
-
-        mask = np.zeros(frame.shape[:2], dtype=np.uint8)
-        cv2.fillPoly(mask, [roi_polygon], 255)
-        return cv2.bitwise_and(frame, frame, mask=mask)
 
     @staticmethod
     def _get_roi_polygon(frame_shape: tuple[int, ...], channel: dict) -> Optional[np.ndarray]:

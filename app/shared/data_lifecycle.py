@@ -134,12 +134,22 @@ class DataLifecycleService:
         return str(export_path)
 
     def export_events_bundle(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None, include_media: bool = True) -> str:
-        csv_path = Path(self.export_events_csv(start=start, end=end, channel=channel))
+        rows = self.pg_events.fetch_for_export(start=start, end=end, channel=channel)
+
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        csv_path = Path(self.policy.export_dir) / f"events_{ts}.csv"
+        fieldnames = ["id", "timestamp", "channel_id", "channel", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
+        with csv_path.open("w", newline="", encoding="utf-8") as file_obj:
+            writer = csv.DictWriter(file_obj, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(row)
+
         bundle_path = csv_path.with_suffix(".zip")
 
         media_paths: set[Path] = set()
         if include_media:
-            for row in self.pg_events.fetch_for_export(start=start, end=end, channel=channel):
+            for row in rows:
                 for key in ("frame_path", "plate_path"):
                     raw = row.get(key)
                     if raw:
