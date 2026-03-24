@@ -163,7 +163,7 @@ class TrackAggregator:
                     self.last_emitted[track_id] = consensus
                     state.result_emitted = True
                     state.finalized = True
-                    logger.debug(
+                    logger.info(
                         "Track %d: consensus '%s' after %d OCR attempts",
                         track_id,
                         consensus,
@@ -178,7 +178,7 @@ class TrackAggregator:
                 self.last_emitted[track_id] = best
                 state.result_emitted = True
                 state.finalized = True
-                logger.debug(
+                logger.info(
                     "Track %d: budget exhausted, best candidate '%s' (%d attempts)",
                     track_id,
                     best,
@@ -186,7 +186,7 @@ class TrackAggregator:
                 )
                 return best
             state.finalized = True
-            logger.debug(
+            logger.info(
                 "Track %d: budget exhausted, no valid candidate (%d attempts)",
                 track_id,
                 state.ocr_attempts,

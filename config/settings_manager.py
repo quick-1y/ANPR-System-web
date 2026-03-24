@@ -4,8 +4,6 @@ import copy
 import os
 from typing import Any, Dict, List, Optional
 
-from common.logging import get_logger
-
 from config.settings_normalizer import SettingsNormalizer
 from config.settings_repository import SettingsRepository
 from config.settings_schema import (
@@ -28,8 +26,6 @@ from config.settings_schema import (
     time_defaults,
 )
 
-
-logger = get_logger(__name__)
 
 
 def normalize_region_config(region: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -234,11 +230,6 @@ class SettingsManager:
                 controller["relays"] = normalized_relays
                 changed = True
             hotkeys = [relay.get("hotkey", "") for relay in normalized_relays if relay.get("hotkey")]
-            if len(hotkeys) != len(set(hotkeys)):
-                logger.warning(
-                    "Контроллер %s содержит дубли hotkey в settings; значения сохранены без скрытой модификации",
-                    controller.get("name") or controller.get("id") or "unknown",
-                )
         if changed:
             self.save_controllers(controllers)
         return copy.deepcopy(controllers)

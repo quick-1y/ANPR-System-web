@@ -254,7 +254,7 @@ class ChannelProcessor:
                 return str(path.resolve())
             logger.error("Не удалось сохранить snapshot по пути %s", path)
         except Exception:  # noqa: BLE001
-            logger.exception("Ошибка сохранения snapshot по пути %s", path)
+            logger.error("Не удалось сохранить snapshot по пути %s", path, exc_info=True)
         return None
 
     def _extract_plate_crop(self, frame: np.ndarray, detection: Dict[str, Any]) -> Optional[np.ndarray]:

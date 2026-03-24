@@ -120,7 +120,7 @@ controllers:
   relays:
   - mode: pulse
     timer_seconds: 1
-    hotkey: ''
+    hotkey: '3'
   - mode: pulse
     timer_seconds: 1
     hotkey: ''

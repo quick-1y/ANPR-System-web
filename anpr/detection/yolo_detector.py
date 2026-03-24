@@ -84,7 +84,7 @@ class YOLODetector:
 
     def _maybe_reset_tracker(self, frame_shape: tuple[int, ...]) -> None:
         if self._last_frame_shape and self._last_frame_shape != frame_shape:
-            logger.debug(
+            logger.info(
                 "Сбрасываем состояние YOLO-трекера из-за смены размера кадра: %s -> %s",
                 self._last_frame_shape,
                 frame_shape,

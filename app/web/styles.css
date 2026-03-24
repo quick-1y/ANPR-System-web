@@ -665,9 +665,11 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
   color: var(--text2); line-height: 1.5;
 }
 .log-line { padding: 1px 0; }
+.log-line.ok { color: var(--success); }
 .log-line.warn { color: var(--warning); }
 .log-line.err { color: var(--danger); }
-.log-line.ok { color: var(--success); }
+.log-line.crit { color: #ff5e9e; font-weight: 600; }
+.log-line.dbg { color: var(--text3); }
 .log-ts { color: var(--text3); margin-right: 4px; }
 .live-dot {
   width: 6px; height: 6px; border-radius: 50%;

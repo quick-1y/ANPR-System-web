@@ -840,10 +840,6 @@ function pushEvent(ev) {
     const row = makeJournalRow(ev);
     body.insertBefore(row, body.firstChild);
   }
-  addDebug(
-    `[INFO] event: ${ev.plate || "-"} conf=${Number(ev.confidence || 0).toFixed(2)}`,
-    "ok",
-  );
 }
 async function loadEventFeedHistory() {
   const data = await jfetch(api("/api/events?limit=50"));
@@ -904,7 +900,6 @@ async function fetchJournalPage() {
     appendJournalRows(items);
     updateJournalSentinel();
   } catch (err) {
-    addDebug(`[WARN] loadJournal: ${err.message}`, "warn");
   } finally {
     journalState.loading = false;
   }
@@ -1267,7 +1262,6 @@ async function saveGeneral() {
   });
   applyDebugPanelVisibility();
   scheduleVideoGridLayout(true);
-  addDebug("[OK] global settings saved", "ok");
   showToast("Настройки сохранены");
 }
 
@@ -1424,11 +1418,9 @@ async function refreshPreviewSnapshot() {
     };
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      addDebug("[WARN] preview snapshot decode failed", "warn");
-    };
+      };
     img.src = objectUrl;
   } catch (err) {
-    addDebug(`[WARN] preview snapshot unavailable: ${err.message}`, "warn");
   }
 }
 function renderROIPointsList() {
@@ -1844,7 +1836,6 @@ function rebuildHotkeyMap() {
     });
   });
   duplicates.forEach((hotkey) => {
-    addDebug(`[ERR] duplicate hotkey detected: ${hotkey}. Хоткей отключен до устранения конфликта`, "err");
   });
   pending.forEach((bindings, hotkey) => {
     if (duplicates.has(hotkey)) return;
@@ -1860,9 +1851,7 @@ async function triggerHotkey(hotkey) {
       relay_index: binding.relayIndex,
       is_on: true,
     });
-    addDebug(`[OK] hotkey ${hotkey}: ${binding.controllerName}, реле ${binding.relayIndex + 1}, статус=${res.status}`, "ok");
   } catch (err) {
-    addDebug(`[ERR] hotkey ${hotkey}: ${err.message}`, "err");
   }
 }
 
@@ -1972,7 +1961,6 @@ async function saveChannel() {
     "PUT",
     payload,
   );
-  addDebug(`[OK] channel ${selectedChannelId} saved`, "ok");
   await refreshChannels();
   showToast("Настройки сохранены");
 }
@@ -1996,9 +1984,7 @@ async function _doCreateChannel(name) {
       selectedChannelId = state.channels[state.channels.length - 1].id;
       await selectChannel(selectedChannelId);
     }
-    addDebug("[OK] channel created", "ok");
   } catch (err) {
-    addDebug(`[ERR] ${err.message}`, "err");
     alert(`Не удалось создать канал: ${err.message}`);
   }
 }
@@ -2014,7 +2000,6 @@ async function _doDeleteChannel() {
   selectedChannelId = null;
   roiPoints = [];
   await refreshChannels();
-  addDebug("[OK] channel deleted", "ok");
 }
 
 
@@ -2148,9 +2133,7 @@ async function _doCreateController(name) {
       selectedControllerId = controllersCache[controllersCache.length - 1].id;
       selectController(selectedControllerId);
     }
-    addDebug("[OK] controller created", "ok");
   } catch (err) {
-    addDebug(`[ERR] ${err.message}`, "err");
     alert(`Не удалось создать контроллер: ${err.message}`);
   }
 }
@@ -2165,9 +2148,7 @@ async function _doDeleteController() {
   try {
     await jfetch(api(`/api/controllers/${selectedControllerId}`), "DELETE");
     await loadControllers();
-    addDebug("[OK] controller deleted", "ok");
   } catch (err) {
-    addDebug(`[ERR] ${err.message}`, "err");
     alert(err.message);
   }
 }
@@ -2180,10 +2161,8 @@ async function saveController() {
       controllerPayload(),
     );
     await loadControllers();
-    addDebug("[OK] controller updated", "ok");
     showToast("Настройки сохранены");
   } catch (err) {
-    addDebug(`[ERR] ${err.message}`, "err");
     alert(`Не удалось сохранить контроллер: ${err.message}`);
   }
 }
@@ -2193,9 +2172,7 @@ async function deleteController() {
   try {
     await jfetch(api(`/api/controllers/${selectedControllerId}`), "DELETE");
     await loadControllers();
-    addDebug("[OK] controller deleted", "ok");
   } catch (err) {
-    addDebug(`[ERR] ${err.message}`, "err");
     alert(err.message);
   }
 }
@@ -2205,15 +2182,15 @@ async function testController(relay) {
     relay_index: relay,
     is_on: true,
   });
-  addDebug(`[OK] relay ${relay + 1} test sent`, "ok");
 }
 
 function mapLogClass(level) {
   const v = String(level || "INFO").toUpperCase();
-  if (v === "ERROR" || v === "CRITICAL") return "err";
+  if (v === "CRITICAL") return "crit";
+  if (v === "ERROR") return "err";
   if (v === "WARNING") return "warn";
-  if (v === "DEBUG") return "ok";
-  return "info";
+  if (v === "DEBUG") return "dbg";
+  return "ok";
 }
 
 function prependDebugLine(text, type = "info", timestamp = null, meta = "") {
@@ -2227,9 +2204,6 @@ function prependDebugLine(text, type = "info", timestamp = null, meta = "") {
   while (log.children.length > 300) log.removeChild(log.lastElementChild);
 }
 
-function addDebug(msg, type = "info") {
-  prependDebugLine(msg, type, null, "[UI]");
-}
 
 function applyDebugPanelVisibility() {
   const panel = document.getElementById("obsDebugPanel");
@@ -2310,7 +2284,6 @@ async function setupStream() {
     } catch (_e) {}
   };
   eventSource.onerror = () => {
-    addDebug("[WARN] stream reconnect", "warn");
     try {
       eventSource.close();
     } catch (_e) {}
@@ -2348,10 +2321,6 @@ async function openEventDetails(ev) {
     try {
       payload = await jfetch(api(`/api/events/item/${id}`));
     } catch (err) {
-      addDebug(
-        `[WARN] event details fallback for id=${id}: ${err.message}`,
-        "warn",
-      );
       payload = ev;
     }
   }
@@ -2771,7 +2740,6 @@ window.addEventListener("resize", () => scheduleEventFeedRender(true));
   setupDebugLogStream();
   await loadControllers();
   setupStream();
-  addDebug("[INFO] UI initialized");
   setInterval(refreshChannels, 8000);
   overlayRefreshTimer = setInterval(refreshOverlayStates, 700);
 })();
