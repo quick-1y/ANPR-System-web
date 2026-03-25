@@ -18,7 +18,11 @@
       "Bash(py -m pytest tests/test_backup_service.py -v)",
       "Bash(py -3.13 -m pytest tests/test_backup_service.py -v)",
       "Bash(py -3.13 -m pytest tests/ -v)",
-      "Bash(py -3.13 -m pytest tests/test_backup_service.py tests/test_settings_storage_cleanup.py -v)"
+      "Bash(py -3.13 -m pytest tests/test_backup_service.py tests/test_settings_storage_cleanup.py -v)",
+      "Bash(python -c \"from app.shared.backup_service import export_database_backup, export_settings, get_restore_lock, restore_database_backup, restore_settings, validate_database_backup, validate_settings_yaml; print\\(''OK: all 7 functions imported successfully''\\)\")",
+      "Bash(docker compose:*)",
+      "Bash(docker run:*)",
+      "Bash(docker exec:*)"
     ]
   }
 }
