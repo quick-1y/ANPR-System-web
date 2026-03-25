@@ -1,9 +1,5 @@
 # AGENTS.md
 
-> Template for AI coding agents. Replace every placeholder in `<angle_brackets>` with real project data before adopting this file. Remove example rows you do not need, but prefer filling sections over deleting them. This file should be concrete, current, and operational.
-
----
-
 ## Purpose
 
 This file is the primary operating manual for AI agents working in this repository.
@@ -17,41 +13,19 @@ It should give the agent enough context to:
 - avoid unsafe or low-quality changes;
 - know when to stop and ask a human.
 
-If this file is vague, outdated, or contradictory, agent output will degrade. Keep it specific.
-
 ---
 
 ## Project Snapshot
 
-- Project name: `<project_name>`
-- Project type: `<web app | api | mobile app | cli | library | monorepo | service | internal tool | other>`
-- One-line description: `<what this project does in one sentence>`
-- Primary users: `<who uses this system>`
-- Business/domain context: `<domain, workflow, or problem space>`
-- Lifecycle stage: `<prototype | mvp | production | mature | legacy modernization>`
-- Maintainers / owning team: `<team_name_or_people>`
-- Default branch: `<main_branch_name>`
-- Repo status notes: `<active refactor | migration in progress | legacy areas | frozen modules | none>`
-
-### Fill-In Guidance
-
-- Write the description for an engineer, not for marketing.
-- If the system is legacy or mid-migration, say so explicitly.
-- If the repository contains multiple products or apps, mention that here and define the structure below.
-
-### Example
-
-```md
-- Project name: Acme Orders
-- Project type: Monorepo
-- One-line description: Internal platform for creating, pricing, and tracking wholesale orders.
-- Primary users: Sales operators, finance team, warehouse integrations
-- Business/domain context: B2B commerce
-- Lifecycle stage: Production
-- Maintainers / owning team: Orders Platform Team
+- Project name: Web ANPR System
+- Project type: web app (self-hosted)
+- One-line description: Multi-channel automatic number plate recognition system with web UI, REST API, and hardware controller integration.
+- Primary users: Security operators, parking/access-control administrators
+- Business/domain context: Video surveillance, license plate recognition (LPR/ANPR), vehicle access control
+- Lifecycle stage: MVP / active development
+- Maintainers / owning team: Solo developer
 - Default branch: main
-- Repo status notes: Legacy pricing flow is being migrated into feature-owned modules
-```
+- Repo status notes: Active feature development on `dev` branch; frontend is a monolithic JS file pending modularization
 
 ---
 
@@ -80,165 +54,181 @@ Unless the user explicitly asks otherwise, the agent should:
 - Manually edit generated files if the intended workflow is regeneration.
 - Ignore failing checks related to the files or behavior you changed.
 - Guess around security-sensitive, billing-sensitive, or compliance-sensitive behavior.
+- Convert the project back to desktop architecture.
+- Couple channels together.
+- Move core ANPR/ML logic into frontend code.
+- Make large cleanup-only refactors outside the task scope.
+- Add SQLite, dual-write, fallback storage paths, or compatibility layers (PostgreSQL is the only backend).
+- Remove documentation, diagrams, or architecture notes from `README.md` without replacing them with updated versions.
+- Rename or move files en masse without clear necessity.
 
 ---
 
 ## Sources Of Truth
 
-Consult these references before making non-trivial changes:
-
 | Source | Path / URL | When To Use It |
 | --- | --- | --- |
-| Product or domain docs | `<path_or_url>` | `<behavior rules / business logic>` |
-| Architecture docs | `<path_or_url>` | `<module boundaries / system design>` |
-| ADRs / decisions log | `<path_or_url>` | `<why previous tradeoffs were made>` |
-| API contracts / schemas | `<path_or_url>` | `<endpoint, event, or schema changes>` |
-| Design system / UI docs | `<path_or_url>` | `<UI behavior, components, tokens>` |
-| Contribution guide | `<path_or_url>` | `<repo workflow, branching, review expectations>` |
-| Security docs | `<path_or_url>` | `<auth, secrets, permissions, compliance>` |
-| Deployment / runbooks | `<path_or_url>` | `<environment, release, infrastructure changes>` |
+| Project documentation | `README.md` | Architecture overview, deployment, runtime flow (in Russian) |
+| Agent instructions | `AGENTS.md` | Conventions, boundaries, file placement, workflow rules |
+| Old agent instructions | `AGENTS_old.md` | Historical context only; do not follow if it conflicts with this file |
+| Codebase analysis | `.planning/codebase/` | Detailed architecture, stack, structure, concerns, conventions, testing patterns |
+| Settings schema | `config/settings_schema.py` | Default values and settings structure |
+| DB schema | `database/postgres/schema.sql` | PostgreSQL table definitions |
+| API routers | `app/api/routers/` | Available REST endpoints and request/response shapes |
+| Environment template | `.env.example` | Required and optional env vars |
 
-If documentation and code disagree, prefer `<code | docs | ask_human>` and mention the mismatch in your final summary.
-
-### Example
-
-```md
-| Source | Path / URL | When To Use It |
-| --- | --- | --- |
-| Architecture docs | `docs/architecture.md` | Changes to module boundaries or shared packages |
-| ADRs / decisions log | `docs/adr/` | New abstractions, workflow changes, tradeoff decisions |
-| API contracts / schemas | `openapi/openapi.yaml` | Any endpoint or generated client change |
-```
+If documentation and code disagree, prefer code and mention the mismatch in your final summary.
 
 ---
 
 ## Tech Stack
 
-Do not write “latest”. Use exact versions or supported ranges.
-
 ### Core Stack
 
-- Language(s): `<language_and_versions>`
-- Runtime(s): `<runtime_and_versions>`
-- Framework(s): `<frameworks_and_versions>`
-- Package manager(s): `<package_managers_and_versions>`
-- Build tool(s): `<build_tools_and_versions>`
-- Database(s): `<db_and_versions>`
-- Messaging / queueing: `<tool_or_none>`
-- Cache / storage: `<tool_or_none>`
-- Hosting / infrastructure: `<cloud | on-prem | hybrid | other>`
+- Language(s): Python 3.13
+- Runtime(s): Python 3.13-slim Docker image (Debian-based)
+- Framework(s): FastAPI (unpinned), Uvicorn (unpinned)
+- Package manager(s): pip (no poetry/pipenv); `requirements.txt` + Dockerfile-inline PyTorch install
+- Build tool(s): Docker + Docker Compose
+- Database(s): PostgreSQL 16
+- Messaging / queueing: none (in-memory `EventBus` with asyncio queues)
+- Cache / storage: none (no Redis; in-memory only)
+- Hosting / infrastructure: self-hosted Docker Compose on-prem
 
 ### Key Libraries And Services
 
-List the important tools the agent should recognize immediately:
-
 | Area | Library / Service | Version | Purpose | Notes / Constraints |
 | --- | --- | --- | --- | --- |
-| `<frontend/backend/data/auth/etc>` | `<name>` | `<version>` | `<why it exists>` | `<special rules>` |
-| `<frontend/backend/data/auth/etc>` | `<name>` | `<version>` | `<why it exists>` | `<special rules>` |
-| `<frontend/backend/data/auth/etc>` | `<name>` | `<version>` | `<why it exists>` | `<special rules>` |
+| ML detection | ultralytics | 8.3.20 (pinned) | YOLO license plate detection | Internal tracker API used; pin version strictly |
+| ML runtime | torch | 2.8.0 (CPU-only) | Deep learning inference | Installed from `download.pytorch.org/whl/cpu` |
+| ML vision | torchvision | 0.23.0 (CPU-only) | Image transforms for CRNN OCR | Installed with torch |
+| Video | opencv-python | unpinned | RTSP capture, image processing, JPEG encoding | Requires `libglib2.0-0`, `libgl1` system deps |
+| Database driver | psycopg[binary] | unpinned | PostgreSQL driver (psycopg3) | — |
+| Database pooling | psycopg_pool | unpinned | Connection pooling (min=2, max=10) | Two separate pools: events + lists |
+| System monitoring | psutil | unpinned | CPU, memory, disk metrics | — |
+| Config parsing | PyYAML | unpinned | Settings YAML parsing | — |
+| Reverse proxy | nginx | 1.27-alpine | SSE support, request routing | Docker image |
 
 ### Version Policy
 
-- Required versions: `<exact_versions_or_ranges>`
-- Version source of truth: `<package.json | pyproject.toml | go.mod | Gemfile | Dockerfile | etc>`
-- Dependency update policy: `<manual | renovate | dependabot | scheduled>`
-- Compatibility requirements: `<browser matrix | runtime matrix | API compatibility | DB compatibility>`
-
-### Example
-
-```md
-- Language(s): TypeScript 5.6
-- Runtime(s): Node.js 22.x
-- Framework(s): Next.js 15, React 19
-- Package manager(s): pnpm 10
-- Build tool(s): Turborepo 2
-- Database(s): PostgreSQL 16
-- Messaging / queueing: none
-- Cache / storage: Redis 7, S3
-- Hosting / infrastructure: AWS
-```
+- Required versions: Python 3.13, PostgreSQL 16, ultralytics 8.3.20, torch 2.8.0
+- Version source of truth: `requirements.txt` + `Dockerfile`
+- Dependency update policy: manual
+- Compatibility requirements: CPU-only inference (no GPU required); RTSP camera network access
 
 ---
 
 ## Architecture
 
-- Architecture style: `<feature-sliced | layered | clean architecture | hexagonal | modular monolith | microservices | event-driven | other>`
-- High-level description: `<how the system is divided and why>`
-- Main modules / bounded contexts: `<module_a, module_b, module_c>`
-- Main data flow: `<request/event/render flow>`
-- State management approach: `<if relevant>`
-- Integration boundaries: `<external APIs, internal services, SDKs, jobs, queues>`
-- Areas under migration: `<legacy_to_new transitions>`
-- Hard constraints: `<what must not be broken>`
+- Architecture style: Layered monolith with multi-threaded channel processing
+- High-level description: Two FastAPI services (API server + retention worker) with per-channel video processing threads managed by `ChannelProcessor`. Container pattern (`AppContainer`, `WorkerContainer`) for dependency wiring. Shared singleton OCR recognizer across all channel threads.
+- Main modules / bounded contexts: `anpr` (ANPR pipeline/ML), `app/api` (HTTP API), `app/worker` (retention), `runtime` (channel processing), `config` (settings), `database` (PostgreSQL), `controllers` (hardware relay automation)
+- Main data flow: RTSP frame capture → motion detection → YOLO detection → ROI filtering → CRNN OCR → track aggregation (consensus/budget) → plate validation → event persistence → SSE broadcast → controller automation
+- State management approach: Settings in JSON file with in-memory cache; channel state in `Dict[int, ChannelContext]` protected by `threading.RLock`; event streaming via `EventBus` with `asyncio.Queue` per SSE subscriber
+- Integration boundaries: RTSP cameras (OpenCV), hardware relay controllers (HTTP), PostgreSQL, web browser (SSE/MJPEG)
+- Areas under migration: Frontend (`app/web/app.js`) is a 2800+ line monolith pending modularization
+- Hard constraints: Channels must remain isolated (failure of one must not break others). PostgreSQL is the only storage backend. All ANPR logic stays server-side.
 
 ### Architectural Rules
 
-- Put `<kind_of_logic>` in `<allowed_path_or_layer>`, not in `<forbidden_place>`.
-- Keep `<module>` independent from `<module>`.
-- New work in `<area>` must follow `<pattern>`.
-- Reuse abstractions from `<paths>` before creating new ones.
-- Do not bypass `<validation | domain layer | auth layer | schema boundary>` for convenience.
-
-### Fill-In Guidance
-
-- If you name an architecture style, explain what it means in this repo.
-- Mention real boundaries and anti-patterns, not just textbook terms.
-- Call out migration zones explicitly. Agents often break these if not warned.
-
-### Example
-
-```md
-- Architecture style: Modular monolith with feature-oriented boundaries
-- High-level description: Each business capability owns its API layer, application logic, domain rules, and persistence adapters
-- Main modules / bounded contexts: orders, pricing, customers, invoicing
-- Main data flow: request -> route -> application service -> domain -> repository -> response mapper
-- Areas under migration: pricing logic is being moved out of shared utils into the pricing module
-- Hard constraints: customer state transitions must remain backward compatible with existing warehouse integrations
-```
+- Put API/web logic in `app/api/`, not in `anpr/` or `runtime/`.
+- Put ANPR pipeline logic in `anpr/`, not in `app/` or `runtime/`.
+- Put channel orchestration in `runtime/`, not in `app/api/` routers.
+- Keep `config/` independent from domain logic (known coupling with `controllers/` for `SUPPORTED_CONTROLLER_TYPES` exists as tech debt).
+- New API endpoints must go through `AppContainer` for dependency access.
+- New settings sections require schema defaults in `config/settings_schema.py`, normalizer fill in `config/settings_normalizer.py`, and get/save methods in `config/settings_manager.py`.
+- Do not bypass `SettingsNormalizer` — all settings reads go through `SettingsManager`.
 
 ---
 
 ## Repository Structure
 
-Document the tree as if onboarding a new engineer on day one.
-
 ```text
-<repo-root>/
-├─ <dir-or-file>/        # <what it contains>
-├─ <dir-or-file>/        # <what it contains>
-├─ <dir-or-file>/        # <what it contains>
-├─ <dir-or-file>/        # <what it contains>
-└─ <dir-or-file>/        # <what it contains>
+ANPR-System-v0.8_web/
+├── anpr/                       # ANPR core: detection, recognition, pipeline
+│   ├── countries/              # Country plate format YAML configs
+│   ├── detection/              # YOLO detector, motion detector
+│   ├── models/                 # ML model weights (committed binary files)
+│   │   ├── ocr_crnn/           # CRNN OCR quantized model (.pth)
+│   │   └── yolo/               # YOLOv8 plate detector (.pt)
+│   ├── pipeline/               # ANPRPipeline, TrackAggregator, factory
+│   ├── postprocessing/         # Plate validation, country config loader
+│   ├── preprocessing/          # Plate image preprocessing
+│   └── recognition/            # CRNN recognizer
+├── app/                        # Application layer
+│   ├── api/                    # FastAPI main API server
+│   │   ├── routers/            # Route handlers (channels, events, settings, etc.)
+│   │   ├── auth.py             # APIKeyMiddleware
+│   │   ├── container.py        # AppContainer (DI wiring)
+│   │   ├── deps.py             # FastAPI dependency injection helpers
+│   │   ├── main.py             # FastAPI app entry point
+│   │   └── schemas.py          # Pydantic request/response schemas
+│   ├── shared/                 # Shared services (API + worker)
+│   │   └── data_lifecycle.py   # RetentionPolicy, DataLifecycleService
+│   ├── web/                    # Static frontend (HTML/JS/CSS)
+│   └── worker/                 # Retention worker service
+│       └── main.py             # WorkerContainer, RetentionScheduler
+├── common/                     # Shared utilities
+│   └── logging.py              # Logging setup, LiveDebugHandler, HourlyFileHandler
+├── config/                     # Configuration management
+│   ├── settings_migrations/    # Versioned settings migration scripts
+│   ├── settings_manager.py     # SettingsManager (main config API)
+│   ├── settings_normalizer.py  # Validation and defaults
+│   ├── settings_repository.py  # JSON file I/O with locking
+│   └── settings_schema.py      # Default values, schema constants
+├── controllers/                # Physical gate/barrier controller integration
+│   ├── adapters/               # Controller protocol adapters
+│   ├── base.py                 # ControllerAdapter abstract base
+│   ├── registry.py             # Adapter type registry
+│   └── service.py              # ControllerService, ControllerAutomationService
+├── database/                   # PostgreSQL data access layer
+│   ├── postgres/               # PostgreSQL-specific files
+│   │   └── schema.sql          # Database schema DDL
+│   ├── errors.py               # StorageUnavailableError
+│   ├── plate_lists_repository.py  # Plate lists CRUD
+│   └── postgres_event_repository.py  # Event CRUD with psycopg_pool
+├── runtime/                    # Channel processing runtime
+│   ├── channel_runtime.py      # ChannelProcessor, ChannelContext, ChannelMetrics
+│   ├── debug.py                # DebugRegistry, DebugLogBus
+│   ├── event_bus.py            # EventBus (async pub/sub for SSE)
+│   └── event_sink.py           # EventSink (sync DB write wrapper)
+├── nginx/                      # Nginx reverse proxy config
+├── tests/                      # Unit tests (pytest)
+├── Dockerfile                  # Docker build definition
+├── docker-compose.yml          # Multi-service orchestration (4 services)
+├── requirements.txt            # Python dependencies
+├── .env.example                # Environment variable template
+├── AGENTS.md                   # This file
+└── README.md                   # Project documentation (Russian)
 ```
 
 ### Directory Responsibilities
 
 | Path | Responsibility | Typical Contents | Must Not Contain |
 | --- | --- | --- | --- |
-| `<path>` | `<purpose>` | `<examples>` | `<anti_examples>` |
-| `<path>` | `<purpose>` | `<examples>` | `<anti_examples>` |
-| `<path>` | `<purpose>` | `<examples>` | `<anti_examples>` |
+| `anpr/` | All ANPR/ML logic | Detectors, recognizers, pipeline, preprocessing, postprocessing, country configs | API handlers, HTTP logic, UI code |
+| `app/api/` | HTTP API server | Routers, schemas, auth, container, app entry point | ANPR logic, direct DB queries outside container |
+| `app/web/` | Static frontend | HTML, JS, CSS, images, favicons | Server-side logic, Python files |
+| `runtime/` | Channel processing runtime | Channel processor, event bus, debug registry | API route handlers, settings logic |
+| `config/` | Settings management | Manager, normalizer, schema, repository, migrations | Domain logic, API handlers |
+| `database/` | PostgreSQL persistence | Repositories, schema SQL, error types | Business logic, API handlers |
+| `controllers/` | Hardware controller integration | Adapters, service, registry | ANPR logic, settings management |
+| `common/` | Cross-cutting utilities | Logging setup and helpers | Domain-specific logic |
+| `tests/` | Unit tests | `test_*.py` files | Production code |
 
 ### File Placement Rules
 
-- New features go in `<path>`.
-- Shared reusable code goes in `<path>`.
-- One-off scripts go in `<path>`.
-- Generated artifacts live in `<path>` and should `<be_committed_or_not>`.
-- Env/config files live in `<path>`.
-- Migrations, schemas, and contracts live in `<path>`.
-
-### Example
-
-```md
-apps/web/          # customer-facing frontend
-apps/admin/        # internal operations frontend
-packages/ui/       # shared UI components and tokens
-packages/domain/   # shared domain types and business rules
-infra/             # deployment, IaC, environment templates
-docs/              # architecture notes, ADRs, onboarding docs
-```
+- New API endpoints: create or extend router in `app/api/routers/`, register in `app/api/main.py`.
+- New ANPR processing steps: add module in `anpr/preprocessing/` or `anpr/postprocessing/`, wire into `ANPRPipeline`.
+- New country plate formats: add YAML config in `anpr/countries/`.
+- New controller adapters: create in `controllers/adapters/`, register in `controllers/registry.py`.
+- New settings sections: add defaults in `config/settings_schema.py`, fill method in `config/settings_normalizer.py`, get/save in `config/settings_manager.py`.
+- New DB tables: add DDL to `database/postgres/schema.sql`, create repository in `database/`.
+- New tests: add `test_*.py` in `tests/`.
+- New shared utilities: add to `common/`.
+- Generated runtime data (`data/screenshots/`, `data/exports/`, `logs/`): not committed.
+- ML model weights (`anpr/models/`): committed binary files, trained externally.
+- Env/config files: `.env` (gitignored), `config/settings.yaml` (bind-mounted in Docker).
 
 ---
 
@@ -246,233 +236,182 @@ docs/              # architecture notes, ADRs, onboarding docs
 
 ### Required Tooling
 
-- Required tools: `<tool_and_version>`, `<tool_and_version>`, `<tool_and_version>`
-- Install dependencies: `<exact_command>`
-- Start local environment: `<exact_command>`
-- Start dependent services only: `<exact_command>`
-- Seed / bootstrap data: `<exact_command>`
-- Load environment variables from: `<path>`
-- Required local services: `<db | docker | queue | emulator | none>`
+- Required tools: Docker, Docker Compose
+- Install dependencies: `docker compose build`
+- Start local environment: `docker compose up -d`
+- Start dependent services only: `docker compose up -d postgres`
+- Seed / bootstrap data: Schema bootstraps lazily on first DB write; also mounted as Docker init script
+- Load environment variables from: `.env` (copy from `.env.example`)
+- Required local services: PostgreSQL 16 (via Docker)
 
 ### Setup Notes
 
-- State any required command order.
-- State whether Docker is required or optional.
-- State whether seeds are safe to run repeatedly.
-- State whether any manual credentials or local certificates are required.
-
-### Example
-
-```md
-- Required tools: Node.js 22.x, pnpm 10, Docker Desktop
-- Install dependencies: pnpm install
-- Start local environment: pnpm dev
-- Start dependent services only: docker compose up -d
-- Seed / bootstrap data: pnpm db:seed
-- Load environment variables from: .env.local
-- Required local services: Postgres, Redis
-```
+- Copy `.env.example` to `.env` before first run.
+- `config/settings.yaml` is bind-mounted from host (`./config:/app/config`).
+- ANPR model weights (`anpr/models/yolo/best.pt`, `anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth`) must be present.
+- Docker is required for the standard deployment; no standalone Python run instructions exist.
+- Database schema bootstrap is safe to run repeatedly (`CREATE TABLE IF NOT EXISTS`).
+- No manual credentials or certificates are needed beyond `.env` values.
 
 ---
 
 ## Development Commands
 
-Every command below should work as written.
-
 | Task | Command | Scope | Notes |
 | --- | --- | --- | --- |
-| Install dependencies | `<command>` | `<repo_or_package>` | `<notes>` |
-| Start development | `<command>` | `<repo_or_package>` | `<notes>` |
-| Start one service/package | `<command>` | `<repo_or_package>` | `<notes>` |
-| Build | `<command>` | `<repo_or_package>` | `<notes>` |
-| Lint | `<command>` | `<repo_or_package>` | `<notes>` |
-| Format | `<command>` | `<repo_or_package>` | `<notes>` |
-| Typecheck | `<command>` | `<repo_or_package>` | `<notes>` |
-| Run all tests | `<command>` | `<repo_or_package>` | `<notes>` |
-| Run one test file | `<command>` | `<repo_or_package>` | `<notes>` |
-| Run one test case | `<command>` | `<repo_or_package>` | `<notes>` |
-| Run integration tests | `<command>` | `<repo_or_package>` | `<notes>` |
-| Run e2e tests | `<command>` | `<repo_or_package>` | `<notes>` |
-| Regenerate code | `<command>` | `<repo_or_package>` | `<notes>` |
+| Build containers | `docker compose build` | repo | Builds API + worker images |
+| Start all services | `docker compose up -d` | repo | Starts postgres, api, retention_worker, nginx |
+| Stop all services | `docker compose down` | repo | Stops and removes containers |
+| View logs | `docker compose logs -f api` | service | Follow API service logs |
+| Run all tests | `pytest` | repo | Requires Python env with deps installed |
+| Run one test file | `pytest tests/test_track_aggregator.py` | repo | — |
+| Run one test case | `pytest tests/test_track_aggregator.py::TestTrackAggregator::test_emits_on_quorum` | repo | — |
+| Run tests verbose | `pytest -v` | repo | Shows individual test names |
 
 ### Verification Strategy
 
-The agent should usually validate changes in this order:
-
-1. file-level or test-level checks;
-2. nearest package or module checks;
-3. full-repo checks when necessary;
-4. release-grade checks before merge for risky or broad changes.
-
-### Example
-
-```md
-| Task | Command | Scope | Notes |
-| --- | --- | --- | --- |
-| Lint | `pnpm lint` | repo | Runs all package linters |
-| Typecheck | `pnpm typecheck` | repo | Must pass before merge |
-| Run one test file | `pnpm vitest run src/features/orders/order-form.test.ts` | package | Fastest local verification |
-```
+1. Run the specific test file related to your change.
+2. Run `pytest` for the full test suite.
+3. For API or runtime changes, test manually via `docker compose up` and the web UI or curl.
+4. For settings schema changes, verify migration compatibility path is updated.
 
 ---
 
 ## Testing Guide
 
-- Test framework(s): `<frameworks>`
-- Unit test location(s): `<paths>`
-- Integration test location(s): `<paths>`
-- E2E test location(s): `<paths>`
-- Contract test location(s): `<paths_or_none>`
-- Naming pattern(s): `<*.test.ts | test_*.py | etc>`
-- CI workflow location: `<path>`
+- Test framework(s): pytest (no config file — uses defaults)
+- Unit test location(s): `tests/`
+- Integration test location(s): none
+- E2E test location(s): none
+- Contract test location(s): none
+- Naming pattern(s): `test_*.py` files, `Test*` classes, `test_*` methods
+- CI workflow location: none (no CI pipeline configured)
 
 ### Testing Rules
 
-- Every behavior change should be backed by tests unless there is a documented reason not to.
+- Framework: pytest. No mocking libraries — use test doubles (simple class implementations) instead.
+- Test files go in `tests/` at project root, named `test_<component>.py`.
+- Tests are grouped in classes prefixed with `Test`, methods named `test_<behavior>`.
+- Test data builders are module-level functions prefixed with underscore: `_blank()`, `_ru_country()`.
+- If you change core logic (aggregator, validator, detector, motion), add or update corresponding tests.
+- Every behavior change should be backed by tests when practical.
 - Bug fixes should include a regression test when practical.
-- Prefer focused tests during iteration.
-- Run broader suites when changing shared code, persistence, contracts, infrastructure, or sensitive workflows.
-- Snapshot or golden updates must be reviewed, not blindly accepted.
+- No mocking library (`unittest.mock`, `pytest-mock`); use inline stub classes that implement the expected interface.
+- Use `pytest.approx()` for floating-point comparisons.
+- Use plain `assert` statements (pytest rewrites).
 
 ### Test Matrix
 
 | Test Type | Path / Scope | Command | When To Run |
 | --- | --- | --- | --- |
-| Unit | `<path>` | `<command>` | `<most logic changes>` |
-| Integration | `<path>` | `<command>` | `<db/api/module-boundary changes>` |
-| E2E | `<path>` | `<command>` | `<user workflow changes>` |
-| Contract | `<path>` | `<command>` | `<schema/api/event changes>` |
-| Performance | `<path>` | `<command>` | `<perf-sensitive changes>` |
-
-### Example
-
-```md
-- Test framework(s): Vitest, Playwright
-- Unit test location(s): src/**/*.test.ts
-- E2E test location(s): tests/e2e/
-- Naming pattern(s): *.test.ts
-- CI workflow location: .github/workflows/ci.yml
-```
+| Unit | `tests/test_track_aggregator.py` | `pytest tests/test_track_aggregator.py` | Changes to TrackAggregator |
+| Unit | `tests/test_plate_validator.py` | `pytest tests/test_plate_validator.py` | Changes to PlatePostProcessor or country configs |
+| Unit | `tests/test_motion_detector.py` | `pytest tests/test_motion_detector.py` | Changes to MotionDetector |
+| Unit | `tests/test_direction_estimator.py` | `pytest tests/test_direction_estimator.py` | Changes to TrackDirectionEstimator |
+| All | `tests/` | `pytest` | Before any PR or after broad changes |
 
 ---
 
 ## Code Style And Naming
 
-- Formatter: `<tool>`
-- Linter: `<tool>`
-- Type policy: `<strict | moderate | dynamic with validation>`
-- Comments policy: `<when comments are appropriate>`
-- Import policy: `<absolute | relative | grouped | sorted>`
-- Error handling style: `<exceptions | result objects | error wrappers | logging conventions>`
-- Logging style: `<structured | plain text | tracing>`
-- Configuration style: `<typed env schema | central config | other>`
+- Formatter: none (no automated formatter configured; consistent 4-space indentation)
+- Linter: none formal (informal ruff/flake8 awareness via `# noqa: BLE001` comments)
+- Type policy: type hints on all function signatures; `from __future__ import annotations` in every file
+- Comments policy: Russian docstrings and inline comments for business logic; English for test method docstrings; `# noqa:` with rule codes for linter suppressions
+- Import policy: absolute from project root (`from common.logging import get_logger`), relative within same package (`from .country_config import ...`); `TYPE_CHECKING` blocks for annotation-only imports
+- Error handling style: `StorageUnavailableError` for DB issues → HTTP 503; broad `except Exception` with `# noqa: BLE001` in infrastructure code; Pydantic validators raise `ValueError` with Russian messages
+- Logging style: Python `logging` module via `common/logging.py`; `get_logger(__name__)` at module level; `%s`/`%d` formatting (never f-strings in log calls); Russian log messages in pipeline code prefixed with channel label (`Канал {name} (id={id})`)
+- Configuration style: JSON file with versioned schema, normalizer pipeline, migration runner
 
-### Naming Conventions We Prefer
+### Naming Conventions
 
 | Item | Preferred | Avoid | Example |
 | --- | --- | --- | --- |
-| Files | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Directories | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Classes / components | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Functions / methods | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Variables | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Constants | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Types / interfaces / schemas | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Test names | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Branch names | `<preferred_style>` | `<avoid_style>` | `<example>` |
+| Files | `snake_case.py` | camelCase, PascalCase | `anpr_pipeline.py` |
+| Directories | `snake_case` | camelCase | `anpr/postprocessing/` |
+| Classes / components | `PascalCase` | snake_case | `ChannelProcessor`, `ANPRPipeline` |
+| Functions / methods | `snake_case` | camelCase | `build_components()`, `process_frame()` |
+| Private methods | `_snake_case` | no prefix | `_evict_stale()`, `_run_channel()` |
+| Variables | `snake_case` | camelCase | `track_id`, `best_shots` |
+| Constants | `UPPER_SNAKE_CASE` | lowercase | `SETTINGS_VERSION`, `DEFAULT_LEVEL` |
+| Dataclasses | `PascalCase` | — | `ChannelMetrics`, `ReconnectConfig` |
+| Private dataclasses | `_PascalCase` | — | `_TrackOCRState` |
+| Pydantic models | `PascalCase` + `Payload` suffix | — | `ChannelPayload`, `ControllerPayload` |
+| Test files | `test_<component>.py` | — | `test_track_aggregator.py` |
+| Test classes | `Test<Component>` | — | `TestTrackAggregator` |
+| Test methods | `test_<behavior>` | `test_works_correctly` | `test_no_emission_below_quorum` |
+| Test helpers | `_<name>()` module-level | shared conftest | `_blank()`, `_ru_country()` |
+| Branch names | `dev`, `feat/<description>`, `fix/<description>` | — | `dev`, `feat/export-csv` |
 
 ### Style Do / Don't
 
 Do:
 
-- use names that reflect intent;
-- keep modules cohesive and purpose-driven;
-- follow established patterns already used nearby;
-- prefer explicit business logic over clever abstractions.
+- always add `from __future__ import annotations` as the first import in every new Python file;
+- use `get_logger(__name__)` for logging (never `logging.getLogger()` directly);
+- use `%s`/`%d`/`%.2f` lazy formatting in log calls;
+- write docstrings in Russian for classes and key methods;
+- use `Protocol` from `typing` for duck-typing interfaces;
+- use dataclasses for internal domain models, Pydantic `BaseModel` for API request validation;
+- use keyword-only arguments for optional/config params;
+- clamp config values in `__init__` with `max()`/`min()`.
 
 Don't:
 
-- create “utils” dumping grounds for unrelated logic;
-- mix multiple naming styles in the same area;
-- hide important side effects behind vague helper names;
-- introduce broad abstractions before a second real use case exists.
-
-### Example
-
-```md
-| Item | Preferred | Avoid | Example |
-| --- | --- | --- | --- |
-| Files | kebab-case | mixedCase | order-summary-card.tsx |
-| Classes / components | PascalCase | snake_case | OrderSummaryCard |
-| Functions / methods | verbNoun | generic names | calculateOrderTotal |
-| Test names | behavior-focused | “works correctly” | returns 422 when customer is archived |
-```
+- create "utils" dumping grounds for unrelated logic;
+- use f-strings in `logger.info()` / `logger.debug()` calls;
+- use `logging.getLogger()` directly — always use `get_logger()` from `common/logging`;
+- use mocking libraries — write simple test double classes instead;
+- import from `controllers/` in `config/` (existing coupling is tech debt, do not add more).
 
 ---
 
 ## Preferred Patterns And Reference Implementations
 
-Point the agent to real examples in the repository.
-
 ### Good Examples To Copy
 
-- `<path>`: `<why this is a good example>`
-- `<path>`: `<why this is a good example>`
-- `<path>`: `<why this is a good example>`
+- `tests/test_track_aggregator.py`: well-structured unit tests with inline builders, behavior-focused test names, multiple test classes per file
+- `tests/test_plate_validator.py`: good example of testing with custom config loaders (inline stubs), YAML loading, section separators
+- `anpr/pipeline/anpr_pipeline.py`: proper channel-context logging pattern (`_channel_label`), protocol-based dependency injection
+- `anpr/pipeline/factory.py`: factory function pattern, shared singleton with thread-safe lazy init
+- `anpr/postprocessing/validator.py`: clean domain logic with country-specific regex validation
+- `app/api/container.py`: container pattern for dependency wiring with `build()` classmethod
 
 ### Patterns To Avoid Copying
 
-- `<path>`: `<why it exists but should not be reused>`
-- `<path>`: `<why it exists but should not be reused>`
-- `<path>`: `<why it exists but should not be reused>`
-
-### Fill-In Guidance
-
-- Include examples for common work: feature modules, API handlers, tests, background jobs, migrations, UI components.
-- Mark legacy examples clearly so the agent does not copy them into new code.
-
-### Example
-
-```md
-- `src/features/orders/api/create-order.ts`: good validation -> service -> mapper flow
-- `src/features/orders/components/order-form.tsx`: good example of feature-local UI composition
-- `src/features/orders/order-form.test.ts`: good example of behavior-focused tests
-- `src/legacy/shared/utils.ts`: legacy dumping ground, do not add new business logic here
-```
+- `app/web/app.js`: monolithic 2800+ line JS file with `innerHTML` XSS risks, global mutable state — legacy, do not extend this pattern
+- Broad `except Exception` blocks in `database/` repositories — existing tech debt, prefer specific exception types in new code
+- `PUT /api/channels/{channel_id}` accepting raw `Dict[str, Any]` — use Pydantic validation for new endpoints
 
 ---
 
 ## Data, Contracts, Codegen, And Migrations
 
-- Schema location: `<path>`
-- Migration location: `<path>`
-- API contract location: `<path>`
-- Event contract location: `<path_or_none>`
-- Generated code location: `<path>`
-- Regeneration command: `<command>`
+- Schema location: `database/postgres/schema.sql`
+- Migration location: `config/settings_migrations/` (settings schema migrations, not DB migrations)
+- API contract location: `app/api/routers/` + `app/api/schemas.py` (no OpenAPI spec file; auto-generated by FastAPI)
+- Event contract location: none
+- Generated code location: none
+- Regeneration command: none
 
 ### Rules
 
-- Do not manually edit generated files if regeneration is the intended workflow.
-- Preserve backward compatibility for `<api | events | database>` unless the task explicitly allows a breaking change.
-- When changing contracts, also update tests, fixtures, docs, and dependent clients if applicable.
-- For migrations, note whether they are reversible, destructive, or require rollout coordination.
+- PostgreSQL schema bootstrap is lazy (on first write) and idempotent (`CREATE TABLE IF NOT EXISTS`).
+- `schema.sql` is also mounted as Docker init script for fresh databases.
+- Settings schema changes require version bump and migration path (see Settings Schema Versioning below).
+- Preserve backward compatibility for API responses unless the task explicitly allows a breaking change.
 
-### Example
+### Settings Schema Versioning Rules
 
-```md
-- Schema location: prisma/schema.prisma
-- Migration location: prisma/migrations/
-- API contract location: openapi/openapi.yaml
-- Generated code location: src/generated/
-- Regeneration command: pnpm codegen
-```
+- Any change to `config/settings.yaml` schema (new parameter, removed/renamed field, changed structure or value format) requires bumping the settings schema version.
+- When bumping the schema version, always add or update the upgrade/migration path for old configs to the new version.
+- Do not add new settings parameters without accounting for the versioning/compatibility mechanism.
+- Do not add, rename, or remove settings fields without updating the compatibility/upgrade path.
+- A task is not complete if the settings schema changed but the migration path was not updated.
 
 ---
 
 ## Security And Safety Boundaries
-
-Treat this section as mandatory.
 
 ### Hard Rules
 
@@ -480,98 +419,100 @@ Treat this section as mandatory.
 - Never hardcode secrets in source code, tests, fixtures, or documentation.
 - Redact sensitive values in logs and examples.
 - Validate and sanitize untrusted input at the proper boundary.
-- Use least privilege for database, cloud, and service credentials.
-- Be extra careful in code touching auth, billing, PII, legal/compliance, infrastructure, or permissions.
+- RTSP credentials are embedded in stream URLs in `config/settings.yaml` — treat this file as sensitive.
+- Controller passwords are stored in `config/settings.yaml` — same sensitivity.
 
 ### Human Approval Required Before
 
 - deleting data or files;
 - applying irreversible migrations;
 - changing auth or permission logic;
-- changing billing or payment flows;
 - changing deployment or production infrastructure;
 - installing or replacing major dependencies;
 - rotating secrets or changing security configuration.
 
 ### Sensitive Areas
 
-- Authentication / authorization: `<paths_or_notes>`
-- Payments / billing: `<paths_or_notes>`
-- Personal or regulated data: `<paths_or_notes>`
-- Production configuration / infrastructure: `<paths_or_notes>`
+- Authentication / authorization: `app/api/auth.py` (APIKeyMiddleware), `API_KEY` env var
+- Personal or regulated data: plate numbers in `database/postgres_event_repository.py`, screenshot images in `data/screenshots/`
+- Production configuration / infrastructure: `docker-compose.yml`, `nginx/default.conf`, `.env`
+- Credentials: RTSP URLs and controller passwords in `config/settings.yaml`
 
 ---
 
 ## Git, PR, And Definition Of Done
 
-- Branch naming convention: `<pattern>`
-- Commit message convention: `<pattern>`
-- PR title convention: `<pattern>`
-- Changelog policy: `<when_and_how_to_update>`
-- Release notes policy: `<if_applicable>`
+- Branch naming convention: `dev` (development), `feat/<description>`, `fix/<description>`
+- Commit message convention: free-form (no strict conventional commits enforced)
+- PR title convention: no strict format; PRs should be written in Russian
+- Changelog policy: none
+- Release notes policy: none
+
+### PR Rules
+
+- Make all Pull Requests in Russian.
+- In the PR description, briefly explain: what changed, why it changed, whether README was updated.
 
 ### Definition Of Done
 
 A change is not complete until:
 
-1. relevant checks pass;
+1. relevant tests pass (run `pytest`);
 2. tests are added or updated where needed;
-3. docs/config/examples are updated if affected;
+3. `README.md` is updated if user-visible behavior, API, architecture, storage, or runtime flow changed (in Russian);
 4. file placement and naming follow this document;
-5. assumptions, risks, and follow-up work are documented.
-
-### Example
-
-```md
-- Branch naming convention: feat/<ticket>-<short-description>
-- Commit message convention: conventional commits
-- PR title convention: [ORD-123] Brief imperative summary
-- Changelog policy: update CHANGELOG.md for user-visible changes
-```
+5. settings schema version is bumped if settings were changed;
+6. settings migration path is updated if schema version was bumped;
+7. assumptions, risks, and follow-up work are documented.
 
 ---
 
-## Monorepo Guidance
+## Documentation Rules
 
-If this repository contains multiple apps, packages, or services:
+- `README.md` is part of the product documentation, not disposable text.
+- Do not delete README sections, diagrams, tables, examples, or architecture notes unless they are truly obsolete.
+- If documentation becomes outdated because of your code change, update it accurately instead of deleting it.
+- Do not simplify README by removing diagrams or explanatory blocks just to make the diff smaller.
+- When adding or changing user-visible behavior, API, architecture, storage, or runtime flow, update `README.md` in Russian.
 
-- the root `AGENTS.md` should define only global rules;
-- each major app, package, or service should have its own nested `AGENTS.md`;
-- the nearest `AGENTS.md` to the changed files should define local conventions;
-- shared packages should document compatibility expectations and release constraints.
+---
 
-### Suggested Layout
+## Logging Rules
 
-```text
-<repo-root>/
-├─ AGENTS.md
-├─ apps/
-│  ├─ <app-a>/AGENTS.md
-│  └─ <app-b>/AGENTS.md
-├─ packages/
-│  ├─ <shared-lib>/AGENTS.md
-│  └─ <shared-ui>/AGENTS.md
-└─ infra/
-   └─ AGENTS.md
-```
+- Log levels: `ALL`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
+- `ALL` (NOTSET) enables full verbose output including DEBUG; `INFO` filters DEBUG out.
+- OCR pipeline logs must include channel context (`Канал {name} (id={id})`).
+- OCR result and pipeline log messages must be in Russian (after the logger/module prefix).
+- `INFO` mode: concise summaries (consensus reached, budget exhausted, candidate rejected).
+- `ALL` mode: per-attempt OCR diagnostics, validator results, matched country/template.
+- Do not pollute logs with unrelated third-party debug noise.
+- Use `get_logger(__name__)` from `common/logging` — never `logging.getLogger()` directly.
+- Use `%s`/`%d`/`%.2f` lazy formatting in log calls — never f-strings.
+
+---
+
+## Database Rules
+
+- PostgreSQL is the only supported storage backend for runtime data.
+- Do not add SQLite, dual-write, fallback storage paths, or compatibility layers.
+- Do not introduce a second source of truth for settings if existing settings/config already covers the case.
+- Both `PostgresEventDatabase` and `ListDatabase` use `psycopg_pool.ConnectionPool` (min=2, max=10).
+- Do not replace connection pooling with per-request connections.
+- Schema bootstrap is lazy (on first write). `database/postgres/schema.sql` is also mounted as init script in Docker.
+- If you change storage behavior, keep docs and config consistent with the real implementation.
 
 ---
 
 ## Known Pitfalls
 
-List real pitfalls the agent is likely to hit:
-
-- `<pitfall_and_how_to_avoid_it>`
-- `<pitfall_and_how_to_avoid_it>`
-- `<pitfall_and_how_to_avoid_it>`
-
-### Example
-
-```md
-- Do not import pricing helpers from `shared/utils`; use `modules/pricing` instead.
-- Changes to `openapi/openapi.yaml` require regenerating typed clients.
-- Legacy admin pages still rely on server-rendered templates; do not move them into the SPA without approval.
-```
+- Settings changes do not affect running channels until the channel is restarted. Only reconnect settings are dynamically updated.
+- The YOLO detector uses internal `ultralytics` tracker API attributes (`model.predictor.trackers`, `predictor.vid_path`) — upgrading ultralytics may break tracking silently.
+- `refresh_storage_clients()` in `app/api/container.py` creates new DB pool instances without closing old ones — potential connection leak.
+- `PUT /api/channels/{channel_id}` accepts raw dict without validation — do not use this pattern for new endpoints.
+- Channel threads are daemon threads with 3-second join timeout — `stop()` may return before the thread exits if blocked on `cap.read()`.
+- `innerHTML` usage in `app/web/app.js` creates XSS risk — use `textContent` or `createElement` for new frontend code.
+- The settings normalizer imports from `controllers/` — known coupling, do not add more cross-domain imports in `config/`.
+- JPEG preview encoding runs on every frame regardless of whether any client is viewing.
 
 ---
 
@@ -584,55 +525,17 @@ The agent should pause and ask a human when:
 - documentation and code materially disagree;
 - tests fail for reasons unrelated to the task and the cause is unclear;
 - the task requires secrets, production access, or product-policy decisions;
-- the safest path depends on a tradeoff the user has not chosen.
+- the safest path depends on a tradeoff the user has not chosen;
+- the change involves auth logic, settings schema version bumps, or database schema changes.
 
 ---
 
-## Optional Cross-Tool Alignment
+## Cross-Tool Alignment
 
-If this repository also uses tool-specific AI instruction files, keep them aligned:
+This repository also uses:
 
-- `README.md`
-- `.github/copilot-instructions.md`
-- `CLAUDE.md`
-- `.cursorrules`
-- `.aider.conf.yml`
-- `.gemini/settings.json`
+- `CLAUDE.md` — Claude Code specific instructions (if present)
+- `README.md` — project documentation (Russian, kept up-to-date with architecture)
+- `AGENTS_old.md` — previous version of this file (historical reference only)
 
-Prefer one authoritative source and mirror only the minimum necessary.
-
----
-
-## Maintenance Checklist For Humans
-
-- Update this file whenever the architecture, stack, commands, or workflow change.
-- Keep commands executable exactly as written.
-- Replace vague placeholders with real values before rollout.
-- Add links to the best in-repo examples for common tasks.
-- Split this file into nested `AGENTS.md` files when one file becomes too broad.
-
----
-
-## Adoption Checklist
-
-Before adopting this file for a real repository, confirm that you replaced:
-
-- all placeholder values in `<angle_brackets>`;
-- all example values copied from this template;
-- all generic commands with real commands;
-- all generic paths with real paths;
-- all abstract rules with project-specific rules.
-
-Before calling the file complete, confirm that it includes:
-
-- project overview;
-- stack and versions;
-- architecture and boundaries;
-- repository structure;
-- exact setup/build/test commands;
-- test locations and execution strategy;
-- naming conventions;
-- good and bad in-repo examples;
-- security boundaries;
-- escalation rules;
-- links to source-of-truth documentation.
+Prefer `AGENTS.md` as the authoritative source for agent behavior.

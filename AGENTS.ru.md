@@ -1,638 +1,402 @@
-# AGENTS.ru.md
+# AGENTS.ru.md — Справочник по проекту
 
-> Шаблон для AI coding agents. Замените все плейсхолдеры в `<угловых_скобках>` на реальные данные проекта перед использованием. Лишние примеры можно удалить, но секции лучше заполнять, а не вырезать. Этот файл должен быть конкретным, актуальным и пригодным для реальной работы.
-
----
-
-## Назначение
-
-Этот файл является основным операционным руководством для AI-агентов, работающих в репозитории.
-
-Он должен давать агенту достаточно контекста, чтобы:
-
-- понимать, что делает проект;
-- следовать правильной архитектуре и принятым соглашениям;
-- класть код в правильные директории;
-- запускать нужные команды для setup, проверки и тестирования;
-- избегать небезопасных и некачественных изменений;
-- понимать, когда нужно остановиться и спросить человека.
-
-Если этот файл расплывчатый, устаревший или противоречивый, качество работы агента будет заметно хуже. Делайте его конкретным.
+Этот файл — человекочитаемое описание проекта на русском языке для владельца. Содержит ту же фактическую информацию, что и `AGENTS.md`, но изложено для человека, а не для агента.
 
 ---
 
-## Краткая Сводка По Проекту
+## О проекте
 
-- Название проекта: `<project_name>`
-- Тип проекта: `<web app | api | mobile app | cli | library | monorepo | service | internal tool | other>`
-- Однострочное описание: `<что делает проект в одном предложении>`
-- Основные пользователи: `<кто использует систему>`
-- Бизнес- или доменный контекст: `<domain, workflow, problem space>`
-- Стадия жизненного цикла: `<prototype | mvp | production | mature | legacy modernization>`
-- Владельцы / ответственная команда: `<team_name_or_people>`
-- Основная ветка: `<main_branch_name>`
-- Важные заметки о состоянии репозитория: `<active refactor | migration in progress | legacy areas | frozen modules | none>`
-
-### Подсказки Для Заполнения
-
-- Пишите описание для инженера, а не для маркетинга.
-- Если система legacy или находится в миграции, укажите это явно.
-- Если репозиторий содержит несколько продуктов или приложений, отметьте это здесь и поясните структуру ниже.
-
-### Пример
-
-```md
-- Название проекта: Acme Orders
-- Тип проекта: Monorepo
-- Однострочное описание: Internal platform for creating, pricing, and tracking wholesale orders.
-- Основные пользователи: Sales operators, finance team, warehouse integrations
-- Бизнес- или доменный контекст: B2B commerce
-- Стадия жизненного цикла: Production
-- Владельцы / ответственная команда: Orders Platform Team
-- Основная ветка: main
-- Важные заметки о состоянии репозитория: Legacy pricing flow is being migrated into feature-owned modules
-```
+- **Название:** Web ANPR System
+- **Тип:** веб-приложение (self-hosted)
+- **Описание:** Многоканальная система автоматического распознавания номерных знаков с веб-интерфейсом, REST API и интеграцией с аппаратными контроллерами (шлагбаумы, реле).
+- **Пользователи:** Операторы охраны, администраторы парковок и систем контроля доступа
+- **Доменная область:** Видеонаблюдение, распознавание номеров (LPR/ANPR), контроль доступа транспорта
+- **Стадия:** MVP / активная разработка
+- **Основная ветка:** `main`, разработка ведётся в `dev`
+- **Состояние:** Активная разработка фич; фронтенд — монолитный JS-файл, ожидает модуляризации
 
 ---
 
-## Принципы Работы Агента
+## Технологический стек
 
-Если пользователь явно не попросил иначе, агент должен:
+### Основное
 
-- предпочитать минимальное безопасное изменение, которое решает задачу;
-- сохранять существующую архитектуру и naming conventions;
-- обновлять тесты при изменении поведения;
-- обновлять docs, config и examples, если они устаревают из-за изменений;
-- проверять результат перед завершением работы;
-- не делать спекулятивных рефакторингов;
-- спрашивать перед разрушительными, необратимыми, дорогими или влияющими на production действиями.
+- **Язык:** Python 3.13
+- **Фреймворк:** FastAPI + Uvicorn (ASGI)
+- **База данных:** PostgreSQL 16 (единственный бэкенд хранения)
+- **ML:** ultralytics 8.3.20 (YOLO детекция), PyTorch 2.8.0 CPU (инференс), CRNN (OCR)
+- **Видеозахват:** OpenCV (RTSP-потоки)
+- **Деплой:** Docker Compose (4 сервиса: postgres, api, retention_worker, nginx)
+- **Фронтенд:** статический HTML/JS/CSS, раздаётся через FastAPI
 
-### На Что Агент Должен Оптимизировать Работу
+### Ключевые библиотеки
 
-1. Correctness
-2. Maintainability
-3. Speed
-
-### Чего Агент Не Должен Делать По Умолчанию
-
-- Переписывать архитектуру без запроса.
-- Добавлять новую зависимость, если задачу можно решить уже существующими зависимостями проекта.
-- Редактировать сгенерированные файлы вручную, если в проекте принят соответствующий workflow.
-- Игнорировать падающие проверки, связанные с изменёнными файлами или поведением.
-- Совершать действия наугад в security-sensitive, billing-sensitive или compliance-sensitive областях.
-
----
-
-## Источники Правды
-
-Перед любыми нетривиальными изменениями сверяйтесь со следующими материалами:
-
-| Источник | Путь / URL | Когда использовать |
+| Библиотека | Версия | Назначение |
 | --- | --- | --- |
-| Продуктовая или доменная документация | `<path_or_url>` | `<правила поведения / бизнес-логика>` |
-| Архитектурная документация | `<path_or_url>` | `<границы модулей / устройство системы>` |
-| ADR / журнал решений | `<path_or_url>` | `<почему были выбраны определённые tradeoffs>` |
-| API-контракты / схемы | `<path_or_url>` | `<изменения endpoint, event или schema>` |
-| Design system / UI docs | `<path_or_url>` | `<поведение UI, компоненты, токены>` |
-| Contribution guide | `<path_or_url>` | `<workflow репозитория, ветвление, review expectations>` |
-| Документация по безопасности | `<path_or_url>` | `<auth, secrets, permissions, compliance>` |
-| Deployment / runbooks | `<path_or_url>` | `<env, release, infrastructure changes>` |
+| ultralytics | 8.3.20 (закреплена) | YOLO-детекция номерных знаков |
+| torch / torchvision | 2.8.0 / 0.23.0 (CPU) | Инференс глубоких моделей |
+| opencv-python | не закреплена | RTSP-захват, обработка изображений, JPEG-кодирование |
+| psycopg[binary] + psycopg_pool | не закреплены | PostgreSQL-драйвер и пул соединений |
+| fastapi + uvicorn | не закреплены | HTTP API сервер |
+| psutil | не закреплена | Мониторинг системных ресурсов |
+| PyYAML | не закреплена | Парсинг настроек |
+| nginx | 1.27-alpine | Обратный прокси с поддержкой SSE |
 
-Если документация и код противоречат друг другу, приоритет у `<code | docs | ask_human>`, а само расхождение нужно упомянуть в финальном summary.
+### Версии и зависимости
 
-### Пример
-
-```md
-| Источник | Путь / URL | Когда использовать |
-| --- | --- | --- |
-| Архитектурная документация | `docs/architecture.md` | Изменения границ модулей или shared packages |
-| ADR / журнал решений | `docs/adr/` | Новые абстракции, изменения workflow, архитектурные tradeoffs |
-| API-контракты / схемы | `openapi/openapi.yaml` | Любые изменения endpoint или generated client |
-```
-
----
-
-## Технологический Стек
-
-Не пишите “latest”. Указывайте точные версии или поддерживаемые диапазоны.
-
-### Основной Стек
-
-- Язык(и): `<language_and_versions>`
-- Runtime(s): `<runtime_and_versions>`
-- Framework(s): `<frameworks_and_versions>`
-- Package manager(s): `<package_managers_and_versions>`
-- Build tool(s): `<build_tools_and_versions>`
-- База(ы) данных: `<db_and_versions>`
-- Messaging / queueing: `<tool_or_none>`
-- Кэш / хранилище: `<tool_or_none>`
-- Хостинг / инфраструктура: `<cloud | on-prem | hybrid | other>`
-
-### Ключевые Библиотеки И Сервисы
-
-Перечислите важные инструменты, которые агент должен сразу распознавать:
-
-| Область | Библиотека / сервис | Версия | Назначение | Примечания / ограничения |
-| --- | --- | --- | --- | --- |
-| `<frontend/backend/data/auth/etc>` | `<name>` | `<version>` | `<why it exists>` | `<special rules>` |
-| `<frontend/backend/data/auth/etc>` | `<name>` | `<version>` | `<why it exists>` | `<special rules>` |
-| `<frontend/backend/data/auth/etc>` | `<name>` | `<version>` | `<why it exists>` | `<special rules>` |
-
-### Политика Версий
-
-- Обязательные версии: `<exact_versions_or_ranges>`
-- Источник правды для версий: `<package.json | pyproject.toml | go.mod | Gemfile | Dockerfile | etc>`
-- Политика обновления зависимостей: `<manual | renovate | dependabot | scheduled>`
-- Требования по совместимости: `<browser matrix | runtime matrix | API compatibility | DB compatibility>`
-
-### Пример
-
-```md
-- Язык(и): TypeScript 5.6
-- Runtime(s): Node.js 22.x
-- Framework(s): Next.js 15, React 19
-- Package manager(s): pnpm 10
-- Build tool(s): Turborepo 2
-- База(ы) данных: PostgreSQL 16
-- Messaging / queueing: none
-- Кэш / хранилище: Redis 7, S3
-- Хостинг / инфраструктура: AWS
-```
+- Источник правды: `requirements.txt` + `Dockerfile`
+- Обновление зависимостей: вручную
+- GPU не требуется — только CPU-инференс
+- PyTorch устанавливается отдельно из `download.pytorch.org/whl/cpu`
 
 ---
 
 ## Архитектура
 
-- Архитектурный стиль: `<feature-sliced | layered | clean architecture | hexagonal | modular monolith | microservices | event-driven | other>`
-- Высокоуровневое описание: `<как система разделена и почему>`
-- Основные модули / bounded contexts: `<module_a, module_b, module_c>`
-- Основной поток данных: `<request/event/render flow>`
-- Подход к управлению состоянием: `<if relevant>`
-- Границы интеграций: `<external APIs, internal services, SDKs, jobs, queues>`
-- Зоны миграции: `<legacy_to_new transitions>`
-- Жёсткие ограничения: `<what must not be broken>`
+### Общее описание
 
-### Архитектурные Правила
+Слоистый монолит с многопоточной обработкой видеоканалов. Два FastAPI-сервиса:
 
-- Логику типа `<kind_of_logic>` размещать в `<allowed_path_or_layer>`, а не в `<forbidden_place>`.
-- Модуль `<module>` должен оставаться независимым от `<module>`.
-- Новая работа в `<area>` должна следовать паттерну `<pattern>`.
-- Перед созданием новых абстракций переиспользовать существующие из `<paths>`.
-- Нельзя обходить `<validation | domain layer | auth layer | schema boundary>` ради удобства.
+1. **API-сервер** (`app/api/main.py`) — REST API, SSE-стриминг событий, раздача статического веб-интерфейса, управление жизненным циклом каналов.
+2. **Retention worker** (`app/worker/main.py`) — фоновая очистка устаревших данных по политикам хранения.
 
-### Подсказки Для Заполнения
+Каждый видеоканал работает в отдельном потоке (daemon thread), управляемом `ChannelProcessor`. Зависимости собираются через контейнер-паттерн (`AppContainer`, `WorkerContainer`). OCR-распознаватель — общий синглтон для всех потоков.
 
-- Если вы называете архитектурный стиль, поясните, что это значит именно в этом репозитории.
-- Описывайте реальные границы и анти-паттерны, а не только учебные термины.
-- Обязательно явно отмечайте зоны миграции. Без этого агенты часто ломают переходные состояния.
+### Основные модули
 
-### Пример
+| Модуль | Путь | Назначение |
+| --- | --- | --- |
+| ANPR-пайплайн | `anpr/` | Детекция, распознавание, агрегация треков, валидация номеров |
+| API-сервер | `app/api/` | HTTP-эндпоинты, аутентификация, контейнер зависимостей |
+| Retention worker | `app/worker/` | Фоновая очистка событий и медиа |
+| Рантайм | `runtime/` | Процессор каналов, шина событий, дебаг-реестр |
+| Конфигурация | `config/` | Управление настройками: схема, нормализация, миграции |
+| БД | `database/` | PostgreSQL-репозитории для событий и списков номеров |
+| Контроллеры | `controllers/` | Интеграция с аппаратными реле (шлагбаумы) |
+| Утилиты | `common/` | Логирование |
 
-```md
-- Архитектурный стиль: Modular monolith with feature-oriented boundaries
-- Высокоуровневое описание: Each business capability owns its API layer, application logic, domain rules, and persistence adapters
-- Основные модули / bounded contexts: orders, pricing, customers, invoicing
-- Основной поток данных: request -> route -> application service -> domain -> repository -> response mapper
-- Зоны миграции: pricing logic is being moved out of shared utils into the pricing module
-- Жёсткие ограничения: customer state transitions must remain backward compatible with existing warehouse integrations
+### Основной поток данных
+
+1. Захват RTSP-кадра (`cv2.VideoCapture`)
+2. Детекция движения (опционально) → пропуск кадров без движения
+3. YOLO-детекция номеров → фильтрация по ROI-полигону
+4. Препроцессинг вырезанных номеров → пакетное OCR (CRNN)
+5. Агрегация по трекам (консенсус / исчерпание бюджета OCR-попыток)
+6. Валидация номера по формату страны
+7. Сохранение события в PostgreSQL + скриншоты на диск
+8. SSE-рассылка подписчикам через `EventBus`
+9. Автоматизация контроллеров (проверка по спискам → HTTP-команда на реле)
+
+### Жёсткие ограничения
+
+- Каналы изолированы: сбой одного не должен ломать другие.
+- PostgreSQL — единственный бэкенд хранения. Никаких SQLite, dual-write, fallback.
+- Вся ANPR-логика остаётся на сервере. Ничего не переносить в браузер.
+- Проект — только веб. Никаких десктопных GUI.
+
+---
+
+## Структура репозитория
+
+```
+ANPR-System-v0.8_web/
+├── anpr/                       # ANPR: детекция, распознавание, пайплайн
+│   ├── countries/              # YAML-конфиги форматов номеров по странам
+│   ├── detection/              # YOLO-детектор, детектор движения
+│   ├── models/                 # Веса моделей (закоммичены)
+│   ├── pipeline/               # ANPRPipeline, TrackAggregator, фабрика
+│   ├── postprocessing/         # Валидация номеров, загрузчик конфигов стран
+│   ├── preprocessing/          # Предобработка изображений номеров
+│   └── recognition/            # CRNN-распознаватель
+├── app/
+│   ├── api/                    # FastAPI API-сервер
+│   │   ├── routers/            # Обработчики маршрутов (8 модулей)
+│   │   ├── auth.py             # APIKeyMiddleware
+│   │   ├── container.py        # AppContainer (DI)
+│   │   ├── main.py             # Точка входа
+│   │   └── schemas.py          # Pydantic-схемы запросов/ответов
+│   ├── shared/                 # Сервисы, общие для API и worker
+│   ├── web/                    # Статический фронтенд (HTML/JS/CSS)
+│   └── worker/                 # Retention worker
+├── common/                     # Общие утилиты (логирование)
+├── config/                     # Управление настройками
+│   ├── settings_migrations/    # Миграции схемы настроек
+│   ├── settings_manager.py     # SettingsManager
+│   ├── settings_normalizer.py  # Нормализация и валидация
+│   ├── settings_repository.py  # JSON-файл с блокировкой
+│   └── settings_schema.py      # Дефолтные значения
+├── controllers/                # Интеграция с контроллерами
+│   ├── adapters/               # Адаптеры протоколов (DTWONDER2CH)
+│   └── service.py              # ControllerService, ControllerAutomationService
+├── database/                   # PostgreSQL-слой
+│   ├── postgres/schema.sql     # DDL-схема
+│   ├── errors.py               # StorageUnavailableError
+│   └── *.py                    # Репозитории событий и списков
+├── runtime/                    # Рантайм обработки каналов
+│   ├── channel_runtime.py      # ChannelProcessor
+│   ├── debug.py                # DebugRegistry, DebugLogBus
+│   ├── event_bus.py            # EventBus (async pub/sub)
+│   └── event_sink.py           # EventSink (запись в БД из потоков)
+├── nginx/                      # Конфигурация Nginx
+├── tests/                      # Юнит-тесты (pytest)
+├── Dockerfile
+├── docker-compose.yml          # 4 сервиса: postgres, api, worker, nginx
+├── requirements.txt
+├── .env.example
+└── README.md                   # Документация проекта (на русском)
 ```
 
----
+### Куда класть новый код
 
-## Структура Репозитория
-
-Опишите дерево так, как будто вы онбордите нового инженера в первый день.
-
-```text
-<repo-root>/
-├─ <dir-or-file>/        # <что здесь лежит>
-├─ <dir-or-file>/        # <что здесь лежит>
-├─ <dir-or-file>/        # <что здесь лежит>
-├─ <dir-or-file>/        # <что здесь лежит>
-└─ <dir-or-file>/        # <что здесь лежит>
-```
-
-### Ответственность Директорий
-
-| Путь | Ответственность | Типичное содержимое | Чего быть не должно |
-| --- | --- | --- | --- |
-| `<path>` | `<purpose>` | `<examples>` | `<anti_examples>` |
-| `<path>` | `<purpose>` | `<examples>` | `<anti_examples>` |
-| `<path>` | `<purpose>` | `<examples>` | `<anti_examples>` |
-
-### Правила Размещения Файлов
-
-- Новые фичи размещать в `<path>`.
-- Общий переиспользуемый код размещать в `<path>`.
-- Одноразовые скрипты хранить в `<path>`.
-- Generated artifacts хранить в `<path>` и они должны `<be_committed_or_not>`.
-- Env/config-файлы хранить в `<path>`.
-- Миграции, схемы и контракты хранить в `<path>`.
-
-### Пример
-
-```md
-apps/web/          # customer-facing frontend
-apps/admin/        # internal operations frontend
-packages/ui/       # shared UI components and tokens
-packages/domain/   # shared domain types and business rules
-infra/             # deployment, IaC, environment templates
-docs/              # architecture notes, ADRs, onboarding docs
-```
+| Что добавляете | Куда класть |
+| --- | --- |
+| Новый API-эндпоинт | `app/api/routers/`, зарегистрировать в `app/api/main.py` |
+| Новый этап ANPR-пайплайна | `anpr/preprocessing/` или `anpr/postprocessing/`, подключить в `ANPRPipeline` |
+| Формат номеров новой страны | YAML в `anpr/countries/` |
+| Новый адаптер контроллера | `controllers/adapters/`, зарегистрировать в `controllers/registry.py` |
+| Новая секция настроек | Дефолты в `settings_schema.py`, fill-метод в `settings_normalizer.py`, get/save в `settings_manager.py` |
+| Новая таблица в БД | DDL в `database/postgres/schema.sql`, репозиторий в `database/` |
+| Новый тест | `tests/test_*.py` |
+| Общая утилита | `common/` |
 
 ---
 
-## Подготовка Окружения
+## Запуск и окружение
 
-### Обязательные Инструменты
+### Быстрый старт
 
-- Обязательные инструменты: `<tool_and_version>`, `<tool_and_version>`, `<tool_and_version>`
-- Установка зависимостей: `<exact_command>`
-- Запуск локального окружения: `<exact_command>`
-- Запуск только зависимых сервисов: `<exact_command>`
-- Seed / bootstrap данных: `<exact_command>`
-- Откуда загружать env-переменные: `<path>`
-- Необходимые локальные сервисы: `<db | docker | queue | emulator | none>`
+1. Скопировать `.env.example` → `.env`
+2. Убедиться, что веса моделей на месте: `anpr/models/yolo/best.pt`, `anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth`
+3. `docker compose build`
+4. `docker compose up -d`
 
-### Замечания По Setup
+### Docker Compose — сервисы
 
-- Укажите, если важен порядок команд.
-- Укажите, Docker обязателен или опционален.
-- Укажите, можно ли безопасно повторно запускать seed.
-- Укажите, нужны ли ручные credentials, сертификаты или локальные ключи.
+| Сервис | Образ | Порт | Health check | Назначение |
+| --- | --- | --- | --- | --- |
+| postgres | postgres:16 | 5432 (внутр.) | `pg_isready` каждые 5с | Хранилище событий и списков |
+| api | собственный (Dockerfile) | 8080 (внутр.) | `GET /api/health` каждые 10с | API + ANPR-обработка |
+| retention_worker | собственный (Dockerfile) | 8092 (внутр.) | `GET /worker/health` каждые 15с | Фоновая очистка данных |
+| nginx | nginx:1.27-alpine | `HTTP_PORT` (по умолч. 8080) | `wget /` каждые 10с | Обратный прокси, SSE |
 
-### Пример
+Порядок запуска: postgres (healthy) → api + worker (healthy) → nginx
 
-```md
-- Обязательные инструменты: Node.js 22.x, pnpm 10, Docker Desktop
-- Установка зависимостей: pnpm install
-- Запуск локального окружения: pnpm dev
-- Запуск только зависимых сервисов: docker compose up -d
-- Seed / bootstrap данных: pnpm db:seed
-- Откуда загружать env-переменные: .env.local
-- Необходимые локальные сервисы: Postgres, Redis
-```
+### Переменные окружения
 
----
+**Обязательные:**
+- `POSTGRES_DSN` — строка подключения к PostgreSQL
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` — для инициализации контейнера postgres
 
-## Команды Для Разработки
-
-Каждая команда ниже должна работать в том виде, в котором она записана.
-
-| Задача | Команда | Scope | Примечания |
-| --- | --- | --- | --- |
-| Установить зависимости | `<command>` | `<repo_or_package>` | `<notes>` |
-| Запустить разработку | `<command>` | `<repo_or_package>` | `<notes>` |
-| Запустить один сервис / пакет | `<command>` | `<repo_or_package>` | `<notes>` |
-| Сборка | `<command>` | `<repo_or_package>` | `<notes>` |
-| Lint | `<command>` | `<repo_or_package>` | `<notes>` |
-| Format | `<command>` | `<repo_or_package>` | `<notes>` |
-| Typecheck | `<command>` | `<repo_or_package>` | `<notes>` |
-| Запустить все тесты | `<command>` | `<repo_or_package>` | `<notes>` |
-| Запустить один тестовый файл | `<command>` | `<repo_or_package>` | `<notes>` |
-| Запустить один тест-кейс | `<command>` | `<repo_or_package>` | `<notes>` |
-| Запустить integration tests | `<command>` | `<repo_or_package>` | `<notes>` |
-| Запустить e2e tests | `<command>` | `<repo_or_package>` | `<notes>` |
-| Перегенерировать код | `<command>` | `<repo_or_package>` | `<notes>` |
-
-### Стратегия Проверки
-
-Обычно агент должен валидировать изменения в таком порядке:
-
-1. file-level или test-level проверки;
-2. проверки ближайшего пакета или модуля;
-3. full-repo проверки при необходимости;
-4. release-grade проверки перед merge для рискованных или широких изменений.
-
-### Пример
-
-```md
-| Задача | Команда | Scope | Примечания |
-| --- | --- | --- | --- |
-| Lint | `pnpm lint` | repo | Runs all package linters |
-| Typecheck | `pnpm typecheck` | repo | Must pass before merge |
-| Запустить один тестовый файл | `pnpm vitest run src/features/orders/order-form.test.ts` | package | Fastest local verification |
-```
+**Опциональные:**
+- `API_KEY` — ключ API (пустой = без аутентификации)
+- `APP_ENV` — идентификатор окружения (по умолчанию `docker`)
+- `DEBUG` — режим отладки (по умолчанию `false`)
+- `LOG_LEVEL` — уровень логирования (по умолчанию `INFO`)
+- `SETTINGS_PATH` — путь к YAML-настройкам (по умолчанию `/app/config/settings.yaml`)
+- `HTTP_PORT` — внешний HTTP-порт (по умолчанию `8080`)
 
 ---
 
-## Руководство По Тестированию
+## Команды
 
-- Test framework(s): `<frameworks>`
-- Где лежат unit tests: `<paths>`
-- Где лежат integration tests: `<paths>`
-- Где лежат e2e tests: `<paths>`
-- Где лежат contract tests: `<paths_or_none>`
-- Паттерны именования: `<*.test.ts | test_*.py | etc>`
-- Где лежит CI workflow: `<path>`
-
-### Правила Тестирования
-
-- Любое изменение поведения должно сопровождаться тестами, если нет явно задокументированной причины этого не делать.
-- Исправления багов по возможности должны включать regression test.
-- Во время итерации предпочитайте точечные тесты.
-- При изменении shared code, persistence, contracts, infrastructure или чувствительных workflow нужно запускать более широкие наборы тестов.
-- Snapshot или golden-обновления нужно ревьюить, а не принимать вслепую.
-
-### Матрица Тестов
-
-| Тип тестов | Путь / Scope | Команда | Когда запускать |
-| --- | --- | --- | --- |
-| Unit | `<path>` | `<command>` | `<most logic changes>` |
-| Integration | `<path>` | `<command>` | `<db/api/module-boundary changes>` |
-| E2E | `<path>` | `<command>` | `<user workflow changes>` |
-| Contract | `<path>` | `<command>` | `<schema/api/event changes>` |
-| Performance | `<path>` | `<command>` | `<perf-sensitive changes>` |
-
-### Пример
-
-```md
-- Test framework(s): Vitest, Playwright
-- Где лежат unit tests: src/**/*.test.ts
-- Где лежат e2e tests: tests/e2e/
-- Паттерны именования: *.test.ts
-- Где лежит CI workflow: .github/workflows/ci.yml
-```
+| Задача | Команда |
+| --- | --- |
+| Собрать контейнеры | `docker compose build` |
+| Запустить всё | `docker compose up -d` |
+| Остановить всё | `docker compose down` |
+| Логи API | `docker compose logs -f api` |
+| Все тесты | `pytest` |
+| Один файл тестов | `pytest tests/test_track_aggregator.py` |
+| Один тест | `pytest tests/test_track_aggregator.py::TestTrackAggregator::test_emits_on_quorum` |
 
 ---
 
-## Стиль Кода И Naming
+## Тестирование
 
-- Formatter: `<tool>`
-- Linter: `<tool>`
-- Политика типизации: `<strict | moderate | dynamic with validation>`
-- Политика комментариев: `<when comments are appropriate>`
-- Политика импортов: `<absolute | relative | grouped | sorted>`
-- Подход к обработке ошибок: `<exceptions | result objects | error wrappers | logging conventions>`
-- Подход к логированию: `<structured | plain text | tracing>`
-- Подход к конфигурации: `<typed env schema | central config | other>`
+### Фреймворк и расположение
 
-### Naming Conventions, Которые Мы Предпочитаем
+- **pytest** (без конфигурационного файла — дефолтные настройки)
+- Тесты: `tests/test_*.py`
+- Нет интеграционных, e2e, контрактных тестов
+- Нет CI-пайплайна
 
-| Сущность | Предпочтительно | Избегать | Пример |
-| --- | --- | --- | --- |
-| Файлы | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Директории | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Классы / компоненты | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Функции / методы | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Переменные | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Константы | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Types / interfaces / schemas | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Названия тестов | `<preferred_style>` | `<avoid_style>` | `<example>` |
-| Названия веток | `<preferred_style>` | `<avoid_style>` | `<example>` |
+### Существующие тесты
 
-### Style Do / Don't
+| Файл | Что тестирует |
+| --- | --- |
+| `test_track_aggregator.py` | `TrackAggregator` — консенсус и бюджет OCR-попыток |
+| `test_plate_validator.py` | `PlatePostProcessor` — валидация номеров по формату стран |
+| `test_motion_detector.py` | `MotionDetector` — детекция движения |
+| `test_direction_estimator.py` | `TrackDirectionEstimator` — определение направления |
 
-Делать:
+### Правила тестирования
 
-- использовать названия, отражающие намерение;
-- держать модули цельными и сфокусированными;
-- следовать уже существующим паттернам рядом с изменяемым кодом;
-- предпочитать явную бизнес-логику “умным” абстракциям.
-
-Не делать:
-
-- превращать `utils` в свалку несвязной логики;
-- смешивать несколько naming styles в одной зоне кода;
-- прятать важные side effects за расплывчатыми helper names;
-- вводить широкие абстракции до появления второго реального use case.
-
-### Пример
-
-```md
-| Сущность | Предпочтительно | Избегать | Пример |
-| --- | --- | --- | --- |
-| Файлы | kebab-case | mixedCase | order-summary-card.tsx |
-| Классы / компоненты | PascalCase | snake_case | OrderSummaryCard |
-| Функции / методы | verbNoun | generic names | calculateOrderTotal |
-| Названия тестов | behavior-focused | “works correctly” | returns 422 when customer is archived |
-```
+- Без мок-библиотек — только простые тест-дабл классы (инлайн-стабы).
+- Тестовые хелперы — модульные функции с подчёркиванием: `_blank()`, `_ru_country()`.
+- При изменении логики агрегатора, валидатора, детектора или движения — обновлять или добавлять тесты.
+- Для float-сравнений: `pytest.approx()`.
+- Простые `assert`-утверждения (pytest перезаписывает их).
 
 ---
 
-## Предпочтительные Паттерны И Эталонные Реализации
+## Стиль кода
 
-Покажите агенту реальные примеры из репозитория.
+### Общие правила
 
-### Хорошие Примеры, Которые Можно Копировать
+- Все Python-файлы начинаются с `from __future__ import annotations`
+- Типизация: аннотации типов на всех сигнатурах функций
+- Отступ: 4 пробела
+- Длина строки: ~120 символов (неформально)
+- Автоматический форматтер / линтер: не настроен (но `# noqa: BLE001` используется)
 
-- `<path>`: `<why this is a good example>`
-- `<path>`: `<why this is a good example>`
-- `<path>`: `<why this is a good example>`
+### Именование
 
-### Паттерны, Которые Не Нужно Копировать
+| Сущность | Стиль | Пример |
+| --- | --- | --- |
+| Файлы | `snake_case.py` | `anpr_pipeline.py` |
+| Директории | `snake_case` | `anpr/postprocessing/` |
+| Классы | `PascalCase` | `ChannelProcessor`, `ANPRPipeline` |
+| Функции/методы | `snake_case` | `build_components()`, `process_frame()` |
+| Приватные методы | `_snake_case` | `_evict_stale()` |
+| Переменные | `snake_case` | `track_id`, `best_shots` |
+| Константы | `UPPER_SNAKE_CASE` | `SETTINGS_VERSION` |
+| Pydantic-модели | `PascalCase` + суффикс `Payload` | `ChannelPayload` |
+| Тестовые файлы | `test_<компонент>.py` | `test_track_aggregator.py` |
+| Тестовые классы | `Test<Компонент>` | `TestTrackAggregator` |
 
-- `<path>`: `<why it exists but should not be reused>`
-- `<path>`: `<why it exists but should not be reused>`
-- `<path>`: `<why it exists but should not be reused>`
+### Импорты
 
-### Подсказки Для Заполнения
+1. `from __future__ import annotations` — всегда первый
+2. Стандартная библиотека
+3. Сторонние пакеты
+4. Локальные импорты проекта
 
-- Добавьте примеры для типовых задач: feature modules, API handlers, tests, background jobs, migrations, UI components.
-- Явно помечайте legacy-примеры, чтобы агент не копировал их в новый код.
+Абсолютные импорты от корня: `from common.logging import get_logger`. Относительные внутри пакета: `from .country_config import ...`. Для аннотаций: `TYPE_CHECKING`-блоки.
 
-### Пример
+### Логирование
 
-```md
-- `src/features/orders/api/create-order.ts`: good validation -> service -> mapper flow
-- `src/features/orders/components/order-form.tsx`: good example of feature-local UI composition
-- `src/features/orders/order-form.test.ts`: good example of behavior-focused tests
-- `src/legacy/shared/utils.ts`: legacy dumping ground, do not add new business logic here
-```
+- Получение логгера: `get_logger(__name__)` из `common/logging` (никогда не `logging.getLogger()`)
+- Форматирование: `%s`/`%d`/`%.2f` (никогда не f-strings в логах)
+- Пайплайн-логи на русском с контекстом канала: `Канал {name} (id={id})`
+- Уровни: `ALL`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+- `ALL` — полный вывод включая диагностику OCR; `INFO` — только итоги
 
----
+### Обработка ошибок
 
-## Данные, Контракты, Codegen И Миграции
-
-- Где лежат схемы: `<path>`
-- Где лежат миграции: `<path>`
-- Где лежат API-контракты: `<path>`
-- Где лежат event-контракты: `<path_or_none>`
-- Где лежит generated code: `<path>`
-- Команда для регенерации: `<command>`
-
-### Правила
-
-- Не редактировать generated files вручную, если в проекте предполагается regeneration workflow.
-- Сохранять backward compatibility для `<api | events | database>`, если задача явно не разрешает breaking change.
-- При изменении контрактов обновлять также tests, fixtures, docs и зависимые clients, если это применимо.
-- Для миграций указывать, обратимы ли они, разрушительны ли и требуют ли координации rollout.
-
-### Пример
-
-```md
-- Где лежат схемы: prisma/schema.prisma
-- Где лежат миграции: prisma/migrations/
-- Где лежат API-контракты: openapi/openapi.yaml
-- Где лежит generated code: src/generated/
-- Команда для регенерации: pnpm codegen
-```
+- `StorageUnavailableError` для проблем с БД → HTTP 503
+- Широкие `except Exception` допустимы только в инфраструктурном коде с `# noqa: BLE001`
+- Pydantic-валидаторы бросают `ValueError` с русскими сообщениями
+- `from exc` для сохранения цепочки исключений
 
 ---
 
-## Границы Безопасности И Safety
+## Настройки и версионирование схемы
 
-Считайте этот раздел обязательным.
+### Архитектура настроек
 
-### Жёсткие Правила
+- Файл: `config/settings.yaml` (JSON-совместимый через `SettingsRepository`)
+- Менеджер: `SettingsManager` — потокобезопасный доступ с блокировкой файла
+- Нормализатор: `SettingsNormalizer` — заполнение дефолтов, валидация типов
+- Схема: `settings_schema.py` — функции `*_defaults()` для каждой секции
+- Миграции: `config/settings_migrations/runner.py`
 
-- Никогда не коммитить secrets, private keys, access tokens или production credentials.
-- Никогда не хардкодить secrets в source code, tests, fixtures или documentation.
-- Редактировать чувствительные значения в логах и примерах.
-- Валидировать и санитизировать недоверенный ввод на правильной границе.
-- Использовать least privilege для database, cloud и service credentials.
-- Быть особенно аккуратным в коде, связанном с auth, billing, PII, legal/compliance, infrastructure или permissions.
+### Правила версионирования
 
-### Перед Этими Действиями Нужна Подтверждённая Проверка Человеком
-
-- удаление данных или файлов;
-- применение необратимых миграций;
-- изменение auth или permission logic;
-- изменение billing или payment flows;
-- изменение deployment или production infrastructure;
-- установка или замена крупных зависимостей;
-- ротация secrets или изменение security configuration.
-
-### Чувствительные Зоны
-
-- Authentication / authorization: `<paths_or_notes>`
-- Payments / billing: `<paths_or_notes>`
-- Personal or regulated data: `<paths_or_notes>`
-- Production configuration / infrastructure: `<paths_or_notes>`
+- Любое изменение схемы настроек (новый параметр, удаление/переименование поля, изменение структуры или формата) **обязательно** требует повышения версии.
+- При повышении версии **обязательно** добавлять/обновлять путь совместимости для старых конфигов.
+- Нельзя считать задачу завершённой, если схема изменилась, а миграция не обновлена.
 
 ---
 
-## Git, PR И Definition Of Done
+## Безопасность
 
-- Схема именования веток: `<pattern>`
-- Формат commit message: `<pattern>`
-- Формат заголовка PR: `<pattern>`
-- Политика changelog: `<when_and_how_to_update>`
-- Политика release notes: `<if_applicable>`
+### Аутентификация
 
-### Definition Of Done
+- `APIKeyMiddleware` в `app/api/auth.py`
+- Активируется только при непустом `API_KEY` в `.env`
+- Проверка: timing-safe `hmac.compare_digest`
+- Способы передачи ключа: заголовок `X-Api-Key`, `Authorization: Bearer`, query-параметр `?api_key=` (для SSE/MJPEG)
+- Исключения: `/api/health`, все не-`/api/` пути
 
-Изменение не считается завершённым, пока:
+### Чувствительные данные
 
-1. не прошли релевантные проверки;
-2. не добавлены или не обновлены тесты там, где это нужно;
-3. не обновлены docs/config/examples, если они затронуты;
-4. размещение файлов и naming соответствуют этому документу;
-5. assumptions, risks и follow-up work зафиксированы.
+- RTSP-учётные данные встроены в URL потоков в `config/settings.yaml`
+- Пароли контроллеров хранятся в `config/settings.yaml`
+- API-ключ в `.env` (gitignored)
+- Номерные знаки и скриншоты в PostgreSQL и `data/screenshots/`
 
-### Пример
+### Что нельзя делать без согласования
 
-```md
-- Схема именования веток: feat/<ticket>-<short-description>
-- Формат commit message: conventional commits
-- Формат заголовка PR: [ORD-123] Brief imperative summary
-- Политика changelog: update CHANGELOG.md for user-visible changes
-```
+- Удалять данные или файлы
+- Менять логику аутентификации
+- Менять инфраструктуру деплоя
+- Устанавливать или заменять крупные зависимости
+- Ротировать секреты
 
 ---
 
-## Правила Для Монорепозитория
+## Git и PR
 
-Если в репозитории несколько приложений, пакетов или сервисов:
-
-- корневой `AGENTS.md` должен определять только глобальные правила;
-- у каждого крупного приложения, пакета или сервиса должен быть свой вложенный `AGENTS.md`;
-- ближайший к изменяемым файлам `AGENTS.md` должен определять локальные соглашения;
-- shared packages должны документировать ожидания по совместимости и ограничения по релизам.
-
-### Рекомендуемая Структура
-
-```text
-<repo-root>/
-├─ AGENTS.md
-├─ apps/
-│  ├─ <app-a>/AGENTS.md
-│  └─ <app-b>/AGENTS.md
-├─ packages/
-│  ├─ <shared-lib>/AGENTS.md
-│  └─ <shared-ui>/AGENTS.md
-└─ infra/
-   └─ AGENTS.md
-```
+- Ветки: `main` (основная), `dev` (разработка), `feat/<описание>`, `fix/<описание>`
+- Коммиты: свободный формат
+- **PR оформляются на русском языке**
+- В описании PR: что изменено, зачем, обновлён ли README
 
 ---
 
-## Известные Подводные Камни
+## Документация
 
-Перечислите реальные проблемы, в которые агент с высокой вероятностью упрётся:
-
-- `<pitfall_and_how_to_avoid_it>`
-- `<pitfall_and_how_to_avoid_it>`
-- `<pitfall_and_how_to_avoid_it>`
-
-### Пример
-
-```md
-- Do not import pricing helpers from `shared/utils`; use `modules/pricing` instead.
-- Changes to `openapi/openapi.yaml` require regenerating typed clients.
-- Legacy admin pages still rely on server-rendered templates; do not move them into the SPA without approval.
-```
+- `README.md` — продуктовая документация (на русском), часть продукта
+- Нельзя удалять секции, диаграммы, таблицы и примеры из README без замены на обновлённые
+- При изменении пользовательского поведения, API, архитектуры, хранения или рантайм-потока — обновлять README на русском
 
 ---
 
-## Когда Агент Должен Остановиться И Спросить
+## Известные проблемы и ограничения
 
-Агент должен остановиться и спросить человека, если:
+### Технический долг
 
-- требования неоднозначны и существует несколько валидных реализаций;
-- изменение может нарушить совместимость API, данных или безопасность деплоя;
-- документация и код существенно противоречат друг другу;
-- тесты падают по причинам, не связанным с задачей, и причина неясна;
-- для задачи нужны secrets, production access или product-policy decisions;
-- самый безопасный путь зависит от tradeoff, который пользователь ещё не выбрал.
+- Фронтенд `app/web/app.js` — монолит 2800+ строк с `innerHTML` (XSS-риск), глобальным стейтом
+- Широкие `except Exception` в БД-репозиториях теряют гранулярность ошибок
+- Два независимых пула соединений (events + lists) вместо одного общего
+- `PUT /api/channels/{id}` принимает сырой dict без Pydantic-валидации
+- Нормализатор настроек импортирует из `controllers/` — архитектурное сцепление
 
----
+### Известные баги
 
-## Дополнительная Синхронизация С Другими Инструментами
+- Изменение настроек не влияет на работающие каналы до перезапуска
+- При старте канала есть окно, когда превью возвращает 503 (до первого кадра)
+- Метрики каналов не сбрасываются при перезапуске — накапливаются кумулятивно
 
-Если репозиторий использует и tool-specific AI instruction files, держите их синхронизированными:
+### Узкие места производительности
 
-- `README.md`
-- `.github/copilot-instructions.md`
-- `CLAUDE.md`
-- `.cursorrules`
-- `.aider.conf.yml`
-- `.gemini/settings.json`
+- Экспорт событий (`fetch_for_export`) загружает все строки в память без `LIMIT`
+- JPEG-кодирование превью на каждом кадре, даже без подписчиков
+- SSE/MJPEG-соединения не ограничены по количеству
 
-Предпочтителен один authoritative source, а зеркалирование должно быть минимальным.
+### Пробелы в тестовом покрытии
 
----
-
-## Чеклист Поддержки Для Людей
-
-- Обновляйте этот файл при изменении архитектуры, стека, команд или workflow.
-- Следите, чтобы команды можно было выполнять в точности как они записаны.
-- Перед rollout заменяйте расплывчатые плейсхолдеры реальными значениями.
-- Добавляйте ссылки на лучшие примеры из репозитория для типовых задач.
-- Разносите инструкции по вложенным `AGENTS.md`, когда один файл становится слишком широким по scope.
+- Покрыты только 4 компонента (агрегатор, валидатор, детектор движения, оценщик направления)
+- Нет тестов API-эндпоинтов, БД-репозиториев, рантайма каналов, миграций настроек
 
 ---
 
-## Чеклист Перед Использованием
+## Хорошие примеры для ориентира
 
-Перед тем как использовать этот файл в реальном репозитории, убедитесь, что вы заменили:
+| Файл | Почему хороший пример |
+| --- | --- |
+| `tests/test_track_aggregator.py` | Структурированные тесты с инлайн-билдерами и описательными именами |
+| `tests/test_plate_validator.py` | Тестирование с кастомными загрузчиками конфигов |
+| `anpr/pipeline/anpr_pipeline.py` | Правильный паттерн логирования с контекстом канала |
+| `anpr/pipeline/factory.py` | Фабрика с потокобезопасным синглтоном |
+| `app/api/container.py` | Контейнер-паттерн для DI с `build()` classmethod |
 
-- все плейсхолдеры в `<угловых_скобках>`;
-- все примерные значения, скопированные из шаблона;
-- все общие команды на реальные команды;
-- все общие пути на реальные пути;
-- все абстрактные правила на проектно-специфичные правила.
+---
 
-Перед тем как считать файл завершённым, убедитесь, что в нём есть:
+## Что не копировать
 
-- обзор проекта;
-- стек и версии;
-- архитектура и границы;
-- структура репозитория;
-- точные setup/build/test команды;
-- расположение тестов и стратегия запуска;
-- naming conventions;
-- хорошие и плохие примеры из репозитория;
-- границы безопасности;
-- правила эскалации;
-- ссылки на source-of-truth документацию.
+| Файл | Причина |
+| --- | --- |
+| `app/web/app.js` | Монолит с `innerHTML`, глобальный стейт — legacy |
+| Широкие `except Exception` в `database/` | Потеря гранулярности ошибок — техдолг |
+| `PUT /api/channels/{id}` | Принимает сырой dict — антипаттерн |
