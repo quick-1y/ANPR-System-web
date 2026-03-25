@@ -50,7 +50,9 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
         container.settings.settings["storage"] = current_storage
 
         container.settings.settings["time"] = payload.time.model_dump()
-        container.settings.settings["plates"] = payload.plates.model_dump()
+        current_plates = container.settings.settings.get("plates", {})
+        current_plates.update(payload.plates.model_dump())
+        container.settings.settings["plates"] = current_plates
         container.settings.settings["debug"] = debug_payload
 
         current_logging = container.settings.settings.get("logging", {})
@@ -72,12 +74,11 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
 
     container.refresh_storage_clients()
 
-    new_plates = payload.plates.model_dump()
+    new_plates = container.settings.get_plate_settings()
     new_storage = payload.storage.model_dump()
     pipeline_changed = (
         old_plates != new_plates
         or old_storage.get("postgres_dsn") != new_storage.get("postgres_dsn")
-        or old_storage.get("screenshots_dir") != new_storage.get("screenshots_dir")
     )
     if pipeline_changed:
         container.restart_processor_for_settings()

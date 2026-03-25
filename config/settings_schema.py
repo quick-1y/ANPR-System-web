@@ -78,7 +78,6 @@ def storage_defaults() -> Dict[str, Any]:
         "events_retention_days": 30,
         "media_retention_days": 14,
         "max_screenshots_mb": 4096,
-        "export_dir": "data/exports",
     }
 
 

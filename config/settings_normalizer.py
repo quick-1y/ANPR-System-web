@@ -329,6 +329,9 @@ class SettingsNormalizer:
             if key not in storage:
                 storage[key] = val
                 changed = True
+        if "export_dir" in storage:
+            storage.pop("export_dir", None)
+            changed = True
         data["storage"] = storage
         return changed
 

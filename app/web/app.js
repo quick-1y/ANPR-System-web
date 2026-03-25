@@ -1188,20 +1188,16 @@ async function loadGlobalSettings() {
   setVal("g_retry_interval", g.reconnect.signal_loss.retry_interval_seconds);
   setChk("g_periodic_enabled", g.reconnect.periodic.enabled);
   setVal("g_periodic_minutes", g.reconnect.periodic.interval_minutes);
-  setVal("g_screenshots_dir", g.storage.screenshots_dir);
-  setVal("g_logs_dir", g.storage.logs_dir);
   setChk("g_auto_cleanup", g.storage.auto_cleanup_enabled);
   setVal("g_cleanup_minutes", g.storage.cleanup_interval_minutes);
   setVal("g_events_retention", g.storage.events_retention_days);
   setVal("g_media_retention", g.storage.media_retention_days);
   setVal("g_max_screenshots", g.storage.max_screenshots_mb);
-  setVal("g_export_dir", g.storage.export_dir);
   setVal("g_postgres_dsn", g.storage.postgres_dsn);
   setVal("g_log_level", g.logging.level);
   setVal("g_log_retention", g.logging.retention_days);
   setVal("g_timezone", g.time.timezone);
   setVal("g_offset_minutes", g.time.offset_minutes);
-  setVal("g_plates_dir", g.plates.config_dir);
   setVal("g_countries", (g.plates.enabled_countries || []).join(","));
   setChk("d_metrics", g.debug.show_channel_metrics);
   setChk("d_log", g.debug.log_panel_enabled);
@@ -1227,14 +1223,11 @@ async function saveGeneral() {
       },
     },
     storage: {
-      screenshots_dir: val("g_screenshots_dir"),
-      logs_dir: val("g_logs_dir"),
       auto_cleanup_enabled: document.getElementById("g_auto_cleanup").checked,
       cleanup_interval_minutes: Number(val("g_cleanup_minutes")),
       events_retention_days: Number(val("g_events_retention")),
       media_retention_days: Number(val("g_media_retention")),
       max_screenshots_mb: Number(val("g_max_screenshots")),
-      export_dir: val("g_export_dir"),
       postgres_dsn: val("g_postgres_dsn"),
     },
     logging: {
@@ -1246,7 +1239,6 @@ async function saveGeneral() {
       offset_minutes: Number(val("g_offset_minutes")),
     },
     plates: {
-      config_dir: val("g_plates_dir"),
       enabled_countries: parseIds("").length
         ? []
         : String(val("g_countries"))
@@ -2756,20 +2748,16 @@ const PARAM_HELP = {
   g_retry_interval: "Пауза (в секундах) между попытками переподключения после потери сигнала. Слишком малое значение может создать лишнюю нагрузку на камеру.",
   g_periodic_enabled: "Принудительное переподключение всех каналов через заданный интервал. Помогает при нестабильных камерах, которые «зависают» без явной потери сигнала.",
   g_periodic_minutes: "Интервал (в минутах) между принудительными переподключениями. Рекомендуется 30–120 минут.",
-  g_screenshots_dir: "Путь к каталогу, куда сохраняются скриншоты кадров и кропы распознанных номеров. Относительный путь отсчитывается от корня приложения.",
   g_max_screenshots: "Максимальный общий объём (в мегабайтах) файлов в каталоге скриншотов. При превышении лимита самые старые файлы удаляются автоматически.",
   g_media_retention: "Сколько дней хранить медиафайлы (скриншоты, кропы номеров) на диске. Файлы старше указанного срока удаляются при очередном цикле автоочистки.",
-  g_export_dir: "Каталог для экспортируемых данных (CSV, ZIP-архивы с медиа). Относительный путь отсчитывается от корня приложения.",
   g_log_level: "Минимальный уровень записей в лог-файл.\n• ALL / DEBUG — максимальная детализация (для отладки).\n• INFO — штатная работа.\n• WARNING / ERROR / CRITICAL — только проблемы.",
   g_log_retention: "Сколько дней хранить файлы логов. Файлы старше указанного срока удаляются при ротации.",
-  g_logs_dir: "Путь к каталогу лог-файлов. Относительный путь отсчитывается от корня приложения.",
   g_auto_cleanup: "Включает периодическую автоматическую очистку данных. При включении система удаляет:\n• старые события из базы данных (старше заданного срока);\n• связанные медиафайлы (кадры и кропы номеров);\n• осиротевшие медиафайлы на диске;\n• файлы сверх лимита хранения скриншотов.",
   g_cleanup_minutes: "Как часто (в минутах) запускать цикл автоочистки. Минимум — 1 минута. Рекомендуется 15–60 минут.",
   g_events_retention: "Сколько дней хранить записи событий в базе данных. События старше указанного срока удаляются вместе со связанными медиафайлами.",
   g_postgres_dsn: "Строка подключения к PostgreSQL. Задаётся через переменную окружения и не может быть изменена из интерфейса.",
   g_timezone: "Часовой пояс для отображения времени в интерфейсе. Этот параметр влияет только на представление времени в приложении и не изменяет системные часы сервера.",
   g_offset_minutes: "Дополнительная коррекция времени (в минутах) поверх выбранного часового пояса. Используйте, если системные часы сервера расходятся с реальным временем. Диапазон: от −720 до +720 минут.",
-  g_plates_dir: "Путь к каталогу с конфигурациями форматов номерных знаков по странам. Содержит шаблоны и правила валидации для каждой страны.",
   g_countries: "Коды стран через запятую (ISO 3166-1 alpha-2), номера которых распознаются системой. Например: RU,UA,BY,KZ. Для каждой страны должен существовать конфиг в каталоге номеров."
 };
 
