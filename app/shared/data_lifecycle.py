@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import os
+import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -19,7 +20,6 @@ class RetentionPolicy:
     events_retention_days: int = 30
     media_retention_days: int = 14
     max_screenshots_mb: int = 4096
-    export_dir: str = "data/exports"
 
     @classmethod
     def from_storage(cls, storage: Dict[str, Any]) -> "RetentionPolicy":
@@ -29,7 +29,6 @@ class RetentionPolicy:
             events_retention_days=max(1, int(storage.get("events_retention_days", 30))),
             media_retention_days=max(1, int(storage.get("media_retention_days", 14))),
             max_screenshots_mb=max(256, int(storage.get("max_screenshots_mb", 4096))),
-            export_dir=str(storage.get("export_dir", "data/exports")),
         )
 
     def to_storage(self) -> Dict[str, Any]:
@@ -39,7 +38,6 @@ class RetentionPolicy:
             "events_retention_days": int(self.events_retention_days),
             "media_retention_days": int(self.media_retention_days),
             "max_screenshots_mb": int(self.max_screenshots_mb),
-            "export_dir": str(self.export_dir),
         }
 
 
@@ -49,11 +47,11 @@ class DataLifecycleService:
         self.policy = policy
         self.pg_events = PostgresEventDatabase(postgres_dsn)
         self.screenshots_dir.mkdir(parents=True, exist_ok=True)
-        Path(self.policy.export_dir).mkdir(parents=True, exist_ok=True)
+        self._export_dir = Path(tempfile.gettempdir()) / "anpr_exports"
+        self._export_dir.mkdir(parents=True, exist_ok=True)
 
     def update_policy(self, policy: RetentionPolicy) -> None:
         self.policy = policy
-        Path(self.policy.export_dir).mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def _safe_unlink(path: Optional[str]) -> bool:
@@ -123,7 +121,7 @@ class DataLifecycleService:
 
     def export_events_csv(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None, plate: Optional[str] = None, channel_id: Optional[int] = None) -> str:
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        export_path = Path(self.policy.export_dir) / f"events_{ts}.csv"
+        export_path = self._export_dir / f"events_{ts}.csv"
         rows = self.pg_events.fetch_for_export(start=start, end=end, channel=channel, plate=plate, channel_id=channel_id)
         fieldnames = ["id", "timestamp", "channel_id", "channel", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
         with export_path.open("w", newline="", encoding="utf-8") as file_obj:
@@ -137,7 +135,7 @@ class DataLifecycleService:
         rows = self.pg_events.fetch_for_export(start=start, end=end, channel=channel)
 
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        csv_path = Path(self.policy.export_dir) / f"events_{ts}.csv"
+        csv_path = self._export_dir / f"events_{ts}.csv"
         fieldnames = ["id", "timestamp", "channel_id", "channel", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
         with csv_path.open("w", newline="", encoding="utf-8") as file_obj:
             writer = csv.DictWriter(file_obj, fieldnames=fieldnames)
