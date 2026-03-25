@@ -1,245 +1,202 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-03-21
+**Analysis Date:** 2026-03-25
 
 ## Tech Debt
 
 **Broad Exception Handling:**
-- Issue: Multiple catch-all `except Exception` blocks throughout codebase suppress specific errors, making debugging harder
-- Files: `database/postgres_event_repository.py` (lines 60, 94, 108, 152, 166, 181, 200, 242), `database/plate_lists_repository.py` (line 150), `anpr/detection/yolo_detector.py` (lines 171, 232), `runtime/channel_runtime.py` (lines 256, 592), `controllers/service.py` (lines 101, 216), `common/logging.py` (lines 51, 88, 169, 173), `app/api/container.py` (line 139), `app/api/routers/settings.py` (line 42)
-- Impact: Errors are logged but stack traces masked. Network failures, permission issues, and data corruption are treated identically. Difficult to implement proper recovery strategies
-- Fix approach: Replace broad catches with specific exception types. Create custom exceptions for domain concepts (StorageUnavailableError is good model). Use noqa comments only where intentional diversity is required
+- Issue: Multiple catch-all `except Exception` blocks throughout the codebase suppress specific errors, making debugging harder and preventing targeted recovery
+- Files: `database/postgres_event_repository.py` (lines 72, 107, 121, 165, 179, 194, 213, 256), `database/plate_lists_repository.py` (lines 70, 156), `anpr/detection/yolo_detector.py` (lines 55, 171, 232), `runtime/channel_runtime.py` (lines 268, 601), `controllers/service.py` (lines 105, 210), `common/logging.py` (lines 51, 88, 169, 173), `app/api/container.py` (line 139), `app/api/routers/settings.py` (line 68)
+- Impact: Network failures, permission issues, and data corruption are treated identically. Database repository methods wrap all exceptions into `StorageUnavailableError`, losing granularity (connection timeout vs constraint violation vs encoding error). The YOLO detector silently falls back to CPU or disables tracking on any exception, not just CUDA/NMS errors
+- Fix approach: Replace broad catches with specific exception types (`psycopg.OperationalError`, `psycopg.IntegrityError`, `torch.cuda.CudaError`, etc.). Keep broad catch only at top-level channel loop in `_run_channel` where it acts as a crash guard
 
-**Monolithic Frontend File:**
-- Issue: `app/web/app.js` is 2500 lines of single-file imperative JavaScript
-- Files: `app/web/app.js`
-- Impact: State management scattered across module globals (`state`, `eventSource`, `streamReconnectTimer`, `debugLogSource`, `overlayRefreshTimer`, `eventFeedRefreshTimer`, etc.). Makes refactoring risky. Hard to trace state mutations. Event listener cleanup fragmented
-- Fix approach: Refactor into modules: state management (single source of truth), UI layers (channels, events, lists, settings), API client wrapper, event stream manager. Use classes or closures to scope state
+**Monolithic Frontend (2833 lines):**
+- Issue: The entire UI is a single JavaScript file with no modules, bundling, or component separation
+- Files: `app/web/app.js` (2833 lines)
+- Impact: No code splitting, no tree shaking, all UI logic loaded at once. Changes to one panel risk breaking unrelated panels. No type checking. Global state object (`state`) is mutated freely from anywhere
+- Fix approach: Migrate to a module-based structure (ES modules or a lightweight framework). Extract panels (events, channels, lists, journal, settings, controllers) into separate modules
 
-**Connection Per-Request Pattern:**
-- Issue: Database code creates new PostgreSQL connections via `_connect()` for every query instead of using connection pooling
-- Files: `database/postgres_event_repository.py` (all query methods), `database/plate_lists_repository.py` (all methods)
-- Impact: High latency (connection handshake per query), exhausts database connection limits under load, no connection reuse. Observed repeatedly: `with self._connect() as conn` pattern
-- Fix approach: Implement psycopg connection pool (psycopg.pool.ConnectionPool). Inject shared pool into repository constructors. Measure improvement in response times and max concurrent users
+**Extensive innerHTML Usage (XSS Risk):**
+- Issue: At least 25 uses of `innerHTML` with interpolated data throughout `app/web/app.js`, including user-provided values like plate numbers, channel names, and log messages
+- Files: `app/web/app.js` (lines 505, 540, 795, 811, 893, 931, 1067, 1073, 1091, 1096, 1282, 1294, 1441, 1445, 1764, 1811, 2070, 2204, 2298, 2369, 2548, 2793)
+- Impact: Plate numbers, channel names, and log messages are interpolated directly into HTML without escaping. A crafted plate number or channel name containing `<script>` or event handlers could execute arbitrary JavaScript
+- Fix approach: Replace `innerHTML` with `textContent` for text-only content. Use `createElement`/`appendChild` patterns for structured HTML. Introduce an HTML escaping utility for cases where template strings are necessary
 
-**Settings Normalizer Dependency Leak:**
-- Issue: `config/settings_normalizer.py` imports `controllers.SUPPORTED_CONTROLLER_TYPES` for validation. Creates circular dependency risk
-- Files: `config/settings_normalizer.py` (line 17)
-- Impact: Couples configuration layer to controller layer. If controller types change, settings validation must change. Blocks independent refactoring
-- Fix approach: Move controller type enumeration to `config` package or shared constants. Use dependency injection to pass supported types to normalizer
+**Settings Normalizer Coupling to Controllers:**
+- Issue: `config/settings_normalizer.py` imports `SUPPORTED_CONTROLLER_TYPES` from `controllers/__init__.py`, creating a circular dependency between configuration and controller domains
+- Files: `config/settings_normalizer.py` (line 17), `controllers/service.py` (line 18)
+- Impact: The config layer cannot be used independently of the controllers package. The file itself documents this as "known architectural coupling" (line 6 docstring)
+- Fix approach: Move `SUPPORTED_CONTROLLER_TYPES` to `config/settings_schema.py` or a shared constants module
 
-**Inconsistent Error Response Format:**
-- Issue: API returns both HTTP exceptions and ad-hoc JSON error dicts from different endpoints
-- Files: `app/api/routers/channels.py` (HTTPException), `app/api/routers/events.py`, `app/api/routers/settings.py` (custom error dicts), `app/worker/main.py` ({"status": "error", "detail": ...})
-- Impact: Clients must handle variable error structure. Hard to build universal error handler. Inconsistent status codes (mix of 503 and 500)
-- Fix approach: Define ErrorResponse schema in `app/api/schemas.py`. Create exception handler middleware to convert all exceptions to consistent JSON format with status_code, error_code, message, detail fields
+**Duplicate Connection Pools:**
+- Issue: `PostgresEventDatabase` and `ListDatabase` each create their own independent `ConnectionPool` (min_size=2, max_size=10) with the same DSN. Additionally, `refresh_storage_clients()` in `app/api/container.py` creates entirely new instances without closing old pools
+- Files: `database/postgres_event_repository.py` (line 51), `database/plate_lists_repository.py` (line 35), `app/api/container.py` (lines 187-190)
+- Impact: Up to 20 connections consumed (2 pools x max 10) under normal operation. When `refresh_storage_clients()` is called, old pool instances are orphaned without explicit `close()`, potentially leaking connections until garbage collected
+- Fix approach: Share a single `ConnectionPool` between both repositories. Explicitly close old pools in `refresh_storage_clients()` before creating new ones
 
-**innerHTML Usage in Frontend:**
-- Issue: DOM updates use innerHTML with user-controllable content (plate numbers, channel names)
-- Files: `app/web/app.js` (lines 520, 772, 913, 1055, 1078, 1959, etc.)
-- Impact: If plate recognition returns crafted input or channel names contain HTML, injected scripts could execute. Low risk in current single-operator context but XSS vulnerability if exposed to untrusted input
-- Fix approach: Use textContent for user data. For HTML structure, use createElement + appendChild. Sanitize any user-provided HTML with DOMPurify
-
----
+**Unvalidated Channel Update Payload:**
+- Issue: `PUT /api/channels/{channel_id}` accepts raw `Dict[str, Any]` and calls `channels[idx].update(payload)` without schema validation
+- Files: `app/api/routers/channels.py` (line 152, 156)
+- Impact: Any arbitrary key-value pair can be injected into channel settings. No type coercion or bounds checking. Contrast with `put_channel_config` (line 178) which uses a Pydantic model
+- Fix approach: Apply Pydantic validation to all channel update endpoints, or at minimum whitelist allowed keys
 
 ## Known Bugs
 
+**Settings Update Does Not Affect Running Channels:**
+- Issue: Channel threads snapshot their configuration at start time via `channel = dict(ctx.channel)` in `_run_channel`. Settings changes (OCR confidence, detection mode, motion thresholds, etc.) do not propagate until the channel is restarted
+- Files: `runtime/channel_runtime.py` (lines 346-347, 358-392)
+- Impact: Users change settings expecting immediate effect but see no change until manual restart. Only reconnect settings are dynamically updated via `get_reconnect_config()`
+- Fix approach: Either implement a config-reload mechanism that the channel loop checks periodically, or document that channel restart is required and auto-restart on relevant config changes
+
 **Preview Frame Initialization Race:**
-- Symptoms: Channel snapshot requests fail with "Preview кадр ещё не готов" even after channel running for several seconds
-- Files: `runtime/channel_runtime.py` (line 48 in `get_preview_frame`), `app/api/routers/channels.py` (line 48)
-- Trigger: Request snapshot immediately after channel start before first frame processed
-- Root cause: Preview frame stored in `ctx.latest_jpeg` only after first successful inference. No buffering of initial frames
-- Workaround: Client retries with exponential backoff. Typically succeeds within 2-3 seconds
-- Fix approach: Pre-allocate placeholder frame or buffer initial raw frames. Move preview from inference result to frame capture step
+- Issue: When a channel starts, there is a window between `metrics.state = "running"` (line 350) and the first successful frame encode where `preview_ready` is `False` and `latest_jpeg` is `None`. The API returns 503 during this window
+- Files: `runtime/channel_runtime.py` (lines 350, 583-593), `app/api/routers/channels.py` (lines 48-54)
+- Impact: Frontend preview panels briefly flash an error state on channel start. Fast polling clients may interpret 503 as a permanent failure
+- Fix approach: Add a "starting" state that the frontend handles gracefully, or buffer the first frame before transitioning state to "running"
 
-**Reconnection State Not Cleared on Manual Restart:**
-- Symptoms: After manual channel restart, reconnect metrics accumulate incorrectly (reconnect_count keeps growing)
-- Files: `runtime/channel_runtime.py` (line 212, ChannelMetrics not reset in `stop()`)
-- Trigger: User clicks restart button on channel that had connection failures
-- Root cause: ChannelMetrics created fresh in `start()` but reconnect tracking happens inside `_run_channel()` loop which doesn't reset
-- Workaround: Full system restart clears metrics
-- Fix approach: Reset ChannelMetrics state in `start()` after old thread cleanup. Add unit test for restart cycle
-
-**Settings Update Doesn't Affect Running Channels:**
-- Symptoms: Changing channel configuration via API doesn't affect currently-running channel until next automatic restart
-- Files: `app/api/routers/channels.py` (PUT endpoint line 180), `runtime/channel_runtime.py` (reads channel config once in `_run_channel` line 344)
-- Trigger: Update channel OCR confidence, motion threshold, or other parameters while channel is running
-- Root cause: `_run_channel()` snapshots channel dict at start (`channel = dict(ctx.channel)` line 344) and uses snapshot for entire session
-- Impact: Changes delayed 5+ minutes (reconnect interval) or until manual restart
-- Fix approach: Pass settings through queue or event. Poll for changes in inference loop. Add listener pattern to channel context
-
----
+**Reconnection Metrics Not Reset on Restart:**
+- Issue: When `restart()` calls `stop()` then `start()`, `ChannelMetrics` is reused without resetting `reconnect_count`, `timeout_count`, `error_count`, `failed_frames`, etc. The `stop()` method only sets `state = "stopped"`
+- Files: `runtime/channel_runtime.py` (lines 213-229, lines 26-41)
+- Impact: Metrics accumulate across restarts, giving misleading counts. A channel restarted 10 times shows cumulative reconnect counts rather than per-session values
+- Fix approach: Reset metrics counters in `start()` or create a fresh `ChannelMetrics` instance
 
 ## Security Considerations
 
-**API Key Stored in LocalStorage:**
-- Risk: Browser localStorage not protected against XSS. If frontend is compromised, API key can be stolen
-- Files: `app/web/app.js` (lines 25-32, `getApiKey()`, `setApiKey()`)
-- Current mitigation: Single-operator use case. No user authentication. API key validated on every request
-- Recommendations:
-  - For multi-user deployment: Implement session tokens with short TTL (15 min) + refresh token rotation
-  - Move API key to HTTPOnly secure cookie (not accessible to JavaScript)
-  - Add CSRF token to state-changing requests
-  - Log all API key usage for audit trail
+**API Key Stored in localStorage:**
+- Risk: API key stored in browser `localStorage` is accessible to any JavaScript running on the same origin, including XSS payloads
+- Files: `app/web/app.js` (lines 26-27)
+- Current mitigation: None. The key is also sent as a query parameter in SSE/MJPEG URLs (line 32), which means it appears in server logs and browser history
+- Recommendations: Use HttpOnly cookies for session management. If API keys must be used, send them only via headers, never as query parameters
 
-**Database Credentials in DSN String:**
-- Risk: DSN contains plaintext password in memory and config files
-- Files: All database instantiation points pass `postgres_dsn` from settings
-- Current mitigation: `.env` file excluded from git (gitignored)
-- Recommendations:
-  - Use environment variables only (not config files) for credentials
-  - Consider external secret store (Vault, AWS Secrets Manager) for production
-  - Implement database connection SSL requirement in DSN
-  - Rotate credentials on deployment
+**API Key Passed as Query Parameter:**
+- Risk: `apiUrl()` appends `api_key=<key>` as a URL query parameter for EventSource and MJPEG streams
+- Files: `app/web/app.js` (line 32)
+- Current mitigation: None
+- Recommendations: EventSource does not support custom headers natively. Consider a token-exchange endpoint that returns a short-lived stream token, or use cookie-based auth for streaming endpoints
 
-**Minimal Input Validation:**
-- Risk: Channel URLs, plate list data, controller hostnames accepted with minimal validation
-- Files: `app/api/routers/channels.py` (POST/PUT), `app/api/routers/lists.py` (POST entries), `app/api/routers/controllers.py`
-- Current validation: Type checking only. No length limits, URL scheme validation, or injection prevention
-- Recommendations:
-  - Add Pydantic validators for URL format, length constraints, character restrictions
-  - Whitelist allowed characters for plate/name fields
-  - Add rate limiting on mutable endpoints (POST/PUT/DELETE)
-
----
+**Input Validation Gaps in Channel Update:**
+- Risk: `PUT /api/channels/{channel_id}` accepts arbitrary dict payload without validation
+- Files: `app/api/routers/channels.py` (line 152)
+- Current mitigation: The settings normalizer fills defaults but does not reject unknown keys
+- Recommendations: Apply Pydantic schema validation to all mutation endpoints
 
 ## Performance Bottlenecks
 
-**Serial Database Queries:**
-- Problem: List views fetch all plates from all lists without pagination. Event journal loads full history
-- Files: `database/plate_lists_repository.py` (fetch_entries method), `app/api/routers/events.py` (list_events endpoint)
-- Cause: No LIMIT/OFFSET clauses. Memory loaded entirely into Python dicts before returning
-- Scaling limit: 10,000+ events cause noticeable UI lag; 100,000+ events cause timeout
-- Improvement path: Implement paginated response schema. Add `limit`, `offset`, `sort_by`, `sort_dir` parameters. Index PostgreSQL tables on `timestamp` and `channel_id`
+**Unbounded Export Query (`fetch_for_export`):**
+- Problem: `fetch_for_export` has no `LIMIT` clause. Exports the entire events table matching filters in a single query
+- Files: `database/postgres_event_repository.py` (lines 227-257)
+- Cause: `cursor.fetchall()` loads all matching rows into Python memory at once. For a system running months with multiple cameras, this could be millions of rows
+- Improvement path: Use server-side cursors or streaming (`cursor.itersize`). Add pagination or chunked export. Consider background export jobs for large datasets
 
-**Memory Accumulation in DebugRegistry:**
-- Problem: `_track_histories` and `_track_last_seen` dicts grow unbounded as vehicles are tracked
-- Files: `runtime/debug.py` (lines 53-54, ChannelDebugState)
-- Current cap: State TTL cleanup (2 seconds default) only removes stale channel entries, not per-track history
-- Scaling limit: Long-running system (days) accumulates megabytes in debug state
-- Improvement path: Implement bounded deque (maxlen=1000) for track histories. Explicit cleanup on state expiration. Consider ring buffer for live tracking
+**JPEG Encoding on Every Frame:**
+- Problem: Every frame is JPEG-encoded for preview regardless of whether any client is viewing
+- Files: `runtime/channel_runtime.py` (lines 583-593)
+- Cause: The preview encode runs unconditionally in the frame processing loop (gated only by `disable_video_output` debug flag)
+- Improvement path: Track active MJPEG/snapshot consumers and skip encoding when no one is watching. Alternatively, encode at a lower framerate than the processing framerate
 
-**Frontend Event Feed DOM Thrashing:**
-- Problem: renderEventFeed rebuilds entire DOM (removeChild/appendChild) on every event
-- Files: `app/web/app.js` (lines 753-800, renderEventFeed function)
-- Cause: No virtual DOM. No event deduplication. ResizeObserver triggers on every update
-- Scaling limit: 100+ events/sec causes frame drops. Older entries never removed (memory leak)
-- Improvement path: Virtual scrolling (only render visible items). Batch DOM updates. Cap feed to last 100 entries. Debounce resize handler
-
----
+**DebugRegistry Track History Accumulation:**
+- Problem: `_track_histories` dict in `ChannelDebugState` grows with each new track_id. Stale entries are cleaned based on TTL, but `_fallback_seq` increments unboundedly when tracking is unavailable
+- Files: `runtime/debug.py` (lines 53-56, 226-228, 281-300)
+- Cause: Each detection without a track_id creates a new `fallback:N` key. The deque maxlen (28) limits history length per track but not the number of tracks
+- Improvement path: Cap the total number of track entries per channel. The cleanup logic exists but only runs on detection frames, not idle frames when `should_process` is False (though `cleanup_stale` is called on skipped frames at line 519)
 
 ## Fragile Areas
 
 **YOLO Detector Fallback Logic:**
-- Files: `anpr/detection/yolo_detector.py` (lines 55, 171, 228-237)
-- Why fragile: On any inference error, silently disables tracking and switches to pure detection mode. No logging of why it failed. No recovery attempt
-- Safe modification: Add structured logging with error type and retry counter. Add explicit test case for each exception path (OOM, timeout, model corruption)
-- Test coverage: No unit tests for error cases. Missing: `test_detect_handles_invalid_frame`, `test_tracking_gracefully_degrades`
+- Files: `anpr/detection/yolo_detector.py` (lines 218-238)
+- Why fragile: The `track()` method has a multi-layered fallback chain: track -> detect (on CUDA error) -> detect (on ModuleNotFoundError) -> detect (on any exception). Once `_tracking_supported` is set to `False`, it stays `False` for the lifetime of the detector instance with no recovery path
+- Safe modification: Any changes to detection/tracking must preserve the fallback chain. Test with and without CUDA, with and without tracking dependencies
+- Test coverage: No tests exist for `YOLODetector`
 
 **Channel Thread Lifecycle:**
-- Files: `runtime/channel_runtime.py` (start/stop methods, _run_channel loop)
-- Why fragile: Stop sets event but doesn't wait for thread to actually finish writing to latest_jpeg. Race condition between preview request and thread cleanup
-- Safe modification: Add synchronization point (Event.wait()) in preview getter. Add timeout and force-stop if cleanup takes >5s
-- Test coverage: No integration test for concurrent operations. Missing: `test_channel_restart_while_preview_requested`, `test_concurrent_stop_and_restart`
+- Files: `runtime/channel_runtime.py` (lines 203-229, 344-617)
+- Why fragile: Channel threads are daemon threads with a 3-second join timeout on stop. If a thread is blocked on `cap.read()` (which can hang indefinitely on some RTSP sources), `stop()` returns before the thread actually exits. A subsequent `start()` may then create a second thread for the same channel while the old one is still running
+- Safe modification: Always check `ctx.thread.is_alive()` before starting. The current code does this (line 206) but only under the lock -- the thread may become alive between the check and the actual start
+- Test coverage: No tests exist for `ChannelProcessor`
 
 **Settings Schema Migration:**
-- Files: `config/settings_migrations/runner.py`, `config/settings_normalizer.py`
-- Why fragile: Migrations are functions without versioning. If schema changes and old migration code is removed, can't load old files. No validation that migrations are idempotent
-- Safe modification: Version each migration (e.g., V001_add_roi_field.py). Add pre/post state validation. Test migration on real settings.yaml from previous versions
-- Test coverage: No migration tests. Missing: `test_v001_adds_roi_field_with_defaults`, `test_v002_migration_idempotent`
-
----
+- Files: `config/settings_migrations/runner.py`, `config/settings_schema.py`
+- Why fragile: The migration system uses a lineage key and version number but has no individual migration steps -- only a single `_apply_legacy_compat` function. Adding a new schema version requires modifying the monolithic compat function rather than adding an incremental migration
+- Safe modification: Test migrations with settings files from all previous versions. Keep a collection of sample settings at each version
+- Test coverage: No tests exist for settings migrations
 
 ## Scaling Limits
 
-**PostgreSQL Connection Pool:**
-- Current capacity: ~5-10 concurrent connections (psycopg default)
-- Limit: Under load with 20+ concurrent API requests, connections wait in queue. Connection timeout after 30s
-- Scaling path: Implement pooling with min=5, max=20 connections. Monitor pool utilization. Cache frequently-accessed queries (last_plates)
+**PostgreSQL Connection Pool Sizing:**
+- Current capacity: Two pools x (min 2, max 10) = 4-20 connections total
+- Limit: Under high load with many concurrent API requests and channel threads, pool contention causes blocking. Each `with self._connect()` call blocks until a connection is available
+- Scaling path: Share a single pool between repositories. Make pool size configurable via settings. Consider async database access for the API layer (psycopg async)
 
-**Screenshots Directory Filesystem:**
-- Current capacity: Daily structure (YYYY-MM-DD/channel_N/). Tested with ~100K files
-- Limit: Filesystem traversal for cleanup becomes slow >500K files. Directory listing takes >5 seconds
-- Scaling path: Sharded storage (hash-based subdirs). Implement batch deletion. Use database index for file paths instead of filesystem scan
+**Screenshots Directory (Filesystem):**
+- Current capacity: Unlimited growth, organized by date/channel subdirectories
+- Limit: Filesystem inode limits, disk space. No automatic cleanup unless retention policy is manually triggered via `POST /api/data/retention/run`
+- Scaling path: The `DataLifecycleService` exists but must be invoked manually. Implement scheduled cleanup (cron or background task). Consider object storage for production deployments
+- Files: `runtime/channel_runtime.py` (lines 253-259), `app/shared/data_lifecycle.py`
 
-**Event Stream SSE Connections:**
-- Current capacity: One EventSource per client, streams all events
-- Limit: 100+ concurrent clients consume 100+ MB memory. Server can't distinguish slow from dead clients
-- Scaling path: Implement WebSocket with heartbeat. Add client-side filter (channel_id) at subscription level. Stream in JSON Lines format for better streaming
-
----
+**SSE / MJPEG Connections:**
+- Current capacity: Unbounded. Each SSE or MJPEG client holds an open connection and an asyncio task
+- Limit: Each MJPEG stream polls `get_preview_frame` at ~12.5 fps (80ms sleep). With many browser tabs or clients, this creates CPU and memory pressure
+- Scaling path: Add connection limits per endpoint. Implement shared frame broadcasting instead of per-client polling
+- Files: `app/api/routers/channels.py` (lines 85-103), `app/api/routers/events.py` (lines 93-120)
 
 ## Dependencies at Risk
 
-**OpenCV (cv2) Version Pinning:**
-- Risk: No explicit version in requirements.txt. Major version changes (3→4) break API
-- Impact: Dependency installation on new machine might pull incompatible version
-- Migration plan: Pin to cv2==4.8.1.78. Test OCR and YOLO detection still work. Document required build tools (build-essential on Linux)
+**Ultralytics YOLO:**
+- Risk: Heavy dependency with frequent breaking changes between versions. The tracker fallback logic (`_tracking_supported`, `_reset_tracker_state`) depends on internal YOLO predictor attributes (`model.predictor.trackers`, `predictor.vid_path`) that are not part of the public API
+- Impact: YOLO version upgrade may silently break tracking or crash at runtime
+- Files: `anpr/detection/yolo_detector.py` (lines 46-59)
+- Migration plan: Pin version strictly. Add integration tests that verify tracker state reset works with the pinned version
 
-**YOLO Model Download:**
-- Risk: Downloads from ultralytics server at runtime. Server outage blocks app startup
-- Impact: Cannot deploy in offline environments
-- Migration plan: Bundle model weights in Docker image. Fall back to CPU-only mode if weights missing. Add explicit model path configuration
-
----
+**psycopg / psycopg_pool:**
+- Risk: Lazy import (`from psycopg_pool import ConnectionPool`) means import errors surface at runtime, not at startup
+- Impact: If psycopg_pool is not installed, the application starts successfully but crashes on first database operation
+- Files: `database/postgres_event_repository.py` (line 49), `database/plate_lists_repository.py` (line 33)
+- Migration plan: Import at module level or add an explicit startup check
 
 ## Missing Critical Features
 
-**Request Timeout on Video Streams:**
-- Problem: ffmpeg streams from dead IP addresses hang forever. No socket timeout configured
-- Files: `runtime/channel_runtime.py` (line ~450, cv2.VideoCapture(url))
-- Blocks: Channels to offline cameras never recover without manual restart
-- Impact: Loss of monitoring if even one camera goes offline
-- Fix: Set read timeout on VideoCapture (platform-specific, may require OpenCV 4.4+). Implement watchdog that restarts channels with stale frames
+**No Automated Data Retention:**
+- Problem: Retention policy exists (`DataLifecycleService`) but only runs when manually triggered via API endpoint
+- Blocks: Unattended long-running deployments will eventually fill disk
+- Files: `app/shared/data_lifecycle.py`, `app/api/routers/data.py` (lines 31-37)
 
-**Concurrent Channel Updates:**
-- Problem: No locking when user updates channels while processor is iterating them
-- Files: `app/api/routers/channels.py` (PUT handler), `runtime/channel_runtime.py` (list_states iteration)
-- Blocks: Safe concurrent configuration updates
-- Impact: Race condition possible (read list while being modified)
-- Fix: Add RLock around settings access in ChannelProcessor
-
-**Graceful Shutdown:**
-- Problem: No coordinated shutdown of channels on app termination
-- Files: No cleanup in ASGI shutdown handler
-- Blocks: Video capture threads may remain open
-- Impact: File handles leak, ports remain bound
-- Fix: Add explicit `shutdown()` handler in ChannelProcessor that stops all channels with timeout
-
----
+**No Health Check for Database Connectivity at Startup:**
+- Problem: Database schema bootstrap (`_ensure_schema`) runs lazily on first query. If PostgreSQL is unreachable at startup, the application starts but all operations fail with 503
+- Blocks: Deployment orchestrators (Docker, systemd) cannot distinguish healthy from unhealthy state
+- Files: `database/postgres_event_repository.py` (lines 57-74)
 
 ## Test Coverage Gaps
 
-**Database Error Scenarios:**
-- What's not tested: Connection timeout, authentication failure, schema missing, query syntax error
+**Overall Coverage is Minimal:**
+- What's not tested: Only 4 test files exist, covering `plate_validator`, `track_aggregator`, `motion_detector`, and `direction_estimator`
+- Files: `tests/test_plate_validator.py`, `tests/test_track_aggregator.py`, `tests/test_motion_detector.py`, `tests/test_direction_estimator.py`
+- Risk: The entire API layer, database repositories, channel runtime, settings normalizer, YOLO detector, and controller service have zero test coverage
+- Priority: High
+
+**No API Endpoint Tests:**
+- What's not tested: All FastAPI routers (channels, events, settings, controllers, lists, data, debug, system)
+- Files: `app/api/routers/*.py`
+- Risk: Regressions in request validation, error responses, and authorization are undetectable without manual testing
+- Priority: High
+
+**No Database Repository Tests:**
+- What's not tested: `PostgresEventDatabase` and `ListDatabase` query logic, schema bootstrap, connection pool lifecycle
 - Files: `database/postgres_event_repository.py`, `database/plate_lists_repository.py`
-- Risk: Code path only exercised if database actually fails. Fallback error handling untested
-- Priority: High - database failures are common in production
+- Risk: SQL query changes (especially in `fetch_journal_page` with dynamic WHERE clauses) cannot be verified without running against a real database
+- Priority: High
 
-**Channel Restart Race Conditions:**
-- What's not tested: Restart during active frame processing, concurrent stop/start calls
+**No Channel Runtime Tests:**
+- What's not tested: Channel start/stop lifecycle, reconnection logic, preview frame generation, event emission
 - Files: `runtime/channel_runtime.py`
-- Risk: Memory leaks if thread cleanup incomplete
-- Priority: High - restart is common user action
+- Risk: The most complex module (616 lines) with threading, OpenCV, and state management has no automated verification
+- Priority: High
 
-**Frontend State Sync:**
-- What's not tested: EventSource drops, reconnection with stale state, concurrent API calls
-- Files: `app/web/app.js` (event stream handling)
-- Risk: UI shows inconsistent state if stream reconnects mid-event
-- Priority: Medium - client-side issue but impacts user trust
-
-**Settings Migration Edge Cases:**
-- What's not tested: Upgrade from very old version, partial settings files, corrupt YAML
-- Files: `config/settings_migrations/`, `config/settings_normalizer.py`
-- Risk: Unhandled migration failure leaves system in broken state
-- Priority: Medium - rare but catastrophic when it happens
-
-**YOLO Detector Fallback Paths:**
-- What's not tested: OOM, model not found, corrupted model weights, unsupported CUDA version
-- Files: `anpr/detection/yolo_detector.py`
-- Risk: Silent failures without observability
-- Priority: Medium - need visibility into model loading failures
+**No Settings Migration Tests:**
+- What's not tested: Legacy format upgrade, version validation, lineage checking
+- Files: `config/settings_migrations/runner.py`
+- Risk: A bad migration could corrupt user settings on upgrade
+- Priority: Medium
 
 ---
 
-*Concerns audit: 2026-03-21*
+*Concerns audit: 2026-03-25*

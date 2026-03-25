@@ -1,145 +1,173 @@
 # External Integrations
 
-**Analysis Date:** 2026-03-21
+**Analysis Date:** 2026-03-25
 
 ## APIs & External Services
 
 **RTSP Camera Streams:**
-- Multiple RTSP sources configured per channel in `config/settings.yaml`
-- Authentication: Embedded credentials in RTSP URL (e.g., `rtsp://admin:admin@camera-ip:2000/0`)
-- Handled by: `cv2.VideoCapture()` (OpenCV)
-- Reconnection: Configurable signal loss and periodic reconnect policies in settings
+- Consumed via OpenCV `cv2.VideoCapture()` for live video feeds
+- Configured per-channel in `config/settings.yaml` (channel source URLs)
+- Authentication: Credentials embedded in RTSP URL (e.g., `rtsp://admin:pass@camera-ip:554/stream`)
+- Reconnection policies defined in `config/settings_schema.py` (`reconnect_defaults()`):
+  - Signal loss: enabled by default, 5s frame timeout, 5s retry interval
+  - Periodic: disabled by default, 60min interval
 
-**HTTP Controller API:**
-- DTWONDER2CH relay controller via HTTP
-  - SDK/Client: urllib.request (Python stdlib)
+**Hardware Controllers (HTTP relay devices):**
+- DTWONDER2CH adapter: `controllers/adapters/dtwonder2ch.py` (`Dtwonder2ChAdapter`)
+  - Communicates via HTTP GET to relay CGI endpoint
   - URL pattern: `http://{address}/relay_cgi.cgi?type={}&relay={}&on={}&time={}&pwd={}`
-  - Implementation: `controllers/adapters/dtwonder2ch.py` (Dtwonder2ChAdapter)
-  - Auth: Per-relay password field
+  - Supports 2 relays per controller (index 0 and 1)
+  - Relay modes: `pulse` (type=1, time=1) and `pulse_timer` (type=2, configurable time)
+  - Auth: per-device password sent as `pwd` query parameter
+  - Base class: `controllers/base.py` (`ControllerAdapter`)
+- Adapter system is pluggable via `controllers/adapters/` directory
+
+**SSE (Server-Sent Events):**
+- `/api/events/stream` - Live ANPR event stream to web clients
+- `/api/debug/logs/stream` - Live log stream to web clients
+- Nginx configured with `proxy_buffering off`, `proxy_cache off`, 1h `proxy_read_timeout` for SSE paths
+
+**MJPEG / Snapshot Streaming:**
+- `/api/channels/{id}/preview.mjpg` - Live camera preview (MJPEG)
+- `/api/channels/{id}/snapshot.jpg` - Single frame capture
 
 ## Data Storage
 
-**Databases:**
-- PostgreSQL 16
-  - Connection: Environment variable `POSTGRES_DSN` (default: `postgresql://anpr:anpr@postgres:5432/anpr`)
-  - Client: psycopg[binary] (psycopg3 with C extensions)
-  - Schema: `database/postgres/schema.sql` (auto-initialized on startup)
+**PostgreSQL 16:**
+- Connection: `POSTGRES_DSN` env var (default: `postgresql://anpr:anpr@postgres:5432/anpr`)
+- Driver: `psycopg[binary]` (psycopg3 with C extensions)
+- Connection pooling: `psycopg_pool.ConnectionPool`
+  - Pool config: `min_size=2, max_size=10, open=True`
+  - `database/postgres_event_repository.py` (`PostgresEventDatabase._get_pool()`) - lazy init, one pool per instance
+  - `database/plate_lists_repository.py` (`ListDatabase._get_pool()`) - lazy init, one pool per instance
+  - Two separate pools per process (events + plate lists)
+- Schema bootstrap:
+  - Events: `database/postgres/schema.sql` applied via `_ensure_schema()` on first access, validated at startup (`_SCHEMA_SQL_PATH.is_file()`)
+  - Plate lists: inline DDL in `database/plate_lists_repository.py` (`CREATE TABLE IF NOT EXISTS`)
+- Docker init: `schema.sql` also mounted to `/docker-entrypoint-initdb.d/01-schema.sql` for fresh databases
 
-**File Storage:**
-- Local filesystem only (no S3/cloud storage configured)
-  - Screenshots: `data/screenshots/` (configurable via settings.yaml `storage.screenshots_dir`)
-  - Logs: `data/logs/` (configurable via settings.yaml `storage.logs_dir`)
-  - Exports: `data/exports/` (configured in settings.yaml `storage.export_dir`)
-  - Media retention: Auto-cleanup enabled with configurable retention (14-30 days)
+**Tables:**
+- `events` - ANPR detection events (id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction)
+- `plate_lists` - Named lists with types (`white`, `info`, `black`)
+- `plate_list_entries` - Individual plate entries linked to lists (with unique constraint on `list_id, plate_normalized`)
+
+**File Storage (local filesystem via Docker volumes):**
+- Screenshots: `data/screenshots/` (Docker volume `media_data` mounted at `/app/data`)
+- Exports: `data/exports/` (same volume)
+- Logs: `logs/` (Docker volume `logs_data` mounted at `/app/logs`)
+- Hourly log rotation: `common/logging.py` (`HourlyFileHandler`) with naming pattern `{service}_{YYYY-MM-DD_HH-00}.log`
 
 **Caching:**
-- None - No Redis or memcached configured
-- In-memory event bus used for runtime event distribution: `runtime/event_bus.py`
+- None (no Redis or external cache)
+- In-memory `EventBus` for live pub/sub (`runtime/event_bus.py`) - asyncio queue-based, max 512 per subscriber
+- In-memory `DebugLogBus` for live log streaming (`runtime/debug.py`, capacity=2000)
 
 ## Authentication & Identity
 
-**Auth Provider:**
-- Custom static API key (optional)
-- Implementation: `app/api/auth.py` (APIKeyMiddleware)
-- Methods:
-  - Header: `X-Api-Key: <key>`
-  - Header: `Authorization: Bearer <key>`
-  - Query param: `?api_key=<key>` (for MJPEG/SSE streams)
-- Source: Environment variable `API_KEY` (empty = disabled)
-- Exempt paths: `/api/health` (required for Docker healthcheck)
+**API Key Middleware (`app/api/auth.py`):**
+- Class: `APIKeyMiddleware` (extends `BaseHTTPMiddleware`)
+- Enabled only when `API_KEY` env var is non-empty (`app/api/main.py` lines 39-41)
+- Timing-safe comparison: `secrets.compare_digest()` (resistant to timing attacks)
+- Key delivery methods (checked in order):
+  1. `X-Api-Key` header (preferred)
+  2. `Authorization: Bearer <key>` header
+  3. `?api_key=<key>` query parameter (for SSE/MJPEG streams that cannot send headers)
+- Exempt paths: `/api/health` (Docker healthcheck), all non-`/api/` paths
+- Streaming paths accepting query param: `/api/events/stream`, `/api/debug/logs/stream`, `/api/channels/`
 
-**Camera Authentication:**
-- RTSP credentials embedded in stream URLs (plaintext in config)
-- HTTP controller passwords per relay (stored in settings.yaml)
+**No user management** - single shared API key model for trusted LAN deployments.
 
 ## Monitoring & Observability
 
+**Health Checks (Docker Compose):**
+
+| Service | Endpoint | Interval | Timeout | Retries | Probe |
+|---------|----------|----------|---------|---------|-------|
+| postgres | - | 5s | 5s | 12 | `pg_isready -U anpr -d anpr` |
+| api | `/api/health` | 10s | 5s | 6 | Python `urllib.request.urlopen` with 3s timeout |
+| retention_worker | `/worker/health` | 15s | 5s | 6 | Python `urllib.request.urlopen` with 3s timeout |
+| nginx | `/` | 10s | 5s | 6 | `wget -q -O /dev/null` |
+
+**Logging (`common/logging.py`):**
+- Async queue-based: `QueueHandler` + `QueueListener` (avoids blocking application threads)
+- Format: `%(asctime)s [%(levelname)s] [%(service)s] %(name)s: %(message)s`
+- File handler: `HourlyFileHandler` - rotates log files every hour
+- Console handler: `StreamHandler` to stdout
+- Live debug handler: `LiveDebugHandler` publishes to `DebugLogBus` for SSE streaming
+- Service name filter: auto-tags all log records with service identifier
+- Noisy loggers suppressed to WARNING: `matplotlib`, `PIL`, `urllib3`, `httpcore`, `httpx`, `uvicorn.access`, `multipart`
+- Log cleanup: background thread runs every 3600s, deletes logs older than `retention_days` (default 30)
+
+**System Metrics:**
+- `psutil` for CPU, memory, disk monitoring
+- Exposed via `/api/system/` routes (`app/api/routers/system.py`)
+
 **Error Tracking:**
-- Not detected - No Sentry, DataDog, or external error tracking
-
-**Logs:**
-- File-based logging to `data/logs/` directory
-- Configured via `config/settings.yaml` (`logging` section)
-- Levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
-- Retention: Configurable (default 30 days auto-cleanup)
-- Live log streaming via `/api/debug/logs/stream` (Server-Sent Events)
-
-**Metrics:**
-- In-app channel metrics tracking (via `ChannelMetrics` dataclass)
-- Exposed via `/api/channels/{channel_id}/status` endpoints
-- Runtime debug registry for performance diagnostics (`runtime/debug.py`)
+- No external service (no Sentry, DataDog, etc.)
+- Custom `StorageUnavailableError` for database connectivity issues (`database/errors.py`)
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Docker Compose (development/small deployments)
-- No external CI/CD detected (local build via `docker-compose build`)
+- Self-hosted Docker Compose deployment (no cloud provider)
 
-**Container Orchestration:**
-- Docker Compose with 4 services:
-  1. `postgres` - PostgreSQL 16
-  2. `api` - FastAPI server (port 8080 internal)
-  3. `retention_worker` - Async cleanup service (port 8092 internal)
-  4. `nginx` - Reverse proxy (port 8080 external, configurable via `HTTP_PORT`)
+**CI Pipeline:**
+- Not detected - no `.github/workflows/`, `Jenkinsfile`, or `.gitlab-ci.yml`
 
-**Health Checks:**
-- postgres: `pg_isready` SQL check
-- api: HTTP GET `/api/health` endpoint
-- retention_worker: HTTP GET `/worker/health` endpoint
-- nginx: wget http://localhost/
+**Deployment:**
+- `docker-compose up --build`
+- Config bind-mounted from host: `./config:/app/config`
+- All services set `restart: unless-stopped`
+
+**Reverse Proxy (Nginx 1.27-alpine, `nginx/default.conf`):**
+- Routes `/worker/` to `retention_worker:8092`
+- Routes `/api/events/stream` with SSE config (no buffering, `Connection: ""`, 1h timeout, `X-Accel-Buffering: no`)
+- Routes everything else to `api:8080`
+- `client_max_body_size 50m`
+- External port: `HTTP_PORT` env var (default: `8080`)
 
 ## Environment Configuration
 
 **Required env vars:**
-- `POSTGRES_DSN` - Database connection string (CRITICAL)
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` - Database credentials (CRITICAL)
-- `SETTINGS_PATH` - Path to settings.yaml (default available)
-- `API_KEY` - Optional but recommended for security
-- `LOG_LEVEL` - Operational configuration (default: INFO)
+- `POSTGRES_DSN` - PostgreSQL connection string (critical for both api and retention_worker)
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` - Used by postgres container initialization
 
 **Optional env vars:**
-- `APP_ENV` - Context identifier (default: docker)
-- `DEBUG` - Debug mode flag (default: false)
-- `HTTP_PORT` - Nginx external port (default: 8080)
+- `API_KEY` - Empty = no auth (default)
+- `APP_ENV` - Environment identifier (default: `docker`)
+- `DEBUG` - Debug flag (default: `false`)
+- `LOG_LEVEL` - Log verbosity (default: `INFO`)
+- `SETTINGS_PATH` - YAML config path (default: `/app/config/settings.yaml`)
+- `HTTP_PORT` - External HTTP port (default: `8080`)
 
 **Secrets location:**
-- `.env` file at project root (not committed to git)
-- Database password in `POSTGRES_PASSWORD` env var
-- API key in `API_KEY` env var
-- RTSP credentials in `config/settings.yaml` (embedded in URLs)
-- HTTP controller passwords in `config/settings.yaml` (relay section)
+- `.env` file in project root (gitignored)
+- `.env.example` provides template with safe defaults
+- RTSP credentials embedded in stream URLs (plaintext in `config/settings.yaml`)
+- Controller passwords in `config/settings.yaml` (relay config sections)
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- None detected - No incoming webhook endpoints
+- None detected
 
 **Outgoing:**
-- None detected - No external webhook delivery configured
-- Internal event bus: `runtime/event_bus.py` publishes events to subscribers (in-process only)
-- Event publishing: Via `app/api/container.py` AppContainer.publish_event_sync()
+- HTTP GET to hardware controllers (relay CGI endpoints) triggered by plate recognition events
+- Flow: plate detected -> list check -> adapter builds URL -> HTTP request to controller
 
-## Data Integration Points
+## Data Lifecycle
 
-**Event Storage Flow:**
-1. Detection pipeline processes RTSP frames
-2. Events published via internal EventBus
-3. Events persisted to PostgreSQL via `database/postgres_event_repository.py`
-4. Events queryable via REST API (`/api/events/*`)
-5. Auto-cleanup via `app/shared/data_lifecycle.py` (retention policy)
-
-**Plate List Integration:**
-- Plate lists stored in PostgreSQL
-- Queried during event processing for allow/block logic
-- Adapter: `database/plate_lists_repository.py` (ListDatabase class)
-
-**Controller Integration Flow:**
-1. Event triggers plate-in-list check
-2. Automation service queries matched lists
-3. Command generated via adapter (Dtwonder2ChAdapter)
-4. HTTP request sent to controller URL
-5. Relay activated/deactivated based on detection
+**Retention Worker (`app/worker/main.py`):**
+- Separate FastAPI service on port 8092
+- `RetentionScheduler` runs async loop based on `cleanup_interval_minutes` (default 30)
+- Uses `app/shared/data_lifecycle.py` (`DataLifecycleService`)
+- Configurable policies from `config/settings_schema.py` (`storage_defaults()`):
+  - `events_retention_days`: 30 (default)
+  - `media_retention_days`: 14 (default)
+  - `max_screenshots_mb`: 4096 (default)
+- Manual trigger: `POST /worker/retention/run`
+- Health/status: `GET /worker/health` (returns policy + last run result)
 
 ---
 
-*Integration audit: 2026-03-21*
+*Integration audit: 2026-03-25*

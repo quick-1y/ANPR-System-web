@@ -1,251 +1,279 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-03-21
+**Analysis Date:** 2026-03-25
 
 ## Directory Layout
 
 ```
 ANPR-System-v0.8_web/
-├── anpr/                   # Core ANPR ML pipeline and processing
-│   ├── detection/          # YOLO plate detector wrapper
-│   ├── recognition/        # CRNN character recognition models
-│   ├── preprocessing/      # Plate image normalization
-│   ├── postprocessing/     # Plate validation and format matching
-│   ├── pipeline/           # Main ANPRPipeline orchestrator
-│   ├── models/             # Model weights directory (binary, large)
-│   ├── countries/          # Country-specific plate configs
-│   └── model_config.py     # Model initialization and configuration
-├── app/                    # Application services and HTTP API
-│   ├── api/                # FastAPI application and HTTP handlers
-│   │   ├── routers/        # Endpoint implementations by domain
-│   │   ├── schemas.py      # Pydantic request/response models
-│   │   ├── main.py         # FastAPI app initialization
-│   │   ├── container.py    # AppContainer dependency injection
-│   │   ├── auth.py         # APIKeyMiddleware
-│   │   └── deps.py         # Dependency injection helpers
-│   ├── worker/             # Retention scheduler (separate service)
-│   ├── shared/             # Shared services (data lifecycle)
-│   └── web/                # Static web assets (HTML, CSS, JS, images)
-├── runtime/                # Video stream processing and event routing
-│   ├── channel_runtime.py  # ChannelProcessor for per-stream threads
-│   ├── event_sink.py       # Database event persistence bridge
-│   ├── event_bus.py        # In-memory async event publisher
-│   └── debug.py            # Performance metrics collection
-├── database/               # Data persistence layer
-│   ├── postgres/           # PostgreSQL schema and SQL files
-│   ├── postgres_event_repository.py  # Event table queries
-│   ├── plate_lists_repository.py    # Whitelist/blacklist queries
-│   └── errors.py           # StorageUnavailableError
-├── config/                 # Configuration management
-│   ├── settings_manager.py       # Single source of truth for settings
-│   ├── settings_repository.py    # YAML file I/O and locking
-│   ├── settings_normalizer.py    # Validation and defaults application
-│   ├── settings_schema.py        # Schema definitions and coercion
-│   ├── settings_migrations/      # Configuration schema evolution
-│   └── settings.yaml       # Application configuration file
-├── controllers/            # Hardware relay control abstraction
-│   ├── service.py          # Controller and relay management
-│   ├── base.py             # ControllerAdapter protocol
-│   ├── registry.py         # Adapter registration
-│   └── adapters/           # Device-specific implementations
-├── common/                 # Shared utilities
-│   ├── logging.py          # Logging configuration and handlers
-│   └── __init__.py
-├── tests/                  # Unit and integration tests
-│   ├── test_track_aggregator.py        # Consensus logic tests
-│   ├── test_direction_estimator.py     # Motion estimation tests
-│   ├── test_plate_validator.py         # Country config tests
-│   └── test_motion_detector.py         # Motion detection tests
-├── .planning/codebase/     # GSD codebase analysis (generated)
-├── nginx/                  # Reverse proxy configuration
-├── docker-compose.yml      # Multi-service deployment definition
-├── Dockerfile              # Container image definition
-├── requirements.txt        # Python package dependencies
-├── README.md               # Project documentation
-├── AGENTS.md               # AI agent usage guidelines
-└── config/settings.yaml    # Runtime configuration (gitignored)
+├── anpr/                       # ANPR core: detection, recognition, pipeline
+│   ├── countries/              # Country plate format YAML configs
+│   ├── detection/              # YOLO detector, motion detector
+│   ├── models/                 # ML model weights
+│   │   ├── ocr_crnn/           # CRNN OCR quantized model (.pth)
+│   │   └── yolo/               # YOLOv8 plate detector (.pt)
+│   ├── pipeline/               # ANPRPipeline, TrackAggregator, factory
+│   ├── postprocessing/         # Plate validation, country config loader
+│   ├── preprocessing/          # Plate image preprocessing
+│   ├── recognition/            # CRNN recognizer
+│   └── model_config.py         # AnprModelConfig dataclass
+├── app/                        # Application layer
+│   ├── api/                    # FastAPI main API server
+│   │   ├── routers/            # Route handlers (channels, events, etc.)
+│   │   ├── auth.py             # APIKeyMiddleware
+│   │   ├── container.py        # AppContainer (DI wiring)
+│   │   ├── deps.py             # FastAPI dependency injection helpers
+│   │   ├── main.py             # FastAPI app entry point
+│   │   └── schemas.py          # Request/response schemas
+│   ├── shared/                 # Shared application services
+│   │   └── data_lifecycle.py   # RetentionPolicy, DataLifecycleService
+│   ├── web/                    # Static frontend (HTML/JS/CSS)
+│   │   ├── assets/             # JS, CSS assets
+│   │   ├── favicon/            # Favicon files
+│   │   └── images/             # UI images, country flags
+│   └── worker/                 # Retention worker service
+│       └── main.py             # WorkerContainer, RetentionScheduler
+├── common/                     # Shared utilities
+│   └── logging.py              # Logging setup, LiveDebugHandler, HourlyFileHandler
+├── config/                     # Configuration management
+│   ├── settings_migrations/    # Versioned settings migration scripts
+│   │   ├── __init__.py
+│   │   └── runner.py           # Migration runner
+│   ├── settings_manager.py     # SettingsManager (main config API)
+│   ├── settings_normalizer.py  # SettingsNormalizer (validation/defaults)
+│   ├── settings_repository.py  # JSON file I/O with locking
+│   └── settings_schema.py      # Default values, schema constants
+├── controllers/                # Physical gate/barrier controller integration
+│   ├── adapters/               # Controller protocol adapters
+│   │   └── dtwonder2ch.py      # DTWONDER2CH 2-relay adapter
+│   ├── base.py                 # ControllerAdapter abstract base
+│   ├── registry.py             # Adapter type registry
+│   └── service.py              # ControllerService, ControllerAutomationService
+├── database/                   # Data persistence
+│   ├── postgres/               # PostgreSQL-specific files
+│   │   └── schema.sql          # Database schema (verified at startup)
+│   ├── errors.py               # StorageUnavailableError
+│   ├── plate_lists_repository.py  # Plate lists CRUD
+│   └── postgres_event_repository.py  # Event CRUD with psycopg_pool
+├── runtime/                    # Channel processing runtime
+│   ├── channel_runtime.py      # ChannelProcessor, ChannelContext, ChannelMetrics
+│   ├── debug.py                # DebugRegistry, DebugLogBus, DebugSettings
+│   ├── event_bus.py            # EventBus (async pub/sub)
+│   └── event_sink.py           # EventSink (sync DB write wrapper)
+├── nginx/                      # Nginx reverse proxy config
+├── tests/                      # Unit tests
+│   ├── test_direction_estimator.py
+│   ├── test_motion_detector.py
+│   ├── test_plate_validator.py
+│   └── test_track_aggregator.py
+├── .planning/                  # GSD planning documents
+│   └── codebase/               # Codebase analysis docs
+├── Dockerfile                  # Docker build definition
+├── docker-compose.yml          # Multi-service Docker Compose
+├── requirements.txt            # Python dependencies
+├── .env.example                # Environment variable template
+├── AGENTS.md                   # Agent instructions
+└── README.md                   # Project documentation
 ```
 
 ## Directory Purposes
 
-**anpr/**
-- Purpose: Core ANPR processing — models, algorithms, and data transformation
-- Contains: ML model wrappers, preprocessing/postprocessing, detection/recognition pipeline
-- Key files: `pipeline/anpr_pipeline.py` (main orchestrator), `model_config.py` (model initialization), `detection/yolo_detector.py`, `recognition/crnn_recognizer.py`
-- Note: `models/` subdirectory contains binary weight files (~500MB+), not source code
+**`anpr/`:**
+- Purpose: All ANPR/ML logic -- detection, recognition, pipeline orchestration
+- Contains: Python modules for YOLO detection, CRNN OCR, plate preprocessing, postprocessing validation, country configs
+- Key files: `pipeline/anpr_pipeline.py` (ANPRPipeline, TrackAggregator), `pipeline/factory.py` (build_components), `model_config.py` (AnprModelConfig)
 
-**app/api/**
-- Purpose: HTTP REST API for system control and monitoring
-- Contains: FastAPI routes, request validation schemas, dependency injection
-- Key files: `main.py` (app initialization), `container.py` (service initialization), `routers/` (endpoint implementations)
-- Routers:
-  - `channels.py` — video stream lifecycle, snapshot, preview stream
-  - `events.py` — plate event retrieval and filtering
-  - `controllers.py` — relay trigger and test endpoints
-  - `lists.py` — whitelist/blacklist management
-  - `settings.py` — configuration CRUD and apply
-  - `debug.py` — performance metrics and timing data
-  - `data.py` — export bundle creation
-  - `system.py` — health status and version info
+**`anpr/countries/`:**
+- Purpose: Country-specific plate format definitions
+- Contains: YAML files with regex patterns for plate validation (e.g., RU, UA, BY, KZ)
 
-**app/worker/**
-- Purpose: Background data lifecycle management (retention, cleanup)
-- Contains: RetentionScheduler, WorkerContainer
-- Note: Runs as separate service (`app.worker.main`)
+**`anpr/models/`:**
+- Purpose: Pre-trained ML model weights
+- Contains: `yolo/best.pt` (YOLOv8 plate detector), `ocr_crnn/crnn_ocr_model_int8_fx.pth` (quantized CRNN OCR)
+- Generated: Yes (trained externally)
+- Committed: Yes (binary model files)
 
-**runtime/**
-- Purpose: Multi-threaded video processing orchestration and event emission
-- Contains: ChannelProcessor (per-stream threads), EventSink (async DB bridge), debug metrics
-- Key files: `channel_runtime.py` (main processor), `event_sink.py` (database persistence), `debug.py` (performance tracking)
-- Threading model: One thread per active video stream, main API thread manages them via RLock-protected dict
+**`app/api/`:**
+- Purpose: FastAPI HTTP API server
+- Contains: App entry point, routers, auth, DI container, schemas
+- Key files: `main.py` (app), `container.py` (AppContainer), `deps.py` (get_container)
 
-**database/**
-- Purpose: Data persistence and query abstraction
-- Contains: PostgreSQL connection management, schema bootstrapping, query execution
-- Key files: `postgres_event_repository.py` (event CRUD), `plate_lists_repository.py` (list management), `postgres/schema.sql` (table definitions)
-- Note: Lazy schema init on first write — no migrations runner needed at startup
+**`app/api/routers/`:**
+- Purpose: API route handlers organized by domain
+- Contains: 8 router modules (channels, controllers, data, debug, events, lists, settings, system)
 
-**config/**
-- Purpose: Application configuration lifecycle (load, validate, persist, migrate)
-- Contains: SettingsManager (orchestrator), SettingsRepository (file I/O), SettingsNormalizer (validation), SettingsSchema (defaults)
-- Key files: `settings_manager.py` (API entry point), `settings_normalizer.py` (validation rules), `settings_schema.py` (defaults and coercion)
-- Settings flow: YAML file → SettingsRepository.load() → SettingsNormalizer.normalize() → SettingsManager
+**`app/shared/`:**
+- Purpose: Services shared between API and worker
+- Contains: `data_lifecycle.py` (RetentionPolicy, DataLifecycleService)
 
-**controllers/**
-- Purpose: Hardware relay control abstraction and automation
-- Contains: ControllerService (lifecycle), ControllerAutomationService (rule-based triggering), adapter registry
-- Key files: `service.py` (orchestration), `base.py` (ControllerAdapter protocol), `adapters/dtwonder2ch.py` (example device)
-- Pattern: Device-specific adapters inherit from ControllerAdapter, register in registry
+**`app/web/`:**
+- Purpose: Static frontend served at `/web`
+- Contains: HTML, JS, CSS, images, favicons
+- Served by: `FastAPI.mount("/web", StaticFiles(...))`
 
-**common/**
-- Purpose: Shared utilities and cross-cutting concerns
-- Contains: Logging configuration, log streaming handlers
-- Key file: `logging.py` (LiveDebugHandler for real-time logs, HourlyFileHandler for rotation)
+**`app/worker/`:**
+- Purpose: Background retention worker service
+- Contains: `main.py` (WorkerContainer, RetentionScheduler, health/run endpoints)
 
-**tests/**
-- Purpose: Unit and integration test coverage
-- Contains: Test suite for core algorithms and services
-- Key tests:
-  - `test_track_aggregator.py` — consensus voting and deduplication logic
-  - `test_direction_estimator.py` — motion direction estimation
-  - `test_plate_validator.py` — country-specific format validation
-  - `test_motion_detector.py` — frame difference detection
-- Framework: pytest, no mocking framework in use (mostly integration tests)
+**`common/`:**
+- Purpose: Cross-cutting utilities shared by all layers
+- Contains: `logging.py` (configure_logging, get_logger, LiveDebugHandler, HourlyFileHandler)
+
+**`config/`:**
+- Purpose: Settings management with schema, normalization, migration, persistence
+- Contains: Manager, normalizer, schema, repository, migration runner
+- Key files: `settings_manager.py` (SettingsManager), `settings_schema.py` (defaults)
+
+**`controllers/`:**
+- Purpose: Physical barrier/gate controller integration
+- Contains: Service layer, automation service, adapter registry, protocol adapters
+- Key files: `service.py` (ControllerService, ControllerAutomationService)
+
+**`database/`:**
+- Purpose: PostgreSQL data access layer
+- Contains: Event repository, plate lists repository, schema SQL, error types
+- Key files: `postgres_event_repository.py`, `plate_lists_repository.py`, `postgres/schema.sql`
+
+**`runtime/`:**
+- Purpose: Video processing runtime, event delivery, debug infrastructure
+- Contains: Channel processor, event bus, event sink, debug registry
+- Key files: `channel_runtime.py` (ChannelProcessor), `debug.py` (DebugRegistry, DebugLogBus)
+
+**`tests/`:**
+- Purpose: Unit tests
+- Contains: 4 test files covering direction estimator, motion detector, plate validator, track aggregator
 
 ## Key File Locations
 
 **Entry Points:**
-- `app/api/main.py` — FastAPI application startup, router registration, middleware setup
-- `app/worker/main.py` — Retention worker service initialization
-- `runtime/channel_runtime.py` — ChannelProcessor thread spawn and management
+- `app/api/main.py`: API server FastAPI app (run with `uvicorn app.api.main:app`)
+- `app/worker/main.py`: Retention worker FastAPI app (run with `uvicorn app.worker.main:app`)
 
 **Configuration:**
-- `config/settings.yaml` — Application config file (YAML, includes all channels, controllers, models, storage, logging)
-- `config/settings_manager.py` — Programmatic config access API
-- `config/settings_schema.py` — Schema definitions and default values
+- `config/settings_manager.py`: Main settings API
+- `config/settings_schema.py`: All default values and schema constants
+- `config/settings_normalizer.py`: Validation and normalization logic
+- `config/settings_repository.py`: JSON file persistence
+- `.env.example`: Environment variable template (POSTGRES_DSN, API_KEY)
 
 **Core Logic:**
-- `anpr/pipeline/anpr_pipeline.py` — ANPRPipeline, TrackAggregator, TrackDirectionEstimator
-- `runtime/channel_runtime.py` — ChannelProcessor frame processing loop
-- `database/postgres_event_repository.py` — Event persistence
+- `anpr/pipeline/anpr_pipeline.py`: ANPRPipeline, TrackAggregator, TrackDirectionEstimator
+- `anpr/pipeline/factory.py`: `build_components()` factory
+- `anpr/detection/yolo_detector.py`: YOLODetector with tracking
+- `anpr/detection/motion_detector.py`: MotionDetector for frame gating
+- `anpr/recognition/crnn_recognizer.py`: CRNNRecognizer batch OCR
+- `anpr/postprocessing/validator.py`: PlatePostProcessor
+- `runtime/channel_runtime.py`: ChannelProcessor (main processing loop)
+
+**DI / Wiring:**
+- `app/api/container.py`: AppContainer (API service wiring)
+- `app/api/deps.py`: FastAPI dependency injection
+
+**Database:**
+- `database/postgres_event_repository.py`: PostgresEventDatabase
+- `database/plate_lists_repository.py`: ListDatabase
+- `database/postgres/schema.sql`: PostgreSQL schema DDL
+- `database/errors.py`: StorageUnavailableError
 
 **Testing:**
-- `tests/test_*.py` — pytest suite
+- `tests/test_track_aggregator.py`: TrackAggregator unit tests
+- `tests/test_direction_estimator.py`: TrackDirectionEstimator unit tests
+- `tests/test_motion_detector.py`: MotionDetector unit tests
+- `tests/test_plate_validator.py`: PlatePostProcessor unit tests
 
 ## Naming Conventions
 
 **Files:**
-- Modules: `snake_case.py` (e.g., `plate_preprocessor.py`, `event_sink.py`)
-- Test files: `test_<module>.py` (e.g., `test_track_aggregator.py`)
-- Config files: `settings_*.py` (e.g., `settings_manager.py`, `settings_schema.py`)
-- Adapters: `<device_model>_adapter.py` (e.g., `dtwonder2ch.py`)
+- `snake_case.py` for all Python modules
+- Router files named by domain: `channels.py`, `events.py`, `controllers.py`
+- Test files prefixed with `test_`: `test_track_aggregator.py`
 
 **Directories:**
-- Functionality groups: `snake_case/` (e.g., `api/routers/`, `anpr/preprocessing/`)
-- Feature domains: descriptive plural or singular (e.g., `controllers/`, `database/`)
+- `snake_case` for all directories
+- Domain-oriented grouping: `anpr/detection/`, `anpr/recognition/`, `anpr/postprocessing/`
 
 **Classes:**
-- Service classes: `<Domain>Service` (e.g., `ControllerService`, `DataLifecycleService`)
-- Container/factories: `<Domain>Container` (e.g., `AppContainer`)
-- Data containers: `<Domain>Config`, `<Domain>Metrics` (e.g., `ChannelMetrics`, `ReconnectConfig`)
-- Processors/managers: `<Domain><Task>` (e.g., `ANPRPipeline`, `PlatePreprocessor`, `PlatePostProcessor`)
+- `PascalCase`: `ChannelProcessor`, `ANPRPipeline`, `TrackAggregator`
+- Dataclasses for simple data containers: `ChannelMetrics`, `ChannelContext`, `ReconnectConfig`
+- Private helper classes prefixed with `_`: `_TrackOCRState`, `_FallbackRecognizer`
 
-**Functions/Methods:**
-- Private: `_method_name()` (name mangling with underscore prefix)
-- Public: `method_name()`
-- Constants: `CONSTANT_NAME`
-- Configuration getters: `get_<type>()` (e.g., `get_channels()`, `get_logger()`)
-- Configuration setters: `update_<type>()` (e.g., `update_channel()`)
-
-**Variables:**
-- Temporary: `temp_`, `i`, `j` (in loops)
-- State: full descriptive names (e.g., `last_emitted`, `track_texts`)
-- Configuration: `<domain>_settings` (e.g., `plate_settings`, `reconnect_settings`)
+**Functions:**
+- `snake_case`: `build_components()`, `get_container()`, `configure_logging()`
+- Private methods prefixed with `_`: `_run_channel()`, `_evict_stale()`
 
 ## Where to Add New Code
 
-**New Feature (e.g., new detection mode):**
-- Primary code: `anpr/detection/` for model wrapper, integrate into `anpr/pipeline/anpr_pipeline.py`
-- Tests: `tests/test_<feature>.py` using pytest
-- Configuration: Add settings to `config/settings_schema.py` defaults, reference in `AnprModelConfig`
-
-**New Component/Module (e.g., new service):**
-- Implementation: Create file in relevant package (e.g., `app/shared/my_service.py`)
-- Registration: Add to `AppContainer.build()` in `app/api/container.py`
-- Tests: `tests/test_my_service.py`
-- Documentation: Add docstring following Russian+English convention in codebase
-
 **New API Endpoint:**
-- Implementation: Create router function in appropriate file in `app/api/routers/` or new router file
-- Schemas: Add request/response models to `app/api/schemas.py`
-- Registration: `app.include_router()` in `app/api/main.py`
-- Test: Add to `tests/` with container fixture setup
+- Create or extend router in `app/api/routers/`
+- Register router in `app/api/main.py` via `app.include_router()`
+- Add any new service dependencies to `AppContainer` in `app/api/container.py`
+- Add request/response models to `app/api/schemas.py`
 
-**Utilities:**
-- Shared helpers: `common/<domain>.py` (e.g., `common/helpers.py`)
-- Domain-specific utilities: Within domain package (e.g., `anpr/utils.py`)
+**New ANPR Processing Step:**
+- Add module in `anpr/preprocessing/` or `anpr/postprocessing/`
+- Wire into `ANPRPipeline.process_frame()` in `anpr/pipeline/anpr_pipeline.py`
+- If configurable, add default values in `config/settings_schema.py`
 
-**Configuration Settings:**
-- New setting: Add to `config/settings_schema.py` in appropriate default dict
-- Normalization: Add logic to `SettingsNormalizer.normalize_with_meta()` if validation required
-- Access: Via `settings.get_<type>()` in SettingsManager
+**New Country Plate Format:**
+- Add YAML config file in `anpr/countries/`
+- Add country code to `enabled_countries` list in settings
+
+**New Controller Adapter:**
+- Create adapter class in `controllers/adapters/` extending `ControllerAdapter`
+- Register in `controllers/registry.py` (`CONTROLLER_ADAPTERS` dict)
+- Add type to `SUPPORTED_CONTROLLER_TYPES` in `controllers/service.py`
+
+**New Settings Section:**
+- Add defaults function in `config/settings_schema.py`
+- Add `_fill_*_defaults()` method in `config/settings_normalizer.py`
+- Add get/save methods in `config/settings_manager.py`
+- Call fill method in `SettingsNormalizer.normalize_with_meta()`
+
+**New Database Table:**
+- Add DDL to `database/postgres/schema.sql`
+- Create repository class in `database/`
+- Wire into `AppContainer` if needed
+
+**New Test:**
+- Add test file in `tests/` as `test_*.py`
+- Follow existing pattern: `pytest` with plain assert statements
+
+**New Shared Utility:**
+- Add to `common/` package
 
 ## Special Directories
 
-**anpr/models/**
-- Purpose: Model weight files storage (binary, large files)
-- Generated: Yes (downloaded/extracted during setup)
-- Committed: No (git-ignored, .gitignore excludes *.weights, *.pt, *.onnx)
-- Size: ~500MB-2GB typical for YOLO + CRNN models
+**`anpr/models/`:**
+- Purpose: Pre-trained ML model weight files
+- Generated: Yes (trained externally, not generated at build time)
+- Committed: Yes (binary files tracked in git)
 
-**data/screenshots/**
-- Purpose: Event frame and plate image storage (local filesystem)
-- Generated: Yes (created during video processing)
-- Committed: No (git-ignored)
-- Cleanup: Managed by DataLifecycleService based on retention policy
+**`data/screenshots/`:**
+- Purpose: Captured frame and plate crop images organized by date/channel
+- Structure: `{date}/channel_{id}/{timestamp}_ch{id}_{plate}_frame.jpg`
+- Generated: Yes (at runtime)
+- Committed: No (in .dockerignore, runtime data)
 
-ormation**.planning/codebase/**
-- Purpose: GSD codebase mapping output (generated by /gsd:map-codebase)
-- Generated: Yes (auto-created during analysis)
-- Committed: No (typically, unless explicitly committed)
-- Contents: ARCHITECTURE.md, STRUCTURE.md, CONVENTIONS.md, TESTING.md, CONCERNS.md
+**`data/exports/`:**
+- Purpose: CSV and ZIP export bundles
+- Generated: Yes (at runtime via data export API)
+- Committed: No
 
-**.pytest_cache/**
-- Purpose: pytest test result cache
-- Generated: Yes (pytest creates on first run)
-- Committed: No (git-ignored)
+**`logs/`:**
+- Purpose: Hourly rotated log files per service
+- Pattern: `{service}_{YYYY-MM-DD_HH-00}.log`
+- Generated: Yes (at runtime)
+- Committed: No
 
-**.idea/**
-- Purpose: JetBrains IDE (PyCharm) project settings
-- Generated: Yes (auto-created by IDE)
-- Committed: No (git-ignored)
+**`.planning/`:**
+- Purpose: GSD codebase analysis and planning documents
+- Generated: Yes (by Claude Code agents)
+- Committed: Yes
 
-**config/settings_migrations/**
-- Purpose: Settings schema evolution scripts
-- Generated: No
-- Committed: Yes (source code)
-- Pattern: Runners apply migrations to normalize old config format to new schema
+**`nginx/`:**
+- Purpose: Nginx reverse proxy configuration for production deployment
+- Committed: Yes
 
 ---
 
-*Structure analysis: 2026-03-21*
+*Structure analysis: 2026-03-25*
