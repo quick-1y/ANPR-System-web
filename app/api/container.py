@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import signal
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List
@@ -183,6 +187,25 @@ class AppContainer:
                 status_code=422,
                 detail=f"Хоткеи должны быть уникальны глобально между всеми контроллерами: {details}",
             )
+
+
+    def request_process_restart(self, *, reason: str, delay_seconds: float = 1.0) -> bool:
+        lock = getattr(self, "_restart_lock", None)
+        if lock is None:
+            lock = threading.Lock()
+            setattr(self, "_restart_lock", lock)
+        with lock:
+            if getattr(self, "_restart_scheduled", False):
+                return False
+            setattr(self, "_restart_scheduled", True)
+
+        def _restart() -> None:
+            time.sleep(max(0.2, float(delay_seconds)))
+            logger.warning("Запрошен перезапуск процесса API: %s", reason)
+            os.kill(os.getpid(), signal.SIGTERM)
+
+        threading.Thread(target=_restart, name="api-process-restart", daemon=True).start()
+        return True
 
     def refresh_storage_clients(self) -> None:
         self.events_db = PostgresEventDatabase(str(self.settings.get_storage_settings().get("postgres_dsn", "")).strip())

@@ -387,6 +387,23 @@
                   </div>
                   <input class="s-input wide" id="g_postgres_dsn" readonly />
                 </div>
+                <div class="backup-actions">
+                  <button class="btn btn-ghost" id="dbBackupExportBtn">Скачать бэкап</button>
+                  <button class="btn btn-danger" id="dbBackupRestoreBtn">Восстановить из бэкапа</button>
+                </div>
+                <div class="backup-status" id="dbBackupStatus"></div>
+              </div>
+            </div>
+
+            <!-- Настройки -->
+            <div class="s-card">
+              <div class="s-card-header">Настройки</div>
+              <div class="s-card-body">
+                <div class="backup-actions">
+                  <button class="btn btn-ghost" id="settingsBackupExportBtn">Скачать settings.yaml</button>
+                  <button class="btn btn-danger" id="settingsBackupRestoreBtn">Восстановить settings.yaml</button>
+                </div>
+                <div class="backup-status" id="settingsBackupStatus"></div>
               </div>
             </div>
 
@@ -922,6 +939,26 @@
       </div>
     </div>
 
+
+
+    <input type="file" id="dbBackupRestoreInput" accept=".json,application/json" hidden />
+    <input type="file" id="settingsBackupRestoreInput" accept=".yaml,.yml,text/yaml,application/x-yaml" hidden />
+
+    <div class="app-modal" id="dangerConfirmModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span id="dangerConfirmTitle">Подтверждение</span>
+          <button class="icon-btn-sm" id="dangerConfirmClose">✕</button>
+        </div>
+        <div class="app-modal-body">
+          <p class="modal-confirm-text" id="dangerConfirmText"></p>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="dangerConfirmCancel">Отмена</button>
+          <button class="btn btn-danger" id="dangerConfirmOk">Подтвердить</button>
+        </div>
+      </div>
+    </div>
     <div class="event-modal" id="eventModal">
       <div class="event-modal-card">
         <div class="event-modal-head">

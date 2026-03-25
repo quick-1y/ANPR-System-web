@@ -566,6 +566,10 @@ flowchart TD
 |---|---|---|
 | `GET` | `/api/settings` | Все глобальные настройки |
 | `PUT` | `/api/settings` | Обновить настройки (изменение параметров распознавания номеров и DSN перезапускает pipeline) |
+| `GET` | `/api/settings/backup/database` | Скачать JSON-бэкап PostgreSQL (events + plate_lists + plate_list_entries) |
+| `POST` | `/api/settings/restore/database` | Восстановить PostgreSQL из JSON-бэкапа (с полным overwrite и перезапуском API) |
+| `GET` | `/api/settings/backup/settings` | Скачать текущий `settings.yaml` |
+| `POST` | `/api/settings/restore/settings` | Восстановить `settings.yaml` из YAML с валидацией и применением |
 
 ### Data & Export
 

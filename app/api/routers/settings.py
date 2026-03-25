@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import Response
 
 from app.api.container import AppContainer
 from app.api.deps import get_container
 from app.api.schemas import GlobalSettingsPayload
+from app.shared.backup_restore import BackupRestoreService
 from common.logging import configure_logging, get_logger
+from database.errors import StorageUnavailableError
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -58,6 +61,7 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
         current_logging = container.settings.settings.get("logging", {})
         current_logging.update(logging_payload)
         from config.settings_schema import normalize_log_level
+
         current_logging["level"] = normalize_log_level(current_logging.get("level"))
         container.settings.settings["logging"] = current_logging
 
@@ -76,11 +80,106 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
 
     new_plates = container.settings.get_plate_settings()
     new_storage = payload.storage.model_dump()
-    pipeline_changed = (
-        old_plates != new_plates
-        or old_storage.get("postgres_dsn") != new_storage.get("postgres_dsn")
-    )
+    pipeline_changed = old_plates != new_plates or old_storage.get("postgres_dsn") != new_storage.get("postgres_dsn")
     if pipeline_changed:
         container.restart_processor_for_settings()
 
     return get_global_settings(container)
+
+
+def _backup_service(container: AppContainer) -> BackupRestoreService:
+    storage = container.settings.get_storage_settings()
+    return BackupRestoreService(container.settings, str(storage.get("postgres_dsn", "")).strip())
+
+
+@router.get("/api/settings/backup/database")
+def export_database_backup(container: AppContainer = Depends(get_container)) -> Response:
+    service = _backup_service(container)
+    try:
+        filename, payload = service.export_database_backup()
+    except StorageUnavailableError as exc:
+        raise container.storage_503(exc) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    return Response(
+        content=payload,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/api/settings/restore/database")
+async def restore_database_backup(
+    backup_file: UploadFile = File(...), container: AppContainer = Depends(get_container)
+) -> Dict[str, Any]:
+    filename = str(backup_file.filename or "")
+    if filename and not filename.lower().endswith(".json"):
+        raise HTTPException(status_code=400, detail="Ожидается JSON-файл бэкапа базы данных (*.json)")
+
+    raw_payload = await backup_file.read()
+    if not raw_payload:
+        raise HTTPException(status_code=400, detail="Файл бэкапа пустой")
+
+    service = _backup_service(container)
+    try:
+        stats = service.restore_database_backup(raw_payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Некорректный файл бэкапа: {exc}") from exc
+    except StorageUnavailableError as exc:
+        raise container.storage_503(exc) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    container.request_process_restart(reason="Восстановление PostgreSQL из бэкапа", delay_seconds=1.5)
+    return {
+        "status": "ok",
+        "message": "База данных успешно восстановлена. Запущен перезапуск приложения.",
+        "stats": stats,
+        "restart_scheduled": True,
+    }
+
+
+@router.get("/api/settings/backup/settings")
+def export_settings_backup(container: AppContainer = Depends(get_container)) -> Response:
+    service = _backup_service(container)
+    try:
+        filename, payload = service.export_settings_yaml()
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return Response(
+        content=payload,
+        media_type="application/x-yaml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/api/settings/restore/settings")
+async def restore_settings_backup(
+    settings_file: UploadFile = File(...), container: AppContainer = Depends(get_container)
+) -> Dict[str, Any]:
+    filename = str(settings_file.filename or "")
+    if filename and not filename.lower().endswith((".yaml", ".yml")):
+        raise HTTPException(status_code=400, detail="Ожидается YAML-файл настроек (*.yaml, *.yml)")
+
+    raw_payload = await settings_file.read()
+    if not raw_payload:
+        raise HTTPException(status_code=400, detail="Файл settings.yaml пустой")
+
+    service = _backup_service(container)
+    try:
+        service.restore_settings_yaml(raw_payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Некорректный settings.yaml: {exc}") from exc
+
+    container.refresh_storage_clients()
+    container.processor.update_reconnect_settings(container.settings.get_reconnect())
+    container.processor.update_debug_settings(container.settings.get_debug_settings())
+    configure_logging(container.settings.get_logging_config(), service_name="api")
+    container.restart_processor_for_settings()
+
+    return {
+        "status": "ok",
+        "message": "settings.yaml успешно восстановлен и применён.",
+    }

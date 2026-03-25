@@ -72,6 +72,19 @@ async function jfetch(url, method = "GET", body = null) {
   if (!r.ok) throw new Error(await r.text());
   return r.status === 204 ? null : r.json();
 }
+
+async function fetchRaw(url, options = {}) {
+  const headers = options.headers ? { ...options.headers } : {};
+  const k = getApiKey();
+  if (k) headers["X-Api-Key"] = k;
+  const r = await fetch(url, { ...options, headers });
+  if (r.status === 401) {
+    showAuthOverlay(() => fetchRaw(url, options));
+    throw new Error("Требуется аутентификация");
+  }
+  if (!r.ok) throw new Error(await r.text());
+  return r;
+}
 function flagByCountry(code) {
   const normalized = String(code || "")
     .trim()
@@ -2420,6 +2433,173 @@ document.getElementById("btnExport").onclick = () => {
 function openModal(id) { document.getElementById(id).classList.add("active"); }
 function closeModal(id) { document.getElementById(id).classList.remove("active"); }
 
+let _confirmResolver = null;
+function showDangerConfirm(title, text, confirmLabel = "Подтвердить") {
+  const modal = document.getElementById("dangerConfirmModal");
+  document.getElementById("dangerConfirmTitle").textContent = title;
+  document.getElementById("dangerConfirmText").textContent = text;
+  document.getElementById("dangerConfirmOk").textContent = confirmLabel;
+  openModal("dangerConfirmModal");
+  return new Promise((resolve) => {
+    _confirmResolver = resolve;
+  });
+}
+function resolveDangerConfirm(result) {
+  if (_confirmResolver) {
+    const resolve = _confirmResolver;
+    _confirmResolver = null;
+    resolve(result);
+  }
+  closeModal("dangerConfirmModal");
+}
+
+function setBackupStatus(nodeId, message, type = "") {
+  const node = document.getElementById(nodeId);
+  if (!node) return;
+  node.textContent = message || "";
+  node.classList.remove("error", "success");
+  if (type) node.classList.add(type);
+}
+function setBackupButtonsDisabled(disabled) {
+  [
+    "dbBackupExportBtn",
+    "dbBackupRestoreBtn",
+    "settingsBackupExportBtn",
+    "settingsBackupRestoreBtn",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = disabled;
+  });
+}
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+let backupOperationInProgress = false;
+async function exportDatabaseBackup() {
+  if (backupOperationInProgress) return;
+  backupOperationInProgress = true;
+  setBackupButtonsDisabled(true);
+  setBackupStatus("dbBackupStatus", "Формируем бэкап базы данных...");
+  try {
+    const r = await fetchRaw(api("/api/settings/backup/database"));
+    const header = r.headers.get("content-disposition") || "";
+    const match = /filename=\"?([^\";]+)\"?/i.exec(header);
+    const filename = match ? match[1] : "anpr_db_backup.json";
+    const blob = await r.blob();
+    triggerDownload(blob, filename);
+    setBackupStatus("dbBackupStatus", "Бэкап базы данных успешно скачан.", "success");
+    showToast("Бэкап базы данных скачан");
+  } catch (e) {
+    setBackupStatus("dbBackupStatus", `Ошибка экспорта: ${e.message || e}`, "error");
+    showToast("Не удалось скачать бэкап базы данных");
+  } finally {
+    backupOperationInProgress = false;
+    setBackupButtonsDisabled(false);
+  }
+}
+
+async function restoreDatabaseBackup(file) {
+  if (!file || backupOperationInProgress) return;
+  if (!file.name.toLowerCase().endsWith(".json")) {
+    setBackupStatus("dbBackupStatus", "Выберите файл бэкапа в формате .json.", "error");
+    return;
+  }
+  const confirmed = await showDangerConfirm(
+    "Восстановление базы данных",
+    "Вы уверены, что хотите восстановить базу данных из выбранного файла? Текущая база данных будет полностью перезаписана. После восстановления приложение будет перезапущено.",
+    "Восстановить базу",
+  );
+  if (!confirmed) {
+    setBackupStatus("dbBackupStatus", "Восстановление отменено.");
+    return;
+  }
+  backupOperationInProgress = true;
+  setBackupButtonsDisabled(true);
+  setBackupStatus("dbBackupStatus", "Идёт восстановление базы данных...");
+  try {
+    const formData = new FormData();
+    formData.append("backup_file", file);
+    const r = await fetchRaw(api("/api/settings/restore/database"), { method: "POST", body: formData });
+    const payload = await r.json();
+    setBackupStatus("dbBackupStatus", payload.message || "Восстановление завершено.", "success");
+    showToast("База данных восстановлена. Перезагрузка...");
+    setTimeout(() => window.location.reload(), 3500);
+  } catch (e) {
+    setBackupStatus("dbBackupStatus", `Ошибка восстановления: ${e.message || e}`, "error");
+    showToast("Не удалось восстановить базу данных");
+  } finally {
+    backupOperationInProgress = false;
+    setBackupButtonsDisabled(false);
+  }
+}
+
+async function exportSettingsBackup() {
+  if (backupOperationInProgress) return;
+  backupOperationInProgress = true;
+  setBackupButtonsDisabled(true);
+  setBackupStatus("settingsBackupStatus", "Готовим выгрузку settings.yaml...");
+  try {
+    const r = await fetchRaw(api("/api/settings/backup/settings"));
+    const header = r.headers.get("content-disposition") || "";
+    const match = /filename=\"?([^\";]+)\"?/i.exec(header);
+    const filename = match ? match[1] : "settings_backup.yaml";
+    const blob = await r.blob();
+    triggerDownload(blob, filename);
+    setBackupStatus("settingsBackupStatus", "settings.yaml успешно скачан.", "success");
+    showToast("settings.yaml скачан");
+  } catch (e) {
+    setBackupStatus("settingsBackupStatus", `Ошибка экспорта: ${e.message || e}`, "error");
+    showToast("Не удалось скачать settings.yaml");
+  } finally {
+    backupOperationInProgress = false;
+    setBackupButtonsDisabled(false);
+  }
+}
+
+async function restoreSettingsBackup(file) {
+  if (!file || backupOperationInProgress) return;
+  const lowered = file.name.toLowerCase();
+  if (!(lowered.endsWith(".yaml") || lowered.endsWith(".yml"))) {
+    setBackupStatus("settingsBackupStatus", "Выберите файл settings.yaml (.yaml/.yml).", "error");
+    return;
+  }
+  const confirmed = await showDangerConfirm(
+    "Восстановление settings.yaml",
+    "Вы уверены, что хотите восстановить настройки из выбранного файла? Текущий settings.yaml будет перезаписан.",
+    "Восстановить настройки",
+  );
+  if (!confirmed) {
+    setBackupStatus("settingsBackupStatus", "Восстановление отменено.");
+    return;
+  }
+  backupOperationInProgress = true;
+  setBackupButtonsDisabled(true);
+  setBackupStatus("settingsBackupStatus", "Проверяем и применяем settings.yaml...");
+  try {
+    const formData = new FormData();
+    formData.append("settings_file", file);
+    const r = await fetchRaw(api("/api/settings/restore/settings"), { method: "POST", body: formData });
+    const payload = await r.json();
+    setBackupStatus("settingsBackupStatus", payload.message || "settings.yaml восстановлен.", "success");
+    await loadGlobalSettings();
+    showToast("Настройки восстановлены");
+  } catch (e) {
+    setBackupStatus("settingsBackupStatus", `Ошибка восстановления: ${e.message || e}`, "error");
+    showToast("Не удалось восстановить settings.yaml");
+  } finally {
+    backupOperationInProgress = false;
+    setBackupButtonsDisabled(false);
+  }
+}
+
 // ── Create List Modal ────────────────────────────────
 document.getElementById("addListBtn").onclick = () => {
   document.getElementById("newListName").value = "";
@@ -2548,6 +2728,32 @@ document.getElementById("eventModal").onclick = (e) => {
   if (e.target.id === "eventModal") closeEventModal();
 };
 document.getElementById("saveGeneralBtn").onclick = saveGeneral;
+document.getElementById("dbBackupExportBtn").onclick = exportDatabaseBackup;
+document.getElementById("dbBackupRestoreBtn").onclick = () => {
+  const input = document.getElementById("dbBackupRestoreInput");
+  input.value = "";
+  input.click();
+};
+document.getElementById("dbBackupRestoreInput").onchange = (e) => {
+  const file = (e.target.files || [])[0];
+  restoreDatabaseBackup(file);
+};
+document.getElementById("settingsBackupExportBtn").onclick = exportSettingsBackup;
+document.getElementById("settingsBackupRestoreBtn").onclick = () => {
+  const input = document.getElementById("settingsBackupRestoreInput");
+  input.value = "";
+  input.click();
+};
+document.getElementById("settingsBackupRestoreInput").onchange = (e) => {
+  const file = (e.target.files || [])[0];
+  restoreSettingsBackup(file);
+};
+document.getElementById("dangerConfirmClose").onclick = () => resolveDangerConfirm(false);
+document.getElementById("dangerConfirmCancel").onclick = () => resolveDangerConfirm(false);
+document.getElementById("dangerConfirmOk").onclick = () => resolveDangerConfirm(true);
+document.getElementById("dangerConfirmModal").onclick = (e) => {
+  if (e.target.id === "dangerConfirmModal") resolveDangerConfirm(false);
+};
 document.getElementById("saveChannelBtn").onclick = saveChannel;
 document.getElementById("deleteChannelBtn").onclick = deleteChannel;
 document.getElementById("createChannelBtn").onclick = createChannel;
