@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 
 from database.errors import StorageUnavailableError
 from app.api.container import AppContainer
@@ -45,23 +44,31 @@ def export_events_csv(
     plate: Optional[str] = None,
     channel_id: Optional[int] = None,
     container: AppContainer = Depends(get_container),
-) -> FileResponse:
+) -> Response:
     try:
-        path = container.lifecycle.export_events_csv(start=start, end=end, channel=channel, plate=plate, channel_id=channel_id)
-        return FileResponse(path=path, filename=Path(path).name, media_type="text/csv")
+        filename, payload = container.lifecycle.export_events_csv(start=start, end=end, channel=channel, plate=plate, channel_id=channel_id)
+        return Response(
+            content=payload,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
     except StorageUnavailableError as exc:
         raise container.storage_503(exc) from exc
 
 
 @router.post("/api/data/export/bundle")
-def export_events_bundle(payload: ExportBundlePayload, container: AppContainer = Depends(get_container)) -> FileResponse:
+def export_events_bundle(payload: ExportBundlePayload, container: AppContainer = Depends(get_container)) -> Response:
     try:
-        path = container.lifecycle.export_events_bundle(
+        filename, body = container.lifecycle.export_events_bundle(
             start=payload.start,
             end=payload.end,
             channel=payload.channel,
             include_media=payload.include_media,
         )
-        return FileResponse(path=path, filename=Path(path).name, media_type="application/zip")
+        return Response(
+            content=body,
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
     except StorageUnavailableError as exc:
         raise container.storage_503(exc) from exc
