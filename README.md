@@ -201,7 +201,7 @@ flowchart TD
     C --> D["cv2.VideoCapture(source)"]
     D --> E["cap.read() → frame"]
 
-    E --> G["Preview ветка\n~раз в 0.2 с"]
+    E --> G["Preview ветка\nкаждый кадр"]
     G --> H["cv2.imencode('.jpg', frame)"]
     H --> I["latest_jpeg в памяти\nChannelContext"]
     I --> J["GET /api/channels/{id}/snapshot.jpg"]
@@ -408,7 +408,7 @@ flowchart TD
    - `reconnect.signal_loss.enabled` — контроль таймаута чтения; при таймауте увеличивается `timeout_count`, выполняется controlled reconnect.
    - `reconnect.periodic.enabled` — принудительный reconnect каждые `interval_minutes` независимо от signal-loss.
    - При каждом reconnect увеличивается `reconnect_count`.
-4. **Preview** — ~раз в 0.2 с кадр кодируется в JPEG и сохраняется в `ChannelContext.latest_jpeg`; отдаётся как snapshot или MJPEG поток.
+4. **Preview** — каждый прочитанный кадр кодируется в JPEG и сохраняется в `ChannelContext.latest_jpeg`; отдаётся как snapshot или MJPEG поток. Отключается через `debug.disable_video_output`.
 5. **Детекция и распознавание** — кадр идёт в `YOLODetector.track()`, затем в `ANPRPipeline.process_frame()`.
 6. **Сохранение события** — валидный номер (с прошедшим cooldown) записывается в PostgreSQL через `EventSink`, затем публикуется в `EventBus` для SSE.
 
@@ -513,9 +513,11 @@ flowchart TD
 | `POST` | `/api/channels` | Создать канал |
 | `PUT` | `/api/channels/{channel_id}` | Обновить канал |
 | `GET` | `/api/channels/last-plates` | Последний распознанный номер по каждому каналу |
+| `GET` | `/api/channels/{channel_id}/config` | Получить конфигурацию канала |
 | `PUT` | `/api/channels/{channel_id}/config` | Обновить базовую конфигурацию |
 | `PUT` | `/api/channels/{channel_id}/ocr` | Обновить OCR-параметры (best_shots, cooldown, confidence, max_ocr_attempts) |
 | `PUT` | `/api/channels/{channel_id}/filter` | Обновить фильтры размера и plate lists |
+| `DELETE` | `/api/channels/{channel_id}` | Удалить канал |
 | `POST` | `/api/channels/{channel_id}/start` | Запустить поток канала |
 | `POST` | `/api/channels/{channel_id}/stop` | Остановить поток канала |
 | `POST` | `/api/channels/{channel_id}/restart` | Перезапустить поток канала |
@@ -554,6 +556,7 @@ flowchart TD
 | `GET` | `/api/lists/{list_id}/entries` | Записи в списке |
 | `POST` | `/api/lists/{list_id}/entries` | Добавить запись |
 | `PUT` | `/api/lists/{list_id}/entries/{entry_id}` | Обновить запись |
+| `DELETE` | `/api/lists/{list_id}/entries/{entry_id}` | Удалить запись |
 | `GET` | `/api/lists/entry-by-plate` | Найти запись по номеру |
 | `GET` | `/api/lists/plates` | Все номера с типами списков |
 
@@ -763,7 +766,7 @@ ANPR-System-v0.8_web/
 
 | Таблица | Поля |
 |---|---|
-| `events` | `id`, `timestamp`, `channel_id`, `channel`, `plate`, `country`, `confidence`, `source`, `frame_path`, `plate_path`, `direction` |
+| `events` | `id`, `timestamp`, `channel_id`, `channel`, `plate`, `plate_display`, `country`, `confidence`, `source`, `frame_path`, `plate_path`, `direction` |
 | `plate_lists` | `id`, `name`, `type` |
 | `plate_list_entries` | `id`, `list_id`, `plate`, `plate_normalized`, `comment` |
 
@@ -785,10 +788,10 @@ ANPR-System-v0.8_web/
 | Detection | YOLOv8 (Ultralytics 8.3.20) |
 | OCR | CRNN (INT8 quantized) |
 | Video I/O | OpenCV |
-| ML runtime | PyTorch 2.8.0, torchvision 0.23.0, torchaudio 2.8.0 (CPU wheel) |
+| ML runtime | PyTorch 2.8.0, torchvision 0.23.0 (CPU wheel) |
 | Live updates | SSE (`text/event-stream`) |
 | Preview | MJPEG (`multipart/x-mixed-replace`) |
-| Storage | PostgreSQL 16 (psycopg driver) |
+| Storage | PostgreSQL 16 (psycopg + psycopg_pool) |
 | Config | YAML (PyYAML) |
 | Reverse proxy | Nginx |
 | Containerization | Docker, Docker Compose |

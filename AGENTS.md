@@ -69,6 +69,30 @@ Each channel must work independently from the others.
 - Do not move core business logic into frontend code.
 - Do not make large cleanup-only refactors outside the task scope.
 
+## Testing rules
+
+- Framework: pytest. No mocking libraries — use test doubles (simple implementations) instead.
+- Test files go in `tests/` at project root, named `test_<component>.py`.
+- Tests are grouped in classes prefixed with `Test`, methods named `test_<behavior>`.
+- Test data builders are module-level functions prefixed with underscore: `_blank()`, `_ru_country()`.
+- If you change core logic (aggregator, validator, detector, motion), add or update corresponding tests.
+
+## Logging rules
+
+- Log levels: `ALL`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
+- `ALL` (NOTSET) enables full verbose output including DEBUG; `INFO` filters DEBUG out.
+- OCR pipeline logs must include channel context (`Канал {name} (id={id})`).
+- OCR result and pipeline log messages must be in Russian (after the logger/module prefix).
+- `INFO` mode: concise summaries (consensus reached, budget exhausted, candidate rejected).
+- `ALL` mode: per-attempt OCR diagnostics, validator results, matched country/template.
+- Do not pollute logs with unrelated third-party debug noise.
+
+## Database rules
+
+- Both `PostgresEventDatabase` and `ListDatabase` use `psycopg_pool.ConnectionPool` (min=2, max=10).
+- Do not replace connection pooling with per-request connections.
+- Schema bootstrap is lazy (on first write). `database/postgres/schema.sql` is also mounted as init script in Docker.
+
 ## Settings schema versioning rules
 
 - Любое изменение схемы `config/settings.yaml` (новый параметр, удаление/переименование поля, изменение структуры, изменение формата значения) обязательно требует повышения версии схемы настроек.
