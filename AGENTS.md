@@ -70,7 +70,6 @@ Unless the user explicitly asks otherwise, the agent should:
 | --- | --- | --- |
 | Project documentation | `README.md` | Architecture overview, deployment, runtime flow (in Russian) |
 | Agent instructions | `AGENTS.md` | Conventions, boundaries, file placement, workflow rules |
-| Old agent instructions | `AGENTS_old.md` | Historical context only; do not follow if it conflicts with this file |
 | Codebase analysis | `.planning/codebase/` | Detailed architecture, stack, structure, concerns, conventions, testing patterns |
 | Settings schema | `config/settings_schema.py` | Default values and settings structure |
 | DB schema | `database/postgres/schema.sql` | PostgreSQL table definitions |
