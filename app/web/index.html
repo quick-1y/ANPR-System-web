@@ -387,6 +387,35 @@
                   </div>
                   <input class="s-input wide" id="g_postgres_dsn" readonly />
                 </div>
+                <div class="backup-actions">
+                  <button class="btn btn-ghost backup-btn" id="dbBackupBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Скачать бэкап БД
+                  </button>
+                  <button class="btn btn-ghost backup-btn" id="dbRestoreBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Восстановить БД из файла
+                  </button>
+                  <input type="file" id="dbRestoreFileInput" accept=".zip" style="display:none" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Настройки (файл) -->
+            <div class="s-card">
+              <div class="s-card-header">Конфигурация (settings.yaml)</div>
+              <div class="s-card-body">
+                <div class="backup-actions">
+                  <button class="btn btn-ghost backup-btn" id="settingsBackupBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Скачать settings.yaml
+                  </button>
+                  <button class="btn btn-ghost backup-btn" id="settingsRestoreBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Восстановить settings.yaml из файла
+                  </button>
+                  <input type="file" id="settingsRestoreFileInput" accept=".yaml,.yml" style="display:none" />
+                </div>
               </div>
             </div>
 
@@ -1125,6 +1154,59 @@
         <div class="app-modal-footer">
           <button class="btn btn-ghost" id="deleteControllerCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteControllerConfirm">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DB Restore Confirmation Modal -->
+    <div class="app-modal" id="dbRestoreModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Восстановление базы данных</span>
+          <button class="btn btn-ghost btn-sm" id="dbRestoreModalClose">✕</button>
+        </div>
+        <div class="app-modal-body">
+          <p class="modal-confirm-text">
+            Вы собираетесь восстановить базу данных из файла <strong id="dbRestoreFileName"></strong>.
+          </p>
+          <p class="modal-confirm-text modal-warning-text">
+            ⚠ Текущая база данных будет <strong>полностью перезаписана</strong>. Все существующие записи будут удалены и заменены данными из бэкапа.
+          </p>
+          <p class="modal-confirm-text modal-warning-text">
+            ⚠ Это действие <strong>необратимо</strong>. Рекомендуется предварительно скачать текущий бэкап.
+          </p>
+          <p class="modal-confirm-text modal-warning-text">
+            ⚠ После успешного восстановления приложение будет <strong>перезапущено</strong>.
+          </p>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="dbRestoreCancel">Отменить</button>
+          <button class="btn btn-danger" id="dbRestoreConfirm">Восстановить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Restore Confirmation Modal -->
+    <div class="app-modal" id="settingsRestoreModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Восстановление настроек</span>
+          <button class="btn btn-ghost btn-sm" id="settingsRestoreModalClose">✕</button>
+        </div>
+        <div class="app-modal-body">
+          <p class="modal-confirm-text">
+            Вы собираетесь восстановить настройки из файла <strong id="settingsRestoreFileName"></strong>.
+          </p>
+          <p class="modal-confirm-text modal-warning-text">
+            ⚠ Текущий файл настроек будет <strong>полностью перезаписан</strong>.
+          </p>
+          <p class="modal-confirm-text modal-warning-text">
+            ⚠ После восстановления конфигурация приложения будет <strong>полностью перезагружена</strong>. Возможен кратковременный перезапуск обработки каналов.
+          </p>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="settingsRestoreCancel">Отменить</button>
+          <button class="btn btn-danger" id="settingsRestoreConfirm">Восстановить</button>
         </div>
       </div>
     </div>

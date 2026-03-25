@@ -25,6 +25,7 @@
 - white / black / custom plate lists с фильтрацией событий для автоматической сработки реле;
 - управление аппаратными контроллерами через API (тип DTWONDER2CH);
 - retention / cleanup / CSV / ZIP export через отдельный worker-сервис;
+- backup / restore: полный бэкап PostgreSQL и settings.yaml с валидацией и восстановлением через UI;
 - PostgreSQL — единственный поддерживаемый backend хранения данных.
 
 ---
@@ -576,6 +577,10 @@ flowchart TD
 | `POST` | `/api/data/retention/run` | Запустить retention cycle вручную |
 | `GET` | `/api/data/export/events.csv` | Экспорт событий в CSV |
 | `POST` | `/api/data/export/bundle` | Экспорт событий в ZIP (с медиа по выбору) |
+| `GET` | `/api/data/backup/database` | Скачать бэкап базы данных (ZIP с JSON-дампом и манифестом) |
+| `POST` | `/api/data/backup/database/restore` | Восстановить БД из бэкапа (multipart upload). Полностью перезаписывает текущие данные, затем перезапускает приложение |
+| `GET` | `/api/data/backup/settings` | Скачать текущий settings.yaml |
+| `POST` | `/api/data/backup/settings/restore` | Восстановить settings.yaml из файла (multipart upload). Валидирует, нормализует и атомарно сохраняет настройки, перезапускает pipeline |
 
 ### System & Telemetry
 

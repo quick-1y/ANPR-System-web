@@ -9,7 +9,16 @@
       "Bash(ls /d/Users/qu1ck1y/Documents/pyProjects/ANPR-System-v0.8_web/REVIEW2*)",
       "Bash(pip show:*)",
       "Bash(python -m pytest tests/test_track_aggregator.py -v --tb=short)",
-      "Bash(py -m pytest tests/test_track_aggregator.py -v --tb=short)"
+      "Bash(py -m pytest tests/test_track_aggregator.py -v --tb=short)",
+      "Bash(grep -r \"pg_dump\\\\|pg_restore\\\\|psql\" /c/Users/User/PycharmProjects/ANPR-System-v0.8_web --include=*.py --include=*.sh)",
+      "Bash(python -m pytest tests/test_backup_service.py -v)",
+      "Bash(python3 -m pytest tests/test_backup_service.py -v)",
+      "Bash(where python.exe)",
+      "Bash(where py.exe)",
+      "Bash(py -m pytest tests/test_backup_service.py -v)",
+      "Bash(py -3.13 -m pytest tests/test_backup_service.py -v)",
+      "Bash(py -3.13 -m pytest tests/ -v)",
+      "Bash(py -3.13 -m pytest tests/test_backup_service.py tests/test_settings_storage_cleanup.py -v)"
     ]
   }
 }
