@@ -60,6 +60,7 @@ class TrackAggregator:
         best_shots: int,
         ttl_seconds: float = 30.0,
         max_ocr_attempts: int = 15,
+        channel_label: str = "",
     ):
         self.best_shots = max(1, best_shots)
         self.ttl_seconds = max(5.0, float(ttl_seconds))
@@ -69,6 +70,10 @@ class TrackAggregator:
         self._track_ts: Dict[int, float] = {}
         self._track_states: Dict[int, _TrackOCRState] = {}
         self._last_evict: float = 0.0
+        self._channel_label = channel_label
+        # Set by add_result for the caller to inspect:
+        # "consensus" | "budget_best" | "budget_none" | ""
+        self.last_result_type: str = ""
 
     # ---- lifecycle helpers ----
 
@@ -120,6 +125,11 @@ class TrackAggregator:
 
     # ---- main API ----
 
+    def get_track_attempts(self, track_id: int) -> int:
+        """Возвращает текущее количество OCR-попыток для трека."""
+        state = self._track_states.get(track_id)
+        return state.ocr_attempts if state else 0
+
     def add_result(self, track_id: int, text: str, confidence: float) -> str:
         """Record an OCR result for *track_id* and return the consensus plate
         (or ``""`` if no result should be emitted yet).
@@ -135,10 +145,12 @@ class TrackAggregator:
 
         state = self._track_states.setdefault(track_id, _TrackOCRState())
         if state.finalized:
+            self.last_result_type = ""
             return ""
 
         state.ocr_attempts += 1
         state.last_update = now
+        self.last_result_type = ""
 
         # Only add non-empty text to the candidate pool.
         if text:
@@ -163,8 +175,10 @@ class TrackAggregator:
                     self.last_emitted[track_id] = consensus
                     state.result_emitted = True
                     state.finalized = True
+                    self.last_result_type = "consensus"
                     logger.info(
-                        "Track %d: consensus '%s' after %d OCR attempts",
+                        "%s, трек %d: номер \"%s\" подтверждён по консенсусу после %d OCR попыток.",
+                        self._channel_label,
                         track_id,
                         consensus,
                         state.ocr_attempts,
@@ -178,16 +192,15 @@ class TrackAggregator:
                 self.last_emitted[track_id] = best
                 state.result_emitted = True
                 state.finalized = True
-                logger.info(
-                    "Track %d: budget exhausted, best candidate '%s' (%d attempts)",
-                    track_id,
-                    best,
-                    state.ocr_attempts,
-                )
+                self.last_result_type = "budget_best"
+                # INFO log deferred to process_frame where validation
+                # result is known (combined message).
                 return best
             state.finalized = True
+            self.last_result_type = "budget_none"
             logger.info(
-                "Track %d: budget exhausted, no valid candidate (%d attempts)",
+                "%s, трек %d: лимит OCR попыток исчерпан (%d), кандидатов не найдено.",
+                self._channel_label,
                 track_id,
                 state.ocr_attempts,
             )
@@ -339,9 +352,17 @@ class ANPRPipeline:
         postprocessor: Optional[PlatePostProcessor] = None,
         direction_config: Optional[Dict[str, float | int]] = None,
         max_ocr_attempts: int = 15,
+        channel_id: int = 0,
+        channel_name: str = "",
     ) -> None:
         self.recognizer = recognizer
-        self.aggregator = TrackAggregator(best_shots, max_ocr_attempts=max_ocr_attempts)
+        self._channel_label = "Канал {} (id={})".format(
+            channel_name or f"Канал {channel_id}", channel_id
+        )
+        self.aggregator = TrackAggregator(
+            best_shots, max_ocr_attempts=max_ocr_attempts,
+            channel_label=self._channel_label,
+        )
         self.cooldown_seconds = max(0, cooldown_seconds)
         self.min_confidence = max(0.0, min(1.0, min_confidence))
         self._last_seen: Dict[str, float] = {}
@@ -412,10 +433,23 @@ class ANPRPipeline:
                 # is counted but no invalid candidate pollutes the bucket.
                 effective_text = current_text if confidence >= self.min_confidence else ""
                 result = self.aggregator.add_result(track_id, effective_text, confidence)
+                result_type = self.aggregator.last_result_type
                 detection["text"] = result
                 detection["confidence"] = confidence
                 if confidence < self.min_confidence:
                     detection["unreadable"] = True
+
+                # ALL mode: log every OCR attempt.
+                attempts = self.aggregator.get_track_attempts(track_id)
+                logger.debug(
+                    "%s, трек %d: OCR попытка %d/%d, кандидат \"%s\", confidence=%.2f.",
+                    self._channel_label,
+                    track_id,
+                    attempts,
+                    self.aggregator.max_ocr_attempts,
+                    current_text or "(пусто)",
+                    confidence,
+                )
 
                 # Budget just exhausted with no valid plate.
                 if not result and self.aggregator.should_emit_unreadable(track_id):
@@ -430,6 +464,7 @@ class ANPRPipeline:
                     continue
                 detection["text"] = current_text
                 detection["confidence"] = confidence
+                result_type = ""
 
             # Post-processing: only for real plate texts, not unreadable markers.
             if self.postprocessor and detection.get("text") and not detection.get("unreadable"):
@@ -443,7 +478,33 @@ class ANPRPipeline:
                     detection["text"] = processed.plate
                     if processed.plate_display:
                         detection["plate_display"] = processed.plate_display
+                    # ALL mode: log validation success.
+                    logger.debug(
+                        "%s, трек %d: валидация пройдена, страна/регион \"%s\", шаблон \"%s\".",
+                        self._channel_label,
+                        track_id if track_id is not None else -1,
+                        processed.country or "N/A",
+                        processed.format_name or "N/A",
+                    )
+                    # INFO: budget exhausted, but candidate passed validation.
+                    if result_type == "budget_best":
+                        logger.info(
+                            "%s, трек %d: лимит OCR попыток исчерпан (%d). "
+                            "Лучший кандидат: \"%s\". Номер подтверждён валидацией.",
+                            self._channel_label,
+                            track_id,
+                            self.aggregator.get_track_attempts(track_id),
+                            processed.plate,
+                        )
                 else:
+                    # ALL mode: log validation failure.
+                    logger.debug(
+                        "%s, трек %d: валидация не пройдена, кандидат \"%s\" "
+                        "не соответствует ни одному шаблону.",
+                        self._channel_label,
+                        track_id if track_id is not None else -1,
+                        processed.original,
+                    )
                     detection["text"] = ""
                     if track_id is not None:
                         self.aggregator.reset(track_id)
@@ -452,6 +513,16 @@ class ANPRPipeline:
                         if self.aggregator.should_emit_unreadable(track_id):
                             detection["text"] = "Нечитаемо"
                             detection["unreadable"] = True
+                            # INFO: budget exhausted + validation failed.
+                            logger.info(
+                                "%s, трек %d: лимит OCR попыток исчерпан (%d). "
+                                "Лучший кандидат: \"%s\". В события не добавлен: "
+                                "номер не прошёл валидацию ни по одному шаблону страны/региона.",
+                                self._channel_label,
+                                track_id,
+                                self.aggregator.get_track_attempts(track_id),
+                                processed.original,
+                            )
 
             if self.cooldown_seconds > 0 and detection.get("text") and not detection.get("unreadable"):
                 if self._on_cooldown(detection["text"]):

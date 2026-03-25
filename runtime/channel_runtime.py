@@ -354,6 +354,7 @@ class ChannelProcessor:
             from anpr.pipeline.factory import build_components
             from anpr.detection.motion_detector import MotionDetector, MotionDetectorConfig
 
+            channel_name = channel.get("name", f"Канал {channel_id}")
             pipeline, detector = build_components(
                 best_shots=int(channel.get("best_shots", 3)),
                 cooldown_seconds=int(channel.get("cooldown_seconds", 5)),
@@ -365,6 +366,8 @@ class ChannelProcessor:
                 max_plate_size=channel.get("max_plate_size"),
                 size_filter_enabled=bool(channel.get("size_filter_enabled", True)),
                 max_ocr_attempts=int(channel.get("max_ocr_attempts", 15)),
+                channel_id=channel_id,
+                channel_name=channel_name,
             )
             detection_mode_raw = str(channel.get("detection_mode", "always")).strip().lower()
             if detection_mode_raw not in {"always", "motion"}:
