@@ -78,7 +78,6 @@ def storage_defaults() -> Dict[str, Any]:
         "events_retention_days": 30,
         "media_retention_days": 14,
         "max_screenshots_mb": 4096,
-        "export_dir": "data/exports",
     }
 
 
@@ -148,6 +147,7 @@ def channel_defaults(tracking: Dict[str, Any]) -> Dict[str, Any]:
         "best_shots": int(tracking.get("best_shots", 3)),
         "cooldown_seconds": int(tracking.get("cooldown_seconds", 5)),
         "ocr_min_confidence": float(tracking.get("ocr_min_confidence", 0.6)),
+        "max_ocr_attempts": int(tracking.get("max_ocr_attempts", 15)),
         "direction": dict(tracking.get("direction", direction_defaults())),
         "roi_enabled": True,
         "region": {"unit": "px", "points": [point.copy() for point in DEFAULT_ROI_POINTS]},
@@ -186,6 +186,7 @@ def build_default_settings() -> Dict[str, Any]:
             "best_shots": 3,
             "cooldown_seconds": 5,
             "ocr_min_confidence": 0.6,
+            "max_ocr_attempts": 15,
             "direction": direction_defaults(),
         },
         "plates": plate_defaults(),

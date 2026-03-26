@@ -5,12 +5,12 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
+import cv2
 import numpy as np
 
 import torch
 import torch.ao.quantization.quantize_fx as quantize_fx
 from torch.ao.quantization import QConfigMapping
-from torchvision import transforms
 
 from anpr.recognition.crnn import CRNN
 from common.logging import get_logger
@@ -38,15 +38,8 @@ class CRNNRecognizer:
             target_device = torch.device("cpu")
 
         self.device = target_device
-        self.transform = transforms.Compose(
-            [
-                transforms.ToPILImage(),
-                transforms.Grayscale(),
-                transforms.Resize((ocr_height, ocr_width)),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.5], std=[0.5]),
-            ]
-        )
+        self._ocr_height = ocr_height
+        self._ocr_width = ocr_width
         self.int_to_char: Dict[int, str] = {i + 1: char for i, char in enumerate(ocr_alphabet)}
         self.int_to_char[0] = ""
 
@@ -62,6 +55,18 @@ class CRNNRecognizer:
         self.model = model_quantized.to(self.device)
         logger.info("Распознаватель OCR (INT8) успешно загружен (model=%s, device=%s)", model_path, self.device)
 
+    def _preprocess(self, img: np.ndarray) -> torch.Tensor:
+        if img.ndim == 3 and img.shape[2] == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        elif img.ndim == 3 and img.shape[2] == 1:
+            gray = img[:, :, 0]
+        else:
+            gray = img
+        resized = cv2.resize(gray, (self._ocr_width, self._ocr_height), interpolation=cv2.INTER_LINEAR)
+        tensor = torch.from_numpy(resized).float().unsqueeze(0) / 255.0
+        tensor = (tensor - 0.5) / 0.5
+        return tensor
+
     @torch.no_grad()
     def recognize_batch(self, plate_images: List[np.ndarray]) -> List[Tuple[str, float]]:
         """Распознаёт батч изображений номерных знаков."""
@@ -69,7 +74,7 @@ class CRNNRecognizer:
         if not plate_images:
             return []
 
-        batch = torch.stack([self.transform(img) for img in plate_images]).to(self.device)
+        batch = torch.stack([self._preprocess(img) for img in plate_images]).to(self.device)
         preds = self.model(batch)
         return self._decode_batch(preds)
 

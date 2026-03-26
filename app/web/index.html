@@ -96,7 +96,7 @@
               <div class="video-grid" id="videoGrid"></div>
               <div class="obs-debug-panel" id="obsDebugPanel" data-collapsed="0">
                 <div class="panel-header obs-debug-header">
-                  <span>Debug логи</span>
+                  <span>Логи</span>
                   <button class="btn btn-ghost" id="toggleDebugPanelBtn">Свернуть</button>
                 </div>
                 <div class="log-output obs-log-output" id="debugLog"></div>
@@ -222,7 +222,12 @@
             <img class="ui-icon ui-icon-sm" src="/web/assets/icons/controllers.svg" alt="" />
             Контроллеры
           </div>
-        
+
+          <div class="snav-item" data-sp="sysdata">
+            <img class="ui-icon ui-icon-sm" src="/web/assets/icons/sysdata.svg" alt="" />
+            Системные данные
+          </div>
+
           <div class="snav-label">Разработка</div>
         
           <div class="snav-item" data-sp="debug">
@@ -232,12 +237,14 @@
         </div>
         <div class="settings-content">
           <div class="settings-pane active" id="sp-general">
+            <!-- Интерфейс -->
             <div class="s-card">
-              <div class="s-card-header">Общие настройки</div>
+              <div class="s-card-header">Интерфейс</div>
               <div class="s-card-body">
                 <div class="s-row">
                   <div class="s-row-label">
-                    <div class="s-row-name">Сетка</div>
+                    <button class="param-help-btn" data-help="g_grid">?</button>
+                    <div class="s-row-name">Сетка превью</div>
                   </div>
                   <select class="s-input" id="g_grid">
                     <option>1x1</option>
@@ -248,85 +255,197 @@
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
-                    <div class="s-row-name">Тема</div>
+                    <button class="param-help-btn" data-help="g_theme">?</button>
+                    <div class="s-row-name">Тема оформления</div>
                   </div>
                   <select class="s-input" id="g_theme">
-                    <option value="dark">dark</option>
-                    <option value="light">light</option>
+                    <option value="dark">Тёмная</option>
+                    <option value="light">Светлая</option>
                   </select>
                 </div>
               </div>
             </div>
+
+            <!-- Переподключение -->
             <div class="s-card">
               <div class="s-card-header">Переподключение</div>
               <div class="s-card-body">
                 <div class="s-row">
                   <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_sl_enabled">?</button>
                     <div class="s-row-name">Контроль потери сигнала</div>
                   </div>
                   <input type="checkbox" id="g_sl_enabled" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_frame_timeout">?</button>
                     <div class="s-row-name">Таймаут кадра (сек)</div>
                   </div>
                   <input class="s-input sm" id="g_frame_timeout" type="number" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_retry_interval">?</button>
                     <div class="s-row-name">Интервал повтора (сек)</div>
                   </div>
                   <input class="s-input sm" id="g_retry_interval" type="number" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_periodic_enabled">?</button>
                     <div class="s-row-name">Периодическое переподключение</div>
                   </div>
                   <input type="checkbox" id="g_periodic_enabled" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_periodic_minutes">?</button>
                     <div class="s-row-name">Период (мин)</div>
                   </div>
                   <input class="s-input sm" id="g_periodic_minutes" type="number" />
                 </div>
               </div>
             </div>
+
+            <!-- Скриншоты и медиа -->
             <div class="s-card">
-              <div class="s-card-header">Хранилище</div>
+              <div class="s-card-header">Скриншоты и медиа</div>
               <div class="s-card-body">
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Каталог скриншотов</div></div><input class="s-input wide" id="g_screenshots_dir" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Каталог логов</div></div><input class="s-input wide" id="g_logs_dir" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Автоочистка</div></div><input type="checkbox" id="g_auto_cleanup" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Интервал очистки (мин)</div></div><input class="s-input sm" id="g_cleanup_minutes" type="number" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Хранить события (дней)</div></div><input class="s-input sm" id="g_events_retention" type="number" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Хранить медиа (дней)</div></div><input class="s-input sm" id="g_media_retention" type="number" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Лимит скриншотов (МБ)</div></div><input class="s-input sm" id="g_max_screenshots" type="number" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Каталог экспорта</div></div><input class="s-input wide" id="g_export_dir" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">PostgreSQL DSN</div></div><input class="s-input wide" id="g_postgres_dsn" /></div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_max_screenshots">?</button>
+                    <div class="s-row-name">Лимит хранения (МБ)</div>
+                  </div>
+                  <input class="s-input sm" id="g_max_screenshots" type="number" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_media_retention">?</button>
+                    <div class="s-row-name">Хранить медиа (дней)</div>
+                  </div>
+                  <input class="s-input sm" id="g_media_retention" type="number" />
+                </div>
               </div>
             </div>
+
+            <!-- Логи -->
             <div class="s-card">
               <div class="s-card-header">Логи</div>
               <div class="s-card-body">
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Уровень логов</div></div><select class="s-input" id="g_log_level"><option>ALL</option><option>DEBUG</option><option>INFO</option><option>WARNING</option><option>ERROR</option><option>CRITICAL</option></select></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Хранить логи (дней)</div></div><input class="s-input sm" id="g_log_retention" type="number" /></div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_log_level">?</button>
+                    <div class="s-row-name">Уровень логирования</div>
+                  </div>
+                  <select class="s-input" id="g_log_level">
+                    <option>ALL</option><option>DEBUG</option><option>INFO</option>
+                    <option>WARNING</option><option>ERROR</option><option>CRITICAL</option>
+                  </select>
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_log_retention">?</button>
+                    <div class="s-row-name">Хранить логи (дней)</div>
+                  </div>
+                  <input class="s-input sm" id="g_log_retention" type="number" />
+                </div>
               </div>
             </div>
+
+            <!-- Автоочистка данных -->
             <div class="s-card">
-              <div class="s-card-header">Время</div>
+              <div class="s-card-header">Автоочистка данных</div>
               <div class="s-card-body">
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Часовой пояс</div></div><input class="s-input" id="g_timezone" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Смещение (мин)</div></div><input class="s-input sm" id="g_offset_minutes" type="number" /></div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_auto_cleanup">?</button>
+                    <div class="s-row-name">Автоматическая очистка</div>
+                  </div>
+                  <input type="checkbox" id="g_auto_cleanup" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_cleanup_minutes">?</button>
+                    <div class="s-row-name">Интервал проверки (мин)</div>
+                  </div>
+                  <input class="s-input sm" id="g_cleanup_minutes" type="number" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_events_retention">?</button>
+                    <div class="s-row-name">Хранить события (дней)</div>
+                  </div>
+                  <input class="s-input sm" id="g_events_retention" type="number" />
+                </div>
               </div>
             </div>
+
+            <!-- Hidden: keeps saveGeneral() payload intact -->
+            <input type="hidden" id="g_postgres_dsn" />
+
+            <!-- Отображение времени -->
             <div class="s-card">
-              <div class="s-card-header">Номера</div>
+              <div class="s-card-header">Отображение времени</div>
               <div class="s-card-body">
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Каталог конфигов номеров</div></div><input class="s-input wide" id="g_plates_dir" /></div>
-                <div class="s-row"><div class="s-row-label"><div class="s-row-name">Страны (через запятую)</div></div><input class="s-input wide" id="g_countries" /></div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_timezone">?</button>
+                    <div class="s-row-name">Часовой пояс</div>
+                  </div>
+                  <select class="s-input" id="g_timezone">
+                    <option value="UTC-12:00">UTC−12:00</option>
+                    <option value="UTC-11:00">UTC−11:00</option>
+                    <option value="UTC-10:00">UTC−10:00</option>
+                    <option value="UTC-09:00">UTC−09:00</option>
+                    <option value="UTC-08:00">UTC−08:00</option>
+                    <option value="UTC-07:00">UTC−07:00</option>
+                    <option value="UTC-06:00">UTC−06:00</option>
+                    <option value="UTC-05:00">UTC−05:00</option>
+                    <option value="UTC-04:00">UTC−04:00</option>
+                    <option value="UTC-03:00">UTC−03:00</option>
+                    <option value="UTC-02:00">UTC−02:00</option>
+                    <option value="UTC-01:00">UTC−01:00</option>
+                    <option value="UTC+00:00">UTC+00:00</option>
+                    <option value="UTC+01:00">UTC+01:00</option>
+                    <option value="UTC+02:00">UTC+02:00</option>
+                    <option value="UTC+03:00">UTC+03:00</option>
+                    <option value="UTC+04:00">UTC+04:00</option>
+                    <option value="UTC+05:00">UTC+05:00</option>
+                    <option value="UTC+05:30">UTC+05:30</option>
+                    <option value="UTC+06:00">UTC+06:00</option>
+                    <option value="UTC+07:00">UTC+07:00</option>
+                    <option value="UTC+08:00">UTC+08:00</option>
+                    <option value="UTC+09:00">UTC+09:00</option>
+                    <option value="UTC+10:00">UTC+10:00</option>
+                    <option value="UTC+11:00">UTC+11:00</option>
+                    <option value="UTC+12:00">UTC+12:00</option>
+                  </select>
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_offset_minutes">?</button>
+                    <div class="s-row-name">Дополнительное смещение (мин)</div>
+                  </div>
+                  <input class="s-input sm" id="g_offset_minutes" type="number" />
+                </div>
               </div>
             </div>
+
+            <!-- Номера -->
+            <div class="s-card">
+              <div class="s-card-header">Распознавание номеров</div>
+              <div class="s-card-body">
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_countries">?</button>
+                    <div class="s-row-name">Страны (через запятую)</div>
+                  </div>
+                  <input class="s-input wide" id="g_countries" />
+                </div>
+              </div>
+            </div>
+
             <button class="btn btn-primary" id="saveGeneralBtn">
               Сохранить настройки
             </button>
@@ -355,8 +474,8 @@
                     data-ch-tab="channel"
                   >
                     Канал</button
-                  ><button class="btn btn-ghost ch-tab" data-ch-tab="roi">
-                    ROI</button
+                  ><button class="btn btn-ghost ch-tab" data-ch-tab="vision">
+                    Зона и размер</button
                   ><button class="btn btn-ghost ch-tab" data-ch-tab="ocr">
                     OCR</button
                   ><button class="btn btn-ghost ch-tab" data-ch-tab="plates">
@@ -372,18 +491,21 @@
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="name">?</button>
                         <div class="s-row-name">Название</div>
                       </div>
                       <input class="s-input" id="c_name" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="source">?</button>
                         <div class="s-row-name">Источник / RTSP</div>
                       </div>
                       <input class="s-input wide" id="c_source" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="list_filter_mode">?</button>
                         <div class="s-row-name">Режим фильтра списков</div>
                       </div>
                       <select class="s-input" id="c_list_filter_mode">
@@ -394,6 +516,7 @@
                     </div>
                     <div class="s-row" id="c_custom_lists_block" style="display: none">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="list_filter_list_ids">?</button>
                         <div class="s-row-name">Выбрать списки</div>
                       </div>
                       <div class="custom-lists-container" id="c_list_ids_select"></div>
@@ -413,6 +536,7 @@
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="detection_mode">?</button>
                         <div class="s-row-name">Режим обнаружения ТС</div>
                       </div>
                       <select class="s-input" id="c_detection_mode">
@@ -422,6 +546,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="motion_threshold">?</button>
                         <div class="s-row-name">Порог движения</div>
                       </div>
                       <input
@@ -433,6 +558,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="motion_frame_stride">?</button>
                         <div class="s-row-name">Частота анализа (кадр)</div>
                       </div>
                       <input
@@ -443,6 +569,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="motion_activation_frames">?</button>
                         <div class="s-row-name">Мин. кадров с движением</div>
                       </div>
                       <input
@@ -453,6 +580,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="motion_release_frames">?</button>
                         <div class="s-row-name">Мин. кадров без движения</div>
                       </div>
                       <input
@@ -472,6 +600,7 @@
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="detector_frame_stride">?</button>
                         <div class="s-row-name">Шаг инференса (кадр)</div>
                       </div>
                       <input
@@ -480,31 +609,73 @@
                         type="number"
                       />
                     </div>
-                    <div class="s-row">
-                      <div class="s-row-label">
-                        <div class="s-row-name">Фильтрация размеров</div>
+                  </div>
+                </div>
+                <div
+                  class="ch-group"
+                  id="ch-group-vision"
+                  style="display: none"
+                >
+                  <div class="vision-layout">
+                    <div class="vision-left">
+                      <div class="s-card">
+                        <div class="s-card-header">Размер номерной рамки</div>
+                        <div class="s-card-body">
+                          <div class="s-row">
+                            <div class="s-row-label">
+                              <button class="param-help-btn" data-help="size_filter_enabled">?</button>
+                              <div class="s-row-name">Фильтрация размеров</div>
+                            </div>
+                            <input type="checkbox" id="c_size_filter" />
+                          </div>
+                          <div class="s-row">
+                            <div class="s-row-label">
+                              <button class="param-help-btn" data-help="min_plate_size">?</button>
+                              <div class="s-row-name">Мин. размер рамки (ш,в)</div>
+                            </div>
+                            <input class="s-input sm" id="c_min_w" type="number" min="1" /><input class="s-input sm" id="c_min_h" type="number" min="1" />
+                          </div>
+                          <div class="s-row">
+                            <div class="s-row-label">
+                              <button class="param-help-btn" data-help="max_plate_size">?</button>
+                              <div class="s-row-name">Макс. размер рамки (ш,в)</div>
+                            </div>
+                            <input class="s-input sm" id="c_max_w" type="number" min="1" /><input class="s-input sm" id="c_max_h" type="number" min="1" />
+                          </div>
+                          <div class="form-actions">
+                            <button class="btn btn-ghost btn-sm" id="plateSizeResetBtn">Сбросить размеры</button>
+                          </div>
+                          <div class="roi-hint">
+                            ЛКМ внутри рамки: перетащить. Тяните за края/углы для изменения размера.
+                          </div>
+                        </div>
                       </div>
-                      <input type="checkbox" id="c_size_filter" />
+                      <div class="s-card">
+                        <div class="s-card-header">Зона распознавания</div>
+                        <div class="s-card-body">
+                          <div class="s-row">
+                            <div class="s-row-label">
+                              <button class="param-help-btn" data-help="roi_enabled">?</button>
+                              <div class="s-row-name">Использование ROI</div>
+                            </div>
+                            <input type="checkbox" id="c_roi_enabled" />
+                          </div>
+                          <div id="roiPointsList" class="roi-points-list"></div>
+                          <div class="form-actions">
+                            <button class="btn btn-ghost btn-sm" id="roiClearBtn">Очистить ROI</button>
+                          </div>
+                          <div class="roi-hint">
+                            ЛКМ по линии: добавить точку. ЛКМ по точке: перетащить.
+                            ПКМ по точке: удалить.
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div class="s-row">
-                      <div class="s-row-label">
-                        <div class="s-row-name">Мин. размер рамки (ш,в)</div>
+                    <div class="vision-right">
+                      <canvas id="roiCanvas" width="640" height="360"></canvas>
+                      <div class="form-actions">
+                        <button class="btn btn-ghost" id="roiRefreshBtn">Обновить кадр</button>
                       </div>
-                      <input
-                        class="s-input sm"
-                        id="c_min_w"
-                        type="number"
-                      /><input class="s-input sm" id="c_min_h" type="number" />
-                    </div>
-                    <div class="s-row">
-                      <div class="s-row-label">
-                        <div class="s-row-name">Макс. размер рамки (ш,в)</div>
-                      </div>
-                      <input
-                        class="s-input sm"
-                        id="c_max_w"
-                        type="number"
-                      /><input class="s-input sm" id="c_max_h" type="number" />
                     </div>
                   </div>
                 </div>
@@ -517,6 +688,7 @@
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="best_shots">?</button>
                         <div class="s-row-name">Бестшоты на трек</div>
                       </div>
                       <input
@@ -527,12 +699,14 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="cooldown_seconds">?</button>
                         <div class="s-row-name">Пауза повтора (сек)</div>
                       </div>
                       <input class="s-input sm" id="c_cooldown" type="number" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="ocr_min_confidence">?</button>
                         <div class="s-row-name">Мин. уверенность OCR</div>
                       </div>
                       <input
@@ -542,39 +716,18 @@
                         step="0.01"
                       />
                     </div>
-                  </div>
-                </div>
-                <div
-                  class="s-card ch-group"
-                  id="ch-group-roi"
-                  style="display: none"
-                >
-                  <div class="s-card-header">Зона распознавания</div>
-                  <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
-                        <div class="s-row-name">Использование ROI</div>
+                        <button class="param-help-btn" data-help="max_ocr_attempts">?</button>
+                        <div class="s-row-name">Макс. OCR попыток на трек</div>
                       </div>
-                      <input type="checkbox" id="c_roi_enabled" />
-                    </div>
-                    <canvas id="roiCanvas" width="640" height="360"></canvas>
-                    <div class="form-actions">
-                      <button class="btn btn-ghost" id="roiRefreshBtn">Обновить кадр</button>
-                      <button class="btn btn-ghost" id="roiClearBtn">Очистить ROI</button>
-                    </div>
-                    <div class="roi-hint">
-                      ЛКМ по линии ROI: добавить точку, ЛКМ по точке: перетащить.
-                      ПКМ по точке: удалить. Область всегда замкнутая.
-                    </div>
-                    <div class="s-row">
-                      <div class="s-row-label">
-                        <div class="s-row-name">Точки ROI (JSON)</div>
-                      </div>
-                      <textarea
-                        class="s-input wide"
-                        id="c_roi_points"
-                        style="height: 74px"
-                      ></textarea>
+                      <input
+                        class="s-input sm"
+                        id="c_max_ocr_attempts"
+                        type="number"
+                        min="1"
+                        max="200"
+                      />
                     </div>
                   </div>
                 </div>
@@ -587,12 +740,14 @@
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="controller_id">?</button>
                         <div class="s-row-name">Контроллер</div>
                       </div>
                       <select class="s-input" id="c_controller_id"></select>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="controller_relay">?</button>
                         <div class="s-row-name">Реле</div>
                       </div>
                       <select class="s-input sm" id="c_controller_relay">
@@ -726,6 +881,40 @@
               </div>
               <div class="empty-pane" id="controllerConfigEmpty">
                 Выберите контроллер в списке или создайте новый.
+              </div>
+            </div>
+          </div>
+          <div class="settings-pane" id="sp-sysdata">
+            <div class="s-card">
+              <div class="s-card-header">База данных</div>
+              <div class="s-card-body">
+                <div class="sysdata-actions">
+                  <button class="btn btn-ghost backup-btn" id="dbBackupBtn">
+                    <img class="backup-icon" src="/web/assets/icons/export.svg" alt="" width="16" height="16" />
+                    Экспорт БД
+                  </button>
+                  <button class="btn btn-ghost backup-btn" id="dbRestoreBtn">
+                    <img class="backup-icon" src="/web/assets/icons/import.svg" alt="" width="16" height="16" />
+                    Импорт БД
+                  </button>
+                  <input type="file" id="dbRestoreFileInput" accept=".zip" style="display:none" />
+                </div>
+              </div>
+            </div>
+            <div class="s-card">
+              <div class="s-card-header">Конфигурация</div>
+              <div class="s-card-body">
+                <div class="sysdata-actions">
+                  <button class="btn btn-ghost backup-btn" id="settingsBackupBtn">
+                    <img class="backup-icon" src="/web/assets/icons/export.svg" alt="" width="16" height="16" />
+                    Экспорт настроек
+                  </button>
+                  <button class="btn btn-ghost backup-btn" id="settingsRestoreBtn">
+                    <img class="backup-icon" src="/web/assets/icons/import.svg" alt="" width="16" height="16" />
+                    Импорт настроек
+                  </button>
+                  <input type="file" id="settingsRestoreFileInput" accept=".yaml,.yml" style="display:none" />
+                </div>
               </div>
             </div>
           </div>
@@ -964,6 +1153,59 @@
         <div class="app-modal-footer">
           <button class="btn btn-ghost" id="deleteControllerCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteControllerConfirm">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DB Restore Confirmation Modal -->
+    <div class="app-modal" id="dbRestoreModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Восстановление базы данных</span>
+          <button class="btn btn-ghost btn-sm" id="dbRestoreModalClose">✕</button>
+        </div>
+        <div class="app-modal-body">
+          <p class="modal-confirm-text">
+            Вы собираетесь восстановить базу данных из файла <strong id="dbRestoreFileName"></strong>.
+          </p>
+          <p class="modal-confirm-text modal-warning-text">
+            ⚠ Текущая база данных будет <strong>полностью перезаписана</strong>. Все существующие записи будут удалены и заменены данными из бэкапа.
+          </p>
+          <p class="modal-confirm-text modal-warning-text">
+            ⚠ Это действие <strong>необратимо</strong>. Рекомендуется предварительно скачать текущий бэкап.
+          </p>
+          <p class="modal-confirm-text modal-warning-text">
+            ⚠ После успешного восстановления приложение будет <strong>перезапущено</strong>.
+          </p>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="dbRestoreCancel">Отменить</button>
+          <button class="btn btn-danger" id="dbRestoreConfirm">Восстановить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Restore Confirmation Modal -->
+    <div class="app-modal" id="settingsRestoreModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Восстановление настроек</span>
+          <button class="btn btn-ghost btn-sm" id="settingsRestoreModalClose">✕</button>
+        </div>
+        <div class="app-modal-body">
+          <p class="modal-confirm-text">
+            Вы собираетесь восстановить настройки из файла <strong id="settingsRestoreFileName"></strong>.
+          </p>
+          <p class="modal-confirm-text modal-warning-text">
+            ⚠ Текущий файл настроек будет <strong>полностью перезаписан</strong>.
+          </p>
+          <p class="modal-confirm-text modal-warning-text">
+            ⚠ После восстановления конфигурация приложения будет <strong>полностью перезагружена</strong>. Возможен кратковременный перезапуск обработки каналов.
+          </p>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="settingsRestoreCancel">Отменить</button>
+          <button class="btn btn-danger" id="settingsRestoreConfirm">Восстановить</button>
         </div>
       </div>
     </div>

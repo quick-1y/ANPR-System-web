@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
-from .country_config import CountryConfig, CountryConfigLoader
+from .country_config import CountryConfig, CountryConfigLoader, PlateFormat
 
 
 @dataclass
@@ -17,6 +17,7 @@ class PlatePostprocessResult:
     country: Optional[str]
     is_valid: bool
     format_name: Optional[str] = None
+    plate_display: Optional[str] = None
 
 
 class PlatePostProcessor:
@@ -53,11 +54,24 @@ class PlatePostProcessor:
     def _contains_invalid_sequences(text: str, sequences: List[str]) -> bool:
         return any(seq and seq in text for seq in sequences)
 
-    def _match_country(self, text: str, country: CountryConfig) -> Optional[str]:
+    @staticmethod
+    def _match_format(text: str, country: CountryConfig) -> Optional[PlateFormat]:
         for fmt in country.formats:
             if fmt.pattern.fullmatch(text):
-                return fmt.name
+                return fmt
         return None
+
+    @staticmethod
+    def _format_display(text: str, fmt: PlateFormat) -> Optional[str]:
+        if not fmt.display_format:
+            return None
+        m = fmt.pattern.fullmatch(text)
+        if not m or not m.lastindex:
+            return None
+        try:
+            return fmt.display_format.format(*m.groups())
+        except (IndexError, KeyError):
+            return None
 
     def _check_stop_words(self, text: str, stop_words: List[str]) -> bool:
         return any(text == stop_word for stop_word in stop_words)
@@ -88,8 +102,12 @@ class PlatePostProcessor:
                 if country.valid_letters and not self._valid_characters(candidate, country):
                     continue
 
-                format_name = self._match_country(candidate, country)
-                if format_name:
-                    return PlatePostprocessResult(raw_text, normalized, candidate, country.code, True, format_name)
+                matched_fmt = self._match_format(candidate, country)
+                if matched_fmt:
+                    display = self._format_display(candidate, matched_fmt)
+                    return PlatePostprocessResult(
+                        raw_text, normalized, candidate, country.code, True,
+                        matched_fmt.name, display,
+                    )
 
         return PlatePostprocessResult(raw_text, normalized, "", None, False, None)

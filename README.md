@@ -25,6 +25,7 @@
 - white / black / custom plate lists с фильтрацией событий для автоматической сработки реле;
 - управление аппаратными контроллерами через API (тип DTWONDER2CH);
 - retention / cleanup / CSV / ZIP export через отдельный worker-сервис;
+- backup / restore: полный бэкап PostgreSQL и settings.yaml с валидацией и восстановлением через UI;
 - PostgreSQL — единственный поддерживаемый backend хранения данных.
 
 ---
@@ -201,7 +202,7 @@ flowchart TD
     C --> D["cv2.VideoCapture(source)"]
     D --> E["cap.read() → frame"]
 
-    E --> G["Preview ветка\n~раз в 0.2 с"]
+    E --> G["Preview ветка\nкаждый кадр"]
     G --> H["cv2.imencode('.jpg', frame)"]
     H --> I["latest_jpeg в памяти\nChannelContext"]
     I --> J["GET /api/channels/{id}/snapshot.jpg"]
@@ -234,28 +235,41 @@ flowchart TD
     J -->|Нет| Z
     J -->|Да| K["ANPRPipeline.process_frame(full frame, detections)"]
 
-    K --> L{"Размер номера\nв допустимом диапазоне?"}
-    L -->|Нет| Z
-    L -->|Да| M["TrackDirectionEstimator.update(...)"]
-    M --> N["Кроп bbox из full frame"]
+    K --> L["TrackDirectionEstimator.update(...)"]
+    L --> BUDGET{"should_process(track_id)?\n(бюджет OCR не исчерпан,\nтрек не финализирован)"}
+    BUDGET -->|Нет| UNREAD{"should_emit_unreadable?"}
+    UNREAD -->|Да| UNREAD_EVENT["Один раз: событие «Нечитаемо»"]
+    UNREAD -->|Нет| Z
+
+    BUDGET -->|Да| N["Кроп bbox из full frame"]
     N --> O["PlatePreprocessor.preprocess(...)"]
     O --> P["CRNNRecognizer.recognize_batch(...)"]
 
     P --> Q{"confidence >=\nocr_min_confidence?"}
-    Q -->|Нет| U["Пометить как unreadable"]
-    Q -->|Да| R{"Есть track_id?"}
+    Q -->|Нет| COUNT_EMPTY["Счётчик попыток +1\n(пустой текст в агрегатор)"]
+    Q -->|Да| AGG["TrackAggregator.add_result()\nСчётчик попыток +1\nКандидат в пул"]
 
-    R -->|Да| S["TrackAggregator\nbest shots + quorum + weighted majority"]
-    R -->|Нет| T["Использовать текущий OCR текст"]
+    COUNT_EMPTY --> EXHAUST{"Бюджет исчерпан?"}
+    AGG --> CONSENSUS{"Консенсус достигнут?\n(кворум + weighted majority)"}
+    CONSENSUS -->|Да| FINALIZE["Финализация трека\n→ Emit plate"]
+    CONSENSUS -->|Нет| EXHAUST
 
-    S --> V["PlatePostProcessor.process(...)"]
-    T --> V
+    EXHAUST -->|Нет| Z
+    EXHAUST -->|Да| BEST{"Есть кандидаты?"}
+    BEST -->|Да| BEST_EMIT["Лучший кандидат по весу\n→ Emit plate"]
+    BEST -->|Нет| UNREAD_FINAL["Событие «Нечитаемо»"]
+
+    FINALIZE --> V["PlatePostProcessor.process(...)"]
+    BEST_EMIT --> V
 
     V --> W{"Номер валиден?"}
-    W -->|Нет| Z
+    W -->|Нет| RESET["aggregator.reset(track_id)\n(история очищается,\nсчётчик сохраняется)"]
     W -->|Да| X{"Cooldown прошёл?"}
     X -->|Нет| Z
     X -->|Да| Y["Сформировать событие"]
+    RESET --> EXHAUST2{"Бюджет исчерпан\nпосле reset?"}
+    EXHAUST2 -->|Да| UNREAD_FINAL
+    EXHAUST2 -->|Нет| Z
 ```
 
 ### Алгоритмы ядра
@@ -266,9 +280,105 @@ flowchart TD
 | **MotionDetector** | Абсолютная разность кадров → порог → гистерезис (счётчики активации/деактивации) |
 | **PlatePreprocessor** | CLAHE + морфология → поиск четырёх точек → перспективная коррекция → выравнивание по HoughLines / min-area-rect |
 | **CRNNRecognizer** | INT8-квантованная CRNN (32×128, grayscale); CTC-decode: argmax по шагам, удаление повторов, confidence = exp(mean(max logits)) |
-| **TrackAggregator** | Скользящий буфер (text, confidence) на трек; взвешенное голосование с порогом quorum; TTL-вытеснение |
+| **TrackAggregator** | Скользящий буфер (text, confidence) на трек; взвешенное голосование с порогом quorum; TTL-вытеснение; **бюджет OCR-попыток** (`max_ocr_attempts`); финализация трека при консенсусе или исчерпании бюджета; fallback на лучшего кандидата; одноразовое событие «Нечитаемо» |
 | **TrackDirectionEstimator** | История center_y и площади bbox на трек; APPROACHING = center_y ↓ + area ↑; RECEDING = center_y ↑ + area ↓; confidence = tanh(score) × density |
 | **PlatePostProcessor** | Нормализация (uppercase, Ё→Е, strip) → коррекции по стране → валидация против regex-форматов YAML-конфигов |
+
+### Трек-уровневый алгоритм OCR
+
+Начиная с v0.8, каждый трек имеет **ограниченный бюджет OCR-попыток** (`max_ocr_attempts`, по умолчанию 15). Это радикально снижает нагрузку CPU для долгоживущих треков и предотвращает спам событий.
+
+#### Состояние трека (`_TrackOCRState`)
+
+| Поле | Описание |
+|---|---|
+| `ocr_attempts` | Число выполненных OCR-попыток (включая low-confidence) |
+| `finalized` | Трек финализирован — дальнейший OCR запрещён |
+| `result_emitted` | Был ли эмитирован валидный результат |
+| `unreadable_emitted` | Было ли эмитировано событие «Нечитаемо» |
+
+#### Когда OCR продолжается
+
+`should_process(track_id)` возвращает `True`, пока:
+- трек не финализирован (`finalized == False`);
+- число попыток < `max_ocr_attempts`.
+
+Если `should_process` возвращает `False`, для этого трека **полностью пропускаются**: кроп ROI, предобработка, CRNN-инференс. Это основной путь экономии CPU.
+
+#### Когда трек финализируется
+
+1. **Ранний консенсус** — кворум (≥ `(best_shots + 1) // 2` одинаковых текстов) + weighted majority (≥ 50% суммарного веса). Трек финализируется немедленно.
+2. **Исчерпание бюджета** — `ocr_attempts >= max_ocr_attempts`. Если есть кандидаты — выбирается лучший по весу. Если кандидатов нет — трек помечается как unreadable.
+3. **Постпроцессор отклонил номер** — `reset()` очищает кандидатов, но **сохраняет счётчик попыток**. Если бюджет ещё не исчерпан — трек продолжает обработку. Если исчерпан — финализация.
+
+#### Как выбирается финальный номер
+
+- **При консенсусе**: номер с наибольшим `(суммарный_вес, количество)` среди кандидатов в скользящем буфере.
+- **При исчерпании бюджета**: `_best_candidate()` — тот же алгоритм, но без требования кворума.
+- **Если кандидатов нет**: `should_emit_unreadable()` возвращает `True` ровно один раз → pipeline генерирует одно событие «Нечитаемо».
+
+#### Предотвращение дублирования
+
+- `last_emitted[track_id]` хранит последний эмитированный текст — повторная эмиссия того же номера невозможна.
+- `result_emitted` — флаг, что валидный результат уже был.
+- `unreadable_emitted` — флаг, что событие «Нечитаемо» уже было. `should_emit_unreadable` возвращает `True` только один раз.
+- После финализации `should_process` возвращает `False` — никакой дальнейшей обработки.
+
+#### Три практических сценария
+
+**1. Стабильный распознанный трек**
+
+Номер `А123ВС77` хорошо виден, OCR уверенно распознаёт его.
+
+| Попытка | OCR текст | Confidence | Действие |
+|---|---|---|---|
+| 1 | А123ВС77 | 0.92 | Кандидат добавлен, кворум не достигнут |
+| 2 | А123ВС77 | 0.89 | Кандидат добавлен, кворум не достигнут |
+| 3 | А123ВС77 | 0.91 | **Консенсус**: кворум 3/3, majority 100% → emit `А123ВС77`, финализация |
+| 4+ | — | — | `should_process → False`, OCR не запускается |
+
+**Результат**: 1 событие с номером. CPU-работа прекращается после 3 попыток.
+
+**2. Шумный / конфликтный трек**
+
+Номер частично закрыт, OCR выдаёт разные варианты.
+
+| Попытка | OCR текст | Confidence | Действие |
+|---|---|---|---|
+| 1 | А123ВС77 | 0.82 | Кандидат добавлен |
+| 2 | А1Z3ВС77 | 0.65 | Кандидат добавлен |
+| 3 | А123ВС77 | 0.78 | Кворум для А123ВС77: 2/3, но majority проверяется... |
+| … | (разные) | | Консенсус не достигается |
+| 15 | — | 0.45 | **Бюджет исчерпан**. `_best_candidate` → `А123ВС77` (наибольший суммарный вес) → emit, финализация |
+
+**Результат**: 1 событие с лучшим кандидатом. 15 OCR-попыток, далее CPU не тратится.
+
+**3. Полностью нечитаемый трек**
+
+Номер слишком далеко или засвечен, OCR confidence всегда ниже порога.
+
+| Попытка | OCR текст | Confidence | Действие |
+|---|---|---|---|
+| 1 | (мусор) | 0.35 | Ниже `ocr_min_confidence` → пустой текст, счётчик +1 |
+| 2 | (мусор) | 0.28 | Счётчик +1 |
+| … | | | |
+| 15 | (мусор) | 0.31 | **Бюджет исчерпан**, кандидатов нет → финализация |
+| 16+ | — | — | `should_process → False`, `should_emit_unreadable → True` (один раз) → emit «Нечитаемо» |
+
+**Результат**: 1 событие «Нечитаемо». Без бюджета эта же ситуация генерировала бы событие на каждом кадре.
+
+### Конфигурация `max_ocr_attempts`
+
+| Параметр | Тип | По умолчанию | Диапазон | Расположение |
+|---|---|---|---|---|
+| `max_ocr_attempts` | int | 15 | 1–200 | `config/settings.yaml` → `tracking.max_ocr_attempts` и в каждом канале |
+
+**Взаимодействие с другими параметрами:**
+
+- **`best_shots`** (по умолчанию 3): определяет размер скользящего буфера и кворум. Если `max_ocr_attempts < best_shots`, консенсус невозможен — используется fallback на лучшего кандидата.
+- **`ocr_min_confidence`** (по умолчанию 0.6): результаты ниже порога не попадают в пул кандидатов, но **расходуют бюджет**.
+- **`cooldown_seconds`** (по умолчанию 5): работает после финализации — если тот же номер уже был недавно, событие подавляется.
+- **`detector_frame_stride`**: определяет, как часто вообще запускается детекция. `max_ocr_attempts` считает только кадры, на которых OCR действительно выполнялся.
 
 ---
 
@@ -299,7 +409,7 @@ flowchart TD
    - `reconnect.signal_loss.enabled` — контроль таймаута чтения; при таймауте увеличивается `timeout_count`, выполняется controlled reconnect.
    - `reconnect.periodic.enabled` — принудительный reconnect каждые `interval_minutes` независимо от signal-loss.
    - При каждом reconnect увеличивается `reconnect_count`.
-4. **Preview** — ~раз в 0.2 с кадр кодируется в JPEG и сохраняется в `ChannelContext.latest_jpeg`; отдаётся как snapshot или MJPEG поток.
+4. **Preview** — каждый прочитанный кадр кодируется в JPEG и сохраняется в `ChannelContext.latest_jpeg`; отдаётся как snapshot или MJPEG поток. Отключается через `debug.disable_video_output`.
 5. **Детекция и распознавание** — кадр идёт в `YOLODetector.track()`, затем в `ANPRPipeline.process_frame()`.
 6. **Сохранение события** — валидный номер (с прошедшим cooldown) записывается в PostgreSQL через `EventSink`, затем публикуется в `EventBus` для SSE.
 
@@ -404,9 +514,11 @@ flowchart TD
 | `POST` | `/api/channels` | Создать канал |
 | `PUT` | `/api/channels/{channel_id}` | Обновить канал |
 | `GET` | `/api/channels/last-plates` | Последний распознанный номер по каждому каналу |
+| `GET` | `/api/channels/{channel_id}/config` | Получить конфигурацию канала |
 | `PUT` | `/api/channels/{channel_id}/config` | Обновить базовую конфигурацию |
-| `PUT` | `/api/channels/{channel_id}/ocr` | Обновить OCR-параметры (best_shots, cooldown, confidence) |
+| `PUT` | `/api/channels/{channel_id}/ocr` | Обновить OCR-параметры (best_shots, cooldown, confidence, max_ocr_attempts) |
 | `PUT` | `/api/channels/{channel_id}/filter` | Обновить фильтры размера и plate lists |
+| `DELETE` | `/api/channels/{channel_id}` | Удалить канал |
 | `POST` | `/api/channels/{channel_id}/start` | Запустить поток канала |
 | `POST` | `/api/channels/{channel_id}/stop` | Остановить поток канала |
 | `POST` | `/api/channels/{channel_id}/restart` | Перезапустить поток канала |
@@ -445,6 +557,7 @@ flowchart TD
 | `GET` | `/api/lists/{list_id}/entries` | Записи в списке |
 | `POST` | `/api/lists/{list_id}/entries` | Добавить запись |
 | `PUT` | `/api/lists/{list_id}/entries/{entry_id}` | Обновить запись |
+| `DELETE` | `/api/lists/{list_id}/entries/{entry_id}` | Удалить запись |
 | `GET` | `/api/lists/entry-by-plate` | Найти запись по номеру |
 | `GET` | `/api/lists/plates` | Все номера с типами списков |
 
@@ -453,7 +566,7 @@ flowchart TD
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/api/settings` | Все глобальные настройки |
-| `PUT` | `/api/settings` | Обновить настройки (изменение plate config / DSN / screenshots_dir перезапускает pipeline) |
+| `PUT` | `/api/settings` | Обновить настройки (изменение параметров распознавания номеров и DSN перезапускает pipeline) |
 
 ### Data & Export
 
@@ -464,6 +577,10 @@ flowchart TD
 | `POST` | `/api/data/retention/run` | Запустить retention cycle вручную |
 | `GET` | `/api/data/export/events.csv` | Экспорт событий в CSV |
 | `POST` | `/api/data/export/bundle` | Экспорт событий в ZIP (с медиа по выбору) |
+| `GET` | `/api/data/backup/database` | Скачать бэкап базы данных (ZIP с JSON-дампом и манифестом) |
+| `POST` | `/api/data/backup/database/restore` | Восстановить БД из бэкапа (multipart upload). Полностью перезаписывает текущие данные, затем перезапускает приложение |
+| `GET` | `/api/data/backup/settings` | Скачать текущий settings.yaml |
+| `POST` | `/api/data/backup/settings/restore` | Восстановить settings.yaml из файла (multipart upload). Валидирует, нормализует и атомарно сохраняет настройки, перезапускает pipeline |
 
 ### System & Telemetry
 
@@ -654,7 +771,7 @@ ANPR-System-v0.8_web/
 
 | Таблица | Поля |
 |---|---|
-| `events` | `id`, `timestamp`, `channel_id`, `channel`, `plate`, `country`, `confidence`, `source`, `frame_path`, `plate_path`, `direction` |
+| `events` | `id`, `timestamp`, `channel_id`, `channel`, `plate`, `plate_display`, `country`, `confidence`, `source`, `frame_path`, `plate_path`, `direction` |
 | `plate_lists` | `id`, `name`, `type` |
 | `plate_list_entries` | `id`, `list_id`, `plate`, `plate_normalized`, `comment` |
 
@@ -663,7 +780,7 @@ ANPR-System-v0.8_web/
 ### Медиа и экспорт
 
 - Медиа сохраняются в `storage.screenshots_dir`.
-- CSV-экспорт создаётся в `storage.export_dir`.
+- CSV/ZIP-экспорт формируется сервером в памяти и отдаётся в браузер как файл для скачивания.(TODO, если будут проблемы с RAM, изменить метод сохранения перед экспортом на что то вроде "_export_dir = /tmp/anpr_exports")
 - Bundle export упаковывает CSV и доступные медиафайлы в ZIP.
 
 ---
@@ -676,10 +793,10 @@ ANPR-System-v0.8_web/
 | Detection | YOLOv8 (Ultralytics 8.3.20) |
 | OCR | CRNN (INT8 quantized) |
 | Video I/O | OpenCV |
-| ML runtime | PyTorch 2.8.0, torchvision 0.23.0, torchaudio 2.8.0 (CPU wheel) |
+| ML runtime | PyTorch 2.8.0, torchvision 0.23.0 (CPU wheel) |
 | Live updates | SSE (`text/event-stream`) |
 | Preview | MJPEG (`multipart/x-mixed-replace`) |
-| Storage | PostgreSQL 16 (psycopg driver) |
+| Storage | PostgreSQL 16 (psycopg + psycopg_pool) |
 | Config | YAML (PyYAML) |
 | Reverse proxy | Nginx |
 | Containerization | Docker, Docker Compose |

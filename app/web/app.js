@@ -133,6 +133,7 @@ function updateTopbarTitle() {
     general: "Общие",
     channels: "Каналы",
     controllers: "Контроллеры",
+    sysdata: "Системные данные",
     debug: "Debug",
   };
   const activeTab = getActiveTabName();
@@ -154,6 +155,9 @@ function switchChannelSettingsTab(name) {
   if (active) {
     active.style.display = "block";
   }
+  if (name === "vision") {
+    refreshPreviewSnapshot();
+  }
 }
 
 function syncChannelConfigVisibility() {
@@ -173,6 +177,12 @@ function syncControllerConfigVisibility() {
 }
 
 
+function loadBarColor(pct) {
+  if (pct < 50) return "#2ecc71";
+  if (pct < 80) return "#f5a623";
+  return "#e74c3c";
+}
+
 async function refreshSystemResources() {
   try {
     const resources = await jfetch(api("/api/system/resources"));
@@ -184,8 +194,8 @@ async function refreshSystemResources() {
     const ramBar = document.getElementById("ramBar");
     if (cpuStat) cpuStat.textContent = `${cpu}%`;
     if (ramStat) ramStat.textContent = `${ram}%`;
-    if (cpuBar) cpuBar.style.width = `${cpu}%`;
-    if (ramBar) ramBar.style.width = `${ram}%`;
+    if (cpuBar) { cpuBar.style.width = `${cpu}%`; cpuBar.style.background = loadBarColor(cpu); }
+    if (ramBar) { ramBar.style.width = `${ram}%`; ramBar.style.background = loadBarColor(ram); }
   } catch (_e) {}
 }
 
@@ -375,6 +385,17 @@ function refreshVideoCellOverlayState(cell, ch) {
   setNoSignalVisibility(cell, !hasPreviewSignal, statusText);
   applyMotionHighlight(cell, ch);
   renderDebugOverlay(cell, ch);
+}
+
+function syncOverlayPolling() {
+  const shouldPoll = Boolean((debugSettingsCache || {}).show_channel_metrics);
+  if (shouldPoll && !overlayRefreshTimer) {
+    refreshOverlayStates();
+    overlayRefreshTimer = setInterval(refreshOverlayStates, 700);
+  } else if (!shouldPoll && overlayRefreshTimer) {
+    clearInterval(overlayRefreshTimer);
+    overlayRefreshTimer = null;
+  }
 }
 
 async function refreshOverlayStates() {
@@ -705,7 +726,8 @@ function updateChannelLastPlate(channelId, plateData) {
   if (!Number.isFinite(id) || id <= 0) return;
   const plateNode = document.getElementById(`plate-${id}`);
   if (!plateNode) return;
-  const plateText = String((plateData || {}).plate || "").trim();
+  const pd = plateData || {};
+  const plateText = String(pd.plate_display || pd.plate || "").trim();
   const wasVisible = plateNode.style.display === "block";
   const prevText = plateNode.textContent;
   if (plateText) {
@@ -728,6 +750,7 @@ function applyLastPlate(ev) {
   if (!channelId) return;
   const payload = {
     plate: ev.plate || "",
+    plate_display: ev.plate_display || null,
     timestamp: ev.timestamp || null,
     country: ev.country || null,
     confidence: ev.confidence ?? null,
@@ -769,7 +792,8 @@ function renderEventFeed(forceRebuild = false) {
     div.dataset.evKey = key;
     div.setAttribute("role", "button");
     div.setAttribute("tabindex", "0");
-    div.innerHTML = `${flagHtml(item.country)}<div class='ev-row-top'><span class='ev-plate'>${item.plate || "—"}</span><span class='ev-direction badge ${direction.badgeClass}'>${direction.label}</span></div><div class='ev-row-bottom'><span class='ev-meta-channel'>${channelName}</span><span class='ev-meta-time'>${timeStr}</span><span class='ev-conf ${conf < 0.85 ? "warn" : ""}'>${conf.toFixed(2)}</span></div>`;
+    const displayPlate = item.plate_display || item.plate || "—";
+    div.innerHTML = `${flagHtml(item.country)}<div class='ev-row-top'><span class='ev-plate'>${displayPlate}</span><span class='ev-direction badge ${direction.badgeClass}'>${direction.label}</span></div><div class='ev-row-bottom'><span class='ev-meta-channel'>${channelName}</span><span class='ev-meta-time'>${timeStr}</span><span class='ev-conf ${conf < 0.85 ? "warn" : ""}'>${conf.toFixed(2)}</span></div>`;
     div.onclick = () => openEventDetails(item);
     div.onkeydown = (e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEventDetails(item); }
@@ -828,10 +852,6 @@ function pushEvent(ev) {
     const row = makeJournalRow(ev);
     body.insertBefore(row, body.firstChild);
   }
-  addDebug(
-    `[INFO] event: ${ev.plate || "-"} conf=${Number(ev.confidence || 0).toFixed(2)}`,
-    "ok",
-  );
 }
 async function loadEventFeedHistory() {
   const data = await jfetch(api("/api/events?limit=50"));
@@ -892,7 +912,6 @@ async function fetchJournalPage() {
     appendJournalRows(items);
     updateJournalSentinel();
   } catch (err) {
-    addDebug(`[WARN] loadJournal: ${err.message}`, "warn");
   } finally {
     journalState.loading = false;
   }
@@ -914,7 +933,7 @@ function makeJournalRow(ev) {
     `<td class="col-channel">${ev.channel || `CAM-${ev.channel_id || ""}`}</td>` +
     `<td class="col-country">${flagHtml(ev.country)} ${ev.country || ""}</td>` +
     `<td class="col-dir"><span class="badge ${direction.badgeClass}">${direction.label}</span></td>` +
-    `<td class="col-plate plate-cell">${ev.plate || ""}</td>` +
+    `<td class="col-plate plate-cell">${ev.plate_display || ev.plate || ""}</td>` +
     `<td class="col-conf conf-cell" style="color:${conf < 0.85 ? "var(--warning)" : "var(--success)"}">${conf.toFixed(2)}</td>` +
     `<td class="col-source" title="${srcText.replace(/"/g, "&quot;")}">${srcText}</td>`;
   tr.onclick = () => openEventDetails(ev);
@@ -1128,7 +1147,13 @@ let roiPoints = [];
 let currentChannelCustomListIds = [];
 const hotkeyMap = new Map();
 let roiDrag = -1;
-let roiBgImage = null;
+let previewBgImage = null;
+
+let plateSizeBoxes = {
+  min: { x: 200, y: 130, width: 80, height: 20 },
+  max: { x: 100, y: 60, width: 600, height: 240 },
+};
+let plateSizeDrag = null;
 
 function val(id) {
   return document.getElementById(id).value;
@@ -1164,20 +1189,16 @@ async function loadGlobalSettings() {
   setVal("g_retry_interval", g.reconnect.signal_loss.retry_interval_seconds);
   setChk("g_periodic_enabled", g.reconnect.periodic.enabled);
   setVal("g_periodic_minutes", g.reconnect.periodic.interval_minutes);
-  setVal("g_screenshots_dir", g.storage.screenshots_dir);
-  setVal("g_logs_dir", g.storage.logs_dir);
   setChk("g_auto_cleanup", g.storage.auto_cleanup_enabled);
   setVal("g_cleanup_minutes", g.storage.cleanup_interval_minutes);
   setVal("g_events_retention", g.storage.events_retention_days);
   setVal("g_media_retention", g.storage.media_retention_days);
   setVal("g_max_screenshots", g.storage.max_screenshots_mb);
-  setVal("g_export_dir", g.storage.export_dir);
   setVal("g_postgres_dsn", g.storage.postgres_dsn);
   setVal("g_log_level", g.logging.level);
   setVal("g_log_retention", g.logging.retention_days);
   setVal("g_timezone", g.time.timezone);
   setVal("g_offset_minutes", g.time.offset_minutes);
-  setVal("g_plates_dir", g.plates.config_dir);
   setVal("g_countries", (g.plates.enabled_countries || []).join(","));
   setChk("d_metrics", g.debug.show_channel_metrics);
   setChk("d_log", g.debug.log_panel_enabled);
@@ -1203,14 +1224,11 @@ async function saveGeneral() {
       },
     },
     storage: {
-      screenshots_dir: val("g_screenshots_dir"),
-      logs_dir: val("g_logs_dir"),
       auto_cleanup_enabled: document.getElementById("g_auto_cleanup").checked,
       cleanup_interval_minutes: Number(val("g_cleanup_minutes")),
       events_retention_days: Number(val("g_events_retention")),
       media_retention_days: Number(val("g_media_retention")),
       max_screenshots_mb: Number(val("g_max_screenshots")),
-      export_dir: val("g_export_dir"),
       postgres_dsn: val("g_postgres_dsn"),
     },
     logging: {
@@ -1222,7 +1240,6 @@ async function saveGeneral() {
       offset_minutes: Number(val("g_offset_minutes")),
     },
     plates: {
-      config_dir: val("g_plates_dir"),
       enabled_countries: parseIds("").length
         ? []
         : String(val("g_countries"))
@@ -1248,8 +1265,8 @@ async function saveGeneral() {
     }
   });
   applyDebugPanelVisibility();
+  syncOverlayPolling();
   scheduleVideoGridLayout(true);
-  addDebug("[OK] global settings saved", "ok");
   showToast("Настройки сохранены");
 }
 
@@ -1335,13 +1352,30 @@ function findInsertSegmentIndex(point) {
   }
   return bestIndex;
 }
-function drawROI() {
+function drawPreview() {
   const cv = document.getElementById("roiCanvas");
   const ctx = cv.getContext("2d");
   ctx.clearRect(0, 0, cv.width, cv.height);
-  if (roiBgImage && roiBgImage.complete) {
-    ctx.drawImage(roiBgImage, 0, 0, cv.width, cv.height);
+  if (previewBgImage && previewBgImage.complete) {
+    ctx.drawImage(previewBgImage, 0, 0, cv.width, cv.height);
   }
+  // plate size boxes
+  const boxes = [
+    { key: "max", color: "#f59e0b", fill: "rgba(245,158,11,0.12)", label: "MAX" },
+    { key: "min", color: "#3b82f6", fill: "rgba(59,130,246,0.15)", label: "MIN" },
+  ];
+  boxes.forEach(({ key, color, fill, label }) => {
+    const b = plateSizeBoxes[key];
+    ctx.fillStyle = fill;
+    ctx.fillRect(b.x, b.y, b.width, b.height);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(b.x, b.y, b.width, b.height);
+    ctx.fillStyle = color;
+    ctx.font = "bold 11px sans-serif";
+    ctx.fillText(label + " " + Math.round(b.width) + "\u00d7" + Math.round(b.height), b.x + 4, b.y - 4);
+  });
+  // ROI polygon
   ctx.fillStyle = "rgba(124,107,250,0.15)";
   ctx.strokeStyle = "#9b8fff";
   ctx.lineWidth = 2;
@@ -1357,14 +1391,17 @@ function drawROI() {
     }
     ctx.stroke();
   }
-  roiPoints.forEach((p) => {
+  roiPoints.forEach((p, i) => {
     ctx.fillStyle = "#9b8fff";
     ctx.beginPath();
     ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
     ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 9px sans-serif";
+    ctx.fillText(String(i + 1), p.x + 7, p.y - 4);
   });
 }
-async function refreshROISnapshot() {
+async function refreshPreviewSnapshot() {
   if (!selectedChannelId) return;
   const channelId = selectedChannelId;
   try {
@@ -1381,76 +1418,299 @@ async function refreshROISnapshot() {
     img.onload = () => {
       URL.revokeObjectURL(objectUrl);
       if (Number(selectedChannelId) !== Number(channelId)) return;
-      roiBgImage = img;
-      drawROI();
+      previewBgImage = img;
+      drawPreview();
     };
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      addDebug("[WARN] ROI snapshot decode failed", "warn");
-    };
+      };
     img.src = objectUrl;
   } catch (err) {
-    addDebug(`[WARN] ROI snapshot unavailable: ${err.message}`, "warn");
   }
 }
-function setupROI() {
+function renderROIPointsList() {
+  const container = document.getElementById("roiPointsList");
+  if (!container) return;
+  container.innerHTML = "";
+  roiPoints.forEach((p, i) => {
+    const row = document.createElement("div");
+    row.className = "roi-point-row";
+    row.innerHTML =
+      '<span class="roi-pt-label">Точка ' + (i + 1) + ":</span>" +
+      ' x <input type="number" class="roi-pt-x" data-idx="' + i + '" value="' + Math.round(p.x) + '">' +
+      ' y <input type="number" class="roi-pt-y" data-idx="' + i + '" value="' + Math.round(p.y) + '">' +
+      '<button class="roi-pt-del" data-idx="' + i + '" title="Удалить">\u00d7</button>';
+    container.appendChild(row);
+  });
+  container.querySelectorAll(".roi-pt-x").forEach((el) => {
+    el.addEventListener("input", () => {
+      const idx = Number(el.dataset.idx);
+      const cv = document.getElementById("roiCanvas");
+      roiPoints[idx].x = Math.max(0, Math.min(cv.width, Number(el.value) || 0));
+      drawPreview();
+    });
+  });
+  container.querySelectorAll(".roi-pt-y").forEach((el) => {
+    el.addEventListener("input", () => {
+      const idx = Number(el.dataset.idx);
+      const cv = document.getElementById("roiCanvas");
+      roiPoints[idx].y = Math.max(0, Math.min(cv.height, Number(el.value) || 0));
+      drawPreview();
+    });
+  });
+  container.querySelectorAll(".roi-pt-del").forEach((el) => {
+    el.addEventListener("click", () => {
+      roiPoints.splice(Number(el.dataset.idx), 1);
+      renderROIPointsList();
+      drawPreview();
+    });
+  });
+}
+
+function canvasCoords(e, cv) {
+  const r = cv.getBoundingClientRect();
+  const scaleX = cv.width / r.width;
+  const scaleY = cv.height / r.height;
+  return {
+    x: (e.clientX - r.left) * scaleX,
+    y: (e.clientY - r.top) * scaleY,
+  };
+}
+
+function setupVisionCanvas() {
   const cv = document.getElementById("roiCanvas");
   let moved = false;
   let downPoint = null;
+  let psStartX = 0, psStartY = 0, psStartBox = null;
+
   cv.oncontextmenu = (e) => {
     e.preventDefault();
-    const r = cv.getBoundingClientRect();
-    const x = e.clientX - r.left,
-      y = e.clientY - r.top;
+    const { x, y } = canvasCoords(e, cv);
     const idx = roiPoints.findIndex((p) => Math.hypot(p.x - x, p.y - y) < 10);
     if (idx >= 0) {
       roiPoints.splice(idx, 1);
-      drawROI();
-      setVal("c_roi_points", JSON.stringify(roiPoints));
+      renderROIPointsList();
+      drawPreview();
     }
   };
+
   cv.onmousedown = (e) => {
-    const r = cv.getBoundingClientRect();
-    const x = e.clientX - r.left,
-      y = e.clientY - r.top;
+    const { x, y } = canvasCoords(e, cv);
     downPoint = { x, y };
     moved = false;
+
+    // check plate-size boxes first (left button only)
+    if (e.button === 0) {
+      for (const key of ["min", "max"]) {
+        const hit = hitTestPlateSizeBox(x, y, plateSizeBoxes[key]);
+        if (hit) {
+          plateSizeDrag = { key, hit };
+          psStartX = x;
+          psStartY = y;
+          psStartBox = { ...plateSizeBoxes[key] };
+          e.preventDefault();
+          return;
+        }
+      }
+    }
+
+    // then ROI point drag
     roiDrag = roiPoints.findIndex((p) => Math.hypot(p.x - x, p.y - y) < 10);
   };
+
   cv.onmousemove = (e) => {
-    if (roiDrag < 0) return;
-    const r = cv.getBoundingClientRect();
-    const x = e.clientX - r.left,
-      y = e.clientY - r.top;
-    roiPoints[roiDrag] = { x, y };
-    moved = true;
-    drawROI();
+    const { x, y } = canvasCoords(e, cv);
+
+    // plate size drag in progress
+    if (plateSizeDrag) {
+      const dx = x - psStartX, dy = y - psStartY;
+      const box = plateSizeBoxes[plateSizeDrag.key];
+      const hit = plateSizeDrag.hit;
+      if (hit === "move") {
+        box.x = psStartBox.x + dx;
+        box.y = psStartBox.y + dy;
+      } else {
+        let nx = psStartBox.x, ny = psStartBox.y, nw = psStartBox.width, nh = psStartBox.height;
+        if (hit.includes("l")) { nx = psStartBox.x + dx; nw = psStartBox.width - dx; }
+        if (hit.includes("r")) { nw = psStartBox.width + dx; }
+        if (hit.includes("t")) { ny = psStartBox.y + dy; nh = psStartBox.height - dy; }
+        if (hit.includes("b")) { nh = psStartBox.height + dy; }
+        if (nw < 4) { nw = 4; if (hit.includes("l")) nx = psStartBox.x + psStartBox.width - 4; }
+        if (nh < 4) { nh = 4; if (hit.includes("t")) ny = psStartBox.y + psStartBox.height - 4; }
+        box.x = nx; box.y = ny; box.width = nw; box.height = nh;
+      }
+      clampBoxInCanvas(box, cv);
+      syncPlateSizeInputsFromBoxes();
+      drawPreview();
+      return;
+    }
+
+    // ROI point drag in progress
+    if (roiDrag >= 0) {
+      roiPoints[roiDrag] = { x, y };
+      moved = true;
+      drawPreview();
+      return;
+    }
+
+    // hover cursor
+    let cursor = "default";
+    for (const key of ["min", "max"]) {
+      const hit = hitTestPlateSizeBox(x, y, plateSizeBoxes[key]);
+      if (hit) { cursor = getCursorForHit(hit); break; }
+    }
+    if (cursor === "default") {
+      const nearPt = roiPoints.findIndex((p) => Math.hypot(p.x - x, p.y - y) < 10);
+      if (nearPt >= 0) cursor = "grab";
+    }
+    cv.style.cursor = cursor;
   };
+
   cv.onmouseup = (e) => {
-    const r = cv.getBoundingClientRect();
-    const x = e.clientX - r.left,
-      y = e.clientY - r.top;
+    const { x, y } = canvasCoords(e, cv);
+
+    // finish plate size drag
+    if (plateSizeDrag) {
+      plateSizeDrag = null;
+      enforcePlateSizeConstraints();
+      drawPreview();
+      return;
+    }
+
+    // finish ROI drag
     if (roiDrag >= 0) {
       roiDrag = -1;
       if (moved) {
-        setVal("c_roi_points", JSON.stringify(roiPoints));
+        renderROIPointsList();
         return;
       }
     }
+
     if (e.button !== 0) return;
     if (downPoint && Math.hypot(downPoint.x - x, downPoint.y - y) > 4) return;
+
+    // don't add ROI point if click was on an existing point
     const nearExisting = roiPoints.findIndex(
       (p) => Math.hypot(p.x - x, p.y - y) < 10,
     );
     if (nearExisting !== -1) return;
+
+    // don't add ROI point if click was inside a plate-size box
+    for (const key of ["min", "max"]) {
+      if (hitTestPlateSizeBox(x, y, plateSizeBoxes[key]) === "move") return;
+    }
+
     const insertAfter = findInsertSegmentIndex({ x, y });
     if (insertAfter === -1) return;
     roiPoints.splice(insertAfter + 1, 0, { x, y });
-    drawROI();
-    setVal("c_roi_points", JSON.stringify(roiPoints));
+    renderROIPointsList();
+    drawPreview();
+  };
+
+  cv.onmouseleave = () => {
+    if (plateSizeDrag) {
+      plateSizeDrag = null;
+      enforcePlateSizeConstraints();
+      drawPreview();
+    }
   };
 }
 
+/* ─── Plate Size visual editor ─────────────────────── */
+
+function syncPlateSizeInputsFromBoxes() {
+  setVal("c_min_w", Math.round(plateSizeBoxes.min.width));
+  setVal("c_min_h", Math.round(plateSizeBoxes.min.height));
+  setVal("c_max_w", Math.round(plateSizeBoxes.max.width));
+  setVal("c_max_h", Math.round(plateSizeBoxes.max.height));
+}
+
+function syncPlateSizeBoxesFromInputs() {
+  const cv = document.getElementById("roiCanvas");
+  const minW = Math.max(1, Number(val("c_min_w")) || 1);
+  const minH = Math.max(1, Number(val("c_min_h")) || 1);
+  const maxW = Math.max(1, Number(val("c_max_w")) || 1);
+  const maxH = Math.max(1, Number(val("c_max_h")) || 1);
+  plateSizeBoxes.min.width = Math.min(minW, cv.width);
+  plateSizeBoxes.min.height = Math.min(minH, cv.height);
+  plateSizeBoxes.max.width = Math.min(maxW, cv.width);
+  plateSizeBoxes.max.height = Math.min(maxH, cv.height);
+  clampBoxInCanvas(plateSizeBoxes.min, cv);
+  clampBoxInCanvas(plateSizeBoxes.max, cv);
+  drawPreview();
+}
+
+function clampBoxInCanvas(box, cv) {
+  box.width = Math.max(1, Math.min(box.width, cv.width));
+  box.height = Math.max(1, Math.min(box.height, cv.height));
+  box.x = Math.max(0, Math.min(box.x, cv.width - box.width));
+  box.y = Math.max(0, Math.min(box.y, cv.height - box.height));
+}
+
+function defaultPlateSizeOverlay(cv) {
+  const minW = Number(val("c_min_w")) || 80;
+  const minH = Number(val("c_min_h")) || 20;
+  const maxW = Number(val("c_max_w")) || 600;
+  const maxH = Number(val("c_max_h")) || 240;
+  return {
+    min: { x: (cv.width - minW) / 2, y: (cv.height - minH) / 2 + 40, width: minW, height: minH },
+    max: { x: (cv.width - maxW) / 2, y: (cv.height - maxH) / 2 - 20, width: maxW, height: maxH },
+  };
+}
+
+function hitTestPlateSizeBox(x, y, box) {
+  const E = 7;
+  const inX = x >= box.x - E && x <= box.x + box.width + E;
+  const inY = y >= box.y - E && y <= box.y + box.height + E;
+  if (!inX || !inY) return null;
+
+  const nearL = Math.abs(x - box.x) <= E;
+  const nearR = Math.abs(x - (box.x + box.width)) <= E;
+  const nearT = Math.abs(y - box.y) <= E;
+  const nearB = Math.abs(y - (box.y + box.height)) <= E;
+
+  if (nearT && nearL) return "tl";
+  if (nearT && nearR) return "tr";
+  if (nearB && nearL) return "bl";
+  if (nearB && nearR) return "br";
+  if (nearL) return "l";
+  if (nearR) return "r";
+  if (nearT) return "t";
+  if (nearB) return "b";
+
+  if (x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height) {
+    return "move";
+  }
+  return null;
+}
+
+function getCursorForHit(hit) {
+  if (!hit) return "default";
+  if (hit === "move") return "grab";
+  if (hit === "tl" || hit === "br") return "nwse-resize";
+  if (hit === "tr" || hit === "bl") return "nesw-resize";
+  if (hit === "l" || hit === "r") return "ew-resize";
+  if (hit === "t" || hit === "b") return "ns-resize";
+  return "default";
+}
+
+function setupPlateSizeInputListeners() {
+  ["c_min_w", "c_min_h", "c_max_w", "c_max_h"].forEach((id) => {
+    document.getElementById(id).addEventListener("input", () => {
+      syncPlateSizeBoxesFromInputs();
+      enforcePlateSizeConstraints();
+      drawPreview();
+    });
+  });
+}
+
+function enforcePlateSizeConstraints() {
+  const minB = plateSizeBoxes.min;
+  const maxB = plateSizeBoxes.max;
+  if (minB.width > maxB.width) { minB.width = maxB.width; }
+  if (minB.height > maxB.height) { minB.height = maxB.height; }
+  syncPlateSizeInputsFromBoxes();
+}
 
 function hotkeyFromEvent(event) {
   const key = String(event.key || "").trim().toUpperCase();
@@ -1581,7 +1841,6 @@ function rebuildHotkeyMap() {
     });
   });
   duplicates.forEach((hotkey) => {
-    addDebug(`[ERR] duplicate hotkey detected: ${hotkey}. Хоткей отключен до устранения конфликта`, "err");
   });
   pending.forEach((bindings, hotkey) => {
     if (duplicates.has(hotkey)) return;
@@ -1597,9 +1856,7 @@ async function triggerHotkey(hotkey) {
       relay_index: binding.relayIndex,
       is_on: true,
     });
-    addDebug(`[OK] hotkey ${hotkey}: ${binding.controllerName}, реле ${binding.relayIndex + 1}, статус=${res.status}`, "ok");
   } catch (err) {
-    addDebug(`[ERR] hotkey ${hotkey}: ${err.message}`, "err");
   }
 }
 
@@ -1639,6 +1896,7 @@ async function selectChannel(id) {
   setVal("c_best_shots", c.best_shots ?? 3);
   setVal("c_cooldown", c.cooldown_seconds ?? 5);
   setVal("c_ocr_conf", c.ocr_min_confidence ?? 0.6);
+  setVal("c_max_ocr_attempts", c.max_ocr_attempts ?? 15);
   setChk("c_roi_enabled", c.roi_enabled);
   const cv = document.getElementById("roiCanvas");
   const unit = c.region?.unit || "px";
@@ -1646,17 +1904,18 @@ async function selectChannel(id) {
   if (!roiPoints.length) {
     roiPoints = defaultROIPointsForCanvas(cv);
   }
-  setVal("c_roi_points", JSON.stringify(roiPoints));
-  drawROI();
-  refreshROISnapshot();
+  renderROIPointsList();
+
+  plateSizeBoxes = defaultPlateSizeOverlay(cv);
+  clampBoxInCanvas(plateSizeBoxes.min, cv);
+  clampBoxInCanvas(plateSizeBoxes.max, cv);
+  drawPreview();
+  refreshPreviewSnapshot();
 }
 
 async function saveChannel() {
   if (!selectedChannelId) return;
-  let points = roiPoints;
-  try {
-    points = JSON.parse(val("c_roi_points"));
-  } catch (_e) {}
+  const points = roiPoints;
   if (
     document.getElementById("c_roi_enabled").checked &&
     points.length > 0 &&
@@ -1693,6 +1952,7 @@ async function saveChannel() {
     best_shots: Number(val("c_best_shots")),
     cooldown_seconds: Number(val("c_cooldown")),
     ocr_min_confidence: Number(val("c_ocr_conf")),
+    max_ocr_attempts: Number(val("c_max_ocr_attempts")),
     roi_enabled: document.getElementById("c_roi_enabled").checked,
     region: {
       unit: "percent",
@@ -1706,7 +1966,6 @@ async function saveChannel() {
     "PUT",
     payload,
   );
-  addDebug(`[OK] channel ${selectedChannelId} saved`, "ok");
   await refreshChannels();
   showToast("Настройки сохранены");
 }
@@ -1730,9 +1989,7 @@ async function _doCreateChannel(name) {
       selectedChannelId = state.channels[state.channels.length - 1].id;
       await selectChannel(selectedChannelId);
     }
-    addDebug("[OK] channel created", "ok");
   } catch (err) {
-    addDebug(`[ERR] ${err.message}`, "err");
     alert(`Не удалось создать канал: ${err.message}`);
   }
 }
@@ -1748,7 +2005,6 @@ async function _doDeleteChannel() {
   selectedChannelId = null;
   roiPoints = [];
   await refreshChannels();
-  addDebug("[OK] channel deleted", "ok");
 }
 
 
@@ -1882,9 +2138,7 @@ async function _doCreateController(name) {
       selectedControllerId = controllersCache[controllersCache.length - 1].id;
       selectController(selectedControllerId);
     }
-    addDebug("[OK] controller created", "ok");
   } catch (err) {
-    addDebug(`[ERR] ${err.message}`, "err");
     alert(`Не удалось создать контроллер: ${err.message}`);
   }
 }
@@ -1899,9 +2153,7 @@ async function _doDeleteController() {
   try {
     await jfetch(api(`/api/controllers/${selectedControllerId}`), "DELETE");
     await loadControllers();
-    addDebug("[OK] controller deleted", "ok");
   } catch (err) {
-    addDebug(`[ERR] ${err.message}`, "err");
     alert(err.message);
   }
 }
@@ -1914,23 +2166,9 @@ async function saveController() {
       controllerPayload(),
     );
     await loadControllers();
-    addDebug("[OK] controller updated", "ok");
     showToast("Настройки сохранены");
   } catch (err) {
-    addDebug(`[ERR] ${err.message}`, "err");
     alert(`Не удалось сохранить контроллер: ${err.message}`);
-  }
-}
-async function deleteController() {
-  if (!selectedControllerId) return;
-  if (!confirm("Удалить выбранный контроллер?")) return;
-  try {
-    await jfetch(api(`/api/controllers/${selectedControllerId}`), "DELETE");
-    await loadControllers();
-    addDebug("[OK] controller deleted", "ok");
-  } catch (err) {
-    addDebug(`[ERR] ${err.message}`, "err");
-    alert(err.message);
   }
 }
 async function testController(relay) {
@@ -1939,15 +2177,15 @@ async function testController(relay) {
     relay_index: relay,
     is_on: true,
   });
-  addDebug(`[OK] relay ${relay + 1} test sent`, "ok");
 }
 
 function mapLogClass(level) {
   const v = String(level || "INFO").toUpperCase();
-  if (v === "ERROR" || v === "CRITICAL") return "err";
+  if (v === "CRITICAL") return "crit";
+  if (v === "ERROR") return "err";
   if (v === "WARNING") return "warn";
-  if (v === "DEBUG") return "ok";
-  return "info";
+  if (v === "DEBUG") return "dbg";
+  return "ok";
 }
 
 function prependDebugLine(text, type = "info", timestamp = null, meta = "") {
@@ -1961,9 +2199,6 @@ function prependDebugLine(text, type = "info", timestamp = null, meta = "") {
   while (log.children.length > 300) log.removeChild(log.lastElementChild);
 }
 
-function addDebug(msg, type = "info") {
-  prependDebugLine(msg, type, null, "[UI]");
-}
 
 function applyDebugPanelVisibility() {
   const panel = document.getElementById("obsDebugPanel");
@@ -2044,7 +2279,6 @@ async function setupStream() {
     } catch (_e) {}
   };
   eventSource.onerror = () => {
-    addDebug("[WARN] stream reconnect", "warn");
     try {
       eventSource.close();
     } catch (_e) {}
@@ -2082,10 +2316,6 @@ async function openEventDetails(ev) {
     try {
       payload = await jfetch(api(`/api/events/item/${id}`));
     } catch (err) {
-      addDebug(
-        `[WARN] event details fallback for id=${id}: ${err.message}`,
-        "warn",
-      );
       payload = ev;
     }
   }
@@ -2096,7 +2326,7 @@ async function openEventDetails(ev) {
     ["Дата/время", ts],
     ["Канал", payload.channel || `CAM-${payload.channel_id || ""}`],
     ["Страна", payload.country || "—"],
-    ["Гос. номер", payload.plate || "—"],
+    ["Гос. номер", payload.plate_display || payload.plate || "—"],
     ["Уверенность", Number(payload.confidence || 0).toFixed(2)],
     ["Направление", formatDirection(payload.direction).plain],
     ["Источник", payload.source || "—"],
@@ -2388,12 +2618,22 @@ document.getElementById("themeToggleBtn").onclick = () => {
   setVal("g_theme", nextTheme);
   applyTheme(nextTheme);
 };
-document.getElementById("roiRefreshBtn").onclick = refreshROISnapshot;
+document.getElementById("plateSizeResetBtn").onclick = () => {
+  const cv = document.getElementById("roiCanvas");
+  setVal("c_min_w", 80);
+  setVal("c_min_h", 20);
+  setVal("c_max_w", 600);
+  setVal("c_max_h", 240);
+  plateSizeBoxes = defaultPlateSizeOverlay(cv);
+  syncPlateSizeInputsFromBoxes();
+  drawPreview();
+};
+document.getElementById("roiRefreshBtn").onclick = refreshPreviewSnapshot;
 document.getElementById("roiClearBtn").onclick = () => {
   const cv = document.getElementById("roiCanvas");
   roiPoints = defaultROIPointsForCanvas(cv);
-  setVal("c_roi_points", JSON.stringify(roiPoints));
-  drawROI();
+  renderROIPointsList();
+  drawPreview();
 };
 
 
@@ -2417,10 +2657,10 @@ updateTopbarDateTime();
 setInterval(updateTopbarDateTime, 1000);
 
 refreshSystemResources();
-setInterval(refreshSystemResources, 2000);
+setInterval(refreshSystemResources, 10000);
 checkServerHealth();
 setInterval(checkServerHealth, 10000);
-window.addEventListener("beforeunload", () => {
+function cleanupStreamsAndTimers() {
   if (eventSource) {
     try {
       eventSource.close();
@@ -2442,30 +2682,9 @@ window.addEventListener("beforeunload", () => {
     eventFeedRenderFrame = null;
     eventFeedRenderScheduled = false;
   }
-});
-window.addEventListener("pagehide", () => {
-  if (eventSource) {
-    try {
-      eventSource.close();
-    } catch (_e) {}
-    eventSource = null;
-  }
-  if (debugLogSource) {
-    try {
-      debugLogSource.close();
-    } catch (_e) {}
-    debugLogSource = null;
-  }
-  if (overlayRefreshTimer) {
-    clearInterval(overlayRefreshTimer);
-    overlayRefreshTimer = null;
-  }
-  if (eventFeedRenderFrame !== null) {
-    cancelAnimationFrame(eventFeedRenderFrame);
-    eventFeedRenderFrame = null;
-    eventFeedRenderScheduled = false;
-  }
-});
+}
+window.addEventListener("beforeunload", cleanupStreamsAndTimers);
+window.addEventListener("pagehide", cleanupStreamsAndTimers);
 window.addEventListener("resize", () => scheduleEventFeedRender(true));
 (async function init() {
   const apiBaseEl = document.getElementById("apiBase");
@@ -2479,7 +2698,8 @@ window.addEventListener("resize", () => scheduleEventFeedRender(true));
   syncControllerConfigVisibility();
   setupVideoGridLayoutGuards();
   setupEventFeedLayoutGuards();
-  setupROI();
+  setupVisionCanvas();
+  setupPlateSizeInputListeners();
   switchChannelSettingsTab("channel");
   updateTopbarTitle();
   await refreshChannels();
@@ -2494,7 +2714,278 @@ window.addEventListener("resize", () => scheduleEventFeedRender(true));
   setupDebugLogStream();
   await loadControllers();
   setupStream();
-  addDebug("[INFO] UI initialized");
   setInterval(refreshChannels, 8000);
-  overlayRefreshTimer = setInterval(refreshOverlayStates, 700);
+  syncOverlayPolling();
 })();
+
+/* ─── Parameter help popover system ─────────────────── */
+const PARAM_HELP = {
+  name: "Отображаемое имя канала. Используется в журнале событий, заголовках превью и при сохранении медиафайлов.",
+  source: "Адрес видеопотока. Поддерживаются RTSP, HTTP, локальные файлы и индексы камер (0, 1, …). Канал открывает этот источник через OpenCV VideoCapture.",
+  list_filter_mode: "Определяет, при каких номерах срабатывает реле контроллера.\n• «Все» — реле для любого номера (кроме чёрного списка).\n• «Белые списки» — только номера из списков типа white.\n• «Свои списки» — только номера из выбранных ниже списков.\nЧёрный список блокирует срабатывание всегда.",
+  list_filter_list_ids: "Выбор конкретных списков номеров, которые разрешают срабатывание реле в режиме «Свои списки». Чёрный список применяется автоматически в любом режиме.",
+  detection_mode: "Режим запуска детектора YOLO.\n• «always» — детектор работает на каждом кадре (с учётом шага инференса).\n• «motion» — детектор запускается только при обнаружении движения в кадре. Экономит CPU при пустых сценах.",
+  motion_threshold: "Доля пикселей, изменившихся между кадрами, при которой считается, что в кадре есть движение. Значение 0.01 = 1% пикселей. Меньше — выше чувствительность, больше ложных срабатываний.",
+  motion_frame_stride: "Через сколько кадров проводить анализ движения. При stride=2 движение проверяется на каждом 2-м кадре. Промежуточные кадры пропускаются, но состояние motion сохраняется.",
+  motion_activation_frames: "Сколько подряд проанализированных кадров с движением нужно, чтобы активировать состояние motion и начать запуск детектора YOLO. Защита от разовых шумов.",
+  motion_release_frames: "Сколько подряд проанализированных кадров без движения нужно, чтобы деактивировать состояние motion и прекратить запуск детектора. Защита от преждевременной остановки при кратковременной паузе.",
+  detector_frame_stride: "Через сколько кадров (прошедших motion gate) запускать YOLO-детекцию и трекинг. При stride=2 — каждый второй кадр. Снижает нагрузку CPU/GPU за счёт частоты обнаружения.",
+  size_filter_enabled: "Включить фильтрацию найденных номерных рамок по размеру (ширина и высота в пикселях). Отсекает слишком маленькие и слишком большие обнаружения.",
+  min_plate_size: "Минимальная ширина и высота обнаруженной номерной рамки в пикселях. Рамки меньше этого размера отбрасываются до OCR. Помогает отфильтровать далёкие или нерелевантные объекты.",
+  max_plate_size: "Максимальная ширина и высота обнаруженной номерной рамки в пикселях. Рамки больше этого размера отбрасываются. Помогает отфильтровать ложные детекции на крупных объектах.",
+  best_shots: "Сколько лучших OCR-наблюдений накапливается на один трек для голосования. Из них выбирается консенсус — номер, набравший кворум и наибольший суммарный вес уверенности.ВНИМАНИЕ, количество бестшотов не должно быть равным или больше макс. OCR попыток.\n\nПо умолчанию 3.",
+  cooldown_seconds: "Пауза (в секундах) между повторными событиями для одного и того же номера. Если номер уже был распознан менее N секунд назад — повторное событие не создаётся. Предотвращает дублирование при медленном проезде.",
+  ocr_min_confidence: "Минимальный порог уверенности OCR (0.0–1.0). Результаты ниже порога не попадают в пул кандидатов трека и считаются нечитаемыми.\n\nПо умолчанию 0.6.",
+  max_ocr_attempts: "Максимальное число OCR-попыток для одного трека. После исчерпания бюджета OCR для этого трека прекращается — кроп, предобработка и CRNN-инференс больше не выполняются.\n\nЕсли консенсус был достигнут раньше — трек финализируется досрочно.\nЕсли бюджет исчерпан без консенсуса — выбирается лучший кандидат по весу.\nЕсли кандидатов нет — генерируется одно событие «Нечитаемо».\n\nПо умолчанию 15.",
+  roi_enabled: "Включить зону интереса (Region of Interest). Когда включено, только обнаружения с центром bbox внутри ROI-полигона обрабатываются. Детекция YOLO по-прежнему работает по всему кадру, но результаты за пределами ROI отбрасываются.",
+  controller_id: "Привязка аппаратного контроллера к этому каналу. При распознавании номера, прошедшего фильтр списков, на контроллер отправляется HTTP-команда для срабатывания выбранного реле.",
+  controller_relay: "Какое из двух реле контроллера использовать для этого канала (Реле 1 или Реле 2). Режим работы реле (pulse / pulse_timer) настраивается в параметрах контроллера.",
+
+  /* ── Общие настройки ── */
+  g_grid: "Сетка раскладки видеопревью на главной странице. Определяет сколько камер отображается одновременно: 1×1, 2×2, 2×3 или 3×3.",
+  g_theme: "Цветовая тема интерфейса. Тёмная тема снижает нагрузку на глаза при работе в условиях слабого освещения.",
+  g_sl_enabled: "Включает мониторинг потери видеосигнала. Если от камеры не поступают кадры в течение заданного таймаута, система автоматически переподключает канал.",
+  g_frame_timeout: "Время ожидания (в секундах) нового кадра от камеры. Если за это время кадр не получен, соединение считается потерянным и запускается повторное подключение.",
+  g_retry_interval: "Пауза (в секундах) между попытками переподключения после потери сигнала. Слишком малое значение может создать лишнюю нагрузку на камеру.",
+  g_periodic_enabled: "Принудительное переподключение всех каналов через заданный интервал. Помогает при нестабильных камерах, которые «зависают» без явной потери сигнала.",
+  g_periodic_minutes: "Интервал (в минутах) между принудительными переподключениями. Рекомендуется 30–120 минут.",
+  g_max_screenshots: "Максимальный общий объём (в мегабайтах) файлов в каталоге скриншотов. При превышении лимита самые старые файлы удаляются автоматически.",
+  g_media_retention: "Сколько дней хранить медиафайлы (скриншоты, кропы номеров) на диске. Файлы старше указанного срока удаляются при очередном цикле автоочистки.",
+  g_log_level: "Минимальный уровень записей в лог-файл.\n• ALL / DEBUG — максимальная детализация (для отладки).\n• INFO — штатная работа.\n• WARNING / ERROR / CRITICAL — только проблемы.",
+  g_log_retention: "Сколько дней хранить файлы логов. Файлы старше указанного срока удаляются при ротации.",
+  g_auto_cleanup: "Включает периодическую автоматическую очистку данных. При включении система удаляет:\n• старые события из базы данных (старше заданного срока);\n• связанные медиафайлы (кадры и кропы номеров);\n• осиротевшие медиафайлы на диске;\n• файлы сверх лимита хранения скриншотов.",
+  g_cleanup_minutes: "Как часто (в минутах) запускать цикл автоочистки. Минимум — 1 минута. Рекомендуется 15–60 минут.",
+  g_events_retention: "Сколько дней хранить записи событий в базе данных. События старше указанного срока удаляются вместе со связанными медиафайлами.",
+  g_postgres_dsn: "Строка подключения к PostgreSQL. Задаётся через переменную окружения и не может быть изменена из интерфейса.",
+  g_timezone: "Часовой пояс для отображения времени в интерфейсе. Этот параметр влияет только на представление времени в приложении и не изменяет системные часы сервера.",
+  g_offset_minutes: "Дополнительная коррекция времени (в минутах) поверх выбранного часового пояса. Используйте, если системные часы сервера расходятся с реальным временем. Диапазон: от −720 до +720 минут.",
+  g_countries: "Коды стран через запятую (ISO 3166-1 alpha-2), номера которых распознаются системой. Например: RU,UA,BY,KZ. Для каждой страны должен существовать конфиг в каталоге номеров."
+};
+
+let _activeHelpPopover = null;
+
+function _closeHelpPopover() {
+  if (_activeHelpPopover) {
+    _activeHelpPopover.remove();
+    _activeHelpPopover = null;
+  }
+}
+
+function _showHelpPopover(btn) {
+  _closeHelpPopover();
+  const key = btn.getAttribute("data-help");
+  const text = PARAM_HELP[key];
+  if (!text) return;
+
+  const pop = document.createElement("div");
+  pop.className = "param-help-popover";
+  pop.innerHTML =
+    '<div class="param-help-popover-title">' +
+    btn.closest(".s-row-label").querySelector(".s-row-name").textContent +
+    "</div>" +
+    text.replace(/\n/g, "<br>");
+  document.body.appendChild(pop);
+
+  const r = btn.getBoundingClientRect();
+  let top = r.bottom + 6;
+  let left = r.left;
+  pop.style.left = left + "px";
+  pop.style.top = top + "px";
+  requestAnimationFrame(() => {
+    const pr = pop.getBoundingClientRect();
+    if (pr.right > window.innerWidth - 8) pop.style.left = Math.max(8, window.innerWidth - pr.width - 8) + "px";
+    if (pr.bottom > window.innerHeight - 8) pop.style.top = Math.max(8, r.top - pr.height - 6) + "px";
+  });
+
+  _activeHelpPopover = pop;
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".param-help-btn");
+  if (btn) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (_activeHelpPopover && _activeHelpPopover._helpBtn === btn) {
+      _closeHelpPopover();
+    } else {
+      _showHelpPopover(btn);
+      if (_activeHelpPopover) _activeHelpPopover._helpBtn = btn;
+    }
+    return;
+  }
+  if (_activeHelpPopover && !e.target.closest(".param-help-popover")) {
+    _closeHelpPopover();
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") _closeHelpPopover();
+});
+
+// ── Backup & Restore ─────────────────────────────────
+let _backupBusy = false;
+
+function setBackupBusy(busy) {
+  _backupBusy = busy;
+  ["dbBackupBtn", "dbRestoreBtn", "settingsBackupBtn", "settingsRestoreBtn"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = busy;
+  });
+}
+
+async function downloadBackup(url, fallbackName) {
+  setBackupBusy(true);
+  try {
+    const headers = {};
+    const k = getApiKey();
+    if (k) headers["X-Api-Key"] = k;
+    const resp = await fetch(api(url), { headers });
+    if (resp.status === 401) {
+      showAuthOverlay(() => downloadBackup(url, fallbackName));
+      return;
+    }
+    if (!resp.ok) {
+      let detail = "Ошибка скачивания";
+      try { const j = await resp.json(); detail = j.detail || detail; } catch(_) {}
+      showToast(detail, 4000);
+      return;
+    }
+    const blob = await resp.blob();
+    const cd = resp.headers.get("Content-Disposition") || "";
+    const m = cd.match(/filename="?([^"]+)"?/);
+    const filename = m ? m[1] : fallbackName;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 200);
+    showToast("Файл скачан", 2000);
+  } catch (err) {
+    showToast("Ошибка: " + err.message, 4000);
+  } finally {
+    setBackupBusy(false);
+  }
+}
+
+// DB backup download
+document.getElementById("dbBackupBtn").onclick = () => downloadBackup("/api/data/backup/database", "anpr_db_backup.zip");
+
+// Settings backup download
+document.getElementById("settingsBackupBtn").onclick = () => downloadBackup("/api/data/backup/settings", "settings.yaml");
+
+// DB restore flow
+let _pendingDbFile = null;
+document.getElementById("dbRestoreBtn").onclick = () => {
+  document.getElementById("dbRestoreFileInput").value = "";
+  document.getElementById("dbRestoreFileInput").click();
+};
+document.getElementById("dbRestoreFileInput").onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  _pendingDbFile = file;
+  document.getElementById("dbRestoreFileName").textContent = file.name;
+  openModal("dbRestoreModal");
+};
+document.getElementById("dbRestoreModalClose").onclick = () => { _pendingDbFile = null; closeModal("dbRestoreModal"); };
+document.getElementById("dbRestoreCancel").onclick = () => { _pendingDbFile = null; closeModal("dbRestoreModal"); };
+document.getElementById("dbRestoreModal").onclick = (e) => {
+  if (e.target.id === "dbRestoreModal") { _pendingDbFile = null; closeModal("dbRestoreModal"); }
+};
+document.getElementById("dbRestoreConfirm").onclick = async () => {
+  closeModal("dbRestoreModal");
+  if (!_pendingDbFile) return;
+  setBackupBusy(true);
+  const confirmBtn = document.getElementById("dbRestoreConfirm");
+  confirmBtn.disabled = true;
+  try {
+    const formData = new FormData();
+    formData.append("file", _pendingDbFile);
+    const headers = {};
+    const k = getApiKey();
+    if (k) headers["X-Api-Key"] = k;
+    const resp = await fetch(api("/api/data/backup/database/restore"), {
+      method: "POST", headers, body: formData,
+    });
+    if (resp.status === 401) {
+      showAuthOverlay();
+      return;
+    }
+    const result = await resp.json();
+    if (resp.ok && result.status === "ok") {
+      showToast("БД восстановлена. Приложение перезапускается...", 8000);
+      // Wait for restart and reload page
+      setTimeout(() => {
+        const check = setInterval(async () => {
+          try {
+            const r = await fetch(api("/api/health"));
+            if (r.ok) { clearInterval(check); location.reload(); }
+          } catch(_) {}
+        }, 2000);
+        setTimeout(() => clearInterval(check), 120000);
+      }, 3000);
+    } else {
+      showToast(result.detail || "Ошибка восстановления БД", 5000);
+    }
+  } catch (err) {
+    showToast("Ошибка: " + err.message, 5000);
+  } finally {
+    _pendingDbFile = null;
+    confirmBtn.disabled = false;
+    setBackupBusy(false);
+  }
+};
+
+// Settings restore flow
+let _pendingSettingsFile = null;
+document.getElementById("settingsRestoreBtn").onclick = () => {
+  document.getElementById("settingsRestoreFileInput").value = "";
+  document.getElementById("settingsRestoreFileInput").click();
+};
+document.getElementById("settingsRestoreFileInput").onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  _pendingSettingsFile = file;
+  document.getElementById("settingsRestoreFileName").textContent = file.name;
+  openModal("settingsRestoreModal");
+};
+document.getElementById("settingsRestoreModalClose").onclick = () => { _pendingSettingsFile = null; closeModal("settingsRestoreModal"); };
+document.getElementById("settingsRestoreCancel").onclick = () => { _pendingSettingsFile = null; closeModal("settingsRestoreModal"); };
+document.getElementById("settingsRestoreModal").onclick = (e) => {
+  if (e.target.id === "settingsRestoreModal") { _pendingSettingsFile = null; closeModal("settingsRestoreModal"); }
+};
+document.getElementById("settingsRestoreConfirm").onclick = async () => {
+  closeModal("settingsRestoreModal");
+  if (!_pendingSettingsFile) return;
+  setBackupBusy(true);
+  const confirmBtn = document.getElementById("settingsRestoreConfirm");
+  confirmBtn.disabled = true;
+  try {
+    const formData = new FormData();
+    formData.append("file", _pendingSettingsFile);
+    const headers = {};
+    const k = getApiKey();
+    if (k) headers["X-Api-Key"] = k;
+    const resp = await fetch(api("/api/data/backup/settings/restore"), {
+      method: "POST", headers, body: formData,
+    });
+    if (resp.status === 401) {
+      showAuthOverlay();
+      return;
+    }
+    const result = await resp.json();
+    if (resp.ok && result.status === "ok") {
+      showToast("Настройки восстановлены и применены", 3000);
+      // Reload settings on page
+      await loadGlobalSettings();
+    } else {
+      showToast(result.detail || "Ошибка восстановления настроек", 5000);
+    }
+  } catch (err) {
+    showToast("Ошибка: " + err.message, 5000);
+  } finally {
+    _pendingSettingsFile = null;
+    confirmBtn.disabled = false;
+    setBackupBusy(false);
+  }
+};

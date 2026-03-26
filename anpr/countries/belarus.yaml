@@ -3,9 +3,11 @@ code: "BY"
 priority: 3
 license_plate_formats:
   - name: "standard"
-    regex: '^\d{4}[ABEKMHOPCTYX]{2}\d$'
+    regex: '^(\d{4})([ABEKMHOPCTYX]{2})(\d)$'
+    display_format: "{0} {1}-{2}"
   - name: "police"
-    regex: '^\d{3}\s?[A-Z]{3}$'
+    regex: '^(\d{3})\s?([A-Z]{3})$'
+    display_format: "{0} {1}"
 valid_characters:
   letters: "ABEKMHOPCTYX"
   digits: "0123456789"

@@ -16,6 +16,7 @@ class EventSink:
         *,
         channel: str,
         plate: str,
+        plate_display: Optional[str] = None,
         country: Optional[str],
         channel_id: Optional[int],
         confidence: float,
@@ -28,6 +29,7 @@ class EventSink:
         return self._postgres.insert_event(
             channel=channel,
             plate=plate,
+            plate_display=plate_display,
             country=country,
             channel_id=channel_id,
             confidence=confidence,

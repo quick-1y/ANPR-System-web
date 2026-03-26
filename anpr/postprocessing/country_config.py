@@ -16,6 +16,7 @@ class PlateFormat:
     name: str
     regex: str
     pattern: re.Pattern = field(repr=False)
+    display_format: str = ""
 
 
 @dataclass
@@ -49,10 +50,12 @@ class CountryConfigLoader:
             return yaml.safe_load(f) or {}
 
     def _compile_format(self, fmt: Dict[str, str]) -> PlateFormat:
+        regex = fmt.get("regex", "")
         return PlateFormat(
             name=fmt.get("name", "unknown"),
-            regex=fmt.get("regex", ""),
-            pattern=re.compile(fmt.get("regex", "")),
+            regex=regex,
+            pattern=re.compile(regex),
+            display_format=fmt.get("display_format", ""),
         )
 
     def _parse_country(self, data: Dict) -> CountryConfig:

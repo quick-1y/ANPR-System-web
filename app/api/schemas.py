@@ -45,6 +45,7 @@ class ChannelConfigPayload(BaseModel):
     best_shots: int = Field(default=3, ge=1, le=20)
     cooldown_seconds: int = Field(default=5, ge=0, le=300)
     ocr_min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
+    max_ocr_attempts: int = Field(default=15, ge=1, le=200)
     roi_enabled: bool = True
     region: ROIRegionPayload = Field(default_factory=ROIRegionPayload)
 
@@ -62,6 +63,7 @@ class ChannelOCRPayload(BaseModel):
     best_shots: int = Field(ge=1, le=20)
     cooldown_seconds: int = Field(ge=0, le=300)
     ocr_min_confidence: float = Field(ge=0.0, le=1.0)
+    max_ocr_attempts: int = Field(default=15, ge=1, le=200)
 
 
 class ChannelFilterPayload(BaseModel):
@@ -170,7 +172,6 @@ class RetentionPolicyPayload(BaseModel):
     events_retention_days: int = 30
     media_retention_days: int = 14
     max_screenshots_mb: int = 4096
-    export_dir: str = "data/exports"
 
 
 class ExportBundlePayload(BaseModel):
@@ -198,14 +199,11 @@ class ReconnectPayload(BaseModel):
 
 class StoragePayload(BaseModel):
     postgres_dsn: Optional[str] = None
-    screenshots_dir: str
-    logs_dir: str
     auto_cleanup_enabled: bool
     cleanup_interval_minutes: int = Field(ge=1, le=1440)
     events_retention_days: int = Field(ge=1, le=3650)
     media_retention_days: int = Field(ge=1, le=3650)
     max_screenshots_mb: int = Field(ge=128, le=1024 * 1024)
-    export_dir: str
 
 
 class LoggingPayload(BaseModel):
@@ -219,7 +217,6 @@ class TimePayload(BaseModel):
 
 
 class PlatesPayload(BaseModel):
-    config_dir: str
     enabled_countries: List[str] = Field(default_factory=list)
 
 

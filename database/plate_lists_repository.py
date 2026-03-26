@@ -26,11 +26,17 @@ class ListDatabase:
             raise ValueError("postgres_dsn обязателен")
         self._init_lock = threading.Lock()
         self._initialized = False
+        self._pool = None
+
+    def _get_pool(self):
+        if self._pool is None:
+            from psycopg_pool import ConnectionPool  # type: ignore
+
+            self._pool = ConnectionPool(self._dsn, min_size=2, max_size=10, open=True)
+        return self._pool
 
     def _connect(self):
-        import psycopg  # type: ignore
-
-        return psycopg.connect(self._dsn)
+        return self._get_pool().connection()
 
     def _ensure_schema(self) -> None:
         if self._initialized:

@@ -6,11 +6,6 @@ from typing import Any, Dict
 
 import yaml
 
-from common.logging import get_logger
-
-
-logger = get_logger(__name__)
-
 
 class SettingsRepository:
     _file_lock = threading.RLock()
@@ -43,7 +38,6 @@ class SettingsRepository:
         return data
 
     def _save(self, data: Dict[str, Any]) -> None:
-        logger.debug(f"Сохранение настроек из потока: {threading.current_thread().name}")
         with self._file_lock:
             snapshot = copy.deepcopy(data)
         self._write_to_disk(snapshot)

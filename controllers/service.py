@@ -41,6 +41,8 @@ def build_command_url(
 class ControllerService:
     """Отправляет команды сетевым контроллерам."""
 
+    _MAX_ERROR_STATE_ENTRIES = 100
+
     def __init__(self, timeout_seconds: float = 2.0, error_cooldown_seconds: float = 10.0) -> None:
         self._timeout_seconds = float(timeout_seconds)
         self._error_cooldown_seconds = float(error_cooldown_seconds)
@@ -56,6 +58,9 @@ class ControllerService:
         return (time.monotonic() - last_error_ts) < self._error_cooldown_seconds
 
     def _register_error(self, controller_name: str) -> int:
+        if controller_name not in self._error_state and len(self._error_state) >= self._MAX_ERROR_STATE_ENTRIES:
+            oldest_key = min(self._error_state, key=lambda k: float(self._error_state[k].get("last_error_ts", 0)))
+            del self._error_state[oldest_key]
         state = self._error_state.setdefault(controller_name, {"errors": 0, "last_error_ts": 0.0})
         state["errors"] = int(state.get("errors", 0)) + 1
         state["last_error_ts"] = time.monotonic()
@@ -88,15 +93,14 @@ class ControllerService:
 
         def _dispatch() -> None:
             try:
+                with urllib.request.urlopen(url, timeout=self._timeout_seconds) as response:
+                    response.read()
                 logger.info(
-                    "Контроллер %s: отправка команды (%s) %s",
+                    "Контроллер %s: команда отправлена (%s) %s",
                     controller_name,
                     reason or "вручную",
                     url,
                 )
-                with urllib.request.urlopen(url, timeout=self._timeout_seconds) as response:
-                    response.read()
-                logger.info("Контроллер %s: команда успешно отправлена", controller_name)
                 self._reset_error_state(controller_name)
             except Exception as exc:  # noqa: BLE001
                 error_count = self._register_error(controller_name)
@@ -171,22 +175,21 @@ class ControllerAutomationService:
 
             channel = next((item for item in self._get_channels() if int(item.get("id", 0)) == channel_id), None)
             if not channel:
-                logger.debug("channel %s relay skip: channel not found", channel_id)
+                logger.info("channel %s relay skip: channel not found", channel_id)
                 return
 
             controller_id = channel.get("controller_id")
             if controller_id is None:
-                logger.debug("channel %s relay skip: no controller", channel_id)
                 return
 
             allowed, reason = self._resolve_channel_controller_action(channel, plate)
             if not allowed:
-                logger.debug("channel %s relay skip: %s (plate=%s)", channel_id, reason, plate)
+                logger.info("channel %s relay skip: %s (plate=%s)", channel_id, reason, plate)
                 return
 
             controller = next((item for item in self._get_controllers() if int(item.get("id", 0)) == int(controller_id)), None)
             if not controller:
-                logger.debug("channel %s relay skip: controller not found (controller_id=%s)", channel_id, controller_id)
+                logger.info("channel %s relay skip: controller not found (controller_id=%s)", channel_id, controller_id)
                 return
 
             relay_index = int(channel.get("controller_relay", 0) or 0)
@@ -197,22 +200,13 @@ class ControllerAutomationService:
                 reason=f"anpr channel={channel_id} plate={plate} {reason}",
             )
             if not url:
-                logger.debug(
-                    "channel %s relay skip: command failed / timeout (controller_id=%s relay=%s plate=%s)",
+                logger.warning(
+                    "channel %s relay skip: command failed (controller_id=%s relay=%s plate=%s)",
                     channel_id,
                     controller_id,
                     relay_index,
                     plate,
                 )
-                return
-            logger.debug(
-                "channel %s relay command sent: controller_id=%s relay=%s plate=%s reason=%s",
-                channel_id,
-                controller_id,
-                relay_index,
-                plate,
-                reason,
-            )
         except Exception as exc:  # noqa: BLE001
             logger.error("controller binding processing failed: %s", exc)
 

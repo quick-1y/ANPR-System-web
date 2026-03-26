@@ -196,6 +196,17 @@ def _stop_runtime_threads() -> None:
     _CLEANUP_STOP = None
 
 
+_NOISY_THIRD_PARTY_LOGGERS = (
+    "matplotlib",
+    "PIL",
+    "urllib3",
+    "httpcore",
+    "httpx",
+    "uvicorn.access",
+    "multipart",
+)
+
+
 def configure_logging(config: dict[str, Any] | None, *, service_name: str) -> None:
     global _LOG_QUEUE, _QUEUE_LISTENER, _CLEANUP_THREAD, _CLEANUP_STOP, _FILE_HANDLER, _CONSOLE_HANDLER, _CURRENT_SERVICE_NAME
 
@@ -238,6 +249,9 @@ def configure_logging(config: dict[str, Any] | None, *, service_name: str) -> No
         root_logger.setLevel(level)
         root_logger.addHandler(queue_handler)
 
+        for name in _NOISY_THIRD_PARTY_LOGGERS:
+            logging.getLogger(name).setLevel(logging.WARNING)
+
         live_handler = LiveDebugHandler()
         _QUEUE_LISTENER = QueueListener(_LOG_QUEUE, file_handler, console_handler, live_handler, respect_handler_level=True)
         _QUEUE_LISTENER.start()
@@ -274,15 +288,3 @@ def get_live_log_bus() -> DebugLogBus:
     return _LIVE_LOG_BUS
 
 
-def log_perf_stage(
-    logger: logging.Logger,
-    channel: str,
-    stage: str,
-    duration_ms: float,
-    level: int = logging.DEBUG,
-    **extra: Any,
-) -> None:
-    payload = {"channel": channel, "stage": stage, "duration_ms": round(float(duration_ms), 2)}
-    payload.update(extra)
-    parts = [f"{key}={value}" for key, value in payload.items()]
-    logger.log(level, "perf %s", " ".join(parts))

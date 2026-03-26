@@ -3,11 +3,13 @@ code: "UA"
 priority: 2
 license_plate_formats:
   - name: "standard"
-    regex: '^[ABCEHIKMOPTX]{2}\d{4}[ABCEHIKMOPTX]{2}$'
+    regex: '^([ABCEHIKMOPTX]{2})(\d{4})([ABCEHIKMOPTX]{2})$'
+    display_format: "{0} {1} {2}"
   - name: "diplomatic"
-    regex: '^\d{3}[CD]\d{3}$'
+    regex: '^(\d{3})([CD])(\d{3})$'
+    display_format: "{0} {1} {2}"
 valid_characters:
-  letters: "ABCEHIKMOPTX"
+  letters: "ABCEHKMOPTX"
   digits: "0123456789"
 corrections:
   digit_to_letter:

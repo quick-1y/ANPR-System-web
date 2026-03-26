@@ -177,10 +177,13 @@ def get_channel_config(channel_id: int, container: AppContainer = Depends(get_co
 
 @router.put("/api/channels/{channel_id}/config")
 def put_channel_config(channel_id: int, payload: ChannelConfigPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
-    data = payload.model_dump(exclude_none=True)
+    data = payload.model_dump()
     data["min_plate_size"] = payload.min_plate_size.model_dump()
     data["max_plate_size"] = payload.max_plate_size.model_dump()
     data["region"] = payload.region.model_dump()
+    data.pop("plate_size_overlay", None)
+    if data.get("enabled") is None:
+        data.pop("enabled", None)
     container.validate_channel_controller_binding(data)
     return update_channel(channel_id, data, container)
 

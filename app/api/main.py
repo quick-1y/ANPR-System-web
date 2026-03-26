@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,7 +19,16 @@ from app.api.routers.settings import router as settings_router
 from app.api.routers.system import router as system_router
 
 
-app = FastAPI(title="ANPR Core API", version="0.8-stage8")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    container = AppContainer.build()
+    await container.startup()
+    app.state.container = container
+    yield
+    container.shutdown()
+
+
+app = FastAPI(title="ANPR Core API", version="0.8-stage8", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,17 +50,3 @@ app.include_router(controllers_router)
 app.include_router(lists_router)
 app.include_router(settings_router)
 app.include_router(data_router)
-
-
-@app.on_event("startup")
-async def startup() -> None:
-    container = AppContainer.build()
-    await container.startup()
-    app.state.container = container
-
-
-@app.on_event("shutdown")
-def shutdown() -> None:
-    container: AppContainer | None = getattr(app.state, "container", None)
-    if container is not None:
-        container.shutdown()

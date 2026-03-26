@@ -3,5 +3,7 @@ opencv-python
 psutil
 PyYAML
 fastapi
+python-multipart
 uvicorn
 psycopg[binary]
+psycopg_pool

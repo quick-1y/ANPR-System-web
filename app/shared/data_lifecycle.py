@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import os
 import time
 from dataclasses import dataclass
@@ -19,7 +20,6 @@ class RetentionPolicy:
     events_retention_days: int = 30
     media_retention_days: int = 14
     max_screenshots_mb: int = 4096
-    export_dir: str = "data/exports"
 
     @classmethod
     def from_storage(cls, storage: Dict[str, Any]) -> "RetentionPolicy":
@@ -29,7 +29,6 @@ class RetentionPolicy:
             events_retention_days=max(1, int(storage.get("events_retention_days", 30))),
             media_retention_days=max(1, int(storage.get("media_retention_days", 14))),
             max_screenshots_mb=max(256, int(storage.get("max_screenshots_mb", 4096))),
-            export_dir=str(storage.get("export_dir", "data/exports")),
         )
 
     def to_storage(self) -> Dict[str, Any]:
@@ -39,7 +38,6 @@ class RetentionPolicy:
             "events_retention_days": int(self.events_retention_days),
             "media_retention_days": int(self.media_retention_days),
             "max_screenshots_mb": int(self.max_screenshots_mb),
-            "export_dir": str(self.export_dir),
         }
 
 
@@ -49,11 +47,9 @@ class DataLifecycleService:
         self.policy = policy
         self.pg_events = PostgresEventDatabase(postgres_dsn)
         self.screenshots_dir.mkdir(parents=True, exist_ok=True)
-        Path(self.policy.export_dir).mkdir(parents=True, exist_ok=True)
 
     def update_policy(self, policy: RetentionPolicy) -> None:
         self.policy = policy
-        Path(self.policy.export_dir).mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def _safe_unlink(path: Optional[str]) -> bool:
@@ -121,44 +117,51 @@ class DataLifecycleService:
         result.update(self.enforce_storage_limit())
         return result
 
-    def export_events_csv(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None, plate: Optional[str] = None, channel_id: Optional[int] = None) -> str:
+    def export_events_csv(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None, plate: Optional[str] = None, channel_id: Optional[int] = None) -> tuple[str, bytes]:
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        export_path = Path(self.policy.export_dir) / f"events_{ts}.csv"
+        filename = f"events_{ts}.csv"
         rows = self.pg_events.fetch_for_export(start=start, end=end, channel=channel, plate=plate, channel_id=channel_id)
-        fieldnames = ["id", "timestamp", "channel_id", "channel", "plate", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
-        with export_path.open("w", newline="", encoding="utf-8") as file_obj:
-            writer = csv.DictWriter(file_obj, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in rows:
-                writer.writerow(row)
-        return str(export_path)
+        fieldnames = ["id", "timestamp", "channel_id", "channel", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
+        csv_buffer = io.StringIO()
+        writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+        return filename, csv_buffer.getvalue().encode("utf-8")
 
-    def export_events_bundle(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None, include_media: bool = True) -> str:
-        csv_path = Path(self.export_events_csv(start=start, end=end, channel=channel))
-        bundle_path = csv_path.with_suffix(".zip")
+    def export_events_bundle(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None, include_media: bool = True) -> tuple[str, bytes]:
+        rows = self.pg_events.fetch_for_export(start=start, end=end, channel=channel)
+
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        csv_name = f"events_{ts}.csv"
+        fieldnames = ["id", "timestamp", "channel_id", "channel", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
+        csv_buffer = io.StringIO()
+        writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+        csv_bytes = csv_buffer.getvalue().encode("utf-8")
 
         media_paths: set[Path] = set()
         if include_media:
-            for row in self.pg_events.fetch_for_export(start=start, end=end, channel=channel):
+            for row in rows:
                 for key in ("frame_path", "plate_path"):
                     raw = row.get(key)
                     if raw:
                         media_paths.add(Path(str(raw)))
 
-        with ZipFile(bundle_path, "w", compression=ZIP_DEFLATED) as archive:
-            archive.write(csv_path, arcname=csv_path.name)
+        zip_filename = f"events_{ts}.zip"
+        zip_buffer = io.BytesIO()
+        with ZipFile(zip_buffer, "w", compression=ZIP_DEFLATED) as archive:
+            archive.writestr(csv_name, csv_bytes)
             if include_media:
                 for media_path in sorted(media_paths):
                     if media_path.exists() and media_path.is_file():
                         try:
-                            archive.write(media_path, arcname=f"media/{media_path.name}")
+                            archive.writestr(f"media/{media_path.name}", media_path.read_bytes())
                         except OSError:
                             continue
-        try:
-            csv_path.unlink()
-        except OSError:
-            pass
-        return str(bundle_path)
+        return zip_filename, zip_buffer.getvalue()
 
 
 __all__ = ["RetentionPolicy", "DataLifecycleService"]

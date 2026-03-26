@@ -29,35 +29,56 @@ def get_global_settings(container: AppContainer = Depends(get_container)) -> Dic
 
 @router.put("/api/settings")
 def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
-    # Snapshot pipeline-relevant settings before saving to detect changes
+    import copy
+
     old_plates = container.settings.get_plate_settings()
     old_storage = container.settings.get_storage_settings()
 
-    container.settings.save_grid(payload.grid)
-    container.settings.save_theme(payload.theme)
     reconnect_config = payload.reconnect.model_dump()
-    container.settings.save_reconnect(reconnect_config)
+    debug_payload = payload.debug.model_dump()
+    logging_payload = payload.logging.model_dump()
+
+    with container.settings._file_lock:
+        container.settings.settings["grid"] = payload.grid
+        container.settings.settings["theme"] = payload.theme
+        container.settings.settings["reconnect"] = reconnect_config
+
+        current_storage = container.settings.settings.get("storage", {})
+        sanitized_storage = copy.deepcopy(payload.storage.model_dump())
+        sanitized_storage.pop("postgres_dsn", None)
+        current_storage.update(sanitized_storage)
+        container.settings.settings["storage"] = current_storage
+
+        container.settings.settings["time"] = payload.time.model_dump()
+        current_plates = container.settings.settings.get("plates", {})
+        current_plates.update(payload.plates.model_dump())
+        container.settings.settings["plates"] = current_plates
+        container.settings.settings["debug"] = debug_payload
+
+        current_logging = container.settings.settings.get("logging", {})
+        current_logging.update(logging_payload)
+        from config.settings_schema import normalize_log_level
+        current_logging["level"] = normalize_log_level(current_logging.get("level"))
+        container.settings.settings["logging"] = current_logging
+
+        settings_snapshot = copy.deepcopy(container.settings.settings)
+
+    container.settings._repo.save(settings_snapshot)
+
     try:
         container.processor.update_reconnect_settings(reconnect_config)
     except Exception:
         logger.exception("Не удалось обновить reconnect-настройки активного processor")
-    container.settings.save_storage_settings(payload.storage.model_dump())
-    container.settings.save_time_settings(payload.time.model_dump())
-    container.settings.save_plate_settings(payload.plates.model_dump())
-    debug_payload = payload.debug.model_dump()
-    container.settings.save_debug_settings(debug_payload)
     container.processor.update_debug_settings(debug_payload)
-    container.settings.save_logging_config(payload.logging.model_dump())
     configure_logging(container.settings.get_logging_config(), service_name="api")
 
     container.refresh_storage_clients()
 
-    new_plates = payload.plates.model_dump()
+    new_plates = container.settings.get_plate_settings()
     new_storage = payload.storage.model_dump()
     pipeline_changed = (
         old_plates != new_plates
         or old_storage.get("postgres_dsn") != new_storage.get("postgres_dsn")
-        or old_storage.get("screenshots_dir") != new_storage.get("screenshots_dir")
     )
     if pipeline_changed:
         container.restart_processor_for_settings()
