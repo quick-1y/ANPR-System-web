@@ -222,7 +222,12 @@
             <img class="ui-icon ui-icon-sm" src="/web/assets/icons/controllers.svg" alt="" />
             Контроллеры
           </div>
-        
+
+          <div class="snav-item" data-sp="sysdata">
+            <img class="ui-icon ui-icon-sm" src="/web/assets/icons/sysdata.svg" alt="" />
+            Системные данные
+          </div>
+
           <div class="snav-label">Разработка</div>
         
           <div class="snav-item" data-sp="debug">
@@ -376,48 +381,8 @@
               </div>
             </div>
 
-            <!-- База данных -->
-            <div class="s-card">
-              <div class="s-card-header">База данных</div>
-              <div class="s-card-body">
-                <div class="s-row">
-                  <div class="s-row-label">
-                    <button class="param-help-btn" data-help="g_postgres_dsn">?</button>
-                    <div class="s-row-name">PostgreSQL DSN</div>
-                  </div>
-                  <input class="s-input wide" id="g_postgres_dsn" readonly />
-                </div>
-                <div class="backup-actions">
-                  <button class="btn btn-ghost backup-btn" id="dbBackupBtn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Скачать бэкап БД
-                  </button>
-                  <button class="btn btn-ghost backup-btn" id="dbRestoreBtn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Восстановить БД из файла
-                  </button>
-                  <input type="file" id="dbRestoreFileInput" accept=".zip" style="display:none" />
-                </div>
-              </div>
-            </div>
-
-            <!-- Настройки (файл) -->
-            <div class="s-card">
-              <div class="s-card-header">Конфигурация (settings.yaml)</div>
-              <div class="s-card-body">
-                <div class="backup-actions">
-                  <button class="btn btn-ghost backup-btn" id="settingsBackupBtn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Скачать settings.yaml
-                  </button>
-                  <button class="btn btn-ghost backup-btn" id="settingsRestoreBtn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Восстановить settings.yaml из файла
-                  </button>
-                  <input type="file" id="settingsRestoreFileInput" accept=".yaml,.yml" style="display:none" />
-                </div>
-              </div>
-            </div>
+            <!-- Hidden: keeps saveGeneral() payload intact -->
+            <input type="hidden" id="g_postgres_dsn" />
 
             <!-- Отображение времени -->
             <div class="s-card">
@@ -916,6 +881,40 @@
               </div>
               <div class="empty-pane" id="controllerConfigEmpty">
                 Выберите контроллер в списке или создайте новый.
+              </div>
+            </div>
+          </div>
+          <div class="settings-pane" id="sp-sysdata">
+            <div class="s-card">
+              <div class="s-card-header">База данных</div>
+              <div class="s-card-body">
+                <div class="sysdata-actions">
+                  <button class="btn btn-ghost backup-btn" id="dbBackupBtn">
+                    <img class="backup-icon" src="/web/assets/icons/export.svg" alt="" width="16" height="16" />
+                    Экспорт БД
+                  </button>
+                  <button class="btn btn-ghost backup-btn" id="dbRestoreBtn">
+                    <img class="backup-icon" src="/web/assets/icons/import.svg" alt="" width="16" height="16" />
+                    Импорт БД
+                  </button>
+                  <input type="file" id="dbRestoreFileInput" accept=".zip" style="display:none" />
+                </div>
+              </div>
+            </div>
+            <div class="s-card">
+              <div class="s-card-header">Конфигурация</div>
+              <div class="s-card-body">
+                <div class="sysdata-actions">
+                  <button class="btn btn-ghost backup-btn" id="settingsBackupBtn">
+                    <img class="backup-icon" src="/web/assets/icons/export.svg" alt="" width="16" height="16" />
+                    Экспорт настроек
+                  </button>
+                  <button class="btn btn-ghost backup-btn" id="settingsRestoreBtn">
+                    <img class="backup-icon" src="/web/assets/icons/import.svg" alt="" width="16" height="16" />
+                    Импорт настроек
+                  </button>
+                  <input type="file" id="settingsRestoreFileInput" accept=".yaml,.yml" style="display:none" />
+                </div>
               </div>
             </div>
           </div>

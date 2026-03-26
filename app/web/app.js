@@ -133,6 +133,7 @@ function updateTopbarTitle() {
     general: "Общие",
     channels: "Каналы",
     controllers: "Контроллеры",
+    sysdata: "Системные данные",
     debug: "Debug",
   };
   const activeTab = getActiveTabName();

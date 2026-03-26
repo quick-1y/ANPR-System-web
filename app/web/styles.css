@@ -1162,10 +1162,11 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 }
 .btn-danger:active { transform: translateY(0); }
 
+/* ─── Системные данные section ─────────────────────── */
+#sp-sysdata .s-card { max-width: 560px; }
+.sysdata-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
 /* ─── Backup / Restore buttons ─────────────────────── */
-.backup-actions {
-  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;
-}
 .backup-btn {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12px; padding: 6px 14px;
@@ -1174,6 +1175,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   opacity: 0.45; pointer-events: none;
 }
 .backup-btn svg { flex-shrink: 0; }
+.backup-icon { flex-shrink: 0; pointer-events: none; }
 .modal-warning-text {
   color: var(--danger) !important; font-size: 12px !important;
   line-height: 1.5 !important;
