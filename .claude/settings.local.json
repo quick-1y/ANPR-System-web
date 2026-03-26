@@ -28,7 +28,8 @@
       "Bash(where py:*)",
       "Read(//c/Users/User/AppData/Local/Programs/Python/**)",
       "Bash(ls -1 /c/Python*/python.exe)",
-      "Bash(/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/ -v 2>&1)"
+      "Bash(/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/ -v 2>&1)",
+      "Bash(python -c \"from app.api.schemas import GlobalSettingsPayload; print\\(''Schema OK:'', GlobalSettingsPayload.model_fields.keys\\(\\)\\)\")"
     ]
   }
 }

@@ -25,7 +25,7 @@ theme: dark
 channels:
 - id: 1
   name: Въезд
-  source: rtsp://admin:admin@78.138.142.26:2000/0
+  source: rtsp://admin:admin@195.239.135.49:2003/0
   enabled: true
   roi_enabled: true
   region:
@@ -53,7 +53,7 @@ channels:
   detector_frame_stride: 2
   motion_threshold: 0.01
   motion_frame_stride: 1
-  motion_activation_frames: 3
+  motion_activation_frames: 2
   motion_release_frames: 100
   size_filter_enabled: true
   min_plate_size:
@@ -62,7 +62,7 @@ channels:
   max_plate_size:
     width: 232
     height: 59
-  controller_id: 1
+  controller_id: null
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []
@@ -170,3 +170,4 @@ logging:
 time:
   timezone: UTC+00:00
   offset_minutes: 0
+sidebar_locked: false

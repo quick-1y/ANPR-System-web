@@ -1249,6 +1249,8 @@ async function loadGlobalSettings() {
   setVal("g_grid", g.grid);
   setVal("g_theme", g.theme);
   applyTheme(g.theme);
+  setChk("g_sidebar_locked", g.sidebar_locked);
+  applySidebarLocked(!!g.sidebar_locked);
   setChk("g_sl_enabled", g.reconnect.signal_loss.enabled);
   setVal("g_frame_timeout", g.reconnect.signal_loss.frame_timeout_seconds);
   setVal("g_retry_interval", g.reconnect.signal_loss.retry_interval_seconds);
@@ -1277,6 +1279,7 @@ async function saveGeneral() {
   const payload = {
     grid: val("g_grid"),
     theme: val("g_theme"),
+    sidebar_locked: document.getElementById("g_sidebar_locked").checked,
     reconnect: {
       signal_loss: {
         enabled: document.getElementById("g_sl_enabled").checked,
@@ -1332,6 +1335,7 @@ async function saveGeneral() {
   applyDebugPanelVisibility();
   syncOverlayPolling();
   scheduleVideoGridLayout(true);
+  applySidebarLocked(document.getElementById("g_sidebar_locked").checked);
   showToast("Настройки сохранены");
 }
 
@@ -2690,6 +2694,7 @@ document.getElementById("c_controller_id").onchange = updateChannelControllerBin
 document.getElementById("c_list_filter_mode").onchange = updateCustomListsVisibility;
 document.getElementById("saveDebugBtn").onclick = saveGeneral;
 document.getElementById("g_theme").onchange = () => applyTheme(val("g_theme"));
+document.getElementById("g_sidebar_locked").onchange = () => applySidebarLocked(document.getElementById("g_sidebar_locked").checked);
 document.getElementById("themeToggleBtn").onclick = () => {
   const nextTheme = val("g_theme") === "light" ? "dark" : "light";
   setVal("g_theme", nextTheme);
@@ -2763,6 +2768,29 @@ function cleanupStreamsAndTimers() {
 window.addEventListener("beforeunload", cleanupStreamsAndTimers);
 window.addEventListener("pagehide", cleanupStreamsAndTimers);
 window.addEventListener("resize", () => scheduleEventFeedRender(true));
+
+/* ─── Sidebar hover-expand ──────────────────────────── */
+let sidebarLocked = false;
+function applySidebarLocked(locked) {
+  sidebarLocked = !!locked;
+  const rail = document.getElementById("leftRail");
+  if (sidebarLocked) {
+    rail.classList.remove("rail-expanded");
+  }
+}
+(function initSidebarHover() {
+  const rail = document.getElementById("leftRail");
+
+  rail.addEventListener("mouseenter", () => {
+    if (sidebarLocked) return;
+    rail.classList.add("rail-expanded");
+  });
+
+  rail.addEventListener("mouseleave", () => {
+    rail.classList.remove("rail-expanded");
+  });
+})();
+
 (async function init() {
   const apiBaseEl = document.getElementById("apiBase");
   if (apiBaseEl) apiBaseEl.value = window.location.origin;
@@ -2821,6 +2849,7 @@ const PARAM_HELP = {
   /* ── Общие настройки ── */
   g_grid: "Сетка раскладки видеопревью на главной странице. Определяет сколько камер отображается одновременно: 1×1, 2×2, 2×3 или 3×3.",
   g_theme: "Цветовая тема интерфейса. Тёмная тема снижает нагрузку на глаза при работе в условиях слабого освещения.",
+  g_sidebar_locked: "Фиксирует левую навигационную панель в свёрнутом состоянии. Когда включено, панель не раскрывается при наведении курсора.",
   g_sl_enabled: "Включает мониторинг потери видеосигнала. Если от камеры не поступают кадры в течение заданного таймаута, система автоматически переподключает канал.",
   g_frame_timeout: "Время ожидания (в секундах) нового кадра от камеры. Если за это время кадр не получен, соединение считается потерянным и запускается повторное подключение.",
   g_retry_interval: "Пауза (в секундах) между попытками переподключения после потери сигнала. Слишком малое значение может создать лишнюю нагрузку на камеру.",

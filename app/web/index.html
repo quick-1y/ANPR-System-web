@@ -16,7 +16,7 @@
   </head>
   <body>
     <div class="app-shell">
-      <aside class="left-rail">
+      <aside class="left-rail" id="leftRail">
         <div class="rail-top">
           <button class="rail-logo" title="ANPR">
             <img class="ui-icon ui-icon-logo" src="/web/assets/icons/logo.svg" alt="ANPR" />
@@ -267,6 +267,13 @@
                     <option value="dark">Тёмная</option>
                     <option value="light">Светлая</option>
                   </select>
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_sidebar_locked">?</button>
+                    <div class="s-row-name">Зафиксировать левую панель</div>
+                  </div>
+                  <input type="checkbox" id="g_sidebar_locked" />
                 </div>
               </div>
             </div>

@@ -178,6 +178,7 @@ def build_default_settings() -> Dict[str, Any]:
         "debug": debug_defaults(),
         "grid": "2x2",
         "theme": "dark",
+        "sidebar_locked": False,
         "channels": [],
         "controllers": [],
         "reconnect": reconnect_defaults(),
