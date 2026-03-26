@@ -91,6 +91,7 @@ class AppContainer:
             reconnect_settings=self.settings.get_reconnect(),
             debug_registry=self.debug_registry,
             model_config=model_config,
+            events_db=self.events_db,
         )
 
     def _build_lifecycle(self) -> DataLifecycleService:

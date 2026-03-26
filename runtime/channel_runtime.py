@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,6 +50,7 @@ class ChannelContext:
     metrics: ChannelMetrics = field(default_factory=ChannelMetrics)
     latest_jpeg: Optional[bytes] = None
     latest_frame_ts: float = 0.0
+    preview_consumers: int = 0
 
 
 @dataclass(frozen=True)
@@ -73,18 +75,23 @@ class ChannelProcessor:
         reconnect_settings: Dict[str, Any] | None = None,
         debug_registry: DebugRegistry | None = None,
         model_config: "AnprModelConfig | None" = None,
+        events_db=None,
     ) -> None:
         self._event_callback = event_callback
         self._contexts: Dict[int, ChannelContext] = {}
         self._lock = threading.RLock()
         self._storage_settings = storage_settings or {}
-        self._sink = EventSink(postgres_dsn=str(self._storage_settings.get("postgres_dsn", "")))
+        self._sink = EventSink(
+            postgres_dsn=str(self._storage_settings.get("postgres_dsn", "")),
+            events_db=events_db,
+        )
         self._plate_settings = plate_settings or {}
         self._reconnect_config = self._build_reconnect_config(reconnect_settings or {})
         self._reconnect_config_cache_ts = 0.0
         self._reconnect_config_cache: Optional[ReconnectConfig] = None
         self._debug_registry = debug_registry or DebugRegistry()
         self._model_config = model_config
+        self._io_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="screenshot-io")
         screenshots_dir = str(self._storage_settings.get("screenshots_dir", "data/screenshots")).strip() or "data/screenshots"
         self._screenshots_dir = Path(screenshots_dir).expanduser().resolve()
         self._screenshots_dir.mkdir(parents=True, exist_ok=True)
@@ -184,6 +191,23 @@ class ChannelProcessor:
             if not ctx:
                 return None, 0.0
             return ctx.latest_jpeg, ctx.latest_frame_ts
+
+    def add_preview_consumer(self, channel_id: int) -> None:
+        with self._lock:
+            ctx = self._contexts.get(channel_id)
+            if ctx:
+                ctx.preview_consumers += 1
+
+    def remove_preview_consumer(self, channel_id: int) -> None:
+        with self._lock:
+            ctx = self._contexts.get(channel_id)
+            if ctx:
+                ctx.preview_consumers = max(0, ctx.preview_consumers - 1)
+
+    def _has_preview_consumers(self, channel_id: int) -> bool:
+        with self._lock:
+            ctx = self._contexts.get(channel_id)
+            return ctx is not None and ctx.preview_consumers > 0
 
     def ensure_channel(self, channel: Dict[str, Any]) -> None:
         channel_id = int(channel["id"])
@@ -366,6 +390,7 @@ class ChannelProcessor:
                 max_plate_size=channel.get("max_plate_size"),
                 size_filter_enabled=bool(channel.get("size_filter_enabled", True)),
                 max_ocr_attempts=int(channel.get("max_ocr_attempts", 15)),
+                max_consecutive_empty_ocr=int(channel.get("max_consecutive_empty_ocr", 5)),
                 channel_id=channel_id,
                 channel_name=channel_name,
             )
@@ -381,6 +406,7 @@ class ChannelProcessor:
                 detection_mode = detection_mode_raw
 
             detector_frame_stride = max(1, int(channel.get("detector_frame_stride", 1)))
+            adaptive_stride_enabled = bool(channel.get("adaptive_stride_enabled", True))
             motion_detector = None
             if detection_mode == "motion":
                 motion_config = MotionDetectorConfig(
@@ -412,6 +438,9 @@ class ChannelProcessor:
 
             frames = 0
             detector_input_frames = 0
+            last_preview_encode_ts = 0.0
+            _preview_fps = max(1, min(30, int(channel.get("preview_fps_limit", 5))))
+            preview_encode_interval = 1.0 / _preview_fps
             window_start = time.monotonic()
             last_frame_at = time.monotonic()
             periodic_reconnect_at = (
@@ -511,7 +540,17 @@ class ChannelProcessor:
 
                 if should_process:
                     detector_input_frames += 1
-                    if detector_input_frames % detector_frame_stride != 0:
+                    # Adaptive stride: multiply base stride when no active
+                    # (unfinalized) tracks exist — saves YOLO calls during idle.
+                    effective_stride = detector_frame_stride
+                    if adaptive_stride_enabled:
+                        active_tracks = sum(
+                            1 for s in pipeline.aggregator._track_states.values()
+                            if not s.finalized
+                        )
+                        if active_tracks == 0:
+                            effective_stride = detector_frame_stride * 3
+                    if detector_input_frames % effective_stride != 0:
                         metrics.detector_skipped_frames += 1
                         should_process = False
 
@@ -536,9 +575,13 @@ class ChannelProcessor:
                             continue
                         event_ts = datetime.now(timezone.utc)
                         frame_file, plate_file = self._build_event_media_paths(event_ts=event_ts, channel_id=channel_id, plate=plate)
-                        frame_path = self._save_jpeg(frame_file, frame)
                         plate_crop = self._extract_plate_crop(frame, detection)
-                        plate_path = self._save_jpeg(plate_file, plate_crop)
+                        # Offload disk I/O to the IO thread pool so the
+                        # processing loop is not blocked by slow storage.
+                        frame_future = self._io_pool.submit(self._save_jpeg, frame_file, frame)
+                        plate_future = self._io_pool.submit(self._save_jpeg, plate_file, plate_crop)
+                        frame_path = frame_future.result(timeout=5.0)
+                        plate_path = plate_future.result(timeout=5.0)
                         event = {
                             "timestamp": event_ts.isoformat(),
                             "channel": channel.get("name", f"Канал {channel_id}"),
@@ -581,16 +624,19 @@ class ChannelProcessor:
                     )
 
                 if not self._debug_registry.get_settings().disable_video_output:
-                    ok_enc, preview_buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-                    if ok_enc:
-                        now_ts = time.time()
-                        with self._lock:
-                            channel_ctx = self._contexts.get(channel_id)
-                            if channel_ctx:
-                                channel_ctx.latest_jpeg = preview_buf.tobytes()
-                                channel_ctx.latest_frame_ts = now_ts
-                        metrics.preview_ready = True
-                        metrics.preview_last_frame_at = datetime.now(timezone.utc).isoformat()
+                    now_mono = time.monotonic()
+                    if self._has_preview_consumers(channel_id) and (now_mono - last_preview_encode_ts) >= preview_encode_interval:
+                        ok_enc, preview_buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                        if ok_enc:
+                            now_ts = time.time()
+                            with self._lock:
+                                channel_ctx = self._contexts.get(channel_id)
+                                if channel_ctx:
+                                    channel_ctx.latest_jpeg = preview_buf.tobytes()
+                                    channel_ctx.latest_frame_ts = now_ts
+                            metrics.preview_ready = True
+                            metrics.preview_last_frame_at = datetime.now(timezone.utc).isoformat()
+                        last_preview_encode_ts = now_mono
                 frames += 1
                 elapsed = time.monotonic() - window_start
                 if elapsed >= 1.0:

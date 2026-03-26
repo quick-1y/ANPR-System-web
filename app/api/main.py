@@ -3,6 +3,9 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 
+import cv2
+import torch
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -17,6 +20,17 @@ from app.api.routers.events import router as events_router
 from app.api.routers.lists import router as lists_router
 from app.api.routers.settings import router as settings_router
 from app.api.routers.system import router as system_router
+
+
+def _configure_thread_limits() -> None:
+    """Limit internal threading for PyTorch/OpenCV to prevent CPU oversubscription."""
+    omp = int(os.environ.get("OMP_NUM_THREADS", 2))
+    torch.set_num_threads(omp)
+    torch.set_num_interop_threads(min(2, omp))
+    cv2.setNumThreads(omp)
+
+
+_configure_thread_limits()
 
 
 @asynccontextmanager

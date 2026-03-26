@@ -207,6 +207,31 @@ class TestTrackOCRBudget:
         # At budget exhaustion, "CCC" has highest weight (0.9).
         assert result == "CCC"
 
+    def test_early_exit_consecutive_failures(self):
+        """Track is finalized early after N consecutive empty OCR results."""
+        agg = TrackAggregator(best_shots=3, max_ocr_attempts=100, max_consecutive_empty_ocr=5)
+        for _ in range(5):
+            agg.add_result(1, "", 0.3)
+        assert agg.should_process(1) is False
+        assert agg.should_emit_unreadable(1) is True
+
+    def test_consecutive_failures_reset_by_valid_result(self):
+        """A valid OCR result resets the consecutive failure counter."""
+        agg = TrackAggregator(best_shots=5, max_ocr_attempts=100, max_consecutive_empty_ocr=5)
+        for _ in range(4):
+            agg.add_result(1, "", 0.3)
+        agg.add_result(1, "ABC123", 0.9)
+        for _ in range(4):
+            agg.add_result(1, "", 0.3)
+        assert agg.should_process(1) is True
+
+    def test_early_exit_disabled_when_zero(self):
+        """max_consecutive_empty_ocr=0 disables early exit."""
+        agg = TrackAggregator(best_shots=3, max_ocr_attempts=100, max_consecutive_empty_ocr=0)
+        for _ in range(20):
+            agg.add_result(1, "", 0.3)
+        assert agg.should_process(1) is True
+
     def test_stale_eviction_cleans_state(self):
         """Stale tracks are fully evicted including OCR state."""
         import time as _time

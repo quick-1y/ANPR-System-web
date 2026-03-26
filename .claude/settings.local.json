@@ -29,7 +29,9 @@
       "Read(//c/Users/User/AppData/Local/Programs/Python/**)",
       "Bash(ls -1 /c/Python*/python.exe)",
       "Bash(/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/ -v 2>&1)",
-      "Bash(python -c \"from app.api.schemas import GlobalSettingsPayload; print\\(''Schema OK:'', GlobalSettingsPayload.model_fields.keys\\(\\)\\)\")"
+      "Bash(python -c \"from app.api.schemas import GlobalSettingsPayload; print\\(''Schema OK:'', GlobalSettingsPayload.model_fields.keys\\(\\)\\)\")",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python -m pytest tests/test_track_aggregator.py tests/test_motion_detector.py -v --tb=short)"
     ]
   }
 }

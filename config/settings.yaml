@@ -67,6 +67,9 @@ channels:
   list_filter_mode: all
   list_filter_list_ids: []
   max_ocr_attempts: 15
+  max_consecutive_empty_ocr: 5
+  adaptive_stride_enabled: true
+  preview_fps_limit: 10
 - id: 2
   name: Выезд
   source: rtsp://admin:admin@78.138.142.26:2001/0
@@ -113,6 +116,9 @@ channels:
   list_filter_mode: all
   list_filter_list_ids: []
   max_ocr_attempts: 15
+  max_consecutive_empty_ocr: 5
+  adaptive_stride_enabled: true
+  preview_fps_limit: 5
 controllers:
 - id: 1
   name: Общий контроллер

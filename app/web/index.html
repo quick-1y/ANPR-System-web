@@ -537,6 +537,19 @@
                       <div class="s-row-label"></div>
                       <div class="roi-hint" style="margin-top:0">Черный список применяется всегда автоматически.</div>
                     </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <button class="param-help-btn" data-help="preview_fps_limit">?</button>
+                        <div class="s-row-name">Лимит FPS предпросмотра</div>
+                      </div>
+                      <input
+                        class="s-input sm"
+                        id="c_preview_fps_limit"
+                        type="number"
+                        min="1"
+                        max="30"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div
@@ -620,6 +633,13 @@
                         id="c_detector_stride"
                         type="number"
                       />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <button class="param-help-btn" data-help="adaptive_stride_enabled">?</button>
+                        <div class="s-row-name">Адаптивный шаг инференса</div>
+                      </div>
+                      <input type="checkbox" id="c_adaptive_stride" />
                     </div>
                   </div>
                 </div>
@@ -738,6 +758,19 @@
                         id="c_max_ocr_attempts"
                         type="number"
                         min="1"
+                        max="200"
+                      />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <button class="param-help-btn" data-help="max_consecutive_empty_ocr">?</button>
+                        <div class="s-row-name">Пустых OCR подряд до завершения трека</div>
+                      </div>
+                      <input
+                        class="s-input sm"
+                        id="c_max_consecutive_empty_ocr"
+                        type="number"
+                        min="0"
                         max="200"
                       />
                     </div>

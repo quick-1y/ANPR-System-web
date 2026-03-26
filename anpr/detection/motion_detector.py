@@ -41,7 +41,15 @@ class MotionDetector:
         if not self._should_analyze():
             return self._motion_active
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # Downscale to reduce CPU cost of cvtColor + GaussianBlur on large frames
+        h, w = frame.shape[:2]
+        _MOTION_MAX_WIDTH = 320
+        if w > _MOTION_MAX_WIDTH:
+            scale = _MOTION_MAX_WIDTH / w
+            small = cv2.resize(frame, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
+        else:
+            small = frame
+        gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
         if self._previous_frame is None or self._previous_frame.shape != gray.shape:
