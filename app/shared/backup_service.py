@@ -1,313 +1,218 @@
-"""Backup & restore service for PostgreSQL database and settings.yaml."""
+"""Backup / restore helpers for database and settings."""
 
 from __future__ import annotations
 
-import copy
 import io
 import json
-import os
 import threading
-import zipfile
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict
+from zipfile import ZIP_DEFLATED, ZipFile
 
+import psycopg
 import yaml
 
 from common.logging import get_logger
-from config.settings_normalizer import SettingsNormalizer
-from database.errors import StorageUnavailableError
 
 logger = get_logger(__name__)
 
-BACKUP_FORMAT_VERSION = 1
-BACKUP_TYPE_DATABASE = "database"
-BACKUP_TYPE_SETTINGS = "settings"
+# ── Tables included in the database backup ──────────────────────
+_BACKUP_TABLES = ("plate_lists", "plate_list_entries", "events")
+
+_BACKUP_MANIFEST_VERSION = 1
 
 
-class BackupLock:
-    """Single-flight lock for restore operations."""
+# ── Restore lock ────────────────────────────────────────────────
+
+class _RestoreLock:
+    """Simple reentrant-safe lock so only one restore runs at a time."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._active: Optional[str] = None
+        self._owner: str | None = None
 
-    def acquire(self, operation: str) -> bool:
-        with self._lock:
-            if self._active is not None:
-                return False
-            self._active = operation
+    def acquire(self, name: str) -> bool:
+        if self._lock.acquire(blocking=False):
+            self._owner = name
             return True
+        return False
 
     def release(self) -> None:
-        with self._lock:
-            self._active = None
-
-    @property
-    def active_operation(self) -> Optional[str]:
-        with self._lock:
-            return self._active
+        self._owner = None
+        try:
+            self._lock.release()
+        except RuntimeError:
+            pass
 
 
-_restore_lock = BackupLock()
+_restore_lock = _RestoreLock()
 
 
-def get_restore_lock() -> BackupLock:
+def get_restore_lock() -> _RestoreLock:
     return _restore_lock
 
 
-def _build_manifest(backup_type: str, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    manifest: Dict[str, Any] = {
-        "format_version": BACKUP_FORMAT_VERSION,
-        "backup_type": backup_type,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "app_version": os.getenv("APP_VERSION", "0.8"),
-    }
-    if extra:
-        manifest.update(extra)
-    return manifest
+# ── Database backup ─────────────────────────────────────────────
 
+def export_database_backup(dsn: str) -> tuple[str, bytes]:
+    """Export all application tables as a ZIP containing JSON per table."""
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    filename = f"db_backup_{ts}.zip"
 
-def export_database_backup(dsn: str) -> Tuple[str, bytes]:
-    """Export full PostgreSQL database as a ZIP with SQL dump + manifest."""
-    from psycopg_pool import ConnectionPool
+    tables_data: Dict[str, list[Dict[str, Any]]] = {}
 
-    pool = ConnectionPool(dsn, min_size=1, max_size=2, open=True)
-    try:
-        tables_data: Dict[str, Any] = {}
-        with pool.connection() as conn:
-            with conn.cursor() as cur:
+    with psycopg.connect(dsn) as conn:
+        with conn.cursor() as cur:
+            for table in _BACKUP_TABLES:
                 cur.execute(
-                    "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = %s ORDER BY ordinal_position",
+                    (table,),
                 )
-                tables = [row[0] for row in cur.fetchall()]
-
-            for table in tables:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        "SELECT column_name, data_type FROM information_schema.columns "
-                        "WHERE table_schema = 'public' AND table_name = %s "
-                        "ORDER BY ordinal_position",
-                        (table,),
-                    )
-                    columns = [(row[0], row[1]) for row in cur.fetchall()]
-
-                with conn.cursor() as cur:
-                    col_names = [c[0] for c in columns]
-                    cur.execute(f'SELECT {", ".join(col_names)} FROM "{table}"')  # noqa: S608
-                    rows = cur.fetchall()
-
-                serialized_rows = []
-                for row in rows:
-                    serialized_row = []
-                    for val in row:
+                columns = [row[0] for row in cur.fetchall()]
+                if not columns:
+                    continue
+                cur.execute(f"SELECT {', '.join(columns)} FROM {table}")  # noqa: S608
+                rows = []
+                for row in cur.fetchall():
+                    record: Dict[str, Any] = {}
+                    for col, val in zip(columns, row):
                         if isinstance(val, datetime):
-                            serialized_row.append(val.isoformat())
-                        elif val is None:
-                            serialized_row.append(None)
-                        else:
-                            serialized_row.append(val)
-                    serialized_rows.append(serialized_row)
+                            val = val.isoformat()
+                        record[col] = val
+                    rows.append(record)
+                tables_data[table] = rows
 
-                tables_data[table] = {
-                    "columns": [{"name": c[0], "type": c[1]} for c in columns],
-                    "rows": serialized_rows,
-                    "row_count": len(serialized_rows),
-                }
+    manifest = {
+        "version": _BACKUP_MANIFEST_VERSION,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "tables": list(tables_data.keys()),
+    }
 
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT sequencename FROM pg_sequences WHERE schemaname = 'public'"
-                )
-                sequences = [row[0] for row in cur.fetchall()]
-
-            sequence_values: Dict[str, int] = {}
-            for seq in sequences:
-                with conn.cursor() as cur:
-                    cur.execute(f"SELECT last_value FROM \"{seq}\"")  # noqa: S608
-                    row = cur.fetchone()
-                    if row:
-                        sequence_values[seq] = row[0]
-
-        dump_data = {
-            "tables": tables_data,
-            "sequences": sequence_values,
-        }
-
-        manifest = _build_manifest(
-            BACKUP_TYPE_DATABASE,
-            {"table_count": len(tables), "total_rows": sum(t["row_count"] for t in tables_data.values())},
-        )
-
-        buf = io.BytesIO()
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
-            zf.writestr("dump.json", json.dumps(dump_data, indent=2, ensure_ascii=False, default=str))
-
-        filename = f"anpr_db_backup_{ts}.zip"
-        return filename, buf.getvalue()
-    finally:
-        pool.close()
+    buf = io.BytesIO()
+    with ZipFile(buf, "w", compression=ZIP_DEFLATED) as zf:
+        zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+        for table, rows in tables_data.items():
+            zf.writestr(f"{table}.json", json.dumps(rows, ensure_ascii=False, default=str))
+    return filename, buf.getvalue()
 
 
-def validate_database_backup(data: bytes) -> Dict[str, Any]:
-    """Validate uploaded DB backup file. Returns manifest on success, raises on failure."""
+def validate_database_backup(data: bytes) -> None:
+    """Raise ValueError if *data* is not a valid database backup ZIP."""
     try:
-        zf = zipfile.ZipFile(io.BytesIO(data))
-    except zipfile.BadZipFile:
-        raise ValueError("Загруженный файл не является корректным ZIP-архивом")
+        zf = ZipFile(io.BytesIO(data), "r")
+    except Exception as exc:
+        raise ValueError(f"Файл не является корректным ZIP-архивом: {exc}") from exc
 
-    names = zf.namelist()
-    if "manifest.json" not in names:
-        raise ValueError("Архив не содержит manifest.json — это не бэкап ANPR")
-    if "dump.json" not in names:
-        raise ValueError("Архив не содержит dump.json — данные бэкапа отсутствуют")
+    if "manifest.json" not in zf.namelist():
+        raise ValueError("Архив не содержит manifest.json — это не бэкап базы данных")
 
     try:
         manifest = json.loads(zf.read("manifest.json"))
-    except (json.JSONDecodeError, KeyError):
-        raise ValueError("manifest.json повреждён или имеет неверный формат")
+    except Exception as exc:
+        raise ValueError(f"Невозможно прочитать manifest.json: {exc}") from exc
 
-    if not isinstance(manifest, dict):
-        raise ValueError("manifest.json должен содержать JSON-объект")
-
-    if manifest.get("backup_type") != BACKUP_TYPE_DATABASE:
+    if manifest.get("version") != _BACKUP_MANIFEST_VERSION:
         raise ValueError(
-            f"Тип бэкапа '{manifest.get('backup_type')}' не является бэкапом базы данных"
+            f"Неподдерживаемая версия бэкапа: {manifest.get('version')} "
+            f"(ожидается {_BACKUP_MANIFEST_VERSION})"
         )
-
-    fmt_ver = manifest.get("format_version")
-    if not isinstance(fmt_ver, int) or fmt_ver > BACKUP_FORMAT_VERSION:
-        raise ValueError(
-            f"Неподдерживаемая версия формата бэкапа: {fmt_ver}. "
-            f"Максимально поддерживаемая: {BACKUP_FORMAT_VERSION}"
-        )
-
-    try:
-        dump = json.loads(zf.read("dump.json"))
-    except (json.JSONDecodeError, KeyError):
-        raise ValueError("dump.json повреждён или имеет неверный формат")
-
-    if not isinstance(dump, dict) or "tables" not in dump:
-        raise ValueError("dump.json не содержит данных таблиц")
-
-    return manifest
 
 
 def restore_database_backup(dsn: str, data: bytes) -> Dict[str, Any]:
-    """Restore database from backup ZIP. Returns summary dict."""
-    manifest = validate_database_backup(data)
+    """Restore tables from a backup ZIP.  Returns a summary dict."""
+    zf = ZipFile(io.BytesIO(data), "r")
+    manifest = json.loads(zf.read("manifest.json"))
+    tables = manifest.get("tables", [])
 
-    zf = zipfile.ZipFile(io.BytesIO(data))
-    dump = json.loads(zf.read("dump.json"))
-    tables_data = dump.get("tables", {})
-    sequence_values = dump.get("sequences", {})
+    restored: Dict[str, int] = {}
 
-    from psycopg_pool import ConnectionPool
+    with psycopg.connect(dsn) as conn:
+        with conn.cursor() as cur:
+            # Restore in reverse order to respect FK constraints (delete children first)
+            for table in reversed(_BACKUP_TABLES):
+                if table in tables:
+                    cur.execute(f"DELETE FROM {table}")  # noqa: S608
 
-    pool = ConnectionPool(dsn, min_size=1, max_size=2, open=True)
-    try:
-        with pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-                )
-                existing_tables = [row[0] for row in cur.fetchall()]
-
-            with conn.cursor() as cur:
-                for table in existing_tables:
-                    cur.execute(f'TRUNCATE TABLE "{table}" CASCADE')  # noqa: S608
-            conn.commit()
-
-            for table_name, table_info in tables_data.items():
-                columns = table_info.get("columns", [])
-                rows = table_info.get("rows", [])
-                if not columns or not rows:
+            for table in _BACKUP_TABLES:
+                if table not in tables:
+                    continue
+                raw = zf.read(f"{table}.json")
+                rows = json.loads(raw)
+                if not rows:
+                    restored[table] = 0
                     continue
 
-                col_names = [c["name"] for c in columns]
-                placeholders = ", ".join(["%s"] * len(col_names))
-                col_list = ", ".join(f'"{c}"' for c in col_names)
+                columns = list(rows[0].keys())
+                placeholders = ", ".join(["%s"] * len(columns))
+                col_names = ", ".join(columns)
 
-                with conn.cursor() as cur:
+                for row in rows:
+                    values = [row.get(c) for c in columns]
                     cur.execute(
-                        f"SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = %s",
-                        (table_name,),
+                        f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})",  # noqa: S608
+                        values,
                     )
-                    if not cur.fetchone():
-                        logger.warning("Таблица '%s' из бэкапа не существует в текущей схеме, пропускаем", table_name)
-                        continue
+                restored[table] = len(rows)
 
-                insert_sql = f'INSERT INTO "{table_name}" ({col_list}) VALUES ({placeholders})'  # noqa: S608
-                with conn.cursor() as cur:
-                    for row in rows:
-                        try:
-                            cur.execute(insert_sql, tuple(row))
-                        except Exception as exc:
-                            logger.warning("Ошибка вставки строки в %s: %s", table_name, exc)
-                            conn.rollback()
-                            raise ValueError(f"Ошибка восстановления таблицы {table_name}: {exc}") from exc
+            # Reset sequences so new inserts get correct IDs
+            for table in _BACKUP_TABLES:
+                if table in tables:
+                    cur.execute(
+                        f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "  # noqa: S608
+                        f"COALESCE(MAX(id), 1)) FROM {table}"
+                    )
+        conn.commit()
 
-            for seq_name, last_val in sequence_values.items():
-                with conn.cursor() as cur:
-                    try:
-                        cur.execute(f"SELECT setval('\"{seq_name}\"', %s, true)", (last_val,))  # noqa: S608
-                    except Exception:
-                        try:
-                            cur.execute(f"SELECT setval('{seq_name}', %s, true)", (last_val,))  # noqa: S608
-                        except Exception as exc:
-                            logger.warning("Не удалось восстановить sequence %s: %s", seq_name, exc)
-
-            conn.commit()
-
-        return {
-            "tables_restored": len(tables_data),
-            "backup_created_at": manifest.get("created_at"),
-        }
-    finally:
-        pool.close()
+    logger.info("База данных восстановлена: %s", restored)
+    return {"restored_tables": restored}
 
 
-def export_settings(settings_path: str) -> Tuple[str, bytes]:
-    """Export current settings.yaml as raw bytes."""
-    if not os.path.exists(settings_path):
-        raise FileNotFoundError("Файл настроек не найден")
+# ── Settings backup ─────────────────────────────────────────────
+
+def export_settings(settings_path: str) -> tuple[str, bytes]:
+    """Read the settings YAML and return (filename, raw bytes)."""
+    import os
+
+    if not os.path.isfile(settings_path):
+        raise FileNotFoundError(f"Файл настроек не найден: {settings_path}")
 
     with open(settings_path, "r", encoding="utf-8") as f:
-        content = f.read()
+        body = f.read()
 
-    return "settings.yaml", content.encode("utf-8")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    filename = f"settings_{ts}.yaml"
+    return filename, body.encode("utf-8")
 
 
-def validate_settings_yaml(data: bytes) -> Dict[str, Any]:
-    """Parse and validate uploaded settings YAML. Returns parsed dict."""
+def validate_settings_yaml(data: bytes) -> None:
+    """Raise ValueError if *data* is not valid YAML with a dict root."""
     try:
-        text = data.decode("utf-8")
-    except UnicodeDecodeError:
-        raise ValueError("Файл настроек должен быть в кодировке UTF-8")
-
-    try:
-        parsed = yaml.safe_load(text)
+        parsed = yaml.safe_load(data)
     except yaml.YAMLError as exc:
-        raise ValueError(f"Некорректный YAML: {exc}")
-
-    if parsed is None:
-        raise ValueError("Файл настроек пуст")
-
+        raise ValueError(f"Некорректный YAML: {exc}") from exc
     if not isinstance(parsed, dict):
-        raise ValueError("Файл настроек должен содержать YAML-объект (словарь) на верхнем уровне")
-
-    normalizer = SettingsNormalizer()
-    try:
-        normalized, _ = normalizer.normalize_with_meta(parsed)
-    except Exception as exc:
-        raise ValueError(f"Ошибка валидации настроек: {exc}")
-
-    return normalized
+        raise ValueError("Файл настроек должен содержать YAML-объект (словарь)")
 
 
-def restore_settings(repo: Any, normalizer_cls: type, raw_data: bytes) -> Dict[str, Any]:
-    """Validate and atomically save uploaded settings using existing repository."""
-    normalized = validate_settings_yaml(raw_data)
+def restore_settings(repo: Any, normalizer_class: type, data: bytes) -> Dict[str, Any]:
+    """Write *data* to the settings file, normalizing via *normalizer_class*."""
+    parsed = yaml.safe_load(data)
+    if not isinstance(parsed, dict):
+        raise ValueError("Файл настроек должен содержать YAML-объект (словарь)")
+
+    normalizer = normalizer_class()
+    normalized = normalizer.normalize(parsed)
     repo.save(normalized)
     return normalized
+
+
+__all__ = [
+    "export_database_backup",
+    "export_settings",
+    "get_restore_lock",
+    "restore_database_backup",
+    "restore_settings",
+    "validate_database_backup",
+    "validate_settings_yaml",
+]
