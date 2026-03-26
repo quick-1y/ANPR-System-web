@@ -22,7 +22,13 @@
       "Bash(python -c \"from app.shared.backup_service import export_database_backup, export_settings, get_restore_lock, restore_database_backup, restore_settings, validate_database_backup, validate_settings_yaml; print\\(''OK: all 7 functions imported successfully''\\)\")",
       "Bash(docker compose:*)",
       "Bash(docker run:*)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "Bash(where python3:*)",
+      "Bash(where python:*)",
+      "Bash(where py:*)",
+      "Read(//c/Users/User/AppData/Local/Programs/Python/**)",
+      "Bash(ls -1 /c/Python*/python.exe)",
+      "Bash(/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/ -v 2>&1)"
     ]
   }
 }

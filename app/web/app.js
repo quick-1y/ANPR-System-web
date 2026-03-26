@@ -1139,6 +1139,71 @@ function exportCurrentListCSV() {
   URL.revokeObjectURL(url);
 }
 
+function parseCSVLine(line) {
+  const cells = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { current += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { cells.push(current); current = ""; }
+      else { current += ch; }
+    }
+  }
+  cells.push(current);
+  return cells.map((c) => c.trim());
+}
+
+async function importCurrentListCSV(file) {
+  if (!state.selectedListId || !file) return;
+  const EXPECTED_HEADERS = ["Гос. номер", "Имя", "Фамилия", "Отчество", "Телефон", "Марка авто"];
+  const text = await file.text();
+  const rawLines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const lines = rawLines.filter((l) => l.trim().length > 0);
+  if (lines.length < 1) { showToast("Файл пуст", 3000); return; }
+
+  const headerCells = parseCSVLine(lines[0]);
+  const headersMatch = EXPECTED_HEADERS.every((h, i) => (headerCells[i] || "").trim() === h);
+  if (!headersMatch) {
+    showToast("Неверный формат списка", 3000);
+    return;
+  }
+
+  const dataLines = lines.slice(1);
+  if (dataLines.length === 0) { showToast("Нет записей для импорта", 3000); return; }
+
+  let imported = 0;
+  let skipped = 0;
+  for (const line of dataLines) {
+    const cells = parseCSVLine(line);
+    const plate = (cells[0] || "").trim();
+    if (!plate) { skipped++; continue; }
+    const comment = JSON.stringify({
+      first_name: (cells[1] || "").trim(),
+      last_name: (cells[2] || "").trim(),
+      patronymic: (cells[3] || "").trim(),
+      phone: (cells[4] || "").trim(),
+      car_make: (cells[5] || "").trim(),
+    });
+    try {
+      await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", { plate, comment });
+      imported++;
+    } catch (_e) {
+      skipped++;
+    }
+  }
+
+  await loadEntries(state.selectedListId);
+  await refreshPlateLookup();
+  renderEventFeed(true);
+  showToast(`Импортировано: ${imported}, пропущено: ${skipped}`);
+}
+
 let selectedChannelId = null;
 let channelConfigRequestToken = 0;
 let controllersCache = [];
@@ -2497,6 +2562,18 @@ document.getElementById("addEntryModal").onclick = (e) => {
 
 // ── Export List ──────────────────────────────────────
 document.getElementById("exportListBtn").onclick = exportCurrentListCSV;
+
+// ── Import List ──────────────────────────────────────
+document.getElementById("importListBtn").onclick = () => {
+  if (!state.selectedListId) return;
+  const input = document.getElementById("importListFileInput");
+  input.value = "";
+  input.click();
+};
+document.getElementById("importListFileInput").onchange = (e) => {
+  const file = e.target.files[0];
+  if (file) importCurrentListCSV(file);
+};
 
 // ── List Settings Modal ──────────────────────────────
 document.getElementById("listSettingsBtn").onclick = () => {

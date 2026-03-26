@@ -62,7 +62,7 @@ channels:
   max_plate_size:
     width: 232
     height: 59
-  controller_id: null
+  controller_id: 1
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []
@@ -108,7 +108,7 @@ channels:
   max_plate_size:
     width: 447
     height: 145
-  controller_id: null
+  controller_id: 1
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []
@@ -158,7 +158,7 @@ plates:
   config_dir: anpr/countries
   enabled_countries: []
 logging:
-  level: ALL
+  level: INFO
   retention_days: 30
   allowed_levels:
   - ALL
