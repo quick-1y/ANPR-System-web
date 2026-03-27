@@ -16,7 +16,7 @@
   </head>
   <body>
     <div class="app-shell">
-      <aside class="left-rail">
+      <aside class="left-rail" id="leftRail">
         <div class="rail-top">
           <button class="rail-logo" title="ANPR">
             <img class="ui-icon ui-icon-logo" src="/web/assets/icons/logo.svg" alt="ANPR" />
@@ -181,6 +181,11 @@
               <img class="btn-icon ui-icon-sm" src="/web/assets/icons/export.svg" alt="" />
               <span>Экспорт списка</span>
             </button>
+            <button class="btn btn-ghost btn-sm" id="importListBtn">
+              <img class="btn-icon ui-icon-sm" src="/web/assets/icons/import.svg" alt="" />
+              <span>Импорт списка</span>
+            </button>
+            <input type="file" id="importListFileInput" accept=".csv" style="display:none" />
             <button class="btn btn-ghost btn-sm" id="listSettingsBtn">Настройки</button>
           </div>
           <div class="lists-empty-state" id="listsEmptyState">
@@ -262,6 +267,13 @@
                     <option value="dark">Тёмная</option>
                     <option value="light">Светлая</option>
                   </select>
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_sidebar_locked">?</button>
+                    <div class="s-row-name">Зафиксировать левую панель</div>
+                  </div>
+                  <input type="checkbox" id="g_sidebar_locked" />
                 </div>
               </div>
             </div>
@@ -525,6 +537,19 @@
                       <div class="s-row-label"></div>
                       <div class="roi-hint" style="margin-top:0">Черный список применяется всегда автоматически.</div>
                     </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <button class="param-help-btn" data-help="preview_fps_limit">?</button>
+                        <div class="s-row-name">Лимит FPS предпросмотра</div>
+                      </div>
+                      <input
+                        class="s-input sm"
+                        id="c_preview_fps_limit"
+                        type="number"
+                        min="1"
+                        max="30"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div
@@ -608,6 +633,13 @@
                         id="c_detector_stride"
                         type="number"
                       />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <button class="param-help-btn" data-help="adaptive_stride_enabled">?</button>
+                        <div class="s-row-name">Адаптивный шаг инференса</div>
+                      </div>
+                      <input type="checkbox" id="c_adaptive_stride" />
                     </div>
                   </div>
                 </div>
@@ -726,6 +758,19 @@
                         id="c_max_ocr_attempts"
                         type="number"
                         min="1"
+                        max="200"
+                      />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <button class="param-help-btn" data-help="max_consecutive_empty_ocr">?</button>
+                        <div class="s-row-name">Пустых OCR подряд до завершения трека</div>
+                      </div>
+                      <input
+                        class="s-input sm"
+                        id="c_max_consecutive_empty_ocr"
+                        type="number"
+                        min="0"
                         max="200"
                       />
                     </div>

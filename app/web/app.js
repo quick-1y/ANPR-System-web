@@ -1139,6 +1139,71 @@ function exportCurrentListCSV() {
   URL.revokeObjectURL(url);
 }
 
+function parseCSVLine(line) {
+  const cells = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { current += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { cells.push(current); current = ""; }
+      else { current += ch; }
+    }
+  }
+  cells.push(current);
+  return cells.map((c) => c.trim());
+}
+
+async function importCurrentListCSV(file) {
+  if (!state.selectedListId || !file) return;
+  const EXPECTED_HEADERS = ["Гос. номер", "Имя", "Фамилия", "Отчество", "Телефон", "Марка авто"];
+  const text = await file.text();
+  const rawLines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const lines = rawLines.filter((l) => l.trim().length > 0);
+  if (lines.length < 1) { showToast("Файл пуст", 3000); return; }
+
+  const headerCells = parseCSVLine(lines[0]);
+  const headersMatch = EXPECTED_HEADERS.every((h, i) => (headerCells[i] || "").trim() === h);
+  if (!headersMatch) {
+    showToast("Неверный формат списка", 3000);
+    return;
+  }
+
+  const dataLines = lines.slice(1);
+  if (dataLines.length === 0) { showToast("Нет записей для импорта", 3000); return; }
+
+  let imported = 0;
+  let skipped = 0;
+  for (const line of dataLines) {
+    const cells = parseCSVLine(line);
+    const plate = (cells[0] || "").trim();
+    if (!plate) { skipped++; continue; }
+    const comment = JSON.stringify({
+      first_name: (cells[1] || "").trim(),
+      last_name: (cells[2] || "").trim(),
+      patronymic: (cells[3] || "").trim(),
+      phone: (cells[4] || "").trim(),
+      car_make: (cells[5] || "").trim(),
+    });
+    try {
+      await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", { plate, comment });
+      imported++;
+    } catch (_e) {
+      skipped++;
+    }
+  }
+
+  await loadEntries(state.selectedListId);
+  await refreshPlateLookup();
+  renderEventFeed(true);
+  showToast(`Импортировано: ${imported}, пропущено: ${skipped}`);
+}
+
 let selectedChannelId = null;
 let channelConfigRequestToken = 0;
 let controllersCache = [];
@@ -1184,6 +1249,8 @@ async function loadGlobalSettings() {
   setVal("g_grid", g.grid);
   setVal("g_theme", g.theme);
   applyTheme(g.theme);
+  setChk("g_sidebar_locked", g.sidebar_locked);
+  applySidebarLocked(!!g.sidebar_locked);
   setChk("g_sl_enabled", g.reconnect.signal_loss.enabled);
   setVal("g_frame_timeout", g.reconnect.signal_loss.frame_timeout_seconds);
   setVal("g_retry_interval", g.reconnect.signal_loss.retry_interval_seconds);
@@ -1212,6 +1279,7 @@ async function saveGeneral() {
   const payload = {
     grid: val("g_grid"),
     theme: val("g_theme"),
+    sidebar_locked: document.getElementById("g_sidebar_locked").checked,
     reconnect: {
       signal_loss: {
         enabled: document.getElementById("g_sl_enabled").checked,
@@ -1267,6 +1335,7 @@ async function saveGeneral() {
   applyDebugPanelVisibility();
   syncOverlayPolling();
   scheduleVideoGridLayout(true);
+  applySidebarLocked(document.getElementById("g_sidebar_locked").checked);
   showToast("Настройки сохранены");
 }
 
@@ -1888,6 +1957,7 @@ async function selectChannel(id) {
   setVal("c_motion_activation", c.motion_activation_frames ?? 3);
   setVal("c_motion_release", c.motion_release_frames ?? 6);
   setVal("c_detector_stride", c.detector_frame_stride ?? 2);
+  setChk("c_adaptive_stride", c.adaptive_stride_enabled ?? true);
   setChk("c_size_filter", c.size_filter_enabled);
   setVal("c_min_w", c.min_plate_size?.width ?? 80);
   setVal("c_min_h", c.min_plate_size?.height ?? 20);
@@ -1897,6 +1967,8 @@ async function selectChannel(id) {
   setVal("c_cooldown", c.cooldown_seconds ?? 5);
   setVal("c_ocr_conf", c.ocr_min_confidence ?? 0.6);
   setVal("c_max_ocr_attempts", c.max_ocr_attempts ?? 15);
+  setVal("c_max_consecutive_empty_ocr", c.max_consecutive_empty_ocr ?? 5);
+  setVal("c_preview_fps_limit", c.preview_fps_limit ?? 5);
   setChk("c_roi_enabled", c.roi_enabled);
   const cv = document.getElementById("roiCanvas");
   const unit = c.region?.unit || "px";
@@ -1940,6 +2012,7 @@ async function saveChannel() {
     motion_activation_frames: Number(val("c_motion_activation")),
     motion_release_frames: Number(val("c_motion_release")),
     detector_frame_stride: Number(val("c_detector_stride")),
+    adaptive_stride_enabled: document.getElementById("c_adaptive_stride").checked,
     size_filter_enabled: document.getElementById("c_size_filter").checked,
     min_plate_size: {
       width: Number(val("c_min_w")),
@@ -1953,6 +2026,8 @@ async function saveChannel() {
     cooldown_seconds: Number(val("c_cooldown")),
     ocr_min_confidence: Number(val("c_ocr_conf")),
     max_ocr_attempts: Number(val("c_max_ocr_attempts")),
+    max_consecutive_empty_ocr: Number(val("c_max_consecutive_empty_ocr")),
+    preview_fps_limit: Number(val("c_preview_fps_limit")),
     roi_enabled: document.getElementById("c_roi_enabled").checked,
     region: {
       unit: "percent",
@@ -2498,6 +2573,18 @@ document.getElementById("addEntryModal").onclick = (e) => {
 // ── Export List ──────────────────────────────────────
 document.getElementById("exportListBtn").onclick = exportCurrentListCSV;
 
+// ── Import List ──────────────────────────────────────
+document.getElementById("importListBtn").onclick = () => {
+  if (!state.selectedListId) return;
+  const input = document.getElementById("importListFileInput");
+  input.value = "";
+  input.click();
+};
+document.getElementById("importListFileInput").onchange = (e) => {
+  const file = e.target.files[0];
+  if (file) importCurrentListCSV(file);
+};
+
 // ── List Settings Modal ──────────────────────────────
 document.getElementById("listSettingsBtn").onclick = () => {
   if (!state.selectedListId) return;
@@ -2613,6 +2700,7 @@ document.getElementById("c_controller_id").onchange = updateChannelControllerBin
 document.getElementById("c_list_filter_mode").onchange = updateCustomListsVisibility;
 document.getElementById("saveDebugBtn").onclick = saveGeneral;
 document.getElementById("g_theme").onchange = () => applyTheme(val("g_theme"));
+document.getElementById("g_sidebar_locked").onchange = () => applySidebarLocked(document.getElementById("g_sidebar_locked").checked);
 document.getElementById("themeToggleBtn").onclick = () => {
   const nextTheme = val("g_theme") === "light" ? "dark" : "light";
   setVal("g_theme", nextTheme);
@@ -2686,6 +2774,29 @@ function cleanupStreamsAndTimers() {
 window.addEventListener("beforeunload", cleanupStreamsAndTimers);
 window.addEventListener("pagehide", cleanupStreamsAndTimers);
 window.addEventListener("resize", () => scheduleEventFeedRender(true));
+
+/* ─── Sidebar hover-expand ──────────────────────────── */
+let sidebarLocked = false;
+function applySidebarLocked(locked) {
+  sidebarLocked = !!locked;
+  const rail = document.getElementById("leftRail");
+  if (sidebarLocked) {
+    rail.classList.remove("rail-expanded");
+  }
+}
+(function initSidebarHover() {
+  const rail = document.getElementById("leftRail");
+
+  rail.addEventListener("mouseenter", () => {
+    if (sidebarLocked) return;
+    rail.classList.add("rail-expanded");
+  });
+
+  rail.addEventListener("mouseleave", () => {
+    rail.classList.remove("rail-expanded");
+  });
+})();
+
 (async function init() {
   const apiBaseEl = document.getElementById("apiBase");
   if (apiBaseEl) apiBaseEl.value = window.location.origin;
@@ -2730,6 +2841,7 @@ const PARAM_HELP = {
   motion_activation_frames: "Сколько подряд проанализированных кадров с движением нужно, чтобы активировать состояние motion и начать запуск детектора YOLO. Защита от разовых шумов.",
   motion_release_frames: "Сколько подряд проанализированных кадров без движения нужно, чтобы деактивировать состояние motion и прекратить запуск детектора. Защита от преждевременной остановки при кратковременной паузе.",
   detector_frame_stride: "Через сколько кадров (прошедших motion gate) запускать YOLO-детекцию и трекинг. При stride=2 — каждый второй кадр. Снижает нагрузку CPU/GPU за счёт частоты обнаружения.",
+  adaptive_stride_enabled: "Когда активных треков нет, система может временно реже запускать детектор для экономии CPU.",
   size_filter_enabled: "Включить фильтрацию найденных номерных рамок по размеру (ширина и высота в пикселях). Отсекает слишком маленькие и слишком большие обнаружения.",
   min_plate_size: "Минимальная ширина и высота обнаруженной номерной рамки в пикселях. Рамки меньше этого размера отбрасываются до OCR. Помогает отфильтровать далёкие или нерелевантные объекты.",
   max_plate_size: "Максимальная ширина и высота обнаруженной номерной рамки в пикселях. Рамки больше этого размера отбрасываются. Помогает отфильтровать ложные детекции на крупных объектах.",
@@ -2737,6 +2849,8 @@ const PARAM_HELP = {
   cooldown_seconds: "Пауза (в секундах) между повторными событиями для одного и того же номера. Если номер уже был распознан менее N секунд назад — повторное событие не создаётся. Предотвращает дублирование при медленном проезде.",
   ocr_min_confidence: "Минимальный порог уверенности OCR (0.0–1.0). Результаты ниже порога не попадают в пул кандидатов трека и считаются нечитаемыми.\n\nПо умолчанию 0.6.",
   max_ocr_attempts: "Максимальное число OCR-попыток для одного трека. После исчерпания бюджета OCR для этого трека прекращается — кроп, предобработка и CRNN-инференс больше не выполняются.\n\nЕсли консенсус был достигнут раньше — трек финализируется досрочно.\nЕсли бюджет исчерпан без консенсуса — выбирается лучший кандидат по весу.\nЕсли кандидатов нет — генерируется одно событие «Нечитаемо».\n\nПо умолчанию 15.",
+  max_consecutive_empty_ocr: "Если OCR несколько раз подряд не возвращает текст, трек можно завершить раньше, чтобы не тратить CPU. 0 — отключить.\n\nПо умолчанию 5.",
+  preview_fps_limit: "Ограничение частоты кодирования JPEG для предпросмотра (preview). Не влияет на реальный FPS камеры — ограничивает только частоту обновления превью в браузере.\n\nПо умолчанию 5.",
   roi_enabled: "Включить зону интереса (Region of Interest). Когда включено, только обнаружения с центром bbox внутри ROI-полигона обрабатываются. Детекция YOLO по-прежнему работает по всему кадру, но результаты за пределами ROI отбрасываются.",
   controller_id: "Привязка аппаратного контроллера к этому каналу. При распознавании номера, прошедшего фильтр списков, на контроллер отправляется HTTP-команда для срабатывания выбранного реле.",
   controller_relay: "Какое из двух реле контроллера использовать для этого канала (Реле 1 или Реле 2). Режим работы реле (pulse / pulse_timer) настраивается в параметрах контроллера.",
@@ -2744,6 +2858,7 @@ const PARAM_HELP = {
   /* ── Общие настройки ── */
   g_grid: "Сетка раскладки видеопревью на главной странице. Определяет сколько камер отображается одновременно: 1×1, 2×2, 2×3 или 3×3.",
   g_theme: "Цветовая тема интерфейса. Тёмная тема снижает нагрузку на глаза при работе в условиях слабого освещения.",
+  g_sidebar_locked: "Фиксирует левую навигационную панель в свёрнутом состоянии. Когда включено, панель не раскрывается при наведении курсора.",
   g_sl_enabled: "Включает мониторинг потери видеосигнала. Если от камеры не поступают кадры в течение заданного таймаута, система автоматически переподключает канал.",
   g_frame_timeout: "Время ожидания (в секундах) нового кадра от камеры. Если за это время кадр не получен, соединение считается потерянным и запускается повторное подключение.",
   g_retry_interval: "Пауза (в секундах) между попытками переподключения после потери сигнала. Слишком малое значение может создать лишнюю нагрузку на камеру.",

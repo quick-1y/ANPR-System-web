@@ -453,6 +453,10 @@ class SettingsNormalizer:
             normalized["theme"] = "dark"
             changed = True
 
+        if "sidebar_locked" not in normalized:
+            normalized["sidebar_locked"] = False
+            changed = True
+
         direction_defaults = self._direction_defaults()
         direction_settings = tracking_defaults.get("direction")
         if direction_settings is None:

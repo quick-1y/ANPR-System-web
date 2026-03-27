@@ -39,6 +39,7 @@ class ChannelConfigPayload(BaseModel):
     motion_activation_frames: int = Field(default=3, ge=1, le=120)
     motion_release_frames: int = Field(default=6, ge=1, le=120)
     detector_frame_stride: int = Field(default=2, ge=1, le=30)
+    adaptive_stride_enabled: bool = True
     size_filter_enabled: bool = True
     min_plate_size: PlateSizePayload = Field(default_factory=lambda: PlateSizePayload(width=80, height=20))
     max_plate_size: PlateSizePayload = Field(default_factory=lambda: PlateSizePayload(width=600, height=240))
@@ -46,6 +47,8 @@ class ChannelConfigPayload(BaseModel):
     cooldown_seconds: int = Field(default=5, ge=0, le=300)
     ocr_min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
     max_ocr_attempts: int = Field(default=15, ge=1, le=200)
+    max_consecutive_empty_ocr: int = Field(default=5, ge=0, le=200)
+    preview_fps_limit: int = Field(default=5, ge=1, le=30)
     roi_enabled: bool = True
     region: ROIRegionPayload = Field(default_factory=ROIRegionPayload)
 
@@ -64,6 +67,7 @@ class ChannelOCRPayload(BaseModel):
     cooldown_seconds: int = Field(ge=0, le=300)
     ocr_min_confidence: float = Field(ge=0.0, le=1.0)
     max_ocr_attempts: int = Field(default=15, ge=1, le=200)
+    max_consecutive_empty_ocr: int = Field(default=5, ge=0, le=200)
 
 
 class ChannelFilterPayload(BaseModel):
@@ -229,6 +233,7 @@ class DebugPayload(BaseModel):
 class GlobalSettingsPayload(BaseModel):
     grid: str
     theme: str
+    sidebar_locked: bool = False
     reconnect: ReconnectPayload
     storage: StoragePayload
     logging: LoggingPayload

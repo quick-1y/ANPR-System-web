@@ -45,14 +45,19 @@ def channel_snapshot(channel_id: int, container: AppContainer = Depends(get_cont
     if channel_id not in channels:
         raise HTTPException(status_code=404, detail="Канал не найден")
 
-    frame, _ = container.processor.get_preview_frame(channel_id)
-    if not frame:
-        metrics = container.processor.list_states().get(channel_id)
-        detail = "Preview кадр ещё не готов"
-        if metrics and metrics.last_error:
-            detail = f"Preview недоступен: {metrics.last_error}"
-        raise HTTPException(status_code=503, detail=detail)
-    return Response(content=frame, media_type="image/jpeg")
+    # Temporarily register as consumer so the channel thread encodes a frame
+    container.processor.add_preview_consumer(channel_id)
+    try:
+        frame, _ = container.processor.get_preview_frame(channel_id)
+        if not frame:
+            metrics = container.processor.list_states().get(channel_id)
+            detail = "Preview кадр ещё не готов"
+            if metrics and metrics.last_error:
+                detail = f"Preview недоступен: {metrics.last_error}"
+            raise HTTPException(status_code=503, detail=detail)
+        return Response(content=frame, media_type="image/jpeg")
+    finally:
+        container.processor.remove_preview_consumer(channel_id)
 
 
 @router.get("/api/channels/{channel_id}/preview/status")
@@ -83,24 +88,28 @@ async def channel_preview_stream(channel_id: int, request: Request, container: A
         raise HTTPException(status_code=503, detail="Видеовыход отключён")
 
     async def frame_generator():
-        last_ts = 0.0
-        while not container.stream_shutdown.is_set():
-            if await request.is_disconnected():
-                break
-            if container.debug_registry.get_settings().disable_video_output:
-                break
-            frame, frame_ts = container.processor.get_preview_frame(channel_id)
-            if frame and frame_ts > last_ts:
-                last_ts = frame_ts
-                yield (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n"
-                    + f"Content-Length: {len(frame)}\r\n\r\n".encode("ascii")
-                    + frame
-                    + b"\r\n"
-                )
-            else:
-                await asyncio.sleep(0.08)
+        container.processor.add_preview_consumer(channel_id)
+        try:
+            last_ts = 0.0
+            while not container.stream_shutdown.is_set():
+                if await request.is_disconnected():
+                    break
+                if container.debug_registry.get_settings().disable_video_output:
+                    break
+                frame, frame_ts = container.processor.get_preview_frame(channel_id)
+                if frame and frame_ts > last_ts:
+                    last_ts = frame_ts
+                    yield (
+                        b"--frame\r\n"
+                        b"Content-Type: image/jpeg\r\n"
+                        + f"Content-Length: {len(frame)}\r\n\r\n".encode("ascii")
+                        + frame
+                        + b"\r\n"
+                    )
+                else:
+                    await asyncio.sleep(0.08)
+        finally:
+            container.processor.remove_preview_consumer(channel_id)
 
     return StreamingResponse(
         frame_generator(),

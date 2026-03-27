@@ -8,8 +8,8 @@ from database.postgres_event_repository import PostgresEventDatabase
 class EventSink:
     """PostgreSQL-only sink для записи событий."""
 
-    def __init__(self, postgres_dsn: str) -> None:
-        self._postgres = PostgresEventDatabase(postgres_dsn)
+    def __init__(self, postgres_dsn: str = "", *, events_db: Optional[PostgresEventDatabase] = None) -> None:
+        self._postgres = events_db if events_db is not None else PostgresEventDatabase(postgres_dsn)
 
     def insert_event(
         self,
