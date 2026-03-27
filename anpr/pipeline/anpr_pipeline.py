@@ -27,6 +27,9 @@ class BatchRecognizer(Protocol):
         ...
 
 
+_CONSECUTIVE_FAILURE_LIMIT = 5
+
+
 @dataclass
 class _TrackOCRState:
     """Per-track OCR processing state for budget management."""
@@ -36,6 +39,7 @@ class _TrackOCRState:
     result_emitted: bool = False
     unreadable_emitted: bool = False
     last_update: float = 0.0
+    consecutive_failures: int = 0
 
 
 class TrackAggregator:
@@ -61,10 +65,12 @@ class TrackAggregator:
         ttl_seconds: float = 30.0,
         max_ocr_attempts: int = 15,
         channel_label: str = "",
+        max_consecutive_empty_ocr: int = _CONSECUTIVE_FAILURE_LIMIT,
     ):
         self.best_shots = max(1, best_shots)
         self.ttl_seconds = max(5.0, float(ttl_seconds))
         self.max_ocr_attempts = max(1, max_ocr_attempts)
+        self.max_consecutive_empty_ocr = max(0, max_consecutive_empty_ocr)
         self.track_texts: Dict[int, deque[tuple[str, float]]] = {}
         self.last_emitted: Dict[int, str] = {}
         self._track_ts: Dict[int, float] = {}
@@ -154,6 +160,7 @@ class TrackAggregator:
 
         # Only add non-empty text to the candidate pool.
         if text:
+            state.consecutive_failures = 0
             bucket = self.track_texts.setdefault(track_id, deque(maxlen=self.best_shots))
             bucket.append((text, max(0.0, float(confidence))))
 
@@ -184,6 +191,23 @@ class TrackAggregator:
                         state.ocr_attempts,
                     )
                     return consensus
+        else:
+            state.consecutive_failures += 1
+            # Early exit: if N consecutive attempts produced nothing,
+            # the plate is likely unreadable — stop wasting CPU.
+            if self.max_consecutive_empty_ocr > 0 and state.consecutive_failures >= self.max_consecutive_empty_ocr:
+                state.finalized = True
+                self.last_result_type = "budget_none"
+                logger.info(
+                    "%s, трек %d: трек завершён досрочно — текст не распознан %d раз подряд "
+                    "(порог %d). Всего OCR попыток: %d. Номер не найден.",
+                    self._channel_label,
+                    track_id,
+                    state.consecutive_failures,
+                    self.max_consecutive_empty_ocr,
+                    state.ocr_attempts,
+                )
+                return ""
 
         # Budget exhaustion — try to salvage the best candidate.
         if state.ocr_attempts >= self.max_ocr_attempts:
@@ -352,6 +376,7 @@ class ANPRPipeline:
         postprocessor: Optional[PlatePostProcessor] = None,
         direction_config: Optional[Dict[str, float | int]] = None,
         max_ocr_attempts: int = 15,
+        max_consecutive_empty_ocr: int = 5,
         channel_id: int = 0,
         channel_name: str = "",
     ) -> None:
@@ -362,6 +387,7 @@ class ANPRPipeline:
         self.aggregator = TrackAggregator(
             best_shots, max_ocr_attempts=max_ocr_attempts,
             channel_label=self._channel_label,
+            max_consecutive_empty_ocr=max_consecutive_empty_ocr,
         )
         self.cooldown_seconds = max(0, cooldown_seconds)
         self.min_confidence = max(0.0, min(1.0, min_confidence))

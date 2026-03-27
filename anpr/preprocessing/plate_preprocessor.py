@@ -149,6 +149,14 @@ class PlatePreprocessor:
     def preprocess(self, plate_image: np.ndarray) -> np.ndarray:
         if plate_image.size == 0:
             return plate_image
+        h, w = plate_image.shape[:2]
+        # Skip heavy perspective/skew correction for small crops —
+        # Canny+HoughLines are wasted on tiny images and OCR quality
+        # is poor regardless.
+        if w < 50 or h < 15:
+            if plate_image.ndim == 3:
+                return cv2.cvtColor(plate_image, cv2.COLOR_BGR2GRAY)
+            return plate_image
         gray = cv2.cvtColor(plate_image, cv2.COLOR_BGR2GRAY)
         enhanced = self._clahe.apply(gray)
         blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
@@ -160,13 +168,20 @@ class PlatePreprocessor:
 
         quadrilateral = self._detect_plate_quadrilateral(cleaned)
         if quadrilateral is not None:
-            return self._four_point_transform(plate_image, quadrilateral)
+            corrected = self._four_point_transform(plate_image, quadrilateral)
+            # Return grayscale to avoid redundant cvtColor in CRNN
+            if corrected.ndim == 3:
+                return cv2.cvtColor(corrected, cv2.COLOR_BGR2GRAY)
+            return corrected
 
         angle, confidence = self._estimate_skew_angle(blurred, cleaned)
         if confidence < 0.35:
-            return plate_image
+            return gray
         if abs(angle) < 5:
-            return plate_image
+            return gray
         if abs(angle) > 45:
-            return plate_image
-        return self._rotate_bound(plate_image, angle)
+            return gray
+        rotated = self._rotate_bound(plate_image, angle)
+        if rotated.ndim == 3:
+            return cv2.cvtColor(rotated, cv2.COLOR_BGR2GRAY)
+        return rotated
