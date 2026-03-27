@@ -589,7 +589,7 @@ min_plate_size: {width: 120, height: 30}
 
 **Детали реализации Фазы 1:**
 - **#1:** `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`, `OPENBLAS_NUM_THREADS=2` добавлены в `Dockerfile` и `.env.example`. Дополнительно: `torch.set_num_threads()`, `torch.set_num_interop_threads()`, `cv2.setNumThreads()` вызываются при старте в `main.py`.
-- **#2:** Добавлен `preview_consumers` счётчик в `ChannelContext`. JPEG encode выполняется только при наличии активных потребителей (MJPEG/snapshot), с rate-limit ~5 fps (200ms интервал). MJPEG stream и snapshot endpoint регистрируют/снимают consumer.
+- **#2:** Добавлен `preview_consumers` счётчик в `ChannelContext`. JPEG encode выполняется только при наличии активных потребителей (MJPEG/snapshot), с rate-limit по настройке `preview_fps_limit` (per-channel, по умолчанию 5 fps). MJPEG stream и snapshot endpoint регистрируют/снимают consumer.
 - **#3:** Motion detector делает downscale до 320px ширины через `INTER_NEAREST` перед `cvtColor + GaussianBlur`, если исходный кадр шире.
 - **#4:** `PlatePreprocessor.preprocess()` пропускает тяжёлый pipeline (Canny, HoughLines, findContours) для bbox с `w < 50` или `h < 15`.
 
@@ -612,8 +612,8 @@ min_plate_size: {width: 120, height: 30}
 ```
 
 **Детали реализации Фазы 2:**
-- **#5:** Adaptive stride: при отсутствии активных (нефинализированных) треков, `effective_stride = base_stride × 3`. Как только появляются треки — stride возвращается к базовому значению.
-- **#6:** Добавлен `consecutive_failures` счётчик в `_TrackOCRState`. После 5 подряд пустых OCR-результатов трек финализируется досрочно (early exit). Счётчик сбрасывается при любом валидном результате.
+- **#5:** Adaptive stride: при отсутствии активных (нефинализированных) треков, `effective_stride = base_stride × 3`. Как только появляются треки — stride возвращается к базовому значению. Управляется per-channel настройкой `adaptive_stride_enabled` (по умолчанию `true`). Когда выключен — используется только базовый `detector_frame_stride`.
+- **#6:** Добавлен `consecutive_failures` счётчик в `_TrackOCRState`. После N подряд пустых OCR-результатов (настройка `max_consecutive_empty_ocr`, по умолчанию 5) трек финализируется досрочно (early exit). `0` — отключить. Счётчик сбрасывается при любом валидном результате. При срабатывании выводится русское лог-сообщение с контекстом канала.
 - **#7:** Screenshot saves (`_save_jpeg`) вынесены в `ThreadPoolExecutor(max_workers=2)`. Frame и plate saves выполняются параллельно друг другу, не блокируя основной channel loop.
 - **#8:** `EventSink` теперь принимает опциональный `events_db` параметр. `AppContainer` передаёт свой shared `PostgresEventDatabase` инстанс, устраняя дублирующий connection pool.
 - **#9:** `PlatePreprocessor.preprocess()` теперь возвращает grayscale во всех путях (perspective correction, rotation, early return). `CRNNRecognizer._preprocess()` уже обрабатывает grayscale вход — дублирующий `cvtColor` больше не вызывается.
@@ -669,3 +669,44 @@ min_plate_size: {width: 120, height: 30}
 │ YOLO → ONNX + DNN backend       │ Medium-High (10–20%)  │ High          │ Very High   │ yolo_detector.py                          │
 └─────────────────────────────────┴───────────────────────┴───────────────┴─────────────┴───────────────────────────────────────────┘
 ```
+
+---
+
+## 10. End-to-end интеграция настроек оптимизации — ВЫПОЛНЕНО ✅
+
+Все три configurable-настройки оптимизации полностью проведены через весь стек:
+
+### `max_consecutive_empty_ocr` (per-channel)
+- **Schema/defaults:** `settings_schema.py` → `channel_defaults()` → default `5`
+- **Normalizer:** `settings_normalizer.py` → backfill через `_fill_channel_defaults()`
+- **API schema:** `schemas.py` → `ChannelConfigPayload.max_consecutive_empty_ocr` (ge=0, le=200), `ChannelOCRPayload`
+- **Runtime:** `channel_runtime.py` → передаётся в `TrackAggregator`; `anpr_pipeline.py` → `consecutive_failures` счётчик, early-exit, русское лог-сообщение
+- **Frontend load:** `app.js` → `setVal("c_max_consecutive_empty_ocr", ...)`
+- **Frontend save:** `app.js` → `max_consecutive_empty_ocr: Number(val(...))`
+- **UI:** `index.html` → числовой input в группе «Распознавание номера»
+- **Help popover:** `app.js` → русский текст с описанием поведения и значения по умолчанию
+
+### `adaptive_stride_enabled` (per-channel)
+- **Schema/defaults:** `settings_schema.py` → `channel_defaults()` → default `true`
+- **Normalizer:** `settings_normalizer.py` → backfill через `_fill_channel_defaults()`
+- **API schema:** `schemas.py` → `ChannelConfigPayload.adaptive_stride_enabled` (bool)
+- **Runtime:** `channel_runtime.py` → `effective_stride = base_stride × 3` при отсутствии активных треков; gated by switch
+- **Frontend load:** `app.js` → `setChk("c_adaptive_stride", ...)`
+- **Frontend save:** `app.js` → `adaptive_stride_enabled: document.getElementById(...).checked`
+- **UI:** `index.html` → checkbox-switch в группе «Детектор номерных рамок»
+- **Help popover:** `app.js` → русский текст
+
+### `preview_fps_limit` (per-channel)
+- **Schema/defaults:** `settings_schema.py` → `channel_defaults()` → default `5`
+- **Normalizer:** `settings_normalizer.py` → backfill через `_fill_channel_defaults()`
+- **API schema:** `schemas.py` → `ChannelConfigPayload.preview_fps_limit` (ge=1, le=30)
+- **Runtime:** `channel_runtime.py` → `preview_encode_interval = 1.0 / preview_fps_limit`, lazy encode при наличии потребителей
+- **Frontend load:** `app.js` → `setVal("c_preview_fps_limit", ...)`
+- **Frontend save:** `app.js` → `preview_fps_limit: Number(val(...))`
+- **UI:** `index.html` → числовой input в группе «Канал»
+- **Help popover:** `app.js` → русский текст (не влияет на реальный FPS камеры)
+
+### README документация — ВЫПОЛНЕНО ✅
+- Таблица параметров: `README.md` → секция «Конфигурация OCR и детектора»
+- Взаимодействие параметров: описано для каждой настройки
+- `preview_fps_limit` задокументирован как per-channel
