@@ -162,7 +162,11 @@ tracking:
     min_area_change_ratio: 0.02
 plates:
   config_dir: anpr/countries
-  enabled_countries: []
+  enabled_countries:
+  - BY
+  - KZ
+  - RU
+  - UA
 logging:
   level: ALL
   retention_days: 30

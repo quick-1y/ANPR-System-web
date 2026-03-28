@@ -1244,6 +1244,43 @@ function applyTheme(theme) {
   } catch (_e) {}
 }
 
+async function renderCountryToggles(enabledCodes) {
+  const container = document.getElementById("g_countries_list");
+  if (!container) return;
+  let countries = [];
+  try {
+    countries = await jfetch(api("/api/countries"));
+  } catch (_e) {
+    container.innerHTML = '<span style="color:var(--text3);font-size:12px">Не удалось загрузить список стран</span>';
+    return;
+  }
+  const enabled = new Set((enabledCodes || []).map(c => c.toUpperCase()));
+  container.innerHTML = "";
+  for (const c of countries) {
+    const row = document.createElement("div");
+    row.className = "s-row";
+    row.style.paddingLeft = "0";
+    const label = document.createElement("div");
+    label.className = "s-row-label";
+    label.style.flex = "1";
+    label.innerHTML = '<span class="s-row-name">' + c.name + '</span> <span style="color:var(--text3);font-size:11px;margin-left:4px">' + c.code + '</span>';
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.dataset.countryCode = c.code;
+    toggle.checked = enabled.has(c.code.toUpperCase());
+    row.appendChild(label);
+    row.appendChild(toggle);
+    container.appendChild(row);
+  }
+}
+
+function getEnabledCountryCodes() {
+  const toggles = document.querySelectorAll("#g_countries_list input[type='checkbox']");
+  const codes = [];
+  toggles.forEach(t => { if (t.checked) codes.push(t.dataset.countryCode); });
+  return codes;
+}
+
 async function loadGlobalSettings() {
   const g = await jfetch(api("/api/settings"));
   setVal("g_grid", g.grid);
@@ -1266,7 +1303,7 @@ async function loadGlobalSettings() {
   setVal("g_log_retention", g.logging.retention_days);
   setVal("g_timezone", g.time.timezone);
   setVal("g_offset_minutes", g.time.offset_minutes);
-  setVal("g_countries", (g.plates.enabled_countries || []).join(","));
+  await renderCountryToggles(g.plates.enabled_countries || []);
   setChk("d_metrics", g.debug.show_channel_metrics);
   setChk("d_log", g.debug.log_panel_enabled);
   setChk("d_video_off", g.debug.disable_video_output);
@@ -1308,12 +1345,7 @@ async function saveGeneral() {
       offset_minutes: Number(val("g_offset_minutes")),
     },
     plates: {
-      enabled_countries: parseIds("").length
-        ? []
-        : String(val("g_countries"))
-            .split(",")
-            .map((x) => x.trim())
-            .filter(Boolean),
+      enabled_countries: getEnabledCountryCodes(),
     },
     debug: {
       show_channel_metrics: document.getElementById("d_metrics").checked,
@@ -2874,7 +2906,7 @@ const PARAM_HELP = {
   g_postgres_dsn: "Строка подключения к PostgreSQL. Задаётся через переменную окружения и не может быть изменена из интерфейса.",
   g_timezone: "Часовой пояс для отображения времени в интерфейсе. Этот параметр влияет только на представление времени в приложении и не изменяет системные часы сервера.",
   g_offset_minutes: "Дополнительная коррекция времени (в минутах) поверх выбранного часового пояса. Используйте, если системные часы сервера расходятся с реальным временем. Диапазон: от −720 до +720 минут.",
-  g_countries: "Коды стран через запятую (ISO 3166-1 alpha-2), номера которых распознаются системой. Например: RU,UA,BY,KZ. Для каждой страны должен существовать конфиг в каталоге номеров."
+  g_countries: "Выберите страны, номера которых распознаются системой. Список формируется из конфигурационных файлов в каталоге номеров."
 };
 
 let _activeHelpPopover = null;

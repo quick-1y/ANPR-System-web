@@ -88,7 +88,9 @@ class CountryConfigLoader:
         for path in self.config_dir.glob("*.yaml"):
             try:
                 data = self._load_yaml(path)
-            except FileNotFoundError:
+            except Exception:
+                continue
+            if not isinstance(data, dict):
                 continue
             result.append(
                 {
