@@ -1,16 +1,26 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+import os
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends
 
 from app.api.container import AppContainer
 from app.api.deps import get_container
 from app.api.schemas import GlobalSettingsPayload
+from anpr.postprocessing.country_config import CountryConfigLoader
 from common.logging import configure_logging, get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+
+@router.get("/api/countries")
+def get_available_countries(container: AppContainer = Depends(get_container)) -> List[Dict[str, str]]:
+    plates = container.settings.get_plate_settings()
+    config_dir = str(plates.get("config_dir") or "anpr/countries")
+    loader = CountryConfigLoader(os.path.abspath(config_dir))
+    return loader.available_configs()
 
 
 @router.get("/api/settings")

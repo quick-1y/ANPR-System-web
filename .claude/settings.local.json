@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_track_aggregator.py -v)",
+      "Bash(python -m pytest tests/ -v --timeout=30)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(python -m pytest tests/test_track_aggregator.py -q)",
+      "Bash(ls /d/Users/qu1ck1y/Documents/pyProjects/ANPR-System-v0.8_web/REVIEW*)",
+      "Bash(ls /d/Users/qu1ck1y/Documents/pyProjects/ANPR-System-v0.8_web/REVIEW2*)",
+      "Bash(pip show:*)",
+      "Bash(python -m pytest tests/test_track_aggregator.py -v --tb=short)",
+      "Bash(py -m pytest tests/test_track_aggregator.py -v --tb=short)",
+      "Bash(grep -r \"pg_dump\\\\|pg_restore\\\\|psql\" /c/Users/User/PycharmProjects/ANPR-System-v0.8_web --include=*.py --include=*.sh)",
+      "Bash(python -m pytest tests/test_backup_service.py -v)",
+      "Bash(python3 -m pytest tests/test_backup_service.py -v)",
+      "Bash(where python.exe)",
+      "Bash(where py.exe)",
+      "Bash(py -m pytest tests/test_backup_service.py -v)",
+      "Bash(py -3.13 -m pytest tests/test_backup_service.py -v)",
+      "Bash(py -3.13 -m pytest tests/ -v)",
+      "Bash(py -3.13 -m pytest tests/test_backup_service.py tests/test_settings_storage_cleanup.py -v)",
+      "Bash(python -c \"from app.shared.backup_service import export_database_backup, export_settings, get_restore_lock, restore_database_backup, restore_settings, validate_database_backup, validate_settings_yaml; print\\(''OK: all 7 functions imported successfully''\\)\")",
+      "Bash(docker compose:*)",
+      "Bash(docker run:*)",
+      "Bash(docker exec:*)",
+      "Bash(where python3:*)",
+      "Bash(where python:*)",
+      "Bash(where py:*)",
+      "Read(//c/Users/User/AppData/Local/Programs/Python/**)",
+      "Bash(ls -1 /c/Python*/python.exe)",
+      "Bash(/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe -m pytest tests/ -v 2>&1)",
+      "Bash(python -c \"from app.api.schemas import GlobalSettingsPayload; print\\(''Schema OK:'', GlobalSettingsPayload.model_fields.keys\\(\\)\\)\")",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python -m pytest tests/test_track_aggregator.py tests/test_motion_detector.py -v --tb=short)",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''app/api/routers/settings.py'', doraise=True\\); py_compile.compile\\(''anpr/postprocessing/country_config.py'', doraise=True\\); print\\(''OK''\\)\")"
+    ]
+  }
+}
