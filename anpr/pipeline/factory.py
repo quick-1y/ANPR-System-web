@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import copy
 import threading
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
@@ -11,7 +12,6 @@ from anpr.postprocessing.validator import PlatePostProcessor
 from anpr.recognition.crnn_recognizer import CRNNRecognizer
 
 if TYPE_CHECKING:
-    import os
     from anpr.model_config import AnprModelConfig
 
 
@@ -19,6 +19,12 @@ _RECOGNIZER_LOCK = threading.RLock()
 _RECOGNIZER_INITIALIZING = False
 _RECOGNIZER_READY = threading.Event()
 _RECOGNIZER_SINGLETON: Optional[CRNNRecognizer] = None
+
+_YOLO_LOCK = threading.Lock()
+_YOLO_CACHE: Dict[Tuple[str, str], object] = {}
+
+_POSTPROCESSOR_LOCK = threading.Lock()
+_POSTPROCESSOR_CACHE: Dict[Tuple, PlatePostProcessor] = {}
 
 
 class _FallbackRecognizer:
@@ -73,13 +79,50 @@ def _get_shared_recognizer(model_config: "AnprModelConfig") -> CRNNRecognizer:
     return _RECOGNIZER_SINGLETON or _NOOP_RECOGNIZER
 
 
+def _get_shared_yolo(model_path: str, device) -> object:
+    """Return a lightweight YOLO clone that shares nn.Module weights with a cached instance.
+
+    Each clone gets its own predictor/tracker state (created lazily by
+    ultralytics on first ``predict``/``track`` call), so channels don't
+    interfere with each other's tracking.  The heavy model weights
+    (50-200 MB) are loaded only once.
+    """
+    from ultralytics import YOLO
+
+    key = (model_path, str(device))
+    if key not in _YOLO_CACHE:
+        with _YOLO_LOCK:
+            if key not in _YOLO_CACHE:
+                model = YOLO(model_path)
+                model.to(device)
+                _YOLO_CACHE[key] = model
+    clone = copy.copy(_YOLO_CACHE[key])
+    clone.predictor = None
+    return clone
+
+
 def _build_postprocessor(config: Dict[str, object]) -> PlatePostProcessor:
+    """Return a cached PlatePostProcessor, keyed by (config_dir, enabled_countries).
+
+    Country YAML files are parsed and regexes compiled only once per unique
+    configuration.  The postprocessor is stateless after init, so sharing
+    across channels is safe.
+    """
     import os
-    config_dir = str(config.get("config_dir") or "anpr/countries")
+
+    config_dir = os.path.abspath(str(config.get("config_dir") or "anpr/countries"))
     enabled_countries = config.get("enabled_countries")
-    loader = CountryConfigLoader(os.path.abspath(config_dir))
-    loader.ensure_dir()
-    return PlatePostProcessor(loader, enabled_countries)
+    countries_key = tuple(sorted(enabled_countries)) if enabled_countries else ()
+    cache_key = (config_dir, countries_key)
+
+    if cache_key not in _POSTPROCESSOR_CACHE:
+        with _POSTPROCESSOR_LOCK:
+            if cache_key not in _POSTPROCESSOR_CACHE:
+                loader = CountryConfigLoader(config_dir)
+                loader.ensure_dir()
+                _POSTPROCESSOR_CACHE[cache_key] = PlatePostProcessor(loader, enabled_countries)
+
+    return _POSTPROCESSOR_CACHE[cache_key]
 
 
 def build_components(
@@ -105,6 +148,7 @@ def build_components(
         from anpr.model_config import AnprModelConfig
         model_config = AnprModelConfig(yolo_model_path="", ocr_model_path="")
 
+    shared_yolo = _get_shared_yolo(model_config.yolo_model_path, model_config.device)
     detector = YOLODetector(
         model_config.yolo_model_path,
         model_config.device,
@@ -114,6 +158,7 @@ def build_components(
         detection_confidence_threshold=model_config.detection_confidence_threshold,
         bbox_padding_ratio=model_config.bbox_padding_ratio,
         min_padding_pixels=model_config.min_padding_pixels,
+        yolo_model=shared_yolo,
     )
     recognizer = _get_shared_recognizer(model_config)
     postprocessor = _build_postprocessor(plate_config or {})

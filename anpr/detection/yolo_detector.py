@@ -27,9 +27,13 @@ class YOLODetector:
         detection_confidence_threshold: float = 0.5,
         bbox_padding_ratio: float = 0.08,
         min_padding_pixels: int = 2,
+        yolo_model: Optional[YOLO] = None,
     ) -> None:
-        self.model = YOLO(model_path)
-        self.model.to(device)
+        if yolo_model is not None:
+            self.model = yolo_model
+        else:
+            self.model = YOLO(model_path)
+            self.model.to(device)
         self.device = device
         self._min_plate_size = min_plate_size or {}
         self._max_plate_size = max_plate_size or {}

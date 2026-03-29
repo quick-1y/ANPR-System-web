@@ -1,10 +1,4 @@
-"""Нормализация и валидация системных настроек.
-
-Примечание: модуль сохраняет зависимость от `controllers.SUPPORTED_CONTROLLER_TYPES`
-для проверки типов контроллеров. Это известная архитектурная связность,
-которая не меняет runtime-поведение и не блокирует текущий перенос ownership
-settings в пакет `config`.
-"""
+"""Нормализация и валидация системных настроек."""
 
 #!/usr/bin/env python3
 
@@ -14,11 +8,10 @@ import copy
 from typing import Any, Dict, Optional
 
 from common.logging import get_logger
-from controllers import SUPPORTED_CONTROLLER_TYPES
-
 from config.settings_migrations import run_settings_migrations
 from config.settings_schema import (
     SETTINGS_VERSION,
+    SUPPORTED_CONTROLLER_TYPES,
     channel_defaults,
     debug_defaults,
     detector_defaults,

@@ -16,7 +16,6 @@ from config.settings_schema import (
     logging_defaults,
     model_defaults,
     normalize_log_level,
-    normalize_region_config as schema_normalize_region_config,
     ocr_defaults,
     plate_defaults,
     plate_size_defaults as schema_plate_size_defaults,
@@ -25,11 +24,6 @@ from config.settings_schema import (
     storage_defaults,
     time_defaults,
 )
-
-
-
-def normalize_region_config(region: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    return schema_normalize_region_config(region)
 
 
 class SettingsManager:
@@ -106,49 +100,6 @@ class SettingsManager:
     @staticmethod
     def _logging_defaults() -> Dict[str, Any]:
         return logging_defaults()
-
-
-    def _normalize_hotkey(self, value: Any) -> str:
-        return self._normalizer._normalize_hotkey(value)
-
-    def _normalize_relay(self, relay: Dict[str, Any]) -> Dict[str, Any]:
-        return self._normalizer._normalize_relay(relay)
-
-    def _fill_channel_defaults(self, channel: Dict[str, Any], tracking_defaults: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_channel_defaults(channel, tracking_defaults)
-
-    def _fill_reconnect_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_reconnect_defaults(data, defaults)
-
-    def _fill_debug_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_debug_defaults(data, defaults)
-
-    def _fill_controller_defaults(self, data: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_controller_defaults(data)
-
-    def _fill_storage_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_storage_defaults(data, defaults)
-
-    def _fill_plate_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_plate_defaults(data, defaults)
-
-    def _fill_model_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_model_defaults(data, defaults)
-
-    def _fill_ocr_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_ocr_defaults(data, defaults)
-
-    def _fill_detector_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_detector_defaults(data, defaults)
-
-    def _fill_inference_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_inference_defaults(data, defaults)
-
-    def _fill_time_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_time_defaults(data, defaults)
-
-    def _fill_logging_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        return self._normalizer._fill_logging_defaults(data, defaults)
 
 
     def get_channels(self) -> List[Dict[str, Any]]:

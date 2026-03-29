@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, Dict
 
@@ -65,27 +66,22 @@ class WorkerContainer:
         return cls(settings=settings, lifecycle=lifecycle, scheduler=scheduler)
 
 
-app = FastAPI(title="ANPR Retention Worker", version="0.8-stage8")
-
-
-def _get_container(request: Request) -> WorkerContainer:
-    return request.app.state.container
-
-
-@app.on_event("startup")
-async def startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     container = WorkerContainer.build()
     app.state.container = container
     logger.info("Retention worker startup")
     container.scheduler.start()
-
-
-@app.on_event("shutdown")
-def shutdown() -> None:
+    yield
     logger.info("Retention worker shutdown")
-    container: WorkerContainer | None = getattr(app.state, "container", None)
-    if container is not None:
-        container.scheduler.stop()
+    container.scheduler.stop()
+
+
+app = FastAPI(title="ANPR Retention Worker", version="0.8-stage8", lifespan=lifespan)
+
+
+def _get_container(request: Request) -> WorkerContainer:
+    return request.app.state.container
 
 
 @app.get("/worker/health")
@@ -118,8 +114,3 @@ def root() -> Dict[str, Any]:
         "health": "/worker/health",
         "run_retention": "/worker/retention/run",
     }
-
-
-@app.get("/favicon.ico")
-def favicon() -> Dict[str, str]:
-    return {"status": "no-favicon"}

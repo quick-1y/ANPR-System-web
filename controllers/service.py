@@ -3,24 +3,13 @@ from __future__ import annotations
 import threading
 import time
 import urllib.request
-from collections import OrderedDict
 from typing import Any, Callable, Dict, List, Optional
 
 from common.logging import get_logger
+from config.settings_schema import SUPPORTED_CONTROLLER_TYPES
 from controllers.registry import CONTROLLER_ADAPTERS
 
 logger = get_logger(__name__)
-
-CONTROLLER_TYPES = OrderedDict([
-    ("DTWONDER2CH", "DTWONDER2CH"),
-])
-
-SUPPORTED_CONTROLLER_TYPES = tuple(CONTROLLER_TYPES.keys())
-
-RELAY_MODES = OrderedDict([
-    ("pulse", "Импульс"),
-    ("pulse_timer", "Импульс с таймером"),
-])
 
 
 def build_command_url(
@@ -214,8 +203,6 @@ class ControllerAutomationService:
 __all__ = [
     "ControllerService",
     "ControllerAutomationService",
-    "CONTROLLER_TYPES",
-    "RELAY_MODES",
     "SUPPORTED_CONTROLLER_TYPES",
     "build_command_url",
 ]
