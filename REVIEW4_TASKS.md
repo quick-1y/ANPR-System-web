@@ -153,7 +153,7 @@
 
 ---
 
-## Task 10: Extract Shared Database Pool Base Class
+## Task 10: Extract Shared Database Pool Base Class ✅ COMPLETED (2026-03-29)
 
 **Problem:** `PostgresEventDatabase` and `ListDatabase` have identical lazy pool initialization patterns (`_get_pool`, `_connect`, `_ensure_schema`, `_init_lock`, `_initialized`, `_pool`).
 
@@ -165,9 +165,11 @@
 
 **Risk level:** Low — pure refactoring of internal plumbing.
 
+**Resolution:** Created `database/base.py` with `PooledDatabase` ABC containing `__init__` (DSN validation, lock/pool init), `_get_pool()` (lazy ConnectionPool), `_connect()`, and `_ensure_schema()` (double-checked locking). Subclasses implement `_schema_sql()` — `PostgresEventDatabase` reads from SQL file, `ListDatabase` returns inline DDL. Removed `threading` import and ~30 lines of duplicated code from both repositories.
+
 ---
 
-## Task 11: Pause Frontend Polling When Tab Hidden
+## Task 11: Pause Frontend Polling When Tab Hidden ✅ COMPLETED (2026-03-29)
 
 **Problem:** `setInterval` timers for `refreshChannels` (8s), `refreshSystemResources` (10s), and `checkServerHealth` (10s) run unconditionally, making HTTP requests even when the browser tab is hidden.
 
@@ -179,9 +181,11 @@
 
 **Risk level:** Low — existing visibilitychange handler proves the pattern is already in use.
 
+**Resolution:** Added `if (document.hidden) return;` guard to `refreshChannels`, `refreshSystemResources`, `checkServerHealth`, and `refreshOverlayStates`. Extended the existing `visibilitychange` listener to call all three network-polling functions immediately when the tab becomes visible, so data refreshes without waiting for the next interval tick. `updateTopbarDateTime` (pure DOM, no network) left unchanged.
+
 ---
 
-## Task 12: Replace "Нечитаемо" String Sentinel
+## Task 12: Replace "Нечитаемо" String Sentinel ✅ COMPLETED (2026-03-29)
 
 **Problem:** The Russian string `"Нечитаемо"` is used as both a display value and a logic sentinel in `anpr_pipeline.py:432,482,541`. The `debug.py:231` also checks for it. Mixing display strings with business logic prevents i18n.
 
@@ -193,9 +197,11 @@
 
 **Risk level:** Low-Medium — need to verify all consumers of `detection["text"]` handle the empty string + boolean flag correctly.
 
+**Resolution:** Replaced all 4 `detection["text"] = "Нечитаемо"` assignments in `anpr_pipeline.py` with `detection["text"] = ""` (the `detection["unreadable"] = True` flag was already set alongside each). In `debug.py`, replaced the `text_raw.upper() != "НЕЧИТАЕМО"` string check with `not det.get("unreadable")` boolean flag check. In `channel_runtime.py`, added `is_unreadable` check at the event emission point — unreadable detections now get the display string `"Нечитаемо"` assigned only at the event layer. The string no longer appears in any business logic path.
+
 ---
 
-## Task 13: Duplicate DSN Resolution Cleanup
+## Task 13: Duplicate DSN Resolution Cleanup ✅ COMPLETED (2026-03-29)
 
 **Problem:** `str(storage.get("postgres_dsn", "")).strip()` appears 3+ times in `container.py` and is passed separately to each database client.
 
@@ -207,9 +213,11 @@
 
 **Risk level:** Low — trivial refactoring.
 
+**Resolution:** Extracted `_resolve_dsn()` helper method on `AppContainer`. In `build()`, DSN is resolved once into a local `dsn` variable and passed to both `PostgresEventDatabase` and `ListDatabase`. In `refresh_storage_clients()`, same pattern — single `dsn` local reused. `_build_lifecycle()` calls `_resolve_dsn()` directly. Eliminated 5 duplicate `str(storage.get("postgres_dsn", "")).strip()` expressions.
+
 ---
 
-## Task 14: Consistent Error Handling in ListDatabase.update_entry
+## Task 14: Consistent Error Handling in ListDatabase.update_entry ✅ COMPLETED (2026-03-29)
 
 **Problem:** `plate_lists_repository.py:156` catches all exceptions and returns `False`, while every other method wraps exceptions in `StorageUnavailableError`. This hides real database errors.
 
@@ -220,6 +228,8 @@
 **Expected result:** Database errors in `update_entry` are reported to the API layer like all other operations.
 
 **Risk level:** Low — makes error handling consistent.
+
+**Resolution:** Replaced `except Exception: return False` with `except Exception as exc: raise StorageUnavailableError(...)`. Added `StorageUnavailableError` import (was removed during Task 10 base class extraction). The router at `lists.py:99` already catches `StorageUnavailableError` for this endpoint, so DB errors now correctly surface as 503.
 
 ---
 

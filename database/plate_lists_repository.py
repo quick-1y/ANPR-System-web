@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import threading
 from collections import OrderedDict
 from typing import Any, Dict, Iterable, Optional
 
+from database.base import PooledDatabase
 from database.errors import StorageUnavailableError
 
 LIST_TYPES = OrderedDict([
@@ -17,59 +17,28 @@ def normalize_plate(value: str) -> str:
     return "".join(str(value or "").upper().split())
 
 
-class ListDatabase:
+class ListDatabase(PooledDatabase):
     """PostgreSQL-only хранилище списков номеров."""
 
-    def __init__(self, dsn: str) -> None:
-        self._dsn = str(dsn or "").strip()
-        if not self._dsn:
-            raise ValueError("postgres_dsn обязателен")
-        self._init_lock = threading.Lock()
-        self._initialized = False
-        self._pool = None
-
-    def _get_pool(self):
-        if self._pool is None:
-            from psycopg_pool import ConnectionPool  # type: ignore
-
-            self._pool = ConnectionPool(self._dsn, min_size=2, max_size=10, open=True)
-        return self._pool
-
-    def _connect(self):
-        return self._get_pool().connection()
-
-    def _ensure_schema(self) -> None:
-        if self._initialized:
-            return
-        with self._init_lock:
-            if self._initialized:
-                return
-            query = """
-            CREATE TABLE IF NOT EXISTS plate_lists (
-                id BIGSERIAL PRIMARY KEY,
-                name TEXT NOT NULL,
-                type TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS plate_list_entries (
-                id BIGSERIAL PRIMARY KEY,
-                list_id BIGINT NOT NULL REFERENCES plate_lists(id) ON DELETE CASCADE,
-                plate TEXT NOT NULL,
-                plate_normalized TEXT NOT NULL,
-                comment TEXT
-            );
-            CREATE INDEX IF NOT EXISTS idx_plate_lists_type ON plate_lists(type);
-            CREATE INDEX IF NOT EXISTS idx_plate_entries_plate ON plate_list_entries(plate_normalized);
-            CREATE INDEX IF NOT EXISTS idx_plate_entries_list ON plate_list_entries(list_id);
-            CREATE UNIQUE INDEX IF NOT EXISTS uq_plate_entries_list_plate ON plate_list_entries(list_id, plate_normalized);
-            """
-            try:
-                with self._connect() as conn:
-                    with conn.cursor() as cursor:
-                        cursor.execute(query)
-                    conn.commit()
-            except Exception as exc:  # noqa: BLE001
-                raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
-            self._initialized = True
+    def _schema_sql(self) -> str:
+        return """
+        CREATE TABLE IF NOT EXISTS plate_lists (
+            id BIGSERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS plate_list_entries (
+            id BIGSERIAL PRIMARY KEY,
+            list_id BIGINT NOT NULL REFERENCES plate_lists(id) ON DELETE CASCADE,
+            plate TEXT NOT NULL,
+            plate_normalized TEXT NOT NULL,
+            comment TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_plate_lists_type ON plate_lists(type);
+        CREATE INDEX IF NOT EXISTS idx_plate_entries_plate ON plate_list_entries(plate_normalized);
+        CREATE INDEX IF NOT EXISTS idx_plate_entries_list ON plate_list_entries(list_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_plate_entries_list_plate ON plate_list_entries(list_id, plate_normalized);
+        """
 
     def list_lists(self) -> list[Dict[str, Any]]:
         self._ensure_schema()
@@ -153,8 +122,8 @@ class ListDatabase:
                     updated = cursor.rowcount > 0
                 conn.commit()
             return updated
-        except Exception:  # noqa: BLE001
-            return False
+        except Exception as exc:  # noqa: BLE001
+            raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
 
     def delete_entry(self, entry_id: int) -> bool:
         self._ensure_schema()

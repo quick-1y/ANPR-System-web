@@ -571,8 +571,11 @@ class ChannelProcessor:
                     metrics.processed_frames += 1
                     for detection in results:
                         plate = detection.get("text")
-                        if not plate:
+                        is_unreadable = detection.get("unreadable", False)
+                        if not plate and not is_unreadable:
                             continue
+                        if is_unreadable:
+                            plate = "Нечитаемо"
                         event_ts = datetime.now(timezone.utc)
                         frame_file, plate_file = self._build_event_media_paths(event_ts=event_ts, channel_id=channel_id, plate=plate)
                         plate_crop = self._extract_plate_crop(frame, detection)

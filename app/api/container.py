@@ -37,14 +37,17 @@ class AppContainer:
     main_loop: asyncio.AbstractEventLoop | None
     stream_shutdown: asyncio.Event
 
+    def _resolve_dsn(self) -> str:
+        return str(self.settings.get_storage_settings().get("postgres_dsn", "")).strip()
+
     @classmethod
     def build(cls) -> "AppContainer":
         settings = SettingsManager()
         configure_logging(settings.get_logging_config(), service_name="api")
 
-        storage = settings.get_storage_settings()
-        events_db = PostgresEventDatabase(str(storage.get("postgres_dsn", "")).strip())
-        lists_db = ListDatabase(str(storage.get("postgres_dsn", "")).strip())
+        dsn = str(settings.get_storage_settings().get("postgres_dsn", "")).strip()
+        events_db = PostgresEventDatabase(dsn)
+        lists_db = ListDatabase(dsn)
         controller_service = ControllerService()
         event_bus = EventBus()
         debug_registry = DebugRegistry(settings.get_debug_settings())
@@ -95,12 +98,11 @@ class AppContainer:
         )
 
     def _build_lifecycle(self) -> DataLifecycleService:
-        storage = self.settings.get_storage_settings()
-        policy = RetentionPolicy.from_storage(storage)
+        policy = RetentionPolicy.from_storage(self.settings.get_storage_settings())
         return DataLifecycleService(
             screenshots_dir=self.settings.get_screenshot_dir(),
             policy=policy,
-            postgres_dsn=str(storage.get("postgres_dsn", "")).strip(),
+            postgres_dsn=self._resolve_dsn(),
         )
 
     async def startup(self) -> None:
@@ -186,9 +188,10 @@ class AppContainer:
             )
 
     def refresh_storage_clients(self) -> None:
-        self.events_db = PostgresEventDatabase(str(self.settings.get_storage_settings().get("postgres_dsn", "")).strip())
+        dsn = self._resolve_dsn()
+        self.events_db = PostgresEventDatabase(dsn)
         self.lifecycle = self._build_lifecycle()
-        self.lists_db = ListDatabase(str(self.settings.get_storage_settings().get("postgres_dsn", "")).strip())
+        self.lists_db = ListDatabase(dsn)
         self.controller_automation = ControllerAutomationService(
             self.controller_service,
             get_channels=self.settings.get_channels,

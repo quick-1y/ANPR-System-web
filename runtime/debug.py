@@ -228,7 +228,7 @@ class DebugRegistry:
         state._track_last_seen[track_key] = now
 
         text_raw = str(det.get("text") or "").strip()
-        ocr_text = text_raw if text_raw and text_raw.upper() != "НЕЧИТАЕМО" else None
+        ocr_text = text_raw if text_raw and not det.get("unreadable") else None
         explicit_direction = str(det.get("direction") or "").strip().upper()
         if explicit_direction == "UNKNOWN":
             explicit_direction = ""

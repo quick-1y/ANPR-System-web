@@ -32,7 +32,11 @@
       "Bash(python -c \"from app.api.schemas import GlobalSettingsPayload; print\\(''Schema OK:'', GlobalSettingsPayload.model_fields.keys\\(\\)\\)\")",
       "Bash(python -m pytest tests/ -v --tb=short)",
       "Bash(python -m pytest tests/test_track_aggregator.py tests/test_motion_detector.py -v --tb=short)",
-      "Bash(python -c \"import py_compile; py_compile.compile\\(''app/api/routers/settings.py'', doraise=True\\); py_compile.compile\\(''anpr/postprocessing/country_config.py'', doraise=True\\); print\\(''OK''\\)\")"
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''app/api/routers/settings.py'', doraise=True\\); py_compile.compile\\(''anpr/postprocessing/country_config.py'', doraise=True\\); print\\(''OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''database/base.py'', doraise=True\\); py_compile.compile\\(''database/postgres_event_repository.py'', doraise=True\\); py_compile.compile\\(''database/plate_lists_repository.py'', doraise=True\\); print\\(''OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''anpr/pipeline/anpr_pipeline.py'', doraise=True\\); py_compile.compile\\(''runtime/debug.py'', doraise=True\\); py_compile.compile\\(''runtime/channel_runtime.py'', doraise=True\\); print\\(''OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''app/api/container.py'', doraise=True\\); print\\(''OK''\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''database/plate_lists_repository.py'', doraise=True\\); print\\(''OK''\\)\")"
     ]
   }
 }

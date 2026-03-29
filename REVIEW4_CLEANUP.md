@@ -30,8 +30,8 @@
 | 1 | ~~14 delegation methods~~ ✅ Removed | `settings_manager.py:111-151` | Remove pass-throughs, call normalizer directly |
 | 2 | ~~Worker `on_event` lifecycle~~ ✅ Done | `app/worker/main.py:75,83` | Migrated to `lifespan` context manager |
 | 3 | ~~`config` imports `controllers`~~ ✅ Done | `settings_normalizer.py:17` | Moved to `config/settings_schema.py` |
-| 4 | Duplicate pool init | `postgres_event_repository.py` + `plate_lists_repository.py` | Extract shared base class |
-| 5 | `"Нечитаемо"` string sentinel | `anpr_pipeline.py:432,482,541` | Use boolean `unreadable` flag only |
-| 6 | Duplicate DSN resolution | `app/api/container.py` (3 places) | Resolve once, pass to consumers |
-| 7 | Inconsistent error handling | `plate_lists_repository.py:156` | Wrap in `StorageUnavailableError` like other methods |
+| 4 | ~~Duplicate pool init~~ ✅ Done | `postgres_event_repository.py` + `plate_lists_repository.py` | Extracted `PooledDatabase` base class in `database/base.py` |
+| 5 | ~~`"Нечитаемо"` string sentinel~~ ✅ Done | `anpr_pipeline.py:432,482,541` | Replaced with boolean `unreadable` flag; display string moved to event layer |
+| 6 | ~~Duplicate DSN resolution~~ ✅ Done | `app/api/container.py` (3 places) | Extracted `_resolve_dsn()` helper |
+| 7 | ~~Inconsistent error handling~~ ✅ Done | `plate_lists_repository.py:156` | Now raises `StorageUnavailableError` like other methods |
 | 8 | Monolithic `app.js` (3138 lines) | `app/web/app.js` | Split into ES modules |

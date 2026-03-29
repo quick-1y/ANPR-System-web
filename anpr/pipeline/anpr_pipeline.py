@@ -426,7 +426,7 @@ class ANPRPipeline:
             if track_id is not None and not self.aggregator.should_process(track_id):
                 detection["plate_image"] = None
                 if self.aggregator.should_emit_unreadable(track_id):
-                    detection["text"] = "Нечитаемо"
+                    detection["text"] = ""
                     detection["unreadable"] = True
                     detection["confidence"] = 0.0
                     if self.direction_estimator:
@@ -484,12 +484,12 @@ class ANPRPipeline:
 
                 # Budget just exhausted with no valid plate.
                 if not result and self.aggregator.should_emit_unreadable(track_id):
-                    detection["text"] = "Нечитаемо"
+                    detection["text"] = ""
                     detection["unreadable"] = True
             else:
                 # Untracked detection — no aggregation available.
                 if confidence < self.min_confidence:
-                    detection["text"] = "Нечитаемо"
+                    detection["text"] = ""
                     detection["unreadable"] = True
                     detection["confidence"] = confidence
                     continue
@@ -542,7 +542,7 @@ class ANPRPipeline:
                         # If budget is now exhausted after reset, emit unreadable
                         # immediately rather than waiting for next frame.
                         if self.aggregator.should_emit_unreadable(track_id):
-                            detection["text"] = "Нечитаемо"
+                            detection["text"] = ""
                             detection["unreadable"] = True
                             # INFO: budget exhausted + validation failed.
                             logger.info(

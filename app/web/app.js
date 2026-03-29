@@ -184,6 +184,7 @@ function loadBarColor(pct) {
 }
 
 async function refreshSystemResources() {
+  if (document.hidden) return;
   try {
     const resources = await jfetch(api("/api/system/resources"));
     const cpu = Math.round(Number(resources.cpu_percent) || 0);
@@ -200,6 +201,7 @@ async function refreshSystemResources() {
 }
 
 async function checkServerHealth() {
+  if (document.hidden) return;
   const dot = document.getElementById("serverDot");
   if (!dot) return;
   try {
@@ -213,6 +215,7 @@ async function checkServerHealth() {
 }
 
 async function refreshChannels() {
+  if (document.hidden) return;
   state.channels = await jfetch(api("/api/channels"));
   renderVideoGrid();
   renderChannelsList();
@@ -399,6 +402,7 @@ function syncOverlayPolling() {
 }
 
 async function refreshOverlayStates() {
+  if (document.hidden) return;
   try {
     const payload = await jfetch(api("/api/debug/channels"));
     const channels = Array.isArray(payload.channels) ? payload.channels : [];
@@ -668,7 +672,12 @@ function scheduleVideoGridLayout(secondPass = false) {
 function setupVideoGridLayoutGuards() {
   window.addEventListener("resize", scheduleVideoGridLayout);
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) scheduleVideoGridLayout();
+    if (!document.hidden) {
+      scheduleVideoGridLayout();
+      refreshChannels();
+      refreshSystemResources();
+      checkServerHealth();
+    }
   });
   if (typeof ResizeObserver !== "function") return;
   const obsLeft = document.querySelector("#tab-obs .obs-left");

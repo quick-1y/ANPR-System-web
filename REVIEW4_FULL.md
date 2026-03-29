@@ -159,11 +159,13 @@ A single-file package adds an unnecessary directory level. However, it follows t
 
 **Severity:** Low | **Confidence:** High
 
-**Evidence:** Log messages are in Russian (e.g., "Канал %s: reconnect"), while code identifiers are in English. Channel labels are generated in Russian: `channel_runtime.py:384` — `"Канал {} (id={})"`. The `detection.get("text")` value `"Нечитаемо"` (unreadable) is a hardcoded Russian string used as a sentinel value in `anpr_pipeline.py:432,482,541`.
+**Evidence:** Log messages are in Russian (e.g., "Канал %s: reconnect"), while code identifiers are in English. Channel labels are generated in Russian: `channel_runtime.py:384` — `"Канал {} (id={})"`. The `detection.get("text")` value `"Нечитаемо"` (unreadable) was a hardcoded Russian string used as a sentinel value in `anpr_pipeline.py:432,482,541`.
 
 **Why it's a problem:** Using a Russian string as a business logic sentinel means the string cannot be changed for i18n without breaking logic. Any comparison with this value is fragile.
 
 **Recommended fix:** Replace the `"Нечитаемо"` sentinel with the existing `detection["unreadable"] = True` boolean flag (which already exists). The string representation should only be assigned at the UI/event layer.
+
+**Resolution (2026-03-29):** All 4 sentinel assignments in `anpr_pipeline.py` replaced with `detection["text"] = ""`. `debug.py` now checks the boolean flag instead of the string. Display string `"Нечитаемо"` is assigned only in `channel_runtime.py` at the event emission point.
 
 ---
 
@@ -211,7 +213,7 @@ A single-file package adds an unnecessary directory level. However, it follows t
 
 ## 6. Consistency Issues
 
-### 6.1 Duplicate Pool Initialization Pattern
+### 6.1 Duplicate Pool Initialization Pattern ✅ Fixed (2026-03-29)
 
 **Severity:** Low | **Confidence:** High
 
@@ -219,9 +221,11 @@ A single-file package adds an unnecessary directory level. However, it follows t
 
 **Recommended fix:** Extract a base class or shared pool factory to eliminate duplication.
 
+**Resolution:** Created `database/base.py` with `PooledDatabase` ABC. Both repositories now inherit shared pool logic (`_get_pool`, `_connect`, `_ensure_schema`) and only implement `_schema_sql()` for their specific schema.
+
 ---
 
-### 6.2 Duplicate DSN Resolution
+### 6.2 Duplicate DSN Resolution ✅ Fixed (2026-03-29)
 
 **Severity:** Low | **Confidence:** High
 
@@ -229,15 +233,19 @@ A single-file package adds an unnecessary directory level. However, it follows t
 
 **Recommended fix:** Resolve DSN once in `AppContainer.build()` and pass it to all consumers.
 
+**Resolution:** Extracted `_resolve_dsn()` method. `build()` and `refresh_storage_clients()` resolve DSN once into a local, `_build_lifecycle()` calls the helper. 5 duplicate expressions eliminated.
+
 ---
 
-### 6.3 Inconsistent Error Handling in Database Methods
+### 6.3 Inconsistent Error Handling in Database Methods ✅ Fixed (2026-03-29)
 
 **Severity:** Low | **Confidence:** High
 
 **Evidence:** `ListDatabase.update_entry()` catches all exceptions and returns `False` (line 156), while other methods like `add_entry()` let exceptions propagate to be caught by the router as `StorageUnavailableError`. `PostgresEventDatabase` wraps all exceptions into `StorageUnavailableError`.
 
 **Recommended fix:** Make `ListDatabase.update_entry()` consistent with the rest — wrap exceptions in `StorageUnavailableError`.
+
+**Resolution:** Replaced `except Exception: return False` with `raise StorageUnavailableError(...)`. Router already catches this at `lists.py:99`.
 
 ---
 
@@ -310,7 +318,7 @@ A single-file package adds an unnecessary directory level. However, it follows t
 
 ---
 
-### 7.6 Multiple `setInterval` Timers Run Unconditionally
+### 7.6 Multiple `setInterval` Timers Run Unconditionally ✅ Fixed (2026-03-29)
 
 **Severity:** Low | **Confidence:** High
 
@@ -326,6 +334,8 @@ All run regardless of which tab is active.
 **Why it's a problem:** 3 of these make HTTP requests every 8-10 seconds even when the user is on a different tab. The overlay refresh at 700ms is the most aggressive (was flagged in R3 — now it's conditionally started via `syncOverlayPolling`).
 
 **Recommended fix:** Pause polling when `document.hidden === true` (the visibility change handler exists at line 670 but only controls video grid layout, not API polling).
+
+**Resolution:** Added `if (document.hidden) return;` guard to all 4 network-polling callbacks. Extended `visibilitychange` listener to trigger immediate refresh on tab focus. `updateTopbarDateTime` (no network) unchanged.
 
 ---
 
@@ -457,7 +467,7 @@ All run regardless of which tab is active.
 
 ---
 
-### 10.2 Hard-Coded Polling Intervals
+### 10.2 Hard-Coded Polling Intervals ✅ Partially fixed (2026-03-29)
 
 **Severity:** Low | **Confidence:** High
 
@@ -469,6 +479,8 @@ All run regardless of which tab is active.
 - DateTime update: 1000ms (line 2777)
 
 **Recommended:** Add visibility-based throttling. When `document.hidden`, increase intervals or pause entirely.
+
+**Resolution:** Visibility-based pausing added — all network-polling callbacks now skip when tab is hidden. Intervals themselves remain hard-coded (acceptable for current scale).
 
 ---
 
@@ -500,8 +512,8 @@ All run regardless of which tab is active.
 | `SettingsManager` delegation methods (14) | `settings_manager.py:111-151` | Remove forwarding, call normalizer directly |
 | Worker lifecycle events | `app/worker/main.py:75,83` | Migrate to `lifespan` pattern |
 | `config` → `controllers` import | `settings_normalizer.py:17` | Move constant to config package |
-| Duplicate pool init pattern | `postgres_event_repository.py` + `plate_lists_repository.py` | Extract shared base |
-| `"Нечитаемо"` string sentinel | `anpr_pipeline.py:432,482,541` | Use boolean flag only |
+| ~~Duplicate pool init pattern~~ ✅ Done | `postgres_event_repository.py` + `plate_lists_repository.py` | Extracted `PooledDatabase` base in `database/base.py` |
+| ~~`"Нечитаемо"` string sentinel~~ ✅ Done | `anpr_pipeline.py:432,482,541` | Boolean flag only; display string at event layer |
 
 ---
 
