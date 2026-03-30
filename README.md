@@ -15,8 +15,6 @@
 
 ## Документация
 
-Крупные справочные разделы вынесены в папку [`docs/`](docs/):
-
 | Раздел | Файл | Что внутри |
 |---|---|---|
 | Диаграммы | [`docs/diagrams.md`](docs/diagrams.md) | Архитектурные схемы, pipeline, event flow, retention |
@@ -144,18 +142,6 @@ API и retention_worker используют один и тот же `SETTINGS_P
 - Любое изменение структуры полей требует повышения версии схемы и обновления migration path.
 
 ---
-
-## ANPR Pipeline
-
-Подробное описание ANPR pipeline вынесено в [`docs/anpr-pipeline.md`](docs/anpr-pipeline.md).
-
-Что находится в документе:
-- алгоритмы ядра: YOLO, motion detector, preprocessing, CRNN, track aggregation, direction estimator и post-processing;
-- трек-уровневый OCR-алгоритм: бюджет попыток, ранняя финализация, unreadable flow и защита от дублей;
-- практические сценарии обработки треков;
-- параметры `max_ocr_attempts`, `max_consecutive_empty_ocr`, `detector_frame_stride`, `adaptive_stride_enabled`, `preview_fps_limit` и их взаимодействие с `best_shots` и `ocr_min_confidence`.
-
-Кратко: pipeline построен вокруг трек-уровневой агрегации OCR, чтобы сокращать CPU-нагрузку и не генерировать дубликаты событий. OCR выполняется только пока трек не финализирован и пока не исчерпан бюджет попыток.
 
 ## Поток данных
 
