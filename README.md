@@ -17,7 +17,7 @@
 
 | Раздел | Файл | Что внутри |
 |---|---|---|
-| Диаграммы | [`docs/diagrams.md`](docs/diagrams.md) | Архитектурные схемы, pipeline, event flow, retention |
+| Диаграммы | [`docs/diagrams.md`](Диаграммы) | Архитектурные схемы, pipeline, event flow, retention |
 | Описание модулей | [`docs/modules.md`](docs/modules.md) | Назначение основных директорий и ключевых файлов |
 | Технологический стек | [`docs/technology-stack.md`](docs/technology-stack.md) | Языки, runtime, инфраструктура и ключевые зависимости |
 | Структура проекта | [`docs/project-structure.md`](docs/project-structure.md) | Дерево проекта и навигация по репозиторию |
