@@ -272,3 +272,9 @@
 - `state.js` now owns the shared mutable `state` object initial values (`channels`, `lists`, `selectedListId`, `allEvents`, `lastPlatesByChannelId`, `plateLookup`, `currentEntries`).
 - Updated `app/web/app.js` to import `state` from `./js/state.js` and continue using it without behavior changes.
 - Task 15 remains in progress; API/auth extraction (step 1) and state extraction (step 2) are completed, remaining modules are pending.
+
+**Progress update (2026-03-30, step 3 completed):**
+- Extracted debug/logging frontend logic from `app/web/app.js` into `app/web/js/debug.js`.
+- Moved debug panel behavior, debug log history loading, SSE live log stream, reconnect handling, and debug log rendering helpers to `debug.js`.
+- Updated `app/web/app.js` to use `debug.js` APIs (`initDebugModule`, `applyDebugPanelVisibility`, `loadDebugLogHistory`, `setupDebugLogStream`, `cleanupDebugLogStream`) while preserving startup order.
+- Task 15 remains in progress; steps 1-3 are completed, remaining module extractions are pending.

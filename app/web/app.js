@@ -1,11 +1,15 @@
 import { api, apiUrl, getApiKey, jfetch, showAuthOverlay } from "./js/api.js";
+import {
+  applyDebugPanelVisibility,
+  cleanupDebugLogStream,
+  initDebugModule,
+  loadDebugLogHistory,
+  setupDebugLogStream,
+} from "./js/debug.js";
 import { state } from "./js/state.js";
 
 let eventSource = null;
 let streamReconnectTimer = null;
-let debugLogSource = null;
-let debugLogReconnectTimer = null;
-let lastDebugLogId = 0;
 let debugSettingsCache = null;
 let overlayRefreshTimer = null;
 let eventFeedResizeObserver = null;
@@ -1256,7 +1260,7 @@ async function loadGlobalSettings() {
   setChk("d_log", g.debug.log_panel_enabled);
   setChk("d_video_off", g.debug.disable_video_output);
   debugSettingsCache = g.debug || {};
-  applyDebugPanelVisibility();
+  applyDebugPanelVisibility(debugSettingsCache);
 }
 
 async function saveGeneral() {
@@ -1312,7 +1316,7 @@ async function saveGeneral() {
       img.removeAttribute("src");
     }
   });
-  applyDebugPanelVisibility();
+  applyDebugPanelVisibility(debugSettingsCache);
   syncOverlayPolling();
   scheduleVideoGridLayout(true);
   applySidebarLocked(document.getElementById("g_sidebar_locked").checked);
@@ -2234,81 +2238,6 @@ async function testController(relay) {
   });
 }
 
-function mapLogClass(level) {
-  const v = String(level || "INFO").toUpperCase();
-  if (v === "CRITICAL") return "crit";
-  if (v === "ERROR") return "err";
-  if (v === "WARNING") return "warn";
-  if (v === "DEBUG") return "dbg";
-  return "ok";
-}
-
-function prependDebugLine(text, type = "info", timestamp = null, meta = "") {
-  const log = document.getElementById("debugLog");
-  if (!log) return;
-  const line = document.createElement("div");
-  line.className = `log-line ${type}`;
-  const ts = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
-  line.innerHTML = `<span class='log-ts'>${ts}</span>${meta ? ` <span class='log-meta'>${meta}</span>` : ""} ${text}`;
-  log.prepend(line);
-  while (log.children.length > 300) log.removeChild(log.lastElementChild);
-}
-
-
-function applyDebugPanelVisibility() {
-  const panel = document.getElementById("obsDebugPanel");
-  const btn = document.getElementById("toggleDebugPanelBtn");
-  if (!panel) return;
-  const enabled = Boolean((debugSettingsCache || {}).log_panel_enabled);
-  panel.style.display = enabled ? "flex" : "none";
-  scheduleVideoGridLayout(true);
-  if (!enabled) return;
-  if (!panel.dataset.collapsed) panel.dataset.collapsed = "0";
-  if (btn) {
-    btn.textContent = panel.dataset.collapsed === "1" ? "Развернуть" : "Свернуть";
-  }
-}
-
-function scheduleDebugLogReconnect(delayMs = 2000) {
-  if (debugLogReconnectTimer) return;
-  debugLogReconnectTimer = setTimeout(() => {
-    debugLogReconnectTimer = null;
-    setupDebugLogStream();
-  }, delayMs);
-}
-
-async function loadDebugLogHistory() {
-  try {
-    const payload = await jfetch(api("/api/debug/logs?limit=150"));
-    const items = Array.isArray(payload.items) ? payload.items : [];
-    items.reverse().forEach((item) => {
-      lastDebugLogId = Math.max(lastDebugLogId, Number(item.id || 0));
-      const prefix = `[${item.level}] ${item.service}/${item.logger}${item.channel_id ? ` #${item.channel_id}` : ""}`;
-      prependDebugLine(item.message, mapLogClass(item.level), item.timestamp, prefix);
-    });
-  } catch (err) {
-    prependDebugLine(`[WARN] не удалось загрузить историю логов: ${err.message}`, "warn");
-  }
-}
-
-function setupDebugLogStream() {
-  if (debugLogSource) {
-    try { debugLogSource.close(); } catch (_e) {}
-  }
-  debugLogSource = new EventSource(apiUrl(`/api/debug/logs/stream?last_id=${lastDebugLogId}`));
-  debugLogSource.onmessage = (evt) => {
-    try {
-      const item = JSON.parse(evt.data);
-      lastDebugLogId = Math.max(lastDebugLogId, Number(item.id || 0));
-      const prefix = `[${item.level}] ${item.service}/${item.logger}${item.channel_id ? ` #${item.channel_id}` : ""}`;
-      prependDebugLine(item.message, mapLogClass(item.level), item.timestamp, prefix);
-    } catch (_e) {}
-  };
-  debugLogSource.onerror = () => {
-    try { debugLogSource.close(); } catch (_e) {}
-    scheduleDebugLogReconnect();
-  };
-}
 function scheduleStreamReconnect(delayMs = 3000) {
   if (streamReconnectTimer) return;
   streamReconnectTimer = setTimeout(() => {
@@ -2427,17 +2356,7 @@ async function openEventDetails(ev) {
   document.getElementById("eventModal").classList.add("active");
 }
 
-const toggleDebugPanelBtn = document.getElementById("toggleDebugPanelBtn");
-if (toggleDebugPanelBtn) {
-  toggleDebugPanelBtn.onclick = () => {
-    const panel = document.getElementById("obsDebugPanel");
-    if (!panel) return;
-    const collapsed = panel.dataset.collapsed === "1";
-    panel.dataset.collapsed = collapsed ? "0" : "1";
-    toggleDebugPanelBtn.textContent = collapsed ? "Свернуть" : "Развернуть";
-    scheduleVideoGridLayout(true);
-  };
-}
+initDebugModule({ api, apiUrl, jfetch, scheduleVideoGridLayout });
 
 document
   .querySelectorAll(".ttab")
@@ -2735,12 +2654,7 @@ function cleanupStreamsAndTimers() {
     } catch (_e) {}
     eventSource = null;
   }
-  if (debugLogSource) {
-    try {
-      debugLogSource.close();
-    } catch (_e) {}
-    debugLogSource = null;
-  }
+  cleanupDebugLogStream();
   if (overlayRefreshTimer) {
     clearInterval(overlayRefreshTimer);
     overlayRefreshTimer = null;
