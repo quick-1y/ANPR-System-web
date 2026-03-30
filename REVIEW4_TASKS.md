@@ -266,3 +266,9 @@
 - Updated `app/web/app.js` to import and use these functions from `./js/api.js`.
 - Switched `app/web/index.html` script tag to `<script type="module" src="/web/app.js"></script>`.
 - Task 15 remains in progress; only the first extraction sub-step is done.
+
+**Progress update (2026-03-30, step 2 completed):**
+- Extracted application state container/defaults from `app/web/app.js` into `app/web/js/state.js`.
+- `state.js` now owns the shared mutable `state` object initial values (`channels`, `lists`, `selectedListId`, `allEvents`, `lastPlatesByChannelId`, `plateLookup`, `currentEntries`).
+- Updated `app/web/app.js` to import `state` from `./js/state.js` and continue using it without behavior changes.
+- Task 15 remains in progress; API/auth extraction (step 1) and state extraction (step 2) are completed, remaining modules are pending.

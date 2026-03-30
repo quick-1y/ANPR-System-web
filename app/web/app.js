@@ -1,14 +1,6 @@
 import { api, apiUrl, getApiKey, jfetch, showAuthOverlay } from "./js/api.js";
+import { state } from "./js/state.js";
 
-const state = {
-  channels: [],
-  lists: [],
-  selectedListId: null,
-  allEvents: [],
-  lastPlatesByChannelId: {},
-  plateLookup: {},
-  currentEntries: [],
-};
 let eventSource = null;
 let streamReconnectTimer = null;
 let debugLogSource = null;

@@ -14,7 +14,7 @@ The codebase is **well-structured for a mid-size project**. Compared to prior re
 
 ### Main Risks
 
-1. **Monolithic frontend** — `app.js` at 3138 lines is the single largest maintenance risk. All UI logic, state management, API calls, and DOM manipulation live in one file with no module system. 🚧 **Task 15 in progress (2026-03-30):** first extraction step completed (`app/web/js/api.js` with API/auth/fetch helpers + `type="module"` entrypoint), remainder still pending.
+1. **Monolithic frontend** — `app.js` at 3138 lines is the single largest maintenance risk. All UI logic, state management, API calls, and DOM manipulation live in one file with no module system. 🚧 **Task 15 in progress (2026-03-30):** first two extraction steps completed (`app/web/js/api.js` for API/auth/fetch + `app/web/js/state.js` for shared state/defaults; `type="module"` entrypoint), remainder still pending.
 2. ~~**`SettingsManager` delegation layer**~~ ✅ Fixed (2026-03-29) — 14 dead delegation methods removed.
 3. ~~**New YOLODetector instance per channel**~~ ✅ Fixed (2026-03-29) — shared YOLO singleton with `copy.copy()` clones per channel.
 4. ~~**Blocking I/O in the processing loop**~~ ✅ Fixed (2026-03-29) — screenshot writes are now fire-and-forget with pre-computed paths.
@@ -23,7 +23,7 @@ The codebase is **well-structured for a mid-size project**. Compared to prior re
 ### Highest-Priority Cleanup Opportunities
 
 1. ~~Extract `SettingsManager` delegation methods~~ ✅ Done
-2. Split `app.js` into modules (high effort, high maintainability gain) 🚧 Started: API/auth module extracted (`app/web/js/api.js`) on 2026-03-30
+2. Split `app.js` into modules (high effort, high maintainability gain) 🚧 Started: API/auth module (`app/web/js/api.js`) and state module (`app/web/js/state.js`) extracted on 2026-03-30
 3. ~~Share YOLODetector across channels~~ ✅ Done
 4. ~~Make screenshot I/O fire-and-forget~~ ✅ Done
 
