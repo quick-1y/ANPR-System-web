@@ -233,7 +233,7 @@
 
 ---
 
-## Task 15: Split app.js Into ES Modules
+## Task 15: Split app.js Into ES Modules ✅ COMPLETED (2026-03-30)
 
 **Problem:** `app/web/app.js` is 3138 lines — the largest single file and the main maintenance bottleneck. All UI features are interleaved.
 
@@ -254,3 +254,20 @@
 **Expected result:** Each feature is isolated in its own file. Easier to navigate, modify, and eventually test.
 
 **Risk level:** Medium — large refactoring. Requires careful extraction of shared state and function references. Should be done incrementally.
+
+**Resolution:** Split monolithic `app/web/app.js` (3147 lines) into 12 ES modules under `app/web/js/`:
+- `state.js` — shared state object + mutable singleton variables with setter helpers
+- `api.js` — fetch wrapper, auth overlay, API key management
+- `ui.js` — tabs, sidebar, toast, modals, datetime, flags, theme, form helpers
+- `channels.js` — video grid, preview lifecycle, overlays, ROI editor, plate size editor, hotkeys, channel CRUD
+- `events.js` — event feed rendering, SSE push, event details modal
+- `journal.js` — paginated event journal with infinite scroll
+- `lists.js` — plate list management, CSV import/export
+- `controllers.js` — controller CRUD
+- `debug.js` — debug log streaming, event stream setup
+- `settings.js` — global settings load/save, country toggles
+- `help.js` — parameter help popover system
+- `backup.js` — database and settings backup/restore
+- `app.js` — entry point: DOM bindings, timers, initialization
+
+Updated `index.html` to use `<script type="module" src="/web/js/app.js">`. Original `app/web/app.js` preserved as reference.
