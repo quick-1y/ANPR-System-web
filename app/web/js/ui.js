@@ -62,6 +62,19 @@ export function switchSettings(name) {
   updateTopbarTitle();
 }
 
+export function switchTab(name) {
+  document
+    .querySelectorAll(".ttab")
+    .forEach((el) => el.classList.toggle("active", el.dataset.tab === name));
+  document
+    .querySelectorAll(".tab-pane")
+    .forEach((pane) => pane.classList.remove("active"));
+  const tabPane = document.getElementById(`tab-${name}`);
+  if (!tabPane) return;
+  tabPane.classList.add("active");
+  updateTopbarTitle();
+}
+
 export function loadBarColor(pct) {
   if (pct < 50) return "#2ecc71";
   if (pct < 80) return "#f5a623";
