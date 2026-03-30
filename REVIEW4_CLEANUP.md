@@ -34,4 +34,4 @@
 | 5 | ~~`"Нечитаемо"` string sentinel~~ ✅ Done | `anpr_pipeline.py:432,482,541` | Replaced with boolean `unreadable` flag; display string moved to event layer |
 | 6 | ~~Duplicate DSN resolution~~ ✅ Done | `app/api/container.py` (3 places) | Extracted `_resolve_dsn()` helper |
 | 7 | ~~Inconsistent error handling~~ ✅ Done | `plate_lists_repository.py:156` | Now raises `StorageUnavailableError` like other methods |
-| 8 | Monolithic `app.js` (3138 lines) | `app/web/app.js` | Split into ES modules |
+| 8 | Monolithic `app.js` (3138 lines) 🚧 In progress (Task 15, step 1 done) | `app/web/app.js`, `app/web/js/api.js`, `app/web/index.html` | Started module split: extracted API/auth/fetch layer into `app/web/js/api.js`; `app.js` now imports it; entrypoint switched to `type="module"` |
