@@ -1553,6 +1553,10 @@ function applySidebarLocked(locked) {
     getDebugSettings: () => debugSettingsCache || {},
     flagHtml,
     formatDirection,
+    onVisibleRefresh: () => {
+      refreshSystemResources();
+      checkServerHealth();
+    },
   });
   setupVideoGridLayoutGuards();
   setupEventFeedLayoutGuards();

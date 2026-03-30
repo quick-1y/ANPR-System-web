@@ -26,6 +26,7 @@ let _getHotkeyMap = () => new Map();
 let _getDebugSettings = () => ({});
 let _flagHtml = () => "";
 let _formatDirection = (v) => String(v || "");
+let _onVisibleRefresh = () => {};
 
 export function configureChannels(config = {}) {
   _showToast = config.showToast || _showToast;
@@ -36,6 +37,7 @@ export function configureChannels(config = {}) {
   _getDebugSettings = config.getDebugSettings || _getDebugSettings;
   _flagHtml = config.flagHtml || _flagHtml;
   _formatDirection = config.formatDirection || _formatDirection;
+  _onVisibleRefresh = config.onVisibleRefresh || _onVisibleRefresh;
 }
 
 function val(id) { return document.getElementById(id).value; }
@@ -504,9 +506,6 @@ export function renderVideoGrid() {
   }
 }
 
-let videoGridLayoutFrame = null;
-let videoGridSecondPassFrame = null;
-let videoGridResizeObserver = null;
 export function scheduleVideoGridLayout(secondPass = false) {
   if (videoGridLayoutFrame !== null) return;
   videoGridLayoutFrame = requestAnimationFrame(() => {
@@ -529,8 +528,7 @@ export function setupVideoGridLayoutGuards() {
     if (!document.hidden) {
       scheduleVideoGridLayout();
       refreshChannels();
-      refreshSystemResources();
-      checkServerHealth();
+      _onVisibleRefresh();
     }
   });
   if (typeof ResizeObserver !== "function") return;
