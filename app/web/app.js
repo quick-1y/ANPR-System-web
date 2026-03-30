@@ -1553,6 +1553,7 @@ function applySidebarLocked(locked) {
     getDebugSettings: () => debugSettingsCache || {},
     flagHtml,
     formatDirection,
+    updateChannelLastPlate,
     onVisibleRefresh: () => {
       refreshSystemResources();
       checkServerHealth();

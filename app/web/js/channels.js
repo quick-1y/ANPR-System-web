@@ -27,6 +27,7 @@ let _getDebugSettings = () => ({});
 let _flagHtml = () => "";
 let _formatDirection = (v) => String(v || "");
 let _onVisibleRefresh = () => {};
+let _updateChannelLastPlate = () => {};
 
 export function configureChannels(config = {}) {
   _showToast = config.showToast || _showToast;
@@ -38,6 +39,7 @@ export function configureChannels(config = {}) {
   _flagHtml = config.flagHtml || _flagHtml;
   _formatDirection = config.formatDirection || _formatDirection;
   _onVisibleRefresh = config.onVisibleRefresh || _onVisibleRefresh;
+  _updateChannelLastPlate = config.updateChannelLastPlate || _updateChannelLastPlate;
 }
 
 function val(id) { return document.getElementById(id).value; }
@@ -425,7 +427,7 @@ export function createVideoCell(ch) {
     ensurePreviewStream(preview, ch.id);
   }
   refreshVideoCellOverlayState(cell, ch);
-  updateChannelLastPlate(ch.id, state.lastPlatesByChannelId[ch.id]);
+  _updateChannelLastPlate(ch.id, state.lastPlatesByChannelId[ch.id]);
   return cell;
 }
 
@@ -446,7 +448,7 @@ export function updateVideoCell(cell, ch) {
     ensurePreviewStream(preview, ch.id);
   }
   refreshVideoCellOverlayState(cell, ch);
-  updateChannelLastPlate(ch.id, state.lastPlatesByChannelId[ch.id]);
+  _updateChannelLastPlate(ch.id, state.lastPlatesByChannelId[ch.id]);
 }
 
 export function computeVideoGridRowHeight(grid, rows, cols) {
