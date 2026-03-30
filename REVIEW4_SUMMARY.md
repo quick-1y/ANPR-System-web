@@ -17,7 +17,7 @@ The codebase has improved significantly since R3 (2026-03-24). Key R3 issues are
 | # | Finding | Severity | Impact |
 |---|---------|----------|--------|
 | 1 | ~~YOLO model duplicated per channel (50-200MB each)~~ ✅ Fixed | High | Memory waste, potential GPU VRAM exhaustion |
-| 2 | Monolithic app.js (3138 lines, no modules) | High | Maintenance bottleneck, untestable |
+| 2 | Monolithic app.js (3138 lines, no modules) ⏳ In progress since 2026-03-30 (step 1: API/auth extracted to `app/web/js/api.js`; step 2: state extracted to `app/web/js/state.js`) | High | Maintenance bottleneck, untestable |
 | 3 | ~~Blocking .result() on screenshot I/O in processing loop~~ ✅ Fixed | Medium | Adds 5-10ms latency per event |
 | 4 | ~~Direction computed for finalized tracks (wasted CPU)~~ ✅ Fixed | Medium | Unnecessary numpy ops every frame |
 | 5 | ~~SettingsManager has 14 pass-through delegation methods~~ ✅ Fixed | Medium | Code confusion, doubled API surface |
@@ -40,3 +40,12 @@ The codebase has improved significantly since R3 (2026-03-24). Key R3 issues are
 | `REVIEW4_TASKS.md` | 15 independent implementation tasks with risk levels |
 | `REVIEW4_CLEANUP.md` | Cleanup candidate tables (safe/verify/refactor) |
 | `REVIEW4_SUMMARY.md` | This file |
+
+
+## Task 15 update (2026-03-30)
+
+- Status: **in progress**.
+- Completed incremental sub-steps:
+  - Step 1: extracted API layer (fetch wrapper + auth helpers) from `app/web/app.js` into `app/web/js/api.js`.
+  - Step 2: extracted shared state object into `app/web/js/state.js` and wired import in `app/web/app.js`.
+- `app/web/index.html` uses module script loading; full split into feature modules is not done yet.

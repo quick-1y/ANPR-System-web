@@ -14,7 +14,7 @@ The codebase is **well-structured for a mid-size project**. Compared to prior re
 
 ### Main Risks
 
-1. **Monolithic frontend** — `app.js` at 3138 lines is the single largest maintenance risk. All UI logic, state management, API calls, and DOM manipulation live in one file with no module system.
+1. **Monolithic frontend** — `app.js` at 3138 lines is the single largest maintenance risk. All UI logic, state management, API calls, and DOM manipulation live in one file with no module system. ⏳ Work started on 2026-03-30 (step 1: API/auth extracted to `app/web/js/api.js`; step 2: state extracted to `app/web/js/state.js`).
 2. ~~**`SettingsManager` delegation layer**~~ ✅ Fixed (2026-03-29) — 14 dead delegation methods removed.
 3. ~~**New YOLODetector instance per channel**~~ ✅ Fixed (2026-03-29) — shared YOLO singleton with `copy.copy()` clones per channel.
 4. ~~**Blocking I/O in the processing loop**~~ ✅ Fixed (2026-03-29) — screenshot writes are now fire-and-forget with pre-computed paths.
@@ -23,7 +23,7 @@ The codebase is **well-structured for a mid-size project**. Compared to prior re
 ### Highest-Priority Cleanup Opportunities
 
 1. ~~Extract `SettingsManager` delegation methods~~ ✅ Done
-2. Split `app.js` into modules (high effort, high maintainability gain)
+2. Split `app.js` into modules (high effort, high maintainability gain) ⏳ In progress: steps 1-2 completed on 2026-03-30
 3. ~~Share YOLODetector across channels~~ ✅ Done
 4. ~~Make screenshot I/O fire-and-forget~~ ✅ Done
 
@@ -446,13 +446,15 @@ All run regardless of which tab is active.
 
 ## 10. Frontend Specific Issues
 
-### 10.1 Monolithic `app.js` (3138 lines)
+### 10.1 Monolithic `app.js` (3138 lines) ⏳ In progress (2026-03-30 steps 1-2 completed)
 
 **Severity:** High | **Confidence:** High
 
 **Evidence:** A single file contains all application logic: state management, API calls, DOM rendering, event handling, tab switching, forms, modals, video grid, journal, lists management, settings, ROI editor, backup/restore, controller management, debug panels, and help popovers.
 
 **Why it's a problem:** Any change to any feature requires navigating a 3000+ line file. No encapsulation between features means changes can have unintended side effects. No testing is possible.
+
+**Progress update (2026-03-30):** First incremental extractions completed: API/auth layer (`api`, `getApiKey`, `setApiKey`, `apiUrl`, `showAuthOverlay`, `jfetch`) moved into `app/web/js/api.js`, and shared state object moved into `app/web/js/state.js`; `app/web/app.js` now imports both modules; `index.html` uses `<script type="module">`. Full modular split is not complete yet.
 
 **Recommended fix:** Split into ES modules:
 - `state.js` — global state management

@@ -233,7 +233,7 @@
 
 ---
 
-## Task 15: Split app.js Into ES Modules
+## Task 15: Split app.js Into ES Modules ⏳ IN PROGRESS (2026-03-30)
 
 **Problem:** `app/web/app.js` is 3138 lines — the largest single file and the main maintenance bottleneck. All UI features are interleaved.
 
@@ -254,3 +254,9 @@
 **Expected result:** Each feature is isolated in its own file. Easier to navigate, modify, and eventually test.
 
 **Risk level:** Medium — large refactoring. Requires careful extraction of shared state and function references. Should be done incrementally.
+
+**Progress update (2026-03-30):**
+- Step 1 completed: extracted API/auth layer into `app/web/js/api.js` (functions: `api`, `getApiKey`, `setApiKey`, `apiUrl`, `showAuthOverlay`, `jfetch`).
+- Step 2 completed: extracted shared UI state object into `app/web/js/state.js` and updated `app/web/app.js` to import it.
+- `app/web/index.html` already uses `<script type="module">`.
+Task 15 remains in progress; the full module split is not done yet.
