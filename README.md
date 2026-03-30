@@ -15,14 +15,14 @@
 
 ## Документация
 
-| Раздел | Файл | Что внутри |
-|---|---|---|
-| Диаграммы | [`docs/diagrams.md`](Диаграммы) | Архитектурные схемы, pipeline, event flow, retention |
-| Описание модулей | [`docs/modules.md`](docs/modules.md) | Назначение основных директорий и ключевых файлов |
-| Технологический стек | [`docs/technology-stack.md`](docs/technology-stack.md) | Языки, runtime, инфраструктура и ключевые зависимости |
-| Структура проекта | [`docs/project-structure.md`](docs/project-structure.md) | Дерево проекта и навигация по репозиторию |
-| API endpoints | [`docs/endpoints.md`](docs/endpoints.md) | Web UI, REST, SSE, debug, worker и export endpoints |
-| ANPR pipeline | [`docs/anpr-pipeline.md`](docs/anpr-pipeline.md) | Алгоритмы ядра, OCR по треку, сценарии и ключевые параметры |
+| Раздел | Что внутри |
+|--------|------------|
+| [Диаграммы](docs/diagrams.md) | Архитектурные схемы, pipeline, event flow, retention |
+| [Описание модулей](docs/modules.md) | Назначение основных директорий и ключевых файлов |
+| [Технологический стек](docs/technology-stack.md) | Языки, runtime, инфраструктура и ключевые зависимости |
+| [Структура проекта](docs/project-structure.md) | Дерево проекта и навигация по репозиторию |
+| [API endpoints](docs/endpoints.md) | Web UI, REST, SSE, debug, worker и export endpoints |
+| [ANPR pipeline](docs/anpr-pipeline.md) | Алгоритмы ядра, OCR по треку, сценарии и ключевые параметры |
 
 README остаётся точкой входа: быстрый обзор, запуск, конфигурация, ключевые алгоритмы и ссылки на подробные документы из `docs/`.
 
