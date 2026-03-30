@@ -258,5 +258,6 @@
 **Progress update (2026-03-30):**
 - Step 1 completed: extracted API/auth layer into `app/web/js/api.js` (functions: `api`, `getApiKey`, `setApiKey`, `apiUrl`, `showAuthOverlay`, `jfetch`).
 - Step 2 completed: extracted shared UI state object into `app/web/js/state.js` and updated `app/web/app.js` to import it.
+- Step 3 completed: extracted channel module into `app/web/js/channels.js` (channel grid, preview/overlays, ROI editor, plate-size editor, channel CRUD) with dependency wiring via `configureChannels(...)`.
 - `app/web/index.html` already uses `<script type="module">`.
 Task 15 remains in progress; the full module split is not done yet.
