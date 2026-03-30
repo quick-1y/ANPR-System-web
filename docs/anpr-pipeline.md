@@ -1,8 +1,12 @@
 # ANPR Pipeline
 
-Этот документ содержит подробное описание ANPR pipeline проекта `ANPR System v0.8 Web`.
+Подробное описание ANPR pipeline проекта
 
-Корневой README оставлен как точка входа, а детальная логика распознавания, агрегации и OCR-параметров вынесена сюда.
+Алгоритмы ядра: YOLO, motion detector, preprocessing, CRNN, track aggregation, direction estimator и post-processing;
+Трек-уровневый OCR-алгоритм: бюджет попыток, ранняя финализация, unreadable flow и защита от дублей;
+Практические сценарии обработки треков;
+Параметры max_ocr_attempts, max_consecutive_empty_ocr, detector_frame_stride, adaptive_stride_enabled, preview_fps_limit и их взаимодействие с best_shots и ocr_min_confidence.
+Кратко: pipeline построен вокруг трек-уровневой агрегации OCR, чтобы сокращать CPU-нагрузку и не генерировать дубликаты событий. OCR выполняется только пока трек не финализирован и пока не исчерпан бюджет попыток.
 
 ---
 
