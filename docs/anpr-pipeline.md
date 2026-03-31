@@ -1,12 +1,13 @@
 # ANPR Pipeline
 
-Подробное описание ANPR pipeline проекта
+Что находится в документе:
+- алгоритмы ядра: YOLO, motion detector, preprocessing, CRNN, track aggregation, direction estimator и post-processing;
+- трек-уровневый OCR-алгоритм: бюджет попыток, ранняя финализация, unreadable flow и защита от дублей;
+- практические сценарии обработки треков;
+- параметры `max_ocr_attempts`, `max_consecutive_empty_ocr`, `detector_frame_stride`, `adaptive_stride_enabled`, `preview_fps_limit` и их взаимодействие с `best_shots` и `ocr_min_confidence`.
 
-Алгоритмы ядра: YOLO, motion detector, preprocessing, CRNN, track aggregation, direction estimator и post-processing;
-Трек-уровневый OCR-алгоритм: бюджет попыток, ранняя финализация, unreadable flow и защита от дублей;
-Практические сценарии обработки треков;
-Параметры max_ocr_attempts, max_consecutive_empty_ocr, detector_frame_stride, adaptive_stride_enabled, preview_fps_limit и их взаимодействие с best_shots и ocr_min_confidence.
 Кратко: pipeline построен вокруг трек-уровневой агрегации OCR, чтобы сокращать CPU-нагрузку и не генерировать дубликаты событий. OCR выполняется только пока трек не финализирован и пока не исчерпан бюджет попыток.
+
 
 ---
 
