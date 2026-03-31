@@ -320,3 +320,9 @@
 - Moved live event feed rendering/incremental prepend logic, channel last-plate hydration/update helpers, event feed layout guards, and event stream lifecycle/reconnect logic to `events.js`.
 - Updated `app/web/app.js` to initialize `events.js` via `initEventsModule()` and to use `events.js` APIs (`hydrateChannelLastPlates`, `loadInitialEventFeed`, `renderEventFeed`, `setupEventFeedLayoutGuards`, `setupEventStream`, `cleanupEventRuntime`, `updateChannelLastPlate`) while preserving behavior.
 - Task 15 remains in progress; steps 1-10 are completed, remaining module extractions are pending.
+
+**Progress update (2026-03-31, step 11 completed):**
+- Extracted backup/restore system-data frontend logic from `app/web/app.js` into `app/web/js/backup.js`.
+- Moved DB/settings export handlers, DB/settings restore file-pick/confirm/upload flows, backup busy-state handling, and restore success/error/reload behaviors to `backup.js`.
+- Updated `app/web/app.js` to initialize `backup.js` via `initBackupModule()` with dependency wiring (`api`, `getApiKey`, `showAuthOverlay`, `showToast`, `openModal`, `closeModal`, `loadGlobalSettings`) while preserving behavior.
+- Task 15 remains in progress; steps 1-11 are completed, remaining module extractions are pending.
