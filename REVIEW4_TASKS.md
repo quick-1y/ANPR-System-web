@@ -296,3 +296,9 @@
 - Moved settings loading/population/saving flows and settings-specific country/debug controls handling to `settings.js`.
 - Updated `app/web/app.js` to use `settings.js` APIs (`initSettingsModule`, `loadGlobalSettings`, `saveGeneral`) with dependency wiring to preserve behavior and initialization order.
 - Task 15 remains in progress; steps 1-6 are completed, remaining module extractions are pending.
+
+**Progress update (2026-03-31, step 7 completed):**
+- Extracted controllers frontend logic from `app/web/app.js` into `app/web/js/controllers.js`.
+- Moved controllers list/selection/rendering, CRUD flows, test relay actions, controller form handling, controller-specific modal/binding handlers, and controller hotkey map handling to `controllers.js`.
+- Updated `app/web/app.js` to use `controllers.js` APIs (`initControllersModule`, `initControllersBindings`, `loadControllers`, `renderChannelControllerOptions`, `updateChannelControllerBindingState`, `triggerHotkey`, `hasHotkeyBinding`, `hasSelectedController`) while preserving current initialization and UX behavior.
+- Task 15 remains in progress; steps 1-7 are completed, remaining module extractions are pending.
