@@ -290,3 +290,9 @@
 - Moved lists loading/selection/rendering, entries loading/editing, create/rename/delete list flows, CSV import/export, and lists-specific modal/binding handlers to `lists.js`.
 - Updated `app/web/app.js` to use `lists.js` APIs (`initListsModule`, `initListsBindings`, `loadLists`) while preserving initialization order and existing UX flows.
 - Task 15 remains in progress; steps 1-5 are completed, remaining module extractions are pending.
+
+**Progress update (2026-03-31, step 6 completed):**
+- Extracted settings frontend logic from `app/web/app.js` into `app/web/js/settings.js`.
+- Moved settings loading/population/saving flows and settings-specific country/debug controls handling to `settings.js`.
+- Updated `app/web/app.js` to use `settings.js` APIs (`initSettingsModule`, `loadGlobalSettings`, `saveGeneral`) with dependency wiring to preserve behavior and initialization order.
+- Task 15 remains in progress; steps 1-6 are completed, remaining module extractions are pending.
