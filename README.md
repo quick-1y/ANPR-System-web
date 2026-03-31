@@ -24,7 +24,6 @@
 | [API endpoints](docs/endpoints.md) | Web UI, REST, SSE, debug, worker и export endpoints |
 | [ANPR pipeline](docs/anpr-pipeline.md) | Алгоритмы ядра, OCR по треку, сценарии и ключевые параметры |
 
-README остаётся точкой входа: быстрый обзор, запуск, конфигурация, ключевые алгоритмы и ссылки на подробные документы из `docs/`.
 
 ---
 
