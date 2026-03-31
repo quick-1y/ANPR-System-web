@@ -278,3 +278,9 @@
 - Moved debug panel behavior, debug log history loading, SSE live log stream, reconnect handling, and debug log rendering helpers to `debug.js`.
 - Updated `app/web/app.js` to use `debug.js` APIs (`initDebugModule`, `applyDebugPanelVisibility`, `loadDebugLogHistory`, `setupDebugLogStream`, `cleanupDebugLogStream`) while preserving startup order.
 - Task 15 remains in progress; steps 1-3 are completed, remaining module extractions are pending.
+
+**Progress update (2026-03-30, step 4 completed):**
+- Extracted journal/event history frontend logic from `app/web/app.js` into `app/web/js/journal.js`.
+- Moved journal loading/filter/infinite-scroll logic, journal row rendering, event detail modal logic, and journal-specific bindings/handlers into `journal.js`.
+- Updated `app/web/app.js` to use `journal.js` APIs (`initJournalModule`, `initJournalBindings`, `loadJournal`, `initJournalScroll`, `loadEventFeedHistory`, `fillChannelFilter`, `openEventDetails`, `formatDirection`, `normalizePlate`, `handleLiveEventForJournal`) while preserving current startup and interaction order.
+- Task 15 remains in progress; steps 1-4 are completed, remaining module extractions are pending.
