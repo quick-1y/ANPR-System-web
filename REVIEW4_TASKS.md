@@ -308,3 +308,9 @@
 - Moved shared tab switching/title update helpers, shared modal open/close helpers, and shared toast notification helper to `ui.js`.
 - Updated `app/web/app.js` to use `ui.js` APIs (`initUI`, `switchTab`, `switchSettings`, `updateTopbarTitle`, `openModal`, `closeModal`, `showToast`) while preserving current behavior and initialization order.
 - Task 15 remains in progress; steps 1-8 are completed, remaining module extractions are pending.
+
+**Progress update (2026-03-31, step 9 completed):**
+- Extracted shared contextual help/tooltip popover logic from `app/web/app.js` into `app/web/js/help.js`.
+- Moved help content map, help popover open/close/positioning helpers, and shared help interaction handlers (click toggle, outside click close, ESC close) to `help.js`.
+- Updated `app/web/app.js` to initialize `help.js` via `initHelpModule()` while preserving existing help UX and initialization order.
+- Task 15 remains in progress; steps 1-9 are completed, remaining module extractions are pending.

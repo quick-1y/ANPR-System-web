@@ -14,7 +14,7 @@ The codebase is **well-structured for a mid-size project**. Compared to prior re
 
 ### Main Risks
 
-1. **Monolithic frontend** — `app.js` at 3138 lines is the single largest maintenance risk. All UI logic, state management, API calls, and DOM manipulation live in one file with no module system. 🚧 **Task 15 in progress (2026-03-31):** first eight extraction steps completed (`app/web/js/api.js` for API/auth/fetch + `app/web/js/state.js` for shared state/defaults + `app/web/js/debug.js` for debug/log stream/panel logic + `app/web/js/journal.js` for journal/event history logic + `app/web/js/lists.js` for plate lists management/import-export logic + `app/web/js/settings.js` for settings load/save/population logic + `app/web/js/controllers.js` for controllers CRUD/test/hotkey logic + `app/web/js/ui.js` for shared UI infra; `type="module"` entrypoint), remainder still pending.
+1. **Monolithic frontend** — `app.js` at 3138 lines is the single largest maintenance risk. All UI logic, state management, API calls, and DOM manipulation live in one file with no module system. 🚧 **Task 15 in progress (2026-03-31):** first nine extraction steps completed (`app/web/js/api.js` for API/auth/fetch + `app/web/js/state.js` for shared state/defaults + `app/web/js/debug.js` for debug/log stream/panel logic + `app/web/js/journal.js` for journal/event history logic + `app/web/js/lists.js` for plate lists management/import-export logic + `app/web/js/settings.js` for settings load/save/population logic + `app/web/js/controllers.js` for controllers CRUD/test/hotkey logic + `app/web/js/ui.js` for shared UI infra + `app/web/js/help.js` for shared help popover system; `type="module"` entrypoint), remainder still pending.
 2. ~~**`SettingsManager` delegation layer**~~ ✅ Fixed (2026-03-29) — 14 dead delegation methods removed.
 3. ~~**New YOLODetector instance per channel**~~ ✅ Fixed (2026-03-29) — shared YOLO singleton with `copy.copy()` clones per channel.
 4. ~~**Blocking I/O in the processing loop**~~ ✅ Fixed (2026-03-29) — screenshot writes are now fire-and-forget with pre-computed paths.
@@ -23,7 +23,7 @@ The codebase is **well-structured for a mid-size project**. Compared to prior re
 ### Highest-Priority Cleanup Opportunities
 
 1. ~~Extract `SettingsManager` delegation methods~~ ✅ Done
-2. Split `app.js` into modules (high effort, high maintainability gain) 🚧 Started: API/auth (`app/web/js/api.js`), state (`app/web/js/state.js`), debug/logging (`app/web/js/debug.js`), journal/history (`app/web/js/journal.js`), plate lists (`app/web/js/lists.js`), settings (`app/web/js/settings.js`), controllers (`app/web/js/controllers.js`), and shared UI (`app/web/js/ui.js`) modules extracted incrementally (2026-03-30..2026-03-31)
+2. Split `app.js` into modules (high effort, high maintainability gain) 🚧 Started: API/auth (`app/web/js/api.js`), state (`app/web/js/state.js`), debug/logging (`app/web/js/debug.js`), journal/history (`app/web/js/journal.js`), plate lists (`app/web/js/lists.js`), settings (`app/web/js/settings.js`), controllers (`app/web/js/controllers.js`), shared UI (`app/web/js/ui.js`), and shared help popovers (`app/web/js/help.js`) modules extracted incrementally (2026-03-30..2026-03-31)
 3. ~~Share YOLODetector across channels~~ ✅ Done
 4. ~~Make screenshot I/O fire-and-forget~~ ✅ Done
 
