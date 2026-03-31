@@ -161,18 +161,6 @@ API и retention_worker используют один и тот же `SETTINGS_P
 
 ---
 
-## API и streaming
-
-Подробный список web, REST, SSE, debug, export и worker endpoints вынесен в [`docs/endpoints.md`](docs/endpoints.md).
-
-Кратко:
-- Web UI: корневая страница `/`;
-- Channels / Events / Controllers / Lists / Settings — основное API оператора;
-- Debug и telemetry endpoints — для наблюдения и диагностики;
-- Worker endpoints — для retention и фоновых сервисных операций.
-
----
-
 ## Контроллеры и plate lists
 
 ### Привязка контроллера к каналу
