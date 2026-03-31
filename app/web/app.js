@@ -31,6 +31,15 @@ import {
 import { initListsBindings, initListsModule, loadLists } from "./js/lists.js";
 import { initSettingsModule, loadGlobalSettings, saveGeneral } from "./js/settings.js";
 import { state } from "./js/state.js";
+import {
+  closeModal,
+  initUI,
+  openModal,
+  showToast,
+  switchSettings,
+  switchTab,
+  updateTopbarTitle,
+} from "./js/ui.js";
 
 let eventSource = null;
 let streamReconnectTimer = null;
@@ -54,62 +63,6 @@ function flagHtml(code) {
   const src = flagByCountry(normalized || "eu");
   const fallback = flagByCountry("eu");
   return `<img class='ev-flag' src='${src}' alt='${normalized || "unknown"}' onerror="this.onerror=null;this.src='${fallback}'" />`;
-}
-function switchTab(name) {
-  document
-    .querySelectorAll(".ttab")
-    .forEach((el) => el.classList.toggle("active", el.dataset.tab === name));
-  document
-    .querySelectorAll(".tab-pane")
-    .forEach((p) => p.classList.remove("active"));
-  document.getElementById(`tab-${name}`).classList.add("active");
-  updateTopbarTitle();
-  if (name === "obs") {
-    scheduleVideoGridLayout();
-    renderEventFeed(true);
-  }
-}
-function switchSettings(name) {
-  document
-    .querySelectorAll(".snav-item")
-    .forEach((el) => el.classList.toggle("active", el.dataset.sp === name));
-  document
-    .querySelectorAll(".settings-pane")
-    .forEach((p) => p.classList.remove("active"));
-  document.getElementById(`sp-${name}`).classList.add("active");
-  updateTopbarTitle();
-}
-function getActiveTabName() {
-  return document.querySelector(".ttab.active")?.dataset.tab || "obs";
-}
-
-function getActiveSettingsName() {
-  return document.querySelector(".snav-item.active")?.dataset.sp || "general";
-}
-
-function updateTopbarTitle() {
-  const titleNode = document.querySelector(".topbar-title");
-  if (!titleNode) return;
-  const tabLabels = {
-    obs: "Наблюдение",
-    journal: "Журнал",
-    lists: "Списки",
-    settings: "Настройки",
-  };
-  const settingsLabels = {
-    general: "Общие",
-    channels: "Каналы",
-    controllers: "Контроллеры",
-    sysdata: "Системные данные",
-    debug: "Debug",
-  };
-  const activeTab = getActiveTabName();
-  if (activeTab !== "settings") {
-    titleNode.textContent = tabLabels[activeTab] || tabLabels.obs;
-    return;
-  }
-  const activeSettings = getActiveSettingsName();
-  titleNode.textContent = `${tabLabels.settings} / ${settingsLabels[activeSettings] || settingsLabels.general}`;
 }
 function switchChannelSettingsTab(name) {
   document
@@ -818,23 +771,6 @@ function pushEvent(ev) {
   if (state.allEvents.length > 500) state.allEvents.pop();
   renderEventFeed();
   handleLiveEventForJournal(ev);
-}
-
-function showToast(message, duration = 2000) {
-  const existing = document.getElementById("appToast");
-  if (existing) existing.remove();
-  const toast = document.createElement("div");
-  toast.id = "appToast";
-  toast.className = "app-toast";
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => toast.classList.add("app-toast-visible"));
-  });
-  setTimeout(() => {
-    toast.classList.remove("app-toast-visible");
-    setTimeout(() => toast.remove(), 300);
-  }, duration);
 }
 
 let selectedChannelId = null;
@@ -1580,10 +1516,13 @@ document
     (el) => (el.onclick = () => switchChannelSettingsTab(el.dataset.chTab)),
   );
 document.getElementById("gridSelect").onchange = () => scheduleVideoGridLayout(true);
+initUI({
+  onObsTabActivated: () => {
+    scheduleVideoGridLayout();
+    renderEventFeed(true);
+  },
+});
 initJournalBindings();
-// ── Modal helpers ────────────────────────────────────
-function openModal(id) { document.getElementById(id).classList.add("active"); }
-function closeModal(id) { document.getElementById(id).classList.remove("active"); }
 initListsModule({
   api,
   jfetch,

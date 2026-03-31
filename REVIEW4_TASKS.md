@@ -302,3 +302,9 @@
 - Moved controllers list/selection/rendering, CRUD flows, test relay actions, controller form handling, controller-specific modal/binding handlers, and controller hotkey map handling to `controllers.js`.
 - Updated `app/web/app.js` to use `controllers.js` APIs (`initControllersModule`, `initControllersBindings`, `loadControllers`, `renderChannelControllerOptions`, `updateChannelControllerBindingState`, `triggerHotkey`, `hasHotkeyBinding`, `hasSelectedController`) while preserving current initialization and UX behavior.
 - Task 15 remains in progress; steps 1-7 are completed, remaining module extractions are pending.
+
+**Progress update (2026-03-31, step 8 completed):**
+- Extracted shared UI infrastructure logic from `app/web/app.js` into `app/web/js/ui.js`.
+- Moved shared tab switching/title update helpers, shared modal open/close helpers, and shared toast notification helper to `ui.js`.
+- Updated `app/web/app.js` to use `ui.js` APIs (`initUI`, `switchTab`, `switchSettings`, `updateTopbarTitle`, `openModal`, `closeModal`, `showToast`) while preserving current behavior and initialization order.
+- Task 15 remains in progress; steps 1-8 are completed, remaining module extractions are pending.
