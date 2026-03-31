@@ -284,3 +284,9 @@
 - Moved journal loading/filter/infinite-scroll logic, journal row rendering, event detail modal logic, and journal-specific bindings/handlers into `journal.js`.
 - Updated `app/web/app.js` to use `journal.js` APIs (`initJournalModule`, `initJournalBindings`, `loadJournal`, `initJournalScroll`, `loadEventFeedHistory`, `fillChannelFilter`, `openEventDetails`, `formatDirection`, `normalizePlate`, `handleLiveEventForJournal`) while preserving current startup and interaction order.
 - Task 15 remains in progress; steps 1-4 are completed, remaining module extractions are pending.
+
+**Progress update (2026-03-31, step 5 completed):**
+- Extracted plate lists frontend logic from `app/web/app.js` into `app/web/js/lists.js`.
+- Moved lists loading/selection/rendering, entries loading/editing, create/rename/delete list flows, CSV import/export, and lists-specific modal/binding handlers to `lists.js`.
+- Updated `app/web/app.js` to use `lists.js` APIs (`initListsModule`, `initListsBindings`, `loadLists`) while preserving initialization order and existing UX flows.
+- Task 15 remains in progress; steps 1-5 are completed, remaining module extractions are pending.
