@@ -233,7 +233,7 @@
 
 ---
 
-## Task 15: Split app.js Into ES Modules 🚧 IN PROGRESS (2026-03-30)
+## Task 15: Split app.js Into ES Modules ✅ COMPLETED (2026-03-30)
 
 **Problem:** `app/web/app.js` is 3138 lines — the largest single file and the main maintenance bottleneck. All UI features are interleaved.
 
@@ -255,74 +255,19 @@
 
 **Risk level:** Medium — large refactoring. Requires careful extraction of shared state and function references. Should be done incrementally.
 
-**Progress update (2026-03-30, step 1 completed):**
-- Created `app/web/js/` directory.
-- Extracted API/auth layer from `app/web/app.js` into `app/web/js/api.js`:
-  - `api(path)`
-  - `getApiKey()`
-  - `apiUrl(path)`
-  - `showAuthOverlay(onSuccess)`
-  - `jfetch(url, method, body)`
-- Updated `app/web/app.js` to import and use these functions from `./js/api.js`.
-- Switched `app/web/index.html` script tag to `<script type="module" src="/web/app.js"></script>`.
-- Task 15 remains in progress; only the first extraction sub-step is done.
+**Resolution:** Split monolithic `app/web/app.js` (3147 lines) into 12 ES modules under `app/web/js/`:
+- `state.js` — shared state object + mutable singleton variables with setter helpers
+- `api.js` — fetch wrapper, auth overlay, API key management
+- `ui.js` — tabs, sidebar, toast, modals, datetime, flags, theme, form helpers
+- `channels.js` — video grid, preview lifecycle, overlays, ROI editor, plate size editor, hotkeys, channel CRUD
+- `events.js` — event feed rendering, SSE push, event details modal
+- `journal.js` — paginated event journal with infinite scroll
+- `lists.js` — plate list management, CSV import/export
+- `controllers.js` — controller CRUD
+- `debug.js` — debug log streaming, event stream setup
+- `settings.js` — global settings load/save, country toggles
+- `help.js` — parameter help popover system
+- `backup.js` — database and settings backup/restore
+- `app.js` — entry point: DOM bindings, timers, initialization
 
-**Progress update (2026-03-30, step 2 completed):**
-- Extracted application state container/defaults from `app/web/app.js` into `app/web/js/state.js`.
-- `state.js` now owns the shared mutable `state` object initial values (`channels`, `lists`, `selectedListId`, `allEvents`, `lastPlatesByChannelId`, `plateLookup`, `currentEntries`).
-- Updated `app/web/app.js` to import `state` from `./js/state.js` and continue using it without behavior changes.
-- Task 15 remains in progress; API/auth extraction (step 1) and state extraction (step 2) are completed, remaining modules are pending.
-
-**Progress update (2026-03-30, step 3 completed):**
-- Extracted debug/logging frontend logic from `app/web/app.js` into `app/web/js/debug.js`.
-- Moved debug panel behavior, debug log history loading, SSE live log stream, reconnect handling, and debug log rendering helpers to `debug.js`.
-- Updated `app/web/app.js` to use `debug.js` APIs (`initDebugModule`, `applyDebugPanelVisibility`, `loadDebugLogHistory`, `setupDebugLogStream`, `cleanupDebugLogStream`) while preserving startup order.
-- Task 15 remains in progress; steps 1-3 are completed, remaining module extractions are pending.
-
-**Progress update (2026-03-30, step 4 completed):**
-- Extracted journal/event history frontend logic from `app/web/app.js` into `app/web/js/journal.js`.
-- Moved journal loading/filter/infinite-scroll logic, journal row rendering, event detail modal logic, and journal-specific bindings/handlers into `journal.js`.
-- Updated `app/web/app.js` to use `journal.js` APIs (`initJournalModule`, `initJournalBindings`, `loadJournal`, `initJournalScroll`, `loadEventFeedHistory`, `fillChannelFilter`, `openEventDetails`, `formatDirection`, `normalizePlate`, `handleLiveEventForJournal`) while preserving current startup and interaction order.
-- Task 15 remains in progress; steps 1-4 are completed, remaining module extractions are pending.
-
-**Progress update (2026-03-31, step 5 completed):**
-- Extracted plate lists frontend logic from `app/web/app.js` into `app/web/js/lists.js`.
-- Moved lists loading/selection/rendering, entries loading/editing, create/rename/delete list flows, CSV import/export, and lists-specific modal/binding handlers to `lists.js`.
-- Updated `app/web/app.js` to use `lists.js` APIs (`initListsModule`, `initListsBindings`, `loadLists`) while preserving initialization order and existing UX flows.
-- Task 15 remains in progress; steps 1-5 are completed, remaining module extractions are pending.
-
-**Progress update (2026-03-31, step 6 completed):**
-- Extracted settings frontend logic from `app/web/app.js` into `app/web/js/settings.js`.
-- Moved settings loading/population/saving flows and settings-specific country/debug controls handling to `settings.js`.
-- Updated `app/web/app.js` to use `settings.js` APIs (`initSettingsModule`, `loadGlobalSettings`, `saveGeneral`) with dependency wiring to preserve behavior and initialization order.
-- Task 15 remains in progress; steps 1-6 are completed, remaining module extractions are pending.
-
-**Progress update (2026-03-31, step 7 completed):**
-- Extracted controllers frontend logic from `app/web/app.js` into `app/web/js/controllers.js`.
-- Moved controllers list/selection/rendering, CRUD flows, test relay actions, controller form handling, controller-specific modal/binding handlers, and controller hotkey map handling to `controllers.js`.
-- Updated `app/web/app.js` to use `controllers.js` APIs (`initControllersModule`, `initControllersBindings`, `loadControllers`, `renderChannelControllerOptions`, `updateChannelControllerBindingState`, `triggerHotkey`, `hasHotkeyBinding`, `hasSelectedController`) while preserving current initialization and UX behavior.
-- Task 15 remains in progress; steps 1-7 are completed, remaining module extractions are pending.
-
-**Progress update (2026-03-31, step 8 completed):**
-- Extracted shared UI infrastructure logic from `app/web/app.js` into `app/web/js/ui.js`.
-- Moved shared tab switching/title update helpers, shared modal open/close helpers, and shared toast notification helper to `ui.js`.
-- Updated `app/web/app.js` to use `ui.js` APIs (`initUI`, `switchTab`, `switchSettings`, `updateTopbarTitle`, `openModal`, `closeModal`, `showToast`) while preserving current behavior and initialization order.
-- Task 15 remains in progress; steps 1-8 are completed, remaining module extractions are pending.
-
-**Progress update (2026-03-31, step 9 completed):**
-- Extracted shared contextual help/tooltip popover logic from `app/web/app.js` into `app/web/js/help.js`.
-- Moved help content map, help popover open/close/positioning helpers, and shared help interaction handlers (click toggle, outside click close, ESC close) to `help.js`.
-- Updated `app/web/app.js` to initialize `help.js` via `initHelpModule()` while preserving existing help UX and initialization order.
-- Task 15 remains in progress; steps 1-9 are completed, remaining module extractions are pending.
-
-**Progress update (2026-03-31, step 10 completed):**
-- Extracted live events/event feed frontend logic from `app/web/app.js` into `app/web/js/events.js`.
-- Moved live event feed rendering/incremental prepend logic, channel last-plate hydration/update helpers, event feed layout guards, and event stream lifecycle/reconnect logic to `events.js`.
-- Updated `app/web/app.js` to initialize `events.js` via `initEventsModule()` and to use `events.js` APIs (`hydrateChannelLastPlates`, `loadInitialEventFeed`, `renderEventFeed`, `setupEventFeedLayoutGuards`, `setupEventStream`, `cleanupEventRuntime`, `updateChannelLastPlate`) while preserving behavior.
-- Task 15 remains in progress; steps 1-10 are completed, remaining module extractions are pending.
-
-**Progress update (2026-03-31, step 11 completed):**
-- Extracted backup/restore system-data frontend logic from `app/web/app.js` into `app/web/js/backup.js`.
-- Moved DB/settings export handlers, DB/settings restore file-pick/confirm/upload flows, backup busy-state handling, and restore success/error/reload behaviors to `backup.js`.
-- Updated `app/web/app.js` to initialize `backup.js` via `initBackupModule()` with dependency wiring (`api`, `getApiKey`, `showAuthOverlay`, `showToast`, `openModal`, `closeModal`, `loadGlobalSettings`) while preserving behavior.
-- Task 15 remains in progress; steps 1-11 are completed, remaining module extractions are pending.
+Updated `index.html` to use `<script type="module" src="/web/js/app.js">`. Original `app/web/app.js` preserved as reference.

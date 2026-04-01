@@ -1,11 +1,9 @@
-let deps = null;
-
-let eventSource = null;
-let streamReconnectTimer = null;
-let eventFeedResizeObserver = null;
-let eventFeedRenderScheduled = false;
-let eventFeedRenderFrame = null;
-let initialized = false;
+// Event feed, event streaming, event details modal
+import { state, eventFeedRenderScheduled, eventFeedRenderFrame, setEventFeedRenderScheduled, setEventFeedRenderFrame, setEventFeedResizeObserver } from './state.js';
+import { api, jfetch } from './api.js';
+import { getActiveTabName, formatDirection, flagHtml, normalizePlate, openModal, closeModal } from './ui.js';
+import { updateChannelLastPlate } from './channels.js';
+import { journalState, makeJournalRow } from './journal.js';
 
 function trimEventFeedOverflow(feed) {
   if (!feed) return;
@@ -14,21 +12,17 @@ function trimEventFeedOverflow(feed) {
   }
 }
 
-function getActiveTabName() {
-  return document.querySelector(".ttab.active")?.dataset.tab || "obs";
-}
-
 export function scheduleEventFeedRender(forceRebuild = true) {
   if (eventFeedRenderScheduled) return;
-  eventFeedRenderScheduled = true;
-  eventFeedRenderFrame = requestAnimationFrame(() => {
-    eventFeedRenderScheduled = false;
-    eventFeedRenderFrame = null;
+  setEventFeedRenderScheduled(true);
+  setEventFeedRenderFrame(requestAnimationFrame(() => {
+    setEventFeedRenderScheduled(false);
+    setEventFeedRenderFrame(null);
     if (getActiveTabName() !== "obs") return;
     const feed = document.getElementById("eventFeed");
     if (!feed || feed.clientHeight <= 0) return;
     renderEventFeed(forceRebuild);
-  });
+  }));
 }
 
 export function setupEventFeedLayoutGuards() {
@@ -36,41 +30,19 @@ export function setupEventFeedLayoutGuards() {
   const obsRight = document.querySelector("#tab-obs .obs-right");
   const feed = document.getElementById("eventFeed");
   if (!obsRight && !feed) return;
-  eventFeedResizeObserver = new ResizeObserver(() => {
+  const observer = new ResizeObserver(() => {
     scheduleEventFeedRender(true);
   });
-  if (obsRight) eventFeedResizeObserver.observe(obsRight);
-  if (feed) eventFeedResizeObserver.observe(feed);
+  if (obsRight) observer.observe(obsRight);
+  if (feed) observer.observe(feed);
+  setEventFeedResizeObserver(observer);
 }
 
 function resolveChannelIdFromEvent(ev) {
   const directId = Number(ev.channel_id);
   if (Number.isFinite(directId) && directId > 0) return directId;
-  const byName = deps.state.channels.find((c) => String(c.name) === String(ev.channel));
+  const byName = state.channels.find((c) => String(c.name) === String(ev.channel));
   return byName ? Number(byName.id) : null;
-}
-
-export function updateChannelLastPlate(channelId, plateData) {
-  const id = Number(channelId);
-  if (!Number.isFinite(id) || id <= 0) return;
-  const plateNode = document.getElementById(`plate-${id}`);
-  if (!plateNode) return;
-  const pd = plateData || {};
-  const plateText = String(pd.plate_display || pd.plate || "").trim();
-  const wasVisible = plateNode.style.display === "block";
-  const prevText = plateNode.textContent;
-  if (plateText) {
-    if (!wasVisible || prevText !== plateText) {
-      plateNode.textContent = plateText;
-      plateNode.style.display = "block";
-      plateNode.style.animation = "none";
-      void plateNode.offsetWidth;
-      plateNode.style.animation = "";
-    }
-  } else {
-    plateNode.style.display = "none";
-    plateNode.textContent = "";
-  }
 }
 
 function applyLastPlate(ev) {
@@ -84,42 +56,34 @@ function applyLastPlate(ev) {
     confidence: ev.confidence ?? null,
     direction: ev.direction || null,
   };
-  deps.state.lastPlatesByChannelId[channelId] = payload;
+  state.lastPlatesByChannelId[channelId] = payload;
   updateChannelLastPlate(channelId, payload);
 }
 
 export async function hydrateChannelLastPlates() {
-  const rows = await deps.jfetch(deps.api("/api/channels/last-plates"));
-  deps.state.lastPlatesByChannelId = rows || {};
-  Object.entries(deps.state.lastPlatesByChannelId).forEach(([channelId, payload]) => {
+  const rows = await jfetch(api('/api/channels/last-plates'));
+  state.lastPlatesByChannelId = rows || {};
+  Object.entries(state.lastPlatesByChannelId).forEach(([channelId, payload]) => {
     updateChannelLastPlate(Number(channelId), payload);
   });
-}
-
-export async function loadInitialEventFeed() {
-  await deps.loadEventFeedHistory();
-  renderEventFeed();
 }
 
 export function renderEventFeed(forceRebuild = false) {
   const feed = document.getElementById("eventFeed");
   if (!feed) return;
 
-  const events = deps.state.allEvents;
-  if (!events.length) {
-    feed.innerHTML = "";
-    return;
-  }
+  const events = state.allEvents;
+  if (!events.length) { feed.innerHTML = ""; return; }
 
   function makeItem(item, isNew) {
     const conf = Number(item.confidence || 0);
-    const direction = deps.formatDirection(item.direction);
+    const direction = formatDirection(item.direction);
     const key = String(item.id ?? item.timestamp ?? "");
     const channelName = item.channel || `CAM-${item.channel_id || ""}`;
     const timeStr = new Date(item.timestamp || Date.now()).toLocaleTimeString();
     const div = document.createElement("div");
-    const normalizedPlate = deps.normalizePlate(item.plate);
-    const listType = deps.state.plateLookup[normalizedPlate];
+    const normalizedPlate = normalizePlate(item.plate);
+    const listType = state.plateLookup[normalizedPlate];
     let cls = isNew ? "ev-item ev-new" : "ev-item";
     if (listType === "white") cls += " list-white";
     else if (listType === "black") cls += " list-black";
@@ -129,13 +93,10 @@ export function renderEventFeed(forceRebuild = false) {
     div.setAttribute("role", "button");
     div.setAttribute("tabindex", "0");
     const displayPlate = item.plate_display || item.plate || "—";
-    div.innerHTML = `${deps.flagHtml(item.country)}<div class='ev-row-top'><span class='ev-plate'>${displayPlate}</span><span class='ev-direction badge ${direction.badgeClass}'>${direction.label}</span></div><div class='ev-row-bottom'><span class='ev-meta-channel'>${channelName}</span><span class='ev-meta-time'>${timeStr}</span><span class='ev-conf ${conf < 0.85 ? "warn" : ""}'>${conf.toFixed(2)}</span></div>`;
-    div.onclick = () => deps.openEventDetails(item);
+    div.innerHTML = `${flagHtml(item.country)}<div class='ev-row-top'><span class='ev-plate'>${displayPlate}</span><span class='ev-direction badge ${direction.badgeClass}'>${direction.label}</span></div><div class='ev-row-bottom'><span class='ev-meta-channel'>${channelName}</span><span class='ev-meta-time'>${timeStr}</span><span class='ev-conf ${conf < 0.85 ? "warn" : ""}'>${conf.toFixed(2)}</span></div>`;
+    div.onclick = () => openEventDetails(item);
     div.onkeydown = (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        deps.openEventDetails(item);
-      }
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEventDetails(item); }
     };
     if (isNew) {
       div.addEventListener("animationend", () => div.classList.remove("ev-new"), { once: true });
@@ -144,7 +105,7 @@ export function renderEventFeed(forceRebuild = false) {
   }
 
   const existingEls = Array.from(feed.children);
-  const existingKeys = new Set(existingEls.map((el) => el.dataset.evKey).filter(Boolean));
+  const existingKeys = new Set(existingEls.map(el => el.dataset.evKey).filter(Boolean));
   const needsFullRebuild = forceRebuild || existingKeys.size === 0;
 
   if (needsFullRebuild) {
@@ -174,71 +135,101 @@ export function renderEventFeed(forceRebuild = false) {
   trimEventFeedOverflow(feed);
 }
 
-function pushEvent(ev) {
+export function pushEvent(ev) {
   applyLastPlate(ev);
-  deps.state.allEvents.unshift(ev);
-  if (deps.state.allEvents.length > 500) deps.state.allEvents.pop();
+  state.allEvents.unshift(ev);
+  if (state.allEvents.length > 500) state.allEvents.pop();
   renderEventFeed();
-  deps.handleLiveEventForJournal(ev);
-}
-
-function scheduleStreamReconnect(delayMs = 3000) {
-  if (streamReconnectTimer) return;
-  streamReconnectTimer = setTimeout(() => {
-    streamReconnectTimer = null;
-    setupEventStream();
-  }, delayMs);
-}
-
-export async function setupEventStream() {
-  if (streamReconnectTimer) {
-    clearTimeout(streamReconnectTimer);
-    streamReconnectTimer = null;
-  }
-  if (eventSource) {
-    try {
-      eventSource.close();
-    } catch (_e) {}
-  }
-  eventSource = new EventSource(deps.apiUrl("/api/events/stream"));
-  eventSource.onmessage = (m) => {
-    try {
-      pushEvent(JSON.parse(m.data));
-    } catch (_e) {}
-  };
-  eventSource.onerror = () => {
-    try {
-      eventSource.close();
-    } catch (_e) {}
-    scheduleStreamReconnect();
-  };
-}
-
-export function cleanupEventRuntime() {
-  if (eventSource) {
-    try {
-      eventSource.close();
-    } catch (_e) {}
-    eventSource = null;
-  }
-  if (streamReconnectTimer) {
-    clearTimeout(streamReconnectTimer);
-    streamReconnectTimer = null;
-  }
-  if (eventFeedRenderFrame !== null) {
-    cancelAnimationFrame(eventFeedRenderFrame);
-    eventFeedRenderFrame = null;
-    eventFeedRenderScheduled = false;
-  }
-  if (eventFeedResizeObserver) {
-    eventFeedResizeObserver.disconnect();
-    eventFeedResizeObserver = null;
+  const needle = (document.getElementById("fltPlate").value || "").trim().toUpperCase();
+  const channelId = document.getElementById("fltChannel").value;
+  const plateMatch = !needle || String(ev.plate || "").toUpperCase().includes(needle);
+  const chanMatch = !channelId || String(ev.channel_id || "") === channelId;
+  if (plateMatch && chanMatch) {
+    journalState.items.unshift(ev);
+    const body = document.getElementById("journalBody");
+    const row = makeJournalRow(ev);
+    body.insertBefore(row, body.firstChild);
   }
 }
 
-export function initEventsModule(moduleDeps) {
-  deps = moduleDeps;
-  if (initialized) return;
-  initialized = true;
-  window.addEventListener("resize", () => scheduleEventFeedRender(true));
+export async function loadEventFeedHistory() {
+  const data = await jfetch(api("/api/events?limit=50"));
+  const items = Array.isArray(data) ? data : (data.items || []);
+  state.allEvents = items;
+  renderEventFeed();
+}
+
+// --- Event details modal ---
+export function closeEventModal() {
+  document.getElementById("eventModal").classList.remove("active");
+}
+
+function setModalImage(id, url) {
+  const img = document.getElementById(id);
+  if (!url) {
+    img.removeAttribute("src");
+    img.alt = "Нет изображения";
+    return;
+  }
+  img.src = url;
+}
+
+export async function openEventDetails(ev) {
+  const id = Number(ev.id || 0);
+  let payload = ev;
+  if (id > 0) {
+    try {
+      payload = await jfetch(api(`/api/events/item/${id}`));
+    } catch (err) {
+      payload = ev;
+    }
+  }
+  const ts = payload.timestamp
+    ? new Date(payload.timestamp).toLocaleString()
+    : "—";
+  const rows = [
+    ["Дата/время", ts],
+    ["Канал", payload.channel || `CAM-${payload.channel_id || ""}`],
+    ["Страна", payload.country || "—"],
+    ["Гос. номер", payload.plate_display || payload.plate || "—"],
+    ["Уверенность", Number(payload.confidence || 0).toFixed(2)],
+    ["Направление", formatDirection(payload.direction).plain],
+    ["Источник", payload.source || "—"],
+  ];
+
+  let listHtml = "";
+  const plate = payload.plate;
+  if (plate) {
+    try {
+      const entry = await jfetch(api(`/api/lists/entry-by-plate?plate=${encodeURIComponent(plate)}`));
+      if (entry) {
+        let info = {};
+        try { info = JSON.parse(entry.comment || "{}"); } catch (_e) {}
+        const typeLabels = { white: "Белый список", info: "Информационный список", black: "Черный список" };
+        const listRows = [
+          ["Список", `${entry.list_name}\u2002·\u2002${typeLabels[entry.list_type] || entry.list_type}`],
+          ["Имя", info.first_name || "—"],
+          ["Фамилия", info.last_name || "—"],
+          ["Отчество", info.patronymic || "—"],
+          ["Телефон", info.phone || "—"],
+          ["Марка авто", info.car_make || "—"],
+        ];
+        listHtml = `<div class="event-meta-divider">Данные из списка</div>` +
+          listRows.map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
+      }
+    } catch (_e) {}
+  }
+
+  const meta = document.getElementById("eventMeta");
+  meta.innerHTML = rows
+    .map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`)
+    .join("") + listHtml;
+  if (id > 0) {
+    setModalImage("eventFrameImg", api(`/api/events/item/${id}/media/frame`));
+    setModalImage("eventPlateImg", api(`/api/events/item/${id}/media/plate`));
+  } else {
+    setModalImage("eventFrameImg", null);
+    setModalImage("eventPlateImg", null);
+  }
+  document.getElementById("eventModal").classList.add("active");
 }

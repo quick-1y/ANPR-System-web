@@ -1,3 +1,4 @@
+// Parameter help popover system
 const PARAM_HELP = {
   name: "Отображаемое имя канала. Используется в журнале событий, заголовках превью и при сохранении медиафайлов.",
   source: "Адрес видеопотока. Поддерживаются RTSP, HTTP, локальные файлы и индексы камер (0, 1, …). Канал открывает этот источник через OpenCV VideoCapture.",
@@ -12,18 +13,16 @@ const PARAM_HELP = {
   adaptive_stride_enabled: "Когда активных треков нет, система может временно реже запускать детектор для экономии CPU.",
   size_filter_enabled: "Включить фильтрацию найденных номерных рамок по размеру (ширина и высота в пикселях). Отсекает слишком маленькие и слишком большие обнаружения.",
   min_plate_size: "Минимальная ширина и высота обнаруженной номерной рамки в пикселях. Рамки меньше этого размера отбрасываются до OCR. Помогает отфильтровать далёкие или нерелевантные объекты.",
-  max_plate_size: "Максимальная ширина и высота обнаруженной номерной рамки в пикселях. Рамки больше этого размера отбрасываются. Помогает отфильтровать ложные детекции на крупных объектах.",
+  max_plate_size: "Максимальная ширина и высота обнаруженной номерной ��амки в пикселях. Рамки больше этого размера отбрасываются. Помогает отфильтровать ложные детекции на крупных объектах.",
   best_shots: "Сколько лучших OCR-наблюдений накапливается на один трек для голосования. Из них выбирается консенсус — номер, набравший кворум и наибольший суммарный вес уверенности.ВНИМАНИЕ, количество бестшотов не должно быть равным или больше макс. OCR попыток.\n\nПо умолчанию 3.",
   cooldown_seconds: "Пауза (в секундах) между повторными событиями для одного и того же номера. Если номер уже был распознан менее N секунд назад — повторное событие не создаётся. Предотвращает дублирование при медленном проезде.",
   ocr_min_confidence: "Минимальный порог уверенности OCR (0.0–1.0). Результаты ниже порога не попадают в пул кандидатов трека и считаются нечитаемыми.\n\nПо умолчанию 0.6.",
   max_ocr_attempts: "Максимальное число OCR-попыток для одного трека. После исчерпания бюджета OCR для этого трека прекращается — кроп, предобработка и CRNN-инференс больше не выполняются.\n\nЕсли консенсус был достигнут раньше — трек финализируется досрочно.\nЕсли бюджет исчерпан без консенсуса — выбирается лучший кандидат по весу.\nЕсли кандидатов нет — генерируется одно событие «Нечитаемо».\n\nПо умолчанию 15.",
   max_consecutive_empty_ocr: "Если OCR несколько раз подряд не возвращает текст, трек можно завершить раньше, чтобы не тратить CPU. 0 — отключить.\n\nПо умолчанию 5.",
   preview_fps_limit: "Ограничение частоты кодирования JPEG для предпросмотра (preview). Не влияет на реальный FPS камеры — ограничивает только частоту обновления превью в браузере.\n\nПо умолчанию 5.",
-  roi_enabled: "Включить зону интереса (Region of Interest). Когда включено, только обнаружения с центром bbox внутри ROI-полигона обрабатываются. Детекция YOLO по-прежнему работает по всему кадру, но результаты за пределами ROI отбрасываются.",
+  roi_enabled: "Включить зону интереса (Region of Interest). Когда включено, только обнаружения с центром bbox внутри ROI-полигона обрабатываются. Детекция YOLO по-пре��нему работает по всему кадру, но результаты за пределами ROI отбрасываются.",
   controller_id: "Привязка аппаратного контроллера к этому каналу. При распознавании номера, прошедшего фильтр списков, на контроллер отправляется HTTP-команда для срабатывания выбранного реле.",
   controller_relay: "Какое из двух реле контроллера использовать для этого канала (Реле 1 или Реле 2). Режим работы реле (pulse / pulse_timer) настраивается в параметрах контроллера.",
-
-  /* ── Общие настройки ── */
   g_grid: "Сетка раскладки видеопревью на главной странице. Определяет сколько камер отображается одновременно: 1×1, 2×2, 2×3 или 3×3.",
   g_theme: "Цветовая тема интерфейса. Тёмная тема снижает нагрузку на глаза при работе в условиях слабого освещения.",
   g_sidebar_locked: "Фиксирует левую навигационную панель в свёрнутом состоянии. Когда включено, панель не раскрывается при наведении курсора.",
@@ -36,7 +35,7 @@ const PARAM_HELP = {
   g_media_retention: "Сколько дней хранить медиафайлы (скриншоты, кропы номеров) на диске. Файлы старше указанного срока удаляются при очередном цикле автоочистки.",
   g_log_level: "Минимальный уровень записей в лог-файл.\n• ALL / DEBUG — максимальная детализация (для отладки).\n• INFO — штатная работа.\n• WARNING / ERROR / CRITICAL — только проблемы.",
   g_log_retention: "Сколько дней хранить файлы логов. Файлы старше указанного срока удаляются при ротации.",
-  g_auto_cleanup: "Включает периодическую автоматическую очистку данных. При включении система удаляет:\n• старые события из базы данных (старше заданного срока);\n• связанные медиафайлы (кадры и кропы номеров);\n• осиротевшие медиафайлы на диске;\n• файлы сверх лимита хранения скриншотов.",
+  g_auto_cleanup: "Включает периодическую автоматическую очистку данных. При включении система удаляет:\n• старые события из базы данных (старше заданного срока);\n• связанные медиафай��ы (кадры и кропы номеров);\n• осиротевшие медиафайлы на диске;\n• файлы сверх лимита хранения скриншотов.",
   g_cleanup_minutes: "Как часто (в минутах) запускать цикл автоочистки. Минимум — 1 минута. Рекомендуется 15–60 минут.",
   g_events_retention: "Сколько дней хранить записи событий в базе данных. События старше указанного срока удаляются вместе со связанными медиафайлами.",
   g_postgres_dsn: "Строка подключения к PostgreSQL. Задаётся через переменную окружения и не может быть изменена из интерфейса.",
@@ -45,66 +44,42 @@ const PARAM_HELP = {
   g_countries: "Выберите страны, номера которых распознаются системой. Список формируется из конфигурационных файлов в каталоге номеров."
 };
 
-let activeHelpPopover = null;
-let initialized = false;
+let _activeHelpPopover = null;
 
-function closeHelpPopover() {
-  if (activeHelpPopover) {
-    activeHelpPopover.remove();
-    activeHelpPopover = null;
-  }
+function _closeHelpPopover() {
+  if (_activeHelpPopover) { _activeHelpPopover.remove(); _activeHelpPopover = null; }
 }
 
-function showHelpPopover(btn) {
-  closeHelpPopover();
+function _showHelpPopover(btn) {
+  _closeHelpPopover();
   const key = btn.getAttribute("data-help");
   const text = PARAM_HELP[key];
   if (!text) return;
-
   const pop = document.createElement("div");
   pop.className = "param-help-popover";
-  pop.innerHTML =
-    '<div class="param-help-popover-title">' +
-    btn.closest(".s-row-label").querySelector(".s-row-name").textContent +
-    "</div>" +
-    text.replace(/\n/g, "<br>");
+  pop.innerHTML = '<div class="param-help-popover-title">' + btn.closest(".s-row-label").querySelector(".s-row-name").textContent + "</div>" + text.replace(/\n/g, "<br>");
   document.body.appendChild(pop);
-
   const r = btn.getBoundingClientRect();
   pop.style.left = r.left + "px";
-  pop.style.top = r.bottom + 6 + "px";
+  pop.style.top = (r.bottom + 6) + "px";
   requestAnimationFrame(() => {
     const pr = pop.getBoundingClientRect();
     if (pr.right > window.innerWidth - 8) pop.style.left = Math.max(8, window.innerWidth - pr.width - 8) + "px";
     if (pr.bottom > window.innerHeight - 8) pop.style.top = Math.max(8, r.top - pr.height - 6) + "px";
   });
-
-  activeHelpPopover = pop;
+  _activeHelpPopover = pop;
 }
 
-export function initHelpModule() {
-  if (initialized) return;
-  initialized = true;
-
+export function initHelpSystem() {
   document.addEventListener("click", (e) => {
     const btn = e.target.closest(".param-help-btn");
     if (btn) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (activeHelpPopover && activeHelpPopover._helpBtn === btn) {
-        closeHelpPopover();
-      } else {
-        showHelpPopover(btn);
-        if (activeHelpPopover) activeHelpPopover._helpBtn = btn;
-      }
+      e.preventDefault(); e.stopPropagation();
+      if (_activeHelpPopover && _activeHelpPopover._helpBtn === btn) { _closeHelpPopover(); }
+      else { _showHelpPopover(btn); if (_activeHelpPopover) _activeHelpPopover._helpBtn = btn; }
       return;
     }
-    if (activeHelpPopover && !e.target.closest(".param-help-popover")) {
-      closeHelpPopover();
-    }
+    if (_activeHelpPopover && !e.target.closest(".param-help-popover")) _closeHelpPopover();
   });
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeHelpPopover();
-  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") _closeHelpPopover(); });
 }
