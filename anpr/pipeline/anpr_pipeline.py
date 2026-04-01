@@ -32,7 +32,7 @@ _CONSECUTIVE_FAILURE_LIMIT = 5
 
 @dataclass
 class _TrackOCRState:
-    """Per-track OCR processing state for budget management."""
+    """Состояние обработки распознавания по каждому треку для управления бюджетом."""
 
     ocr_attempts: int = 0
     finalized: bool = False
@@ -45,16 +45,14 @@ class _TrackOCRState:
 class TrackAggregator:
     """Агрегирует результаты распознавания в рамках одного трека.
 
-    Each track has a limited OCR budget (``max_ocr_attempts``).  Once
-    consensus is reached **or** the budget is exhausted, the track is
-    *finalized* and no further OCR work is performed for it.
+    Бюджет распознавания каждого трека ограничен (`max_ocr_attempts`).
+    Когда достигнут консенсус или бюджет исчерпан, трек
+    финализируется - дальнейшая работа по распознаванию текста для него не выполняется.
 
-    Finalization outcomes:
-    - **Consensus** — a plate that achieved quorum + weighted majority.
-    - **Best candidate** — strongest candidate when budget runs out without
-      full quorum.
-    - **Unreadable** — no valid candidate exists; the caller can emit a
-      single "unreadable" event via :meth:`should_emit_unreadable`.
+    Результат:
+    - **Consensus** — номер, в котором достигнут кворум + взвешенное большинство .
+    - **Best candidate** — самый сильный кандидат, когда бюджет заканчивается без полного кворума.
+    - **Unreadable** — нет допустимых кандидатов; вызывающий может выдать одно "нечитаемое" событие с помощью :meth:`should_emit_unreadable`.
     """
 
     _EVICT_INTERVAL = 10.0  # seconds between stale-track sweeps
