@@ -4,7 +4,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     OMP_NUM_THREADS=2 \
     MKL_NUM_THREADS=2 \
-    OPENBLAS_NUM_THREADS=2
+    OPENBLAS_NUM_THREADS=2 \
+    POETRY_VIRTUALENVS_CREATE=false \
+    POETRY_NO_INTERACTION=1
 
 WORKDIR /app
 
@@ -12,13 +14,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libglib2.0-0 libgl1 libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
+RUN pip install --no-cache-dir poetry
 
-RUN pip install --no-cache-dir \
-    --index-url https://download.pytorch.org/whl/cpu \
-    --extra-index-url https://pypi.org/simple \
-    torch==2.8.0 torchvision==0.23.0
+COPY pyproject.toml poetry.lock ./
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN poetry install --no-root --only main
 
 COPY . .

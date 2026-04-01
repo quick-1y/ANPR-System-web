@@ -87,7 +87,7 @@ If documentation and code disagree, prefer code and mention the mismatch in your
 - Language(s): Python 3.13
 - Runtime(s): Python 3.13-slim Docker image (Debian-based)
 - Framework(s): FastAPI (unpinned), Uvicorn (unpinned)
-- Package manager(s): pip (no poetry/pipenv); `requirements.txt` + Dockerfile-inline PyTorch install
+- Package manager(s): Poetry; `pyproject.toml` + `poetry.lock` (PyTorch CPU wheels via explicit Poetry source)
 - Build tool(s): Docker + Docker Compose
 - Database(s): PostgreSQL 16
 - Messaging / queueing: none (in-memory `EventBus` with asyncio queues)
@@ -111,7 +111,7 @@ If documentation and code disagree, prefer code and mention the mismatch in your
 ### Version Policy
 
 - Required versions: Python 3.13, PostgreSQL 16, ultralytics 8.3.20, torch 2.8.0
-- Version source of truth: `requirements.txt` + `Dockerfile`
+- Version source of truth: `pyproject.toml` + `poetry.lock`
 - Dependency update policy: manual
 - Compatibility requirements: CPU-only inference (no GPU required); RTSP camera network access
 
@@ -195,7 +195,8 @@ ANPR-System-v0.8_web/
 ├── tests/                      # Unit tests (pytest)
 ├── Dockerfile                  # Docker build definition
 ├── docker-compose.yml          # Multi-service orchestration (4 services)
-├── requirements.txt            # Python dependencies
+├── pyproject.toml              # Python dependencies (Poetry)
+├── poetry.lock                 # Locked dependency versions
 ├── .env.example                # Environment variable template
 ├── AGENTS.md                   # This file
 └── README.md                   # Project documentation (Russian)

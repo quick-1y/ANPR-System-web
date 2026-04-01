@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "anpr-system"
+version = "0.8.0"
+description = "Multi-channel automatic number plate recognition system with web UI and REST API"
+authors = ["User"]
+readme = "README.md"
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+ultralytics = "8.3.20"
+opencv-python = "*"
+psutil = "*"
+PyYAML = "*"
+fastapi = "*"
+python-multipart = "*"
+uvicorn = "*"
+psycopg = {version = "*", extras = ["binary"]}
+psycopg_pool = "*"
+torch = {version = "2.8.0", source = "pytorch-cpu"}
+torchvision = {version = "0.23.0", source = "pytorch-cpu"}
+
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
