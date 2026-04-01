@@ -367,6 +367,10 @@ class SettingsNormalizer:
             if key not in ocr:
                 ocr[key] = val
                 changed = True
+        # Remove legacy confidence_threshold — OCR confidence is per-channel (ocr_min_confidence)
+        if "confidence_threshold" in ocr:
+            del ocr["confidence_threshold"]
+            changed = True
         data["ocr"] = ocr
         return changed
 

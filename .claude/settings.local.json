@@ -36,7 +36,9 @@
       "Bash(python -c \"import py_compile; py_compile.compile\\(''database/base.py'', doraise=True\\); py_compile.compile\\(''database/postgres_event_repository.py'', doraise=True\\); py_compile.compile\\(''database/plate_lists_repository.py'', doraise=True\\); print\\(''OK''\\)\")",
       "Bash(python -c \"import py_compile; py_compile.compile\\(''anpr/pipeline/anpr_pipeline.py'', doraise=True\\); py_compile.compile\\(''runtime/debug.py'', doraise=True\\); py_compile.compile\\(''runtime/channel_runtime.py'', doraise=True\\); print\\(''OK''\\)\")",
       "Bash(python -c \"import py_compile; py_compile.compile\\(''app/api/container.py'', doraise=True\\); print\\(''OK''\\)\")",
-      "Bash(python -c \"import py_compile; py_compile.compile\\(''database/plate_lists_repository.py'', doraise=True\\); print\\(''OK''\\)\")"
+      "Bash(python -c \"import py_compile; py_compile.compile\\(''database/plate_lists_repository.py'', doraise=True\\); print\\(''OK''\\)\")",
+      "Bash(python:*)",
+      "Bash(py -c \"from config.settings_schema import ocr_defaults, build_default_settings; print\\('ocr_defaults:', ocr_defaults\\(\\)\\); d = build_default_settings\\(\\); print\\('ocr in defaults:', d['ocr']\\)\")"
     ]
   }
 }

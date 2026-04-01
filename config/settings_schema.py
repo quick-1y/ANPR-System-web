@@ -111,7 +111,7 @@ def direction_defaults() -> Dict[str, float | int]:
 
 
 def ocr_defaults() -> Dict[str, Any]:
-    return {"img_height": 32, "img_width": 128, "alphabet": "0123456789ABCEHKMOPTXY", "confidence_threshold": 0.6}
+    return {"img_height": 32, "img_width": 128, "alphabet": "0123456789ABCEHKMOPTXY"}
 
 
 def detector_defaults() -> Dict[str, Any]:
