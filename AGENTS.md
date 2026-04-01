@@ -125,7 +125,7 @@ If documentation and code disagree, prefer code and mention the mismatch in your
 - Main data flow: RTSP frame capture → motion detection → YOLO detection → ROI filtering → CRNN OCR → track aggregation (consensus/budget) → plate validation → event persistence → SSE broadcast → controller automation
 - State management approach: Settings in JSON file with in-memory cache; channel state in `Dict[int, ChannelContext]` protected by `threading.RLock`; event streaming via `EventBus` with `asyncio.Queue` per SSE subscriber
 - Integration boundaries: RTSP cameras (OpenCV), hardware relay controllers (HTTP), PostgreSQL, web browser (SSE/MJPEG)
-- Areas under migration: Frontend (`app/web/app.js`) is a 2800+ line monolith pending modularization
+- Areas under migration: Frontend has been modularized into ES modules under `app/web/js/` with `app/web/js/app.js` as the entry point
 - Hard constraints: Channels must remain isolated (failure of one must not break others). PostgreSQL is the only storage backend. All ANPR logic stays server-side.
 
 ### Architectural Rules
@@ -378,7 +378,7 @@ Don't:
 
 ### Patterns To Avoid Copying
 
-- `app/web/app.js`: monolithic 2800+ line JS file with `innerHTML` XSS risks, global mutable state — legacy, do not extend this pattern
+- Legacy monolithic `app/web/app.js` pattern (removed) — `innerHTML` XSS risks and global mutable state still exist in some modules under `app/web/js/`, do not extend these patterns
 - Broad `except Exception` blocks in `database/` repositories — existing tech debt, prefer specific exception types in new code
 - `PUT /api/channels/{channel_id}` accepting raw `Dict[str, Any]` — use Pydantic validation for new endpoints
 
@@ -509,7 +509,7 @@ A change is not complete until:
 - `refresh_storage_clients()` in `app/api/container.py` creates new DB pool instances without closing old ones — potential connection leak.
 - `PUT /api/channels/{channel_id}` accepts raw dict without validation — do not use this pattern for new endpoints.
 - Channel threads are daemon threads with 3-second join timeout — `stop()` may return before the thread exits if blocked on `cap.read()`.
-- `innerHTML` usage in `app/web/app.js` creates XSS risk — use `textContent` or `createElement` for new frontend code.
+- `innerHTML` usage in frontend modules (`app/web/js/`) creates XSS risk — use `textContent` or `createElement` for new frontend code.
 - The settings normalizer imports from `controllers/` — known coupling, do not add more cross-domain imports in `config/`.
 - JPEG preview encoding runs on every frame regardless of whether any client is viewing.
 

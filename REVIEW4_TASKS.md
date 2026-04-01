@@ -270,4 +270,4 @@
 - `backup.js` — database and settings backup/restore
 - `app.js` — entry point: DOM bindings, timers, initialization
 
-Updated `index.html` to use `<script type="module" src="/web/js/app.js">`. Original `app/web/app.js` preserved as reference.
+Updated `index.html` to use `<script type="module" src="/web/js/app.js">`. Legacy `app/web/app.js` has been removed after confirming it had no remaining runtime references.
