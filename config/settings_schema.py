@@ -10,6 +10,7 @@ SETTINGS_VERSION = 1
 SETTINGS_LINEAGE_KEY = "settings_lineage"
 SETTINGS_LINEAGE = "mainline"
 LOG_LEVELS = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+SUPPORTED_CONTROLLER_TYPES = ("DTWONDER2CH",)
 
 
 def normalize_log_level(value: Any) -> str:

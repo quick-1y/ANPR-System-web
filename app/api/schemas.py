@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from controllers import SUPPORTED_CONTROLLER_TYPES
+from config.settings_schema import SUPPORTED_CONTROLLER_TYPES
 
 
 class ChannelPayload(BaseModel):

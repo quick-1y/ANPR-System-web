@@ -571,17 +571,23 @@ class ChannelProcessor:
                     metrics.processed_frames += 1
                     for detection in results:
                         plate = detection.get("text")
-                        if not plate:
+                        is_unreadable = detection.get("unreadable", False)
+                        if not plate and not is_unreadable:
                             continue
+                        if is_unreadable:
+                            plate = "Нечитаемо"
                         event_ts = datetime.now(timezone.utc)
                         frame_file, plate_file = self._build_event_media_paths(event_ts=event_ts, channel_id=channel_id, plate=plate)
                         plate_crop = self._extract_plate_crop(frame, detection)
-                        # Offload disk I/O to the IO thread pool so the
-                        # processing loop is not blocked by slow storage.
-                        frame_future = self._io_pool.submit(self._save_jpeg, frame_file, frame)
-                        plate_future = self._io_pool.submit(self._save_jpeg, plate_file, plate_crop)
-                        frame_path = frame_future.result(timeout=5.0)
-                        plate_path = plate_future.result(timeout=5.0)
+                        # Pre-compute deterministic paths and let JPEG
+                        # writes complete asynchronously (fire-and-forget).
+                        # Worst case: event references a path that failed
+                        # to write → 404 on media endpoint (already handled).
+                        frame_path = str(frame_file.resolve())
+                        plate_path = str(plate_file.resolve()) if plate_crop is not None else None
+                        self._io_pool.submit(self._save_jpeg, frame_file, frame)
+                        if plate_crop is not None:
+                            self._io_pool.submit(self._save_jpeg, plate_file, plate_crop)
                         event = {
                             "timestamp": event_ts.isoformat(),
                             "channel": channel.get("name", f"Канал {channel_id}"),

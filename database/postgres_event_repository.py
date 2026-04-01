@@ -1,31 +1,32 @@
 from __future__ import annotations
 
-import threading
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Optional, Sequence
 
 from common.logging import get_logger
+from database.base import PooledDatabase
 from database.errors import StorageUnavailableError
 
 logger = get_logger(__name__)
 _SCHEMA_SQL_PATH = Path(__file__).resolve().parents[1] / "database" / "postgres" / "schema.sql"
 
-class PostgresEventDatabase:
+class PostgresEventDatabase(PooledDatabase):
     """PostgreSQL-only хранилище событий с ленивым bootstrap схемы."""
 
     def __init__(self, dsn: str) -> None:
-        self.dsn = str(dsn or "").strip()
-        if not self.dsn:
-            raise ValueError("postgres_dsn обязателен")
+        super().__init__(dsn)
         if not _SCHEMA_SQL_PATH.is_file():
             raise StorageUnavailableError(
                 f"SQL-схема не найдена: {_SCHEMA_SQL_PATH}. "
                 "Убедитесь, что файл database/postgres/schema.sql существует."
             )
-        self._init_lock = threading.Lock()
-        self._initialized = False
-        self._pool = None
+
+    def _schema_sql(self) -> str:
+        try:
+            return _SCHEMA_SQL_PATH.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise StorageUnavailableError(f"Не удалось прочитать SQL-схему {_SCHEMA_SQL_PATH}: {exc}") from exc
 
     @staticmethod
     def _to_dict(row: Any) -> dict[str, Any]:
@@ -43,35 +44,6 @@ class PostgresEventDatabase:
             "plate_path": row[10],
             "direction": row[11],
         }
-
-    def _get_pool(self):
-        if self._pool is None:
-            from psycopg_pool import ConnectionPool  # type: ignore
-
-            self._pool = ConnectionPool(self.dsn, min_size=2, max_size=10, open=True)
-        return self._pool
-
-    def _connect(self):
-        return self._get_pool().connection()
-
-    def _ensure_schema(self) -> None:
-        if self._initialized:
-            return
-        with self._init_lock:
-            if self._initialized:
-                return
-            try:
-                query = _SCHEMA_SQL_PATH.read_text(encoding="utf-8")
-            except OSError as exc:
-                raise StorageUnavailableError(f"Не удалось прочитать SQL-схему {_SCHEMA_SQL_PATH}: {exc}") from exc
-            try:
-                with self._connect() as conn:
-                    with conn.cursor() as cursor:
-                        cursor.execute(query)
-                    conn.commit()
-            except Exception as exc:  # noqa: BLE001
-                raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
-            self._initialized = True
 
     def insert_event(
         self,

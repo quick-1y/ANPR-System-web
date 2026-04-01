@@ -32,7 +32,7 @@ _CONSECUTIVE_FAILURE_LIMIT = 5
 
 @dataclass
 class _TrackOCRState:
-    """Per-track OCR processing state for budget management."""
+    """Состояние обработки распознавания по каждому треку для управления бюджетом."""
 
     ocr_attempts: int = 0
     finalized: bool = False
@@ -45,16 +45,14 @@ class _TrackOCRState:
 class TrackAggregator:
     """Агрегирует результаты распознавания в рамках одного трека.
 
-    Each track has a limited OCR budget (``max_ocr_attempts``).  Once
-    consensus is reached **or** the budget is exhausted, the track is
-    *finalized* and no further OCR work is performed for it.
+    Бюджет распознавания каждого трека ограничен (`max_ocr_attempts`).
+    Когда достигнут консенсус или бюджет исчерпан, трек
+    финализируется - дальнейшая работа по распознаванию текста для него не выполняется.
 
-    Finalization outcomes:
-    - **Consensus** — a plate that achieved quorum + weighted majority.
-    - **Best candidate** — strongest candidate when budget runs out without
-      full quorum.
-    - **Unreadable** — no valid candidate exists; the caller can emit a
-      single "unreadable" event via :meth:`should_emit_unreadable`.
+    Результат:
+    - **Consensus** — номер, в котором достигнут кворум + взвешенное большинство .
+    - **Best candidate** — самый сильный кандидат, когда бюджет заканчивается без полного кворума.
+    - **Unreadable** — нет допустимых кандидатов; вызывающий может выдать одно "нечитаемое" событие с помощью :meth:`should_emit_unreadable`.
     """
 
     _EVICT_INTERVAL = 10.0  # seconds between stale-track sweeps
@@ -416,32 +414,37 @@ class ANPRPipeline:
         detection_indices: List[int] = []
 
         for idx, detection in enumerate(detections):
-            if self.direction_estimator and detection.get("track_id") is not None:
-                direction_info = self.direction_estimator.update(int(detection["track_id"]), detection.get("bbox", []))
-                detection.update(direction_info)
-            else:
-                detection.setdefault("direction", TrackDirectionEstimator.UNKNOWN)
-
             track_id = detection.get("track_id")
 
             # Skip all OCR work for finalized tracks (consensus reached or
             # budget exhausted).  This is the main CPU-saving path.
+            # Direction is only computed for the rare unreadable-emit case
+            # (which produces an event); plain finalized tracks are skipped
+            # entirely, saving numpy direction computation per frame.
             if track_id is not None and not self.aggregator.should_process(track_id):
                 detection["plate_image"] = None
                 if self.aggregator.should_emit_unreadable(track_id):
-                    detection["text"] = "Нечитаемо"
+                    detection["text"] = ""
                     detection["unreadable"] = True
                     detection["confidence"] = 0.0
+                    if self.direction_estimator:
+                        detection.update(self.direction_estimator.update(int(track_id), detection.get("bbox", [])))
+                    else:
+                        detection.setdefault("direction", TrackDirectionEstimator.UNKNOWN)
                 else:
                     detection["text"] = ""
                 continue
+
+            if self.direction_estimator and track_id is not None:
+                detection.update(self.direction_estimator.update(int(track_id), detection.get("bbox", [])))
+            else:
+                detection.setdefault("direction", TrackDirectionEstimator.UNKNOWN)
 
             x1, y1, x2, y2 = detection["bbox"]
             roi = frame[y1:y2, x1:x2]
             detection["plate_image"] = None
 
             if roi.size > 0:
-                detection["plate_image"] = roi.copy()
                 processed_plate = self.preprocessor.preprocess(roi)
 
                 if processed_plate.size > 0:
@@ -479,12 +482,12 @@ class ANPRPipeline:
 
                 # Budget just exhausted with no valid plate.
                 if not result and self.aggregator.should_emit_unreadable(track_id):
-                    detection["text"] = "Нечитаемо"
+                    detection["text"] = ""
                     detection["unreadable"] = True
             else:
                 # Untracked detection — no aggregation available.
                 if confidence < self.min_confidence:
-                    detection["text"] = "Нечитаемо"
+                    detection["text"] = ""
                     detection["unreadable"] = True
                     detection["confidence"] = confidence
                     continue
@@ -537,7 +540,7 @@ class ANPRPipeline:
                         # If budget is now exhausted after reset, emit unreadable
                         # immediately rather than waiting for next frame.
                         if self.aggregator.should_emit_unreadable(track_id):
-                            detection["text"] = "Нечитаемо"
+                            detection["text"] = ""
                             detection["unreadable"] = True
                             # INFO: budget exhausted + validation failed.
                             logger.info(
