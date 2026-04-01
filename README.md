@@ -24,7 +24,6 @@
 | [API endpoints](docs/endpoints.md) | Web UI, REST, SSE, debug, worker и export endpoints |
 | [ANPR pipeline](docs/anpr-pipeline.md) | Алгоритмы ядра, OCR по треку, сценарии и ключевые параметры |
 
-README остаётся точкой входа: быстрый обзор, запуск, конфигурация, ключевые алгоритмы и ссылки на подробные документы из `docs/`.
 
 ---
 
@@ -158,18 +157,6 @@ API и retention_worker используют один и тот же `SETTINGS_P
 4. **Preview** — кадр кодируется в JPEG только при наличии активных MJPEG/snapshot потребителей (lazy encode), с частотой не выше `preview_fps_limit` (per-channel, по умолчанию 5 fps). Отключается через `debug.disable_video_output`.
 5. **Детекция и распознавание** — кадр идёт в `YOLODetector.track()`, затем в `ANPRPipeline.process_frame()`.
 6. **Сохранение события** — валидный номер (с прошедшим cooldown) записывается в PostgreSQL через `EventSink`, затем публикуется в `EventBus` для SSE.
-
----
-
-## API и streaming
-
-Подробный список web, REST, SSE, debug, export и worker endpoints вынесен в [`docs/endpoints.md`](docs/endpoints.md).
-
-Кратко:
-- Web UI: корневая страница `/`;
-- Channels / Events / Controllers / Lists / Settings — основное API оператора;
-- Debug и telemetry endpoints — для наблюдения и диагностики;
-- Worker endpoints — для retention и фоновых сервисных операций.
 
 ---
 

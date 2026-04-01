@@ -1,7 +1,7 @@
 // Channel grid, preview, overlays, ROI editor, plate size editor
 import { state, debugSettingsCache, overlayRefreshTimer, setOverlayRefreshTimer } from './state.js';
 import { api, apiUrl, jfetch } from './api.js';
-import { normalizeDirectionCode, formatDirection, val, setVal, flagHtml, normalizePlate, showToast, openModal, closeModal } from './ui.js';
+import { normalizeDirectionCode, formatDirection, val, setVal, setChk, flagHtml, normalizePlate, showToast, openModal, closeModal } from './ui.js';
 
 // --- Channel config state ---
 export let selectedChannelId = null;

@@ -1,8 +1,10 @@
 # REST и streaming endpoints
 
-Этот документ содержит сводку web, REST и streaming endpoints проекта `ANPR System v0.8 Web`.
-
-Корневой README оставлен как точка входа, а подробный перечень API-методов вынесен сюда для упрощения навигации по документации.
+Кратко:
+- Web UI: корневая страница `/`;
+- Channels / Events / Controllers / Lists / Settings — основное API оператора;
+- Debug и telemetry endpoints — для наблюдения и диагностики;
+- Worker endpoints — для retention и фоновых сервисных операций.
 
 ---
 
