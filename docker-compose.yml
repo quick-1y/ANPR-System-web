@@ -5,6 +5,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-anpr}
       POSTGRES_USER: ${POSTGRES_USER:-anpr}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-anpr}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./database/postgres/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
