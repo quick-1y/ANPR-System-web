@@ -30,14 +30,14 @@ channels:
   region:
     unit: percent
     points:
-    - x: 0.0
-      y: 0.0
-    - x: 100.0
-      y: 0.0
-    - x: 100.0
-      y: 100.0
-    - x: 0.0
-      y: 100.0
+    - x: 0.561
+      y: 17.643
+    - x: 92.593
+      y: 18.739
+    - x: 87.598
+      y: 98.879
+    - x: 0.954
+      y: 98.58
   best_shots: 10
   cooldown_seconds: 10
   ocr_min_confidence: 0.6
@@ -50,14 +50,14 @@ channels:
     min_area_change_ratio: 0.02
   detection_mode: motion
   detector_frame_stride: 2
-  motion_threshold: 0.01
+  motion_threshold: 0.02
   motion_frame_stride: 1
-  motion_activation_frames: 3
+  motion_activation_frames: 1
   motion_release_frames: 100
   size_filter_enabled: true
   min_plate_size:
-    width: 110
-    height: 30
+    width: 91
+    height: 22
   max_plate_size:
     width: 232
     height: 59
@@ -99,9 +99,9 @@ channels:
     min_area_change_ratio: 0.02
   detection_mode: motion
   detector_frame_stride: 2
-  motion_threshold: 0.01
+  motion_threshold: 0.02
   motion_frame_stride: 1
-  motion_activation_frames: 3
+  motion_activation_frames: 1
   motion_release_frames: 100
   size_filter_enabled: true
   min_plate_size:
@@ -117,7 +117,7 @@ channels:
   max_ocr_attempts: 15
   max_consecutive_empty_ocr: 5
   adaptive_stride_enabled: true
-  preview_fps_limit: 5
+  preview_fps_limit: 10
 controllers:
 - id: 1
   name: Общий контроллер

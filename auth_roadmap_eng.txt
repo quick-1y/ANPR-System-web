@@ -67,7 +67,6 @@
 
   - Why JWT over server-side sessions: the project is stateless, uses SSE/MJPEG streaming (which need token-in-query-param support already established), and has no Redis/session   
   store.
-  - Short-lived access tokens (30 min). Refresh tokens in a later phase if needed.
   - For SSE/MJPEG streams: continue using ?token=<jwt> query parameter (same pattern as current ?api_key=).
 
   Password Hashing
