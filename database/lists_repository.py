@@ -32,10 +32,21 @@ class ListDatabase(PooledDatabase):
             list_id BIGINT NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
             plate TEXT NOT NULL,
             plate_normalized TEXT NOT NULL,
-            comment TEXT
+            last_name TEXT NOT NULL DEFAULT '',
+            first_name TEXT NOT NULL DEFAULT '',
+            middle_name TEXT NOT NULL DEFAULT '',
+            phone TEXT NOT NULL DEFAULT '',
+            car TEXT NOT NULL DEFAULT '',
+            comment TEXT NOT NULL DEFAULT ''
         );
         ALTER TABLE lists ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
         ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+        ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT '';
+        ALTER TABLE clients ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT '';
+        ALTER TABLE clients ADD COLUMN IF NOT EXISTS middle_name TEXT NOT NULL DEFAULT '';
+        ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
+        ALTER TABLE clients ADD COLUMN IF NOT EXISTS car TEXT NOT NULL DEFAULT '';
+        ALTER TABLE clients ADD COLUMN IF NOT EXISTS comment TEXT NOT NULL DEFAULT '';
         CREATE INDEX IF NOT EXISTS idx_lists_type ON lists(type);
         CREATE INDEX IF NOT EXISTS idx_clients_plate ON clients(plate_normalized);
         CREATE INDEX IF NOT EXISTS idx_clients_list ON clients(list_id);
@@ -62,7 +73,6 @@ class ListDatabase(PooledDatabase):
                     for row in cursor.fetchall()
                 ]
 
-
     def create_list(self, name: str, list_type: str) -> int:
         self._ensure_schema()
         list_type = list_type if list_type in LIST_TYPES else "white"
@@ -74,19 +84,44 @@ class ListDatabase(PooledDatabase):
             conn.commit()
         return int(row[0]) if row else 0
 
-
-
     def list_entries(self, list_id: int) -> list[Dict[str, Any]]:
         self._ensure_schema()
         with self._connect() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "SELECT id, plate, comment FROM clients WHERE list_id = %s AND is_deleted = FALSE ORDER BY plate",
+                    """
+                    SELECT id, plate, last_name, first_name, middle_name, phone, car, comment
+                    FROM clients
+                    WHERE list_id = %s AND is_deleted = FALSE
+                    ORDER BY plate
+                    """,
                     (int(list_id),),
                 )
-                return [{"id": row[0], "plate": row[1], "comment": row[2]} for row in cursor.fetchall()]
+                return [
+                    {
+                        "id": row[0],
+                        "plate": row[1],
+                        "last_name": row[2],
+                        "first_name": row[3],
+                        "middle_name": row[4],
+                        "phone": row[5],
+                        "car": row[6],
+                        "comment": row[7],
+                    }
+                    for row in cursor.fetchall()
+                ]
 
-    def add_entry(self, list_id: int, plate: str, comment: str = "") -> Optional[int]:
+    def add_entry(
+        self,
+        list_id: int,
+        plate: str,
+        last_name: str = "",
+        first_name: str = "",
+        middle_name: str = "",
+        phone: str = "",
+        car: str = "",
+        comment: str = "",
+    ) -> Optional[int]:
         self._ensure_schema()
         normalized = normalize_plate(plate)
         if not normalized:
@@ -95,19 +130,39 @@ class ListDatabase(PooledDatabase):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO clients (list_id, plate, plate_normalized, comment)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO clients
+                        (list_id, plate, plate_normalized, last_name, first_name, middle_name, phone, car, comment)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (list_id, plate_normalized) WHERE is_deleted = FALSE DO NOTHING
                     RETURNING id
                     """,
-                    (int(list_id), plate.strip(), normalized, (comment or "").strip()),
+                    (
+                        int(list_id),
+                        plate.strip(),
+                        normalized,
+                        (last_name or "").strip(),
+                        (first_name or "").strip(),
+                        (middle_name or "").strip(),
+                        (phone or "").strip(),
+                        (car or "").strip(),
+                        (comment or "").strip(),
+                    ),
                 )
                 row = cursor.fetchone()
             conn.commit()
         return int(row[0]) if row else None
 
-
-    def update_entry(self, entry_id: int, plate: str, comment: str = "") -> bool:
+    def update_entry(
+        self,
+        entry_id: int,
+        plate: str,
+        last_name: str = "",
+        first_name: str = "",
+        middle_name: str = "",
+        phone: str = "",
+        car: str = "",
+        comment: str = "",
+    ) -> bool:
         self._ensure_schema()
         normalized = normalize_plate(plate)
         if not normalized:
@@ -118,10 +173,22 @@ class ListDatabase(PooledDatabase):
                     cursor.execute(
                         """
                         UPDATE clients
-                        SET plate = %s, plate_normalized = %s, comment = %s
+                        SET plate = %s, plate_normalized = %s,
+                            last_name = %s, first_name = %s, middle_name = %s,
+                            phone = %s, car = %s, comment = %s
                         WHERE id = %s AND is_deleted = FALSE
                         """,
-                        (plate.strip(), normalized, (comment or "").strip(), int(entry_id)),
+                        (
+                            plate.strip(),
+                            normalized,
+                            (last_name or "").strip(),
+                            (first_name or "").strip(),
+                            (middle_name or "").strip(),
+                            (phone or "").strip(),
+                            (car or "").strip(),
+                            (comment or "").strip(),
+                            int(entry_id),
+                        ),
                     )
                     updated = cursor.rowcount > 0
                 conn.commit()
@@ -215,7 +282,8 @@ class ListDatabase(PooledDatabase):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT e.plate, e.comment, l.type, l.name
+                    SELECT e.plate, e.last_name, e.first_name, e.middle_name,
+                           e.phone, e.car, e.comment, l.type, l.name
                     FROM clients e
                     JOIN lists l ON l.id = e.list_id
                     WHERE e.plate_normalized = %s
@@ -227,7 +295,17 @@ class ListDatabase(PooledDatabase):
                 row = cursor.fetchone()
         if not row:
             return None
-        return {"plate": row[0], "comment": row[1] or "", "list_type": row[2], "list_name": row[3]}
+        return {
+            "plate": row[0],
+            "last_name": row[1],
+            "first_name": row[2],
+            "middle_name": row[3],
+            "phone": row[4],
+            "car": row[5],
+            "comment": row[6],
+            "list_type": row[7],
+            "list_name": row[8],
+        }
 
     def plate_in_lists(self, plate: str, list_ids: Iterable[int]) -> bool:
         self._ensure_schema()
@@ -247,7 +325,6 @@ class ListDatabase(PooledDatabase):
             with conn.cursor() as cursor:
                 cursor.execute(query, [normalized, *ids])
                 return cursor.fetchone() is not None
-
 
 
 __all__ = ["ListDatabase", "LIST_TYPES", "normalize_plate"]

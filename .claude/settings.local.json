@@ -48,7 +48,14 @@
       "Bash(/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/poetry.exe lock:*)",
       "Bash(curl -s http://localhost:8080/api/health)",
       "Bash(curl -s http://localhost:8080/worker/health)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(python3 -m pytest tests/test_lists_repository.py -v)",
+      "Bash(py -m pytest tests/test_lists_repository.py -v)",
+      "Bash(where pytest:*)",
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/poetry.exe\" run:*)",
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/poetry.exe\" add:*)",
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/pytest.exe\" tests/test_lists_repository.py -v)",
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/pytest.exe\" tests/ -v --ignore=tests/test_lists_repository.py)"
     ]
   }
 }

@@ -79,10 +79,8 @@ export async function loadEntries(listId) {
   const body = document.getElementById("entriesBody");
   body.innerHTML = "";
   rows.forEach((r) => {
-    let info = {};
-    try { info = JSON.parse(r.comment || "{}"); } catch (_e) {}
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class='plate-cell'>${r.plate}</td><td>${info.first_name || ""}</td><td>${info.last_name || ""}</td><td>${info.patronymic || ""}</td><td>${info.phone || ""}</td><td>${info.car_make || ""}</td><td class="col-actions"><button class="entry-edit-btn">Изменить</button> <button class="entry-delete-btn">Удалить</button></td>`;
+    tr.innerHTML = `<td class='plate-cell'>${r.plate}</td><td>${r.first_name || ""}</td><td>${r.last_name || ""}</td><td>${r.middle_name || ""}</td><td>${r.phone || ""}</td><td>${r.car || ""}</td><td>${r.comment || ""}</td><td class="col-actions"><button class="entry-edit-btn">Изменить</button> <button class="entry-delete-btn">Удалить</button></td>`;
     tr.querySelector(".entry-edit-btn").onclick = () => openEditEntryModal(r);
     tr.querySelector(".entry-delete-btn").onclick = () => openDeleteEntryModal(r);
     body.appendChild(tr);
@@ -97,15 +95,14 @@ export function openDeleteEntryModal(entry) {
 
 export function openEditEntryModal(entry) {
   editingEntryId = entry.id;
-  let info = {};
-  try { info = JSON.parse(entry.comment || "{}"); } catch (_e) {}
   document.getElementById("addEntryModalTitle").textContent = "Изменить запись";
-  document.getElementById("entryLastName").value = info.last_name || "";
-  document.getElementById("entryFirstName").value = info.first_name || "";
-  document.getElementById("entryPatronymic").value = info.patronymic || "";
-  document.getElementById("entryPhone").value = info.phone || "";
-  document.getElementById("entryCarMake").value = info.car_make || "";
+  document.getElementById("entryLastName").value = entry.last_name || "";
+  document.getElementById("entryFirstName").value = entry.first_name || "";
+  document.getElementById("entryMiddleName").value = entry.middle_name || "";
+  document.getElementById("entryPhone").value = entry.phone || "";
+  document.getElementById("entryCar").value = entry.car || "";
   document.getElementById("entryPlate").value = entry.plate || "";
+  document.getElementById("entryComment").value = entry.comment || "";
   document.getElementById("addEntryError").textContent = "";
   openModal("addEntryModal");
   setTimeout(() => document.getElementById("entryLastName").focus(), 50);
@@ -114,12 +111,10 @@ export function openEditEntryModal(entry) {
 export function exportCurrentListCSV() {
   if (!state.selectedListId) return;
   const list = state.lists.find((l) => l.id === state.selectedListId);
-  const headers = ["Гос. номер", "Имя", "Фамилия", "Отчество", "Телефон", "Марка авто"];
+  const headers = ["Гос. номер", "Имя", "Фамилия", "Отчество", "Телефон", "Марка авто", "Комментарий"];
   const lines = [headers.join(",")];
   (state.currentEntries || []).forEach((r) => {
-    let info = {};
-    try { info = JSON.parse(r.comment || "{}"); } catch (_e) {}
-    const cells = [r.plate, info.first_name || "", info.last_name || "", info.patronymic || "", info.phone || "", info.car_make || ""]
+    const cells = [r.plate, r.first_name || "", r.last_name || "", r.middle_name || "", r.phone || "", r.car || "", r.comment || ""]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`);
     lines.push(cells.join(","));
   });
@@ -156,7 +151,7 @@ function parseCSVLine(line) {
 
 export async function importCurrentListCSV(file) {
   if (!state.selectedListId || !file) return;
-  const EXPECTED_HEADERS = ["Гос. номер", "Имя", "Фамилия", "Отчество", "Телефон", "Марка авто"];
+  const EXPECTED_HEADERS = ["Гос. номер", "Имя", "Фамилия", "Отчество", "Телефон", "Марка авто", "Комментарий"];
   const text = await file.text();
   const rawLines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
   const lines = rawLines.filter((l) => l.trim().length > 0);
@@ -178,15 +173,17 @@ export async function importCurrentListCSV(file) {
     const cells = parseCSVLine(line);
     const plate = (cells[0] || "").trim();
     if (!plate) { skipped++; continue; }
-    const comment = JSON.stringify({
+    const entry = {
+      plate,
       first_name: (cells[1] || "").trim(),
       last_name: (cells[2] || "").trim(),
-      patronymic: (cells[3] || "").trim(),
+      middle_name: (cells[3] || "").trim(),
       phone: (cells[4] || "").trim(),
-      car_make: (cells[5] || "").trim(),
-    });
+      car: (cells[5] || "").trim(),
+      comment: (cells[6] || "").trim(),
+    };
     try {
-      await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", { plate, comment });
+      await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", entry);
       imported++;
     } catch (_e) {
       skipped++;

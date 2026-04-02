@@ -99,7 +99,7 @@ document.getElementById("addEntryBtn").onclick = () => {
   if (!state.selectedListId) return;
   setEditingEntryId(null);
   document.getElementById("addEntryModalTitle").textContent = "Добавить запись";
-  ["entryLastName","entryFirstName","entryPatronymic","entryPhone","entryCarMake","entryPlate"].forEach(id => document.getElementById(id).value = "");
+  ["entryLastName","entryFirstName","entryMiddleName","entryPhone","entryCar","entryPlate","entryComment"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("addEntryError").textContent = "";
   openModal("addEntryModal");
   setTimeout(() => document.getElementById("entryLastName").focus(), 50);
@@ -112,18 +112,20 @@ document.getElementById("addEntryConfirm").onclick = async () => {
   const errEl = document.getElementById("addEntryError");
   if (!firstName || !plate) { errEl.textContent = "Поля «Имя» и «Гос. номер автомобиля» обязательны."; return; }
   errEl.textContent = "";
-  const comment = JSON.stringify({
+  const payload = {
+    plate,
     last_name: document.getElementById("entryLastName").value.trim(),
     first_name: firstName,
-    patronymic: document.getElementById("entryPatronymic").value.trim(),
+    middle_name: document.getElementById("entryMiddleName").value.trim(),
     phone: document.getElementById("entryPhone").value.trim(),
-    car_make: document.getElementById("entryCarMake").value.trim(),
-  });
+    car: document.getElementById("entryCar").value.trim(),
+    comment: document.getElementById("entryComment").value.trim(),
+  };
   const { jfetch } = await import('./api.js');
   const editingEntryId = getEditingEntryId();
   try {
-    if (editingEntryId !== null) await jfetch(api(`/api/lists/${state.selectedListId}/entries/${editingEntryId}`), "PUT", { plate, comment });
-    else await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", { plate, comment });
+    if (editingEntryId !== null) await jfetch(api(`/api/lists/${state.selectedListId}/entries/${editingEntryId}`), "PUT", payload);
+    else await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", payload);
   } catch (_e) {
     errEl.textContent = editingEntryId !== null ? "Не удалось обновить: возможно, номер уже существует." : "Не удалось сохранить: возможно, номер уже существует.";
     return;

@@ -203,16 +203,15 @@ export async function openEventDetails(ev) {
     try {
       const entry = await jfetch(api(`/api/lists/entry-by-plate?plate=${encodeURIComponent(plate)}`));
       if (entry) {
-        let info = {};
-        try { info = JSON.parse(entry.comment || "{}"); } catch (_e) {}
         const typeLabels = { white: "Белый список", info: "Информационный список", black: "Черный список" };
         const listRows = [
           ["Список", `${entry.list_name}\u2002·\u2002${typeLabels[entry.list_type] || entry.list_type}`],
-          ["Имя", info.first_name || "—"],
-          ["Фамилия", info.last_name || "—"],
-          ["Отчество", info.patronymic || "—"],
-          ["Телефон", info.phone || "—"],
-          ["Марка авто", info.car_make || "—"],
+          ["Имя", entry.first_name || "—"],
+          ["Фамилия", entry.last_name || "—"],
+          ["Отчество", entry.middle_name || "—"],
+          ["Телефон", entry.phone || "—"],
+          ["Марка авто", entry.car || "—"],
+          ["Комментарий", entry.comment || "—"],
         ];
         listHtml = `<div class="event-meta-divider">Данные из списка</div>` +
           listRows.map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
