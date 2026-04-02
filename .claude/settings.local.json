@@ -38,7 +38,16 @@
       "Bash(python -c \"import py_compile; py_compile.compile\\(''app/api/container.py'', doraise=True\\); print\\(''OK''\\)\")",
       "Bash(python -c \"import py_compile; py_compile.compile\\(''database/plate_lists_repository.py'', doraise=True\\); print\\(''OK''\\)\")",
       "Bash(python:*)",
-      "Bash(py -c \"from config.settings_schema import ocr_defaults, build_default_settings; print\\('ocr_defaults:', ocr_defaults\\(\\)\\); d = build_default_settings\\(\\); print\\('ocr in defaults:', d['ocr']\\)\")"
+      "Bash(py -c \"from config.settings_schema import ocr_defaults, build_default_settings; print\\('ocr_defaults:', ocr_defaults\\(\\)\\); d = build_default_settings\\(\\); print\\('ocr in defaults:', d['ocr']\\)\")",
+      "Bash(xargs wc:*)",
+      "Bash(poetry:*)",
+      "Bash(pip install:*)",
+      "Bash(where pip:*)",
+      "Bash(where pip3:*)",
+      "Bash(/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe -m pip install poetry)",
+      "Bash(/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/poetry.exe lock:*)",
+      "Bash(curl -s http://localhost:8080/api/health)",
+      "Bash(curl -s http://localhost:8080/worker/health)"
     ]
   }
 }

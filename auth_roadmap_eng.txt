@@ -1,0 +1,908 @@
+ Authorization & Authentication Roadmap for ANPR-System-v0.8_web
+                                                                                                                                                                                      Assumptions
+                                                                                                                                                                                    
+  - The project will continue to use raw psycopg (no ORM migration to SQLAlchemy).
+  - The frontend remains a vanilla JS SPA — no framework introduction.
+  - The system runs in a trusted LAN; internet-facing hardening is a future concern.
+  - The existing APIKeyMiddleware will be replaced by the new auth system, not layered on top.
+  - All UI text remains in Russian to match the current codebase.
+  - The settings.yaml file is not the right place to store users — they go to PostgreSQL.
+  - "Tabs" in the permission model refers to the 4 main sidebar tabs (obs, journal, lists, settings) and possibly future ones.
+
+  ---
+  1. Current Architecture Summary
+
+  Backend
+
+  ┌───────────────────────────┬──────────────────────────────┬────────────────────────────────────────────────────────────────────────┐
+  │         Component         │             File             │                           Relevance to Auth                            │
+  ├───────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+  │ FastAPI entry point       │ app/api/main.py              │ Middleware registration, router includes, lifespan                     │
+  ├───────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+  │ Static API key middleware │ app/api/auth.py              │ Will be replaced by token-based auth                                   │
+  ├───────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+  │ DI container              │ app/api/container.py         │ Needs a UserRepository / AuthService added                             │
+  ├───────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+  │ Dependencies              │ app/api/deps.py              │ Needs get_current_user dependency                                      │
+  ├───────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+  │ Pydantic schemas          │ app/api/schemas.py           │ Needs auth-related request/response models                             │
+  ├───────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+  │ DB base class             │ database/base.py             │ New user repository will extend PooledDatabase                         │
+  ├───────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+  │ DB schema                 │ database/postgres/schema.sql │ Needs new tables: users, permissions                                   │
+  ├───────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+  │ All routers               │ app/api/routers/*.py         │ Need Depends(get_current_user) + role/permission guards                │
+  ├───────────────────────────┼──────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+  │ Settings router           │ app/api/routers/settings.py  │ Admin-only; will also host user-management endpoints (or a new router) │
+  └───────────────────────────┴──────────────────────────────┴────────────────────────────────────────────────────────────────────────┘
+
+  Frontend
+
+  ┌──────────────────┬────────────────────────┬────────────────────────────────────────────────────────────────────┐
+  │    Component     │          File          │                         Relevance to Auth                          │
+  ├──────────────────┼────────────────────────┼────────────────────────────────────────────────────────────────────┤
+  │ Single HTML page │ app/web/index.html     │ Needs login screen; tab visibility driven by permissions           │
+  ├──────────────────┼────────────────────────┼────────────────────────────────────────────────────────────────────┤
+  │ API wrapper      │ app/web/js/api.js      │ Replace API-key auth with JWT Bearer; handle 401 redirect to login │
+  ├──────────────────┼────────────────────────┼────────────────────────────────────────────────────────────────────┤
+  │ Tab system       │ app/web/js/ui.js       │ switchTab() must respect permissions; hide forbidden tabs          │
+  ├──────────────────┼────────────────────────┼────────────────────────────────────────────────────────────────────┤
+  │ Settings UI      │ app/web/js/settings.js │ New "Users" settings sub-pane                                      │
+  ├──────────────────┼────────────────────────┼────────────────────────────────────────────────────────────────────┤
+  │ State            │ app/web/js/state.js    │ Needs currentUser with role/permissions                            │
+  ├──────────────────┼────────────────────────┼────────────────────────────────────────────────────────────────────┤
+  │ All modules      │ app/web/js/*.js        │ Various modules fetch data that may become permission-gated        │
+  └──────────────────┴────────────────────────┴────────────────────────────────────────────────────────────────────┘
+
+  Database
+
+  Current tables: events, plate_lists, plate_list_entries. No user-related tables exist.
+
+  ---
+  2. Recommended Auth Approach
+
+  Authentication Mechanism
+
+  JWT (JSON Web Tokens) via POST /api/auth/login returning an access token.
+
+  - Why JWT over server-side sessions: the project is stateless, uses SSE/MJPEG streaming (which need token-in-query-param support already established), and has no Redis/session   
+  store.
+  - Short-lived access tokens (30 min). Refresh tokens in a later phase if needed.
+  - For SSE/MJPEG streams: continue using ?token=<jwt> query parameter (same pattern as current ?api_key=).
+
+  Password Hashing
+
+  bcrypt via the bcrypt Python package — industry standard, deliberately slow, built-in salt.
+
+  Backend Authorization Model
+
+  Hybrid: role + permission keys.
+
+  - Each user has a role (admin or operator).
+  - Each user has a set of permission keys stored in a JSON/JSONB column or a junction table.
+  - Role provides coarse defaults; explicit permissions provide fine-grained overrides.
+  - Backend route protection via a reusable FastAPI dependency: require_role("admin") and require_permission("tab:settings").
+
+  Frontend Access Control Model
+
+  - On login, the backend returns the user object including role and permissions[].
+  - Frontend stores this in state.currentUser.
+  - switchTab() is patched to respect permissions.
+  - Tabs not in the user's permissions are hidden from the sidebar (not just disabled).
+  - API calls that fail with 403 show a toast, not the login screen (login screen is only for 401).
+
+  Storing Roles and Permissions
+
+  - role is a simple TEXT column on the users table: 'admin' or 'operator'.
+  - permissions is a JSONB column on users containing an array of string keys:
+  ["tab:obs", "tab:journal", "tab:lists", "tab:settings"]
+  - This avoids extra junction tables and schema migrations when new tabs/permissions are added. Just add a new key string.
+
+  Tab Visibility Model
+
+  Permission keys use a namespaced convention: tab:<tab_name>.
+
+  Current tabs map to:
+  - tab:obs — Наблюдение
+  - tab:journal — Журнал
+  - tab:lists — Списки
+  - tab:settings — Настройки
+
+  Future tabs are added by simply using new keys (e.g., tab:analytics). No schema change needed.
+
+  Administrators always have all permissions implicitly — their permissions array is informational only.
+
+  Preparing for Per-Channel Access Control
+
+  The JSONB permissions model naturally extends:
+  ["tab:obs", "tab:journal", "channel:1", "channel:3"]
+  When channel-level filtering is implemented later, the backend filters query results by the user's channel:* permissions. This is a future phase — the schema is ready now.       
+
+  Default Admin Bootstrap
+
+  During _ensure_schema() in the new UserRepository:
+  1. Check if the users table has any rows.
+  2. If empty, INSERT the default admin: login=admin, password=bcrypt("1234"), role=admin, is_active=true.
+  3. This runs once on first startup — idempotent, no risk of duplicates.
+
+  ---
+  3. Data Model Proposal
+
+  Table: users
+
+  CREATE TABLE IF NOT EXISTS users (
+      id          BIGSERIAL PRIMARY KEY,
+      login       TEXT NOT NULL UNIQUE,
+      password    TEXT NOT NULL,              -- bcrypt hash
+      role        TEXT NOT NULL DEFAULT 'operator',  -- 'admin' | 'operator'
+      permissions JSONB NOT NULL DEFAULT '[]'::jsonb, -- ["tab:obs", "tab:journal", ...]
+      is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON users(login);
+
+  Key design decisions:
+  - permissions as JSONB array of string keys — extensible without migration.
+  - is_active for soft-delete / disable (never hard-delete users since events reference authors).
+  - No separate roles table — only 2 roles; a table is overkill.
+  - No separate permissions junction table — JSONB is simpler and sufficient at this scale.
+
+  Initial Seed Data
+
+  INSERT INTO users (login, password, role, permissions, is_active)
+  VALUES ('admin', '<bcrypt_hash_of_1234>', 'admin', '[]'::jsonb, true)
+  ON CONFLICT (login) DO NOTHING;
+
+  Admin gets empty permissions array because admins implicitly have all permissions.
+
+  Future Extension: Audit Log (Phase 6+)
+
+  CREATE TABLE IF NOT EXISTS auth_audit_log (
+      id         BIGSERIAL PRIMARY KEY,
+      timestamp  TIMESTAMPTZ NOT NULL DEFAULT now(),
+      user_id    BIGINT REFERENCES users(id),
+      login      TEXT,
+      action     TEXT NOT NULL,  -- 'login', 'login_failed', 'logout', 'user_created', 'user_updated', 'password_changed'
+      details    JSONB,
+      ip_address TEXT
+  );
+
+  This table is not part of MVP but is mentioned here for schema planning.
+
+  ---
+  4. Backend Integration Plan
+
+  New Files to Create
+
+  ┌─────────────────────────────┬─────────────────────────────────────────────────────────────────┐
+  │            File             │                             Purpose                             │
+  ├─────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ database/user_repository.py │ UserDatabase(PooledDatabase) — user CRUD, login lookup          │
+  ├─────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ app/api/routers/auth.py     │ Login/logout/me endpoints                                       │
+  ├─────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ app/api/routers/users.py    │ Admin user management CRUD                                      │
+  ├─────────────────────────────┼─────────────────────────────────────────────────────────────────┤
+  │ app/api/auth_utils.py       │ JWT creation/validation, password hashing, FastAPI dependencies │
+  └─────────────────────────────┴─────────────────────────────────────────────────────────────────┘
+
+  Files to Modify
+
+  ┌────────────────────────────────┬──────────────────────────────────────────────────────────────────┐
+  │              File              │                             Changes                              │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ database/postgres/schema.sql   │ Add users table DDL + seed                                       │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/main.py                │ Remove APIKeyMiddleware, add JWT auth middleware/dependency      │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/container.py           │ Add user_db: UserDatabase to AppContainer, wire DSN              │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/deps.py                │ Add get_current_user(), require_role(), require_permission()     │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/schemas.py             │ Add LoginRequest, LoginResponse, UserCreate, UserUpdate, UserOut │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/routers/settings.py    │ Restrict to admin role                                           │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/routers/channels.py    │ Add get_current_user dependency (write ops → admin)              │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/routers/controllers.py │ Admin-only                                                       │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/routers/data.py        │ Admin-only (backup/restore)                                      │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/routers/events.py      │ Authenticated; future channel filtering                          │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/routers/lists.py       │ Authenticated; write ops → admin or specific permission          │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/routers/debug.py       │ Admin-only                                                       │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ app/api/routers/system.py      │ /api/health stays public; others authenticated                   │
+  ├────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+  │ pyproject.toml                 │ Add bcrypt, PyJWT (or python-jose) dependencies                  │
+  └────────────────────────────────┴──────────────────────────────────────────────────────────────────┘
+
+  New Endpoints
+
+  POST   /api/auth/login        — { login, password } → { access_token, user }
+  POST   /api/auth/logout        — invalidate (client-side for JWT)
+  GET    /api/auth/me            — current user info + permissions
+
+  GET    /api/users              — list users (admin)
+  POST   /api/users              — create user (admin)
+  GET    /api/users/{id}         — get user (admin)
+  PUT    /api/users/{id}         — update user (admin)
+  PUT    /api/users/{id}/password — change password (admin, or self)
+  DELETE /api/users/{id}         — deactivate user (admin, not self)
+
+  GET    /api/permissions/available — list all known permission keys (admin, for UI)
+
+  Auth Flow (Backend)
+
+  1. POST /api/auth/login: validate credentials → return JWT with user_id, role, exp.
+  2. Every subsequent request: extract JWT from Authorization: Bearer header (or ?token= for streams).
+  3. get_current_user dependency: decode JWT → load user from DB → check is_active → return user dict.
+  4. require_role(role) / require_permission(key): raise 403 if insufficient.
+
+  Startup Bootstrap
+
+  In AppContainer.build():
+  - Instantiate UserDatabase(dsn).
+  - UserDatabase._ensure_schema() creates the users table and seeds the default admin (idempotent).
+
+  ---
+  5. Frontend Integration Plan
+
+  Login Screen
+
+  - A full-screen overlay (#login-overlay) similar to the existing #auth-overlay but redesigned:
+    - Login (text input)
+    - Password (password input)
+    - "Войти" button
+    - Error message area
+  - Shown on page load if no valid token exists in localStorage.
+  - On successful login: store JWT in localStorage (anpr_token), store user object in state.currentUser, hide overlay, initialize the app.
+
+  Auth State Handling
+
+  In state.js:
+  currentUser: null    // { id, login, role, permissions: [...] }
+
+  In api.js:
+  - Replace anpr_api_key with anpr_token.
+  - jfetch() sends Authorization: Bearer <token>.
+  - apiUrl() appends ?token=<jwt> for SSE/MJPEG.
+  - On 401 response: clear token, show login overlay.
+  - New function: getCurrentUser() → calls GET /api/auth/me on startup to validate token and get user data.
+
+  Logout
+
+  - Button in topbar (or sidebar bottom): "Выход" / user avatar area.
+  - Clears localStorage token.
+  - Reloads page (simplest approach — avoids state cleanup bugs).
+
+  Tab Visibility
+
+  In app.js initialization (after login):
+  1. Fetch user via /api/auth/me.
+  2. Store permissions in state.currentUser.permissions.
+  3. Call new function applyTabVisibility(permissions):
+    - For each .ttab element, check if tab:<data-tab> is in permissions (or user is admin).
+    - Hide tabs not in permissions (display: none).
+    - If the currently active tab is hidden, switch to the first visible tab.
+
+  Settings → Users Sub-Pane
+
+  New settings section added to the left settings nav:
+
+  Основные:
+    Общие          (sp-general)
+    Каналы         (sp-channels)
+    Контроллеры    (sp-controllers)
+    Пользователи   (sp-users)       ← NEW (admin only)
+    Системные данные (sp-sysdata)
+  Разработка:
+    Debug          (sp-debug)
+
+  The "Пользователи" nav item is only visible to admins.
+
+  Users Management UI Flows
+
+  User List View (sp-users):
+  - Left sidebar: list of users (login + role badge).
+  - "+" button to create new user.
+  - Click user → edit form on right.
+
+  Create User Form:
+  - Login (text input, required, unique)
+  - Password (password input, required)
+  - Confirm password
+  - Role (select: Администратор / Оператор)
+  - Tab permissions (checkboxes): Наблюдение, Журнал, Списки, Настройки
+  - "Создать" button
+
+  Edit User Form:
+  - Login (read-only or editable)
+  - Role (select)
+  - Tab permissions (checkboxes)
+  - Active/Inactive toggle
+  - "Сменить пароль" button → modal with new password + confirm
+  - "Сохранить" button
+
+  Delete/Deactivate:
+  - No hard delete button. "Деактивировать" toggle.
+  - Cannot deactivate yourself.
+
+  New JS Module
+
+  app/web/js/users.js — handles user list, create, edit, password change forms.
+
+  New Icon
+
+  app/web/assets/icons/users.svg — for the settings nav item.
+
+  ---
+  6. Security and Operational Considerations
+
+  Password Hashing
+
+  - bcrypt with default work factor (12 rounds). Do not use MD5/SHA.
+  - Never log or return password hashes in API responses.
+
+  Password Policy (MVP)
+
+  - Minimum 4 characters (pragmatic for LAN system; configurable later).
+  - No complexity requirements in MVP. Add in hardening phase.
+
+  Default Admin First-Run
+
+  - Default password 1234 is intentionally weak.
+  - MVP: show a warning toast on login if the user is admin and password has never been changed (track via password_changed_at field or a flag).
+  - Later: optionally force password change on first login.
+
+  Session/Token Expiration
+
+  - JWT exp claim: 8 hours (practical for shift-based operators).
+  - Frontend checks expiration before each request; if expired, redirect to login.
+  - No refresh tokens in MVP — user re-authenticates after 8h.
+
+  Logout Invalidation
+
+  - JWT is stateless — true server-side invalidation requires a blocklist.
+  - MVP: client-side only (clear localStorage). Acceptable for LAN.
+  - Later: optional server-side token blocklist (in-memory or DB).
+
+  Brute-Force Protection
+
+  - MVP: in-memory per-IP rate limiter on /api/auth/login — e.g., max 5 attempts per minute.
+  - Simple dict-based counter in the auth router, reset on success. No Redis needed.
+  - Later: account lockout after N failed attempts.
+
+  Audit Logging
+
+  - MVP: Python logger.info() for login, login_failed, user_created, user_updated, password_changed.
+  - Later: dedicated auth_audit_log table.
+
+  Disabled Users
+
+  - is_active = false → get_current_user returns 401. Immediate effect.
+  - Disabled users cannot log in. Existing JWTs are rejected on next request.
+
+  Deleting vs Deactivating
+
+  - Never hard-delete users. Future audit trails and event attribution depend on user IDs existing.
+  - UI shows "Деактивировать" instead of "Удалить".
+
+  Preventing Admin Self-Lock
+
+  - Backend: DELETE /api/users/{id} (deactivate) returns 400 if id == current_user.id.
+  - Backend: PUT /api/users/{id} prevents removing admin role from yourself if you're the last active admin.
+  - Query: SELECT count(*) FROM users WHERE role='admin' AND is_active=true — must remain >= 1.
+
+  Future Production Hardening
+
+  - HTTPS (reverse proxy — nginx/traefik).
+  - HttpOnly secure cookies instead of localStorage (XSS mitigation).
+  - CSRF protection if switching to cookies.
+  - Refresh tokens with rotation.
+  - 2FA for admin accounts.
+  - Password complexity enforcement.
+
+  Backwards Compatibility / Rollout
+
+  - The API_KEY env var mechanism can coexist during transition: if set, bypass JWT for that key (backward compat for scripts/integrations).
+  - Remove API_KEY support after full migration.
+  - Database migration is additive (new tables only) — no destructive changes to existing tables.
+
+  ---
+  7. Risks and Design Decisions
+
+  ┌─────┬───────────────────┬───────────────────────┬────────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────────┐     
+  │  #  │     Decision      │        Options        │       Recommendation       │                                         Rationale                                          │     
+  ├─────┼───────────────────┼───────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤     
+  │ 1   │ Token strategy    │ Cookie session vs JWT │ JWT                        │ Stateless, works with SSE/MJPEG query params, no session store needed. LAN context makes   │
+  │     │                   │                       │                            │ XSS risk acceptable.                                                                       │     
+  ├─────┼───────────────────┼───────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤     
+  │ 2   │ Authorization     │ Pure RBAC vs          │ Hybrid: role + permission  │ Role for coarse checks (admin vs operator), permission keys for fine-grained (tab          │     
+  │     │ model             │ permission keys       │ keys                       │ visibility, future channel access). Avoids both over-simplicity and over-engineering.      │     
+  ├─────┼───────────────────┼───────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤     
+  │ 3   │ Permission        │ Separate table vs     │ JSONB column on users      │ At this scale (<100 users), JSONB is simpler, faster to query, no joins. Migrate to        │     
+  │     │ storage           │ JSONB column          │                            │ junction table only if needed.                                                             │     
+  ├─────┼───────────────────┼───────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤     
+  │ 4   │ Tab permission    │ Static enum vs        │ String-based keys in JSONB │ New tabs = new string key. No migration, no enum update. Backend exposes available keys    │     
+  │     │ model             │ DB-driven keys        │                            │ via /api/permissions/available.                                                            │     
+  ├─────┼───────────────────┼───────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤     
+  │ 5   │ Force password    │ On first login vs     │ Warning toast in MVP,      │ Reduces MVP complexity. A warning is sufficient for a LAN system initially.                │     
+  │     │ change            │ warning only          │ forced change later        │                                                                                            │     
+  ├─────┼───────────────────┼───────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤     
+  │ 6   │ Hidden vs blocked │ Hide UI tabs vs       │ Hide entirely + block      │ Both layers. Hidden tabs reduce confusion. Server-side 403 prevents API-level bypass.      │     
+  │     │                   │ show-but-block        │ server-side                │                                                                                            │     
+  ├─────┼───────────────────┼───────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤     
+  │ 7   │ User deletion     │ Hard delete vs soft   │ Soft delete (is_active)    │ Preserves referential integrity for audit and future attribution.                          │     
+  │     │                   │ delete                │                            │                                                                                            │     
+  ├─────┼───────────────────┼───────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤     
+  │ 8   │ JWT library       │ PyJWT vs python-jose  │ PyJWT                      │ Lighter, well-maintained, sufficient for HS256. No need for JOSE complexity.               │     
+  ├─────┼───────────────────┼───────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤     
+  │ 9   │ Default admin     │ Migration script vs   │ App startup (in            │ Consistent with existing pattern in PooledDatabase. Idempotent. No separate migration      │     
+  │     │ seeding           │ app startup           │ _ensure_schema)            │ tooling needed.                                                                            │     
+  ├─────┼───────────────────┼───────────────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤     
+  │ 10  │ API key backward  │ Remove immediately vs │ Coexist temporarily        │ Allows scripts/integrations to keep working during transition. Remove in hardening phase.  │     
+  │     │ compat            │  coexist              │                            │                                                                                            │     
+  └─────┴───────────────────┴───────────────────────┴────────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────────┘     
+
+  ---
+  8. Phased Roadmap
+
+  Phase 1: Foundation (database + dependencies)
+
+  - Add bcrypt and PyJWT to pyproject.toml.
+  - Create users table in schema.sql.
+  - Implement UserDatabase repository.
+  - Seed default admin on first startup.
+
+  Phase 2: Auth Backend (login + token + protection)
+
+  - Implement JWT utilities (create, decode, hash password).
+  - Create POST /api/auth/login, GET /api/auth/me endpoints.
+  - Create get_current_user FastAPI dependency.
+  - Protect all API routes with auth dependency.
+  - Keep API_KEY as fallback during transition.
+
+  Phase 3: Frontend Login Integration
+
+  - Replace API-key overlay with login form.
+  - Store JWT in localStorage.
+  - Update jfetch() and apiUrl() to use Bearer token.
+  - Add logout button and flow.
+  - Fetch and store current user on startup.
+
+  Phase 4: Permission-Based UI Visibility
+
+  - Implement applyTabVisibility() in frontend.
+  - Hide tabs based on user permissions.
+  - Backend: add require_permission() dependency.
+  - Protect settings/data/debug routes as admin-only.
+
+  Phase 5: User Management UI
+
+  - Create app/api/routers/users.py with CRUD endpoints.
+  - Create app/web/js/users.js module.
+  - Add "Пользователи" section in Settings.
+  - Implement: list, create, edit role, change password, toggle active, configure permissions.
+
+  Phase 6: Hardening & Polish
+
+  - Brute-force rate limiting on login.
+  - Admin self-lock prevention.
+  - Audit logging (structured logs).
+  - Password-change warning for default admin.
+  - Remove API_KEY fallback.
+  - Token expiration handling in frontend.
+
+  ---
+  9. Task Backlog
+
+  Phase 1 Tasks
+
+  ---
+  T1.1 — Add auth dependencies to pyproject.toml
+  - Goal: Make bcrypt and PyJWT available.
+  - Scope: pyproject.toml only.
+  - Affected files: pyproject.toml
+  - Dependencies: None.
+  - Acceptance criteria: poetry install succeeds; import bcrypt; import jwt works.
+  - Parallel: Yes — independent of all other tasks.
+
+  ---
+  T1.2 — Create users table DDL
+  - Goal: Define users table in the PostgreSQL schema.
+  - Scope: Add CREATE TABLE + index DDL.
+  - Affected files: database/postgres/schema.sql
+  - Dependencies: None.
+  - Acceptance criteria: Schema DDL is valid SQL. Table has: id, login, password, role, permissions (JSONB), is_active, created_at, updated_at. Unique index on login.
+  - Parallel: Yes — independent of T1.1.
+
+  ---
+  T1.3 — Implement UserDatabase repository
+  - Goal: Create user repository extending PooledDatabase with CRUD methods.
+  - Scope: New file with methods: find_by_login(login), find_by_id(id), list_all(), create_user(login, password_hash, role, permissions), update_user(id, ...), update_password(id, 
+  password_hash), deactivate(id).
+  - Affected files: New database/user_repository.py
+  - Dependencies: T1.2 (needs schema DDL for _schema_sql()).
+  - Acceptance criteria: All methods work against a test PostgreSQL instance. _ensure_schema() creates the table idempotently.
+  - Parallel: After T1.2.
+
+  ---
+  T1.4 — Default admin seeding logic
+  - Goal: On first startup, if users table is empty, insert the default admin.
+  - Scope: Inside UserDatabase._ensure_schema() or a dedicated seed_default_admin() method.
+  - Affected files: database/user_repository.py
+  - Dependencies: T1.1 (needs bcrypt), T1.3.
+  - Acceptance criteria: First run creates admin user with bcrypt hash of 1234, role admin, is_active=true. Second run does nothing. No error if user already exists.
+  - Parallel: After T1.1 + T1.3.
+
+  ---
+  T1.5 — Wire UserDatabase into AppContainer
+  - Goal: Make UserDatabase available to all routers via DI.
+  - Scope: Add user_db field to AppContainer, instantiate in build().
+  - Affected files: app/api/container.py
+  - Dependencies: T1.3.
+  - Acceptance criteria: container.user_db is a working UserDatabase instance. Default admin is seeded on startup.
+  - Parallel: After T1.3.
+
+  ---
+  Phase 2 Tasks
+
+  ---
+  T2.1 — Implement JWT utility functions
+  - Goal: Create helpers for JWT creation and validation, plus bcrypt password hashing/verification.
+  - Scope: New file with: hash_password(plain) -> str, verify_password(plain, hashed) -> bool, create_access_token(user_id, role, exp_minutes) -> str, decode_access_token(token) ->
+   dict.
+  - Affected files: New app/api/auth_utils.py
+  - Dependencies: T1.1 (bcrypt, PyJWT).
+  - Acceptance criteria: Tokens encode/decode correctly. Expired tokens raise an exception. Password hashing round-trips correctly.
+  - Parallel: Yes — can start as soon as T1.1 is done. Independent of T1.3–T1.5.
+
+  ---
+  T2.2 — Add auth Pydantic schemas
+  - Goal: Define request/response models for auth endpoints.
+  - Scope: LoginRequest(login, password), LoginResponse(access_token, token_type, user), UserOut(id, login, role, permissions, is_active, created_at).
+  - Affected files: app/api/schemas.py
+  - Dependencies: None.
+  - Acceptance criteria: Models validate correctly. UserOut excludes password hash.
+  - Parallel: Yes — independent.
+
+  ---
+  T2.3 — Create auth router (login + me)
+  - Goal: Implement POST /api/auth/login and GET /api/auth/me.
+  - Scope: New router file. Login: validate credentials, return JWT. Me: return current user from token.
+  - Affected files: New app/api/routers/auth.py, app/api/main.py (include router)
+  - Dependencies: T1.5, T2.1, T2.2.
+  - Acceptance criteria: Valid credentials return 200 + JWT. Invalid credentials return 401. /api/auth/me with valid token returns user object. Invalid/expired token returns 401.  
+  - Parallel: After T1.5 + T2.1 + T2.2.
+
+  ---
+  T2.4 — Implement get_current_user dependency
+  - Goal: Create a FastAPI dependency that extracts and validates the JWT, returning the current user.
+  - Scope: Dependency function in deps.py. Extracts token from Authorization: Bearer or ?token= query param. Decodes JWT, loads user from DB, checks is_active.
+  - Affected files: app/api/deps.py
+  - Dependencies: T2.1, T1.5.
+  - Acceptance criteria: Returns user dict for valid tokens. Raises 401 for missing/invalid/expired tokens. Raises 401 for inactive users.
+  - Parallel: Can be done together with T2.3.
+
+  ---
+  T2.5 — Protect all existing API routes
+  - Goal: Add Depends(get_current_user) to all existing router endpoints.
+  - Scope: Every router file. Keep /api/health and /api/auth/login public. Everything else requires valid token.
+  - Affected files: All files in app/api/routers/ (system, channels, events, lists, controllers, settings, data, debug)
+  - Dependencies: T2.4.
+  - Acceptance criteria: Unauthenticated requests to protected endpoints return 401. Authenticated requests work as before. /api/health remains public.
+  - Parallel: After T2.4 — but individual router files can be updated independently of each other.
+
+  ---
+  T2.6 — Update auth middleware / remove APIKeyMiddleware
+  - Goal: Replace the static API key middleware with JWT-based auth. Optionally keep API_KEY as a fallback.
+  - Scope: Modify main.py to remove or make APIKeyMiddleware conditional. Auth is now handled at the dependency level, not middleware.
+  - Affected files: app/api/main.py, app/api/auth.py
+  - Dependencies: T2.5.
+  - Acceptance criteria: JWT auth works for all routes. If API_KEY env var is set, it still works as a fallback. System functions correctly without API_KEY set.
+  - Parallel: After T2.5.
+
+  ---
+  Phase 3 Tasks
+
+  ---
+  T3.1 — Create login screen HTML
+  - Goal: Replace the API-key overlay with a proper login form (login + password fields).
+  - Scope: New #login-overlay in index.html. Styled consistently with existing design system.
+  - Affected files: app/web/index.html, app/web/styles.css
+  - Dependencies: None (frontend can be built against mocked API).
+  - Acceptance criteria: Full-screen login overlay with login/password inputs, submit button, error display. Matches the project's dark/light theme. Shown on page load.
+  - Parallel: Yes — can be done in parallel with Phase 2 backend tasks.
+
+  ---
+  T3.2 — Update api.js for JWT auth
+  - Goal: Replace API-key logic with JWT token handling.
+  - Scope: localStorage key changes from anpr_api_key to anpr_token. jfetch() sends Authorization: Bearer. apiUrl() appends ?token=. Remove showAuthOverlay, replace with login     
+  redirect. Add getCurrentUser() function.
+  - Affected files: app/web/js/api.js
+  - Dependencies: T2.3 (login endpoint exists).
+  - Acceptance criteria: Login flow stores JWT. All API calls include Bearer token. 401 responses redirect to login screen. SSE/MJPEG URLs include token as query param.
+  - Parallel: After T2.3.
+
+  ---
+  T3.3 — Add current user to frontend state
+  - Goal: Store authenticated user info in state.js and make it accessible to all modules.
+  - Scope: Add currentUser to state. On app init, call /api/auth/me and populate. Export helper: isAdmin(), hasPermission(key).
+  - Affected files: app/web/js/state.js, app/web/js/app.js
+  - Dependencies: T3.2.
+  - Acceptance criteria: After login, state.currentUser contains { id, login, role, permissions }. isAdmin() returns true for admin role.
+  - Parallel: After T3.2.
+
+  ---
+  T3.4 — Add logout button and flow
+  - Goal: Add a logout mechanism to the UI.
+  - Scope: Add user info display + "Выход" button in the topbar or sidebar bottom. On click: clear token from localStorage, reload page.
+  - Affected files: app/web/index.html, app/web/styles.css, app/web/js/app.js
+  - Dependencies: T3.3.
+  - Acceptance criteria: User sees their login name and a logout button. Clicking logout clears the session and shows the login screen.
+  - Parallel: After T3.3.
+
+  ---
+  Phase 4 Tasks
+
+  ---
+  T4.1 — Implement applyTabVisibility() in frontend
+  - Goal: Hide sidebar tabs the user doesn't have permission to see.
+  - Scope: After login, iterate .ttab elements. For each, check if tab:<data-tab> exists in currentUser.permissions (or user is admin). Hide forbidden tabs. If current tab is      
+  hidden, switch to first visible tab.
+  - Affected files: app/web/js/ui.js, app/web/js/app.js
+  - Dependencies: T3.3.
+  - Acceptance criteria: Operator with ["tab:obs", "tab:journal"] sees only those 2 tabs. Admin sees all tabs. Hidden tabs are not accessible.
+  - Parallel: After T3.3.
+
+  ---
+  T4.2 — Implement require_role() and require_permission() dependencies
+  - Goal: Create reusable FastAPI dependencies for role and permission checks.
+  - Scope: require_role("admin") → raises 403 if user is not admin. require_permission("tab:settings") → raises 403 if user lacks the permission (admins always pass).
+  - Affected files: app/api/deps.py
+  - Dependencies: T2.4.
+  - Acceptance criteria: Operators without required permission get 403. Admins always pass. Clear error messages.
+  - Parallel: After T2.4.
+
+  ---
+  T4.3 — Apply role/permission guards to admin-only routes
+  - Goal: Restrict settings, controllers, data, debug, and user-management routes to admin role.
+  - Scope: Add Depends(require_role("admin")) to: settings, controllers, data (backup/restore), debug routers.
+  - Affected files: app/api/routers/settings.py, app/api/routers/controllers.py, app/api/routers/data.py, app/api/routers/debug.py
+  - Dependencies: T4.2.
+  - Acceptance criteria: Operators get 403 on admin-only endpoints. Admins have full access.
+  - Parallel: Individual routers can be updated independently.
+
+  ---
+  T4.4 — Add available permissions endpoint
+  - Goal: Expose the list of all known permission keys so the admin UI can render checkboxes dynamically.
+  - Scope: GET /api/permissions/available → returns [{ key: "tab:obs", label: "Наблюдение", group: "tabs" }, ...].
+  - Affected files: New logic in app/api/routers/auth.py or app/api/routers/users.py
+  - Dependencies: T2.3.
+  - Acceptance criteria: Returns all currently defined permission keys with human-readable labels. Admin-only endpoint.
+  - Parallel: After T2.3.
+
+  ---
+  Phase 5 Tasks
+
+  ---
+  T5.1 — Create users CRUD router
+  - Goal: Implement user management API endpoints.
+  - Scope: GET /api/users, POST /api/users, GET /api/users/{id}, PUT /api/users/{id}, PUT /api/users/{id}/password, DELETE /api/users/{id} (deactivate). All admin-only.
+  - Affected files: New app/api/routers/users.py, app/api/main.py (include router), app/api/schemas.py (add UserCreate, UserUpdate, PasswordChange)
+  - Dependencies: T1.3, T1.5, T2.1, T4.2.
+  - Acceptance criteria: Full CRUD works. Passwords are hashed. Deactivate prevents future login. Cannot deactivate self.
+  - Parallel: After dependencies.
+
+  ---
+  T5.2 — Add user Pydantic schemas
+  - Goal: Define request/response models for user management.
+  - Scope: UserCreate(login, password, role, permissions), UserUpdate(role, permissions, is_active), PasswordChange(new_password), UserListOut(items: list[UserOut]).
+  - Affected files: app/api/schemas.py
+  - Dependencies: None.
+  - Acceptance criteria: Validation works. Password never appears in output models.
+  - Parallel: Yes — independent.
+
+  ---
+  T5.3 — Add "Пользователи" nav item to settings
+  - Goal: Add the new settings sub-pane navigation entry visible only to admins.
+  - Scope: New .snav-item[data-sp="users"] in the settings nav. New #sp-users pane container. Add icon.
+  - Affected files: app/web/index.html, app/web/styles.css, app/web/js/ui.js (add to settingsLabels)
+  - Dependencies: T4.1 (need admin check available).
+  - Acceptance criteria: Nav item appears for admins. Hidden for operators. Clicking switches to users pane. Topbar shows "Настройки / Пользователи".
+  - Parallel: After T4.1.
+
+  ---
+  T5.4 — Implement users.js frontend module
+  - Goal: Create the JS module for user management UI.
+  - Scope: New app/web/js/users.js. Functions: loadUsers(), renderUserList(), renderUserForm(user), saveUser(), createUser(), changePassword(userId), toggleUserActive(userId). Wire
+   into settings pane.
+  - Affected files: New app/web/js/users.js, app/web/js/app.js (import + init)
+  - Dependencies: T5.1 (API exists), T5.3 (pane exists).
+  - Acceptance criteria: Admin can list users, create a new user, edit role/permissions, change password, deactivate user. All actions show toast feedback. Form validation prevents
+   empty fields.
+  - Parallel: After T5.1 + T5.3.
+
+  ---
+  T5.5 — Permission checkboxes in user form
+  - Goal: Render dynamic tab-permission checkboxes in the create/edit user form.
+  - Scope: Fetch available permissions from GET /api/permissions/available. Render as checkboxes grouped by category. Pre-check based on user's current permissions.
+  - Affected files: app/web/js/users.js
+  - Dependencies: T4.4 (permissions endpoint), T5.4.
+  - Acceptance criteria: Checkboxes reflect all known permissions. Saving persists the selected permissions. Admin users' checkboxes are informational (all perms implicit).        
+  - Parallel: After T4.4 + T5.4.
+
+  ---
+  Phase 6 Tasks
+
+  ---
+  T6.1 — Login rate limiting
+  - Goal: Prevent brute-force login attempts.
+  - Scope: In-memory dict tracking failed attempts per IP. Max 5 per minute. Return 429 when exceeded. Reset on success.
+  - Affected files: app/api/routers/auth.py
+  - Dependencies: T2.3.
+  - Acceptance criteria: 6th failed attempt within 60 seconds returns 429. Successful login resets counter. Counter auto-expires.
+  - Parallel: Independent — can be done anytime after T2.3.
+
+  ---
+  T6.2 — Admin self-lock prevention
+  - Goal: Prevent admin from deactivating themselves or removing the last admin.
+  - Scope: In DELETE /api/users/{id}: reject if id == current_user.id. In PUT /api/users/{id}: if changing role away from admin, check that at least 1 other active admin remains.
+  - Affected files: app/api/routers/users.py, database/user_repository.py (add count_active_admins())
+  - Dependencies: T5.1.
+  - Acceptance criteria: Cannot deactivate self (400 error). Cannot demote self if last admin (400 error). Error message is clear.
+  - Parallel: After T5.1.
+
+  ---
+  T6.3 — Audit logging for auth events
+  - Goal: Log all auth-related actions with structured data.
+  - Scope: Add logger.info() calls with structured data for: login success, login failure, user created, user updated, password changed, user deactivated.
+  - Affected files: app/api/routers/auth.py, app/api/routers/users.py
+  - Dependencies: T2.3, T5.1.
+  - Acceptance criteria: All auth events appear in application logs with user_id, login, action, and IP address.
+  - Parallel: After T2.3 + T5.1.
+
+  ---
+  T6.4 — Default admin password warning
+  - Goal: Warn when logging in with the default admin/1234 credentials.
+  - Scope: Backend: add password_changed_at column to users (nullable). Login response includes password_never_changed: true flag. Frontend: show persistent warning toast or       
+  banner.
+  - Affected files: database/user_repository.py, database/postgres/schema.sql, app/api/routers/auth.py, app/web/js/app.js
+  - Dependencies: T2.3.
+  - Acceptance criteria: First login with default admin shows a visible warning suggesting password change. Warning disappears after password is changed.
+  - Parallel: After T2.3.
+
+  ---
+  T6.5 — Frontend token expiration handling
+  - Goal: Gracefully handle expired JWT tokens.
+  - Scope: Before each API call, check if token is expired (decode JWT client-side to read exp). If expired, show login overlay immediately rather than waiting for 401. Show a     
+  "Сессия истекла" message.
+  - Affected files: app/web/js/api.js
+  - Dependencies: T3.2.
+  - Acceptance criteria: Expired token shows login screen with "session expired" message. No failed API calls with expired tokens.
+  - Parallel: After T3.2.
+
+  ---
+  T6.6 — Remove API_KEY fallback
+  - Goal: Clean up the legacy API key mechanism.
+  - Scope: Remove APIKeyMiddleware class, remove API_KEY env var handling from main.py.
+  - Affected files: app/api/main.py, app/api/auth.py (delete or repurpose)
+  - Dependencies: T2.6, all migration complete.
+  - Acceptance criteria: API_KEY env var has no effect. Only JWT auth works.
+  - Parallel: Last task — after all other auth work is stable.
+
+  ---
+  Parallelism Summary
+
+  T1.1 ──┐
+  T1.2 ──┤
+  T2.2 ──┤  (all independent, start immediately)
+  T3.1 ──┤
+  T5.2 ──┘
+
+  T1.3 ──── after T1.2
+  T1.4 ──── after T1.1 + T1.3
+  T1.5 ──── after T1.3
+
+  T2.1 ──── after T1.1
+  T2.3 ──── after T1.5 + T2.1 + T2.2
+  T2.4 ──── after T2.1 + T1.5  (parallel with T2.3)
+  T2.5 ──── after T2.4
+  T2.6 ──── after T2.5
+
+  T3.2 ──── after T2.3
+  T3.3 ──── after T3.2
+  T3.4 ──── after T3.3
+
+  T4.1 ──── after T3.3
+  T4.2 ──── after T2.4
+  T4.3 ──── after T4.2 (routers can be done in parallel)
+  T4.4 ──── after T2.3
+
+  T5.1 ──── after T1.3 + T1.5 + T2.1 + T4.2
+  T5.3 ──── after T4.1
+  T5.4 ──── after T5.1 + T5.3
+  T5.5 ──── after T4.4 + T5.4
+
+  T6.1–T6.6: all independent of each other, only depend on their listed prerequisites
+
+  ---
+  10. Minimal MVP vs Later Enhancements
+
+  MVP (First Working Version)
+
+  ┌───────────────────────────────┬────────────────────────────────────┐
+  │             What              │               Tasks                │
+  ├───────────────────────────────┼────────────────────────────────────┤
+  │ Users table + repository      │ T1.1, T1.2, T1.3, T1.4, T1.5       │
+  ├───────────────────────────────┼────────────────────────────────────┤
+  │ JWT login + route protection  │ T2.1, T2.2, T2.3, T2.4, T2.5, T2.6 │
+  ├───────────────────────────────┼────────────────────────────────────┤
+  │ Frontend login screen         │ T3.1, T3.2, T3.3, T3.4             │
+  ├───────────────────────────────┼────────────────────────────────────┤
+  │ Tab visibility by permissions │ T4.1, T4.2, T4.3                   │
+  ├───────────────────────────────┼────────────────────────────────────┤
+  │ Basic user management (admin) │ T5.1, T5.2, T5.3, T5.4, T5.5       │
+  └───────────────────────────────┴────────────────────────────────────┘
+
+  MVP total: ~20 tasks. This delivers: login, roles, tab-based permissions, user management.
+
+  Postponed for Later
+
+  ┌────────────────────────────────┬────────┬───────────────────────────────────────────────────────────────────────┐
+  │            Feature             │ Phase  │                             Why Postpone                              │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ Login rate limiting            │ 6      │ Nice-to-have for LAN. Not a blocker.                                  │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ Admin self-lock prevention     │ 6      │ Edge case. Can be handled manually initially.                         │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ Audit logging to DB            │ 6+     │ Python logger is sufficient for MVP.                                  │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ Default admin password warning │ 6      │ Cosmetic safety. Admin knows the password is 1234.                    │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ Token expiration UX            │ 6      │ 401 redirect already handles this, just less gracefully.              │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ Remove API_KEY fallback        │ 6      │ Keep for backward compat during rollout.                              │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ Per-channel access control     │ Future │ Schema supports it; implementation deferred.                          │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ Refresh tokens                 │ Future │ 8h token is fine for LAN shift work.                                  │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ HTTPS / secure cookies         │ Future │ Infrastructure concern, not app-level.                                │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ 2FA                            │ Future │ Overkill for current LAN deployment.                                  │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ Password complexity rules      │ Future │ 1234 is the default — complexity rules would be contradictory in MVP. │
+  ├────────────────────────────────┼────────┼───────────────────────────────────────────────────────────────────────┤
+  │ Account lockout                │ Future │ Rate limiting is sufficient initially.                                │
+  └────────────────────────────────┴────────┴───────────────────────────────────────────────────────────────────────┘
+
+  ---
+  11. Final Recommendation
+
+  Recommended Implementation Order
+
+  1. Phase 1 (foundation) → Phase 2 (backend auth) → Phase 3 (frontend login) → Phase 4 (permissions) → Phase 5 (user management) → Phase 6 (hardening)
+
+  This is a strict dependency chain for the critical path. Within each phase, tasks can be parallelized as shown in section 9.
+
+  Minimal Safe MVP Scope
+
+  Phases 1–5. This gives you a fully working auth system with login, roles, tab permissions, and user management. Phase 6 is polish and can follow shortly after.
+
+  Top 5 Tasks to Start With (in parallel)
+
+  1. T1.1 — Add bcrypt + PyJWT to pyproject.toml
+  2. T1.2 — Create users table DDL in schema.sql
+  3. T2.2 — Define auth Pydantic schemas
+  4. T3.1 — Build login screen HTML/CSS
+  5. T5.2 — Define user management Pydantic schemas
+
+  These 5 have zero dependencies and can all be started simultaneously. They unblock everything else.
+

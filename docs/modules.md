@@ -93,4 +93,4 @@
 | `.planning/codebase/` | Аналитические markdown-файлы по архитектуре, стеку, структуре, соглашениям и интеграциям |
 | `Dockerfile` | Сборка приложения |
 | `docker-compose.yml` | Компоновка сервисов `nginx`, `api`, `retention_worker`, `postgres` |
-| `requirements.txt` | Python-зависимости проекта |
+| `pyproject.toml` | Python-зависимости проекта (Poetry) |

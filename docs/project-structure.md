@@ -73,7 +73,8 @@ ANPR-System-v0.8_web/
 ├── LICENSE
 ├── README.md
 ├── docker-compose.yml
-├── requirements.txt
+├── pyproject.toml
+├── poetry.lock
 └── .env.example
 ```
 
