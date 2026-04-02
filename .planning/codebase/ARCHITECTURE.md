@@ -94,7 +94,7 @@
 - Purpose: Event persistence, plate list management, schema bootstrap
 - Location: `database/`
 - `PostgresEventDatabase` (`database/postgres_event_repository.py`): PostgreSQL event CRUD with lazy schema bootstrap from `database/postgres/schema.sql`; uses `psycopg_pool` connection pooling
-- `ListDatabase` (`database/plate_lists_repository.py`): plate list/entry CRUD for whitelist/blacklist functionality
+- `ListDatabase` (`database/lists_repository.py`): list/client CRUD for whitelist/blacklist functionality
 - `EventSink` (`runtime/event_sink.py`): thin write-only wrapper around `PostgresEventDatabase` used by channel threads
 - `StorageUnavailableError` (`database/errors.py`): custom exception for DB connectivity issues
 - Schema: `database/postgres/schema.sql` -- verified at startup

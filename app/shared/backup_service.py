@@ -17,7 +17,7 @@ from common.logging import get_logger
 logger = get_logger(__name__)
 
 # ── Tables included in the database backup ──────────────────────
-_BACKUP_TABLES = ("plate_lists", "plate_list_entries", "events")
+_BACKUP_TABLES = ("lists", "clients", "events")
 
 _BACKUP_MANIFEST_VERSION = 1
 

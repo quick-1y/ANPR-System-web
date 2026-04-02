@@ -39,17 +39,17 @@
 - Connection pooling: `psycopg_pool.ConnectionPool`
   - Pool config: `min_size=2, max_size=10, open=True`
   - `database/postgres_event_repository.py` (`PostgresEventDatabase._get_pool()`) - lazy init, one pool per instance
-  - `database/plate_lists_repository.py` (`ListDatabase._get_pool()`) - lazy init, one pool per instance
-  - Two separate pools per process (events + plate lists)
+  - `database/lists_repository.py` (`ListDatabase._get_pool()`) - lazy init, one pool per instance
+  - Two separate pools per process (events + lists)
 - Schema bootstrap:
   - Events: `database/postgres/schema.sql` applied via `_ensure_schema()` on first access, validated at startup (`_SCHEMA_SQL_PATH.is_file()`)
-  - Plate lists: inline DDL in `database/plate_lists_repository.py` (`CREATE TABLE IF NOT EXISTS`)
+  - Lists: inline DDL in `database/lists_repository.py` (`CREATE TABLE IF NOT EXISTS`)
 - Docker init: `schema.sql` also mounted to `/docker-entrypoint-initdb.d/01-schema.sql` for fresh databases
 
 **Tables:**
 - `events` - ANPR detection events (id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction)
-- `plate_lists` - Named lists with types (`white`, `info`, `black`)
-- `plate_list_entries` - Individual plate entries linked to lists (with unique constraint on `list_id, plate_normalized`)
+- `lists` - Named lists with types (`white`, `info`, `black`)
+- `clients` - Individual plate entries linked to lists (with unique constraint on `list_id, plate_normalized`)
 
 **File Storage (local filesystem via Docker volumes):**
 - Screenshots: `data/screenshots/` (Docker volume `media_data` mounted at `/app/data`)

@@ -56,7 +56,7 @@
 
   Database
 
-  Current tables: events, plate_lists, plate_list_entries. No user-related tables exist.
+  Current tables: events, lists, clients. No user-related tables exist.
 
   ---
   2. Recommended Auth Approach

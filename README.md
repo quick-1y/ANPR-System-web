@@ -199,17 +199,17 @@ API и retention_worker используют один и тот же `SETTINGS_P
 
 ### PostgreSQL (обязательно)
 
-Все события и plate lists хранятся в PostgreSQL через `POSTGRES_DSN`.
+Все события и списки номеров хранятся в PostgreSQL через `POSTGRES_DSN`.
 
 **Таблицы:**
 
 | Таблица | Поля |
 |---|---|
 | `events` | `id`, `timestamp`, `channel_id`, `channel`, `plate`, `plate_display`, `country`, `confidence`, `source`, `frame_path`, `plate_path`, `direction` |
-| `plate_lists` | `id`, `name`, `type` |
-| `plate_list_entries` | `id`, `list_id`, `plate`, `plate_normalized`, `comment` |
+| `lists` | `id`, `name`, `type` |
+| `clients` | `id`, `list_id`, `plate`, `plate_normalized`, `comment` |
 
-**Индексы:** `(timestamp DESC, id DESC)` по событиям; `plate_normalized` и `(list_id, plate_normalized) UNIQUE` по записям.
+**Индексы:** `(timestamp DESC, id DESC)` по событиям; `plate_normalized` и `(list_id, plate_normalized) UNIQUE` по клиентам.
 
 ### Медиа и экспорт
 

@@ -1237,9 +1237,9 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 }
 
 /* ─── Entries table: actions column ─────────────────── */
-.col-actions { width: 60px; text-align: right; }
-.data-table td.col-actions { padding-right: 8px; text-align: right; }
-.entry-edit-btn {
+.col-actions { width: 130px; text-align: right; white-space: nowrap; }
+.data-table td.col-actions { padding-right: 8px; text-align: right; white-space: nowrap; }
+.entry-edit-btn, .entry-delete-btn {
   height: 24px; padding: 0 8px; font-size: 10px;
   border-radius: 5px; border: 1px solid var(--border2);
   background: transparent; color: var(--text2); cursor: pointer;
@@ -1249,6 +1249,10 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 .entry-edit-btn:hover {
   color: var(--accent2); border-color: var(--accent-border);
   background: var(--accent-glow);
+}
+.entry-delete-btn:hover {
+  color: var(--danger); border-color: var(--danger);
+  background: var(--danger-glow);
 }
 
 /* ─── Toast notification ─────────────────────────────── */

@@ -53,7 +53,7 @@ ANPR-System-v0.8_web/
 │   ├── postgres/               # PostgreSQL-specific files
 │   │   └── schema.sql          # Database schema (verified at startup)
 │   ├── errors.py               # StorageUnavailableError
-│   ├── plate_lists_repository.py  # Plate lists CRUD
+│   ├── lists_repository.py        # Lists and clients CRUD
 │   └── postgres_event_repository.py  # Event CRUD with psycopg_pool
 ├── runtime/                    # Channel processing runtime
 │   ├── channel_runtime.py      # ChannelProcessor, ChannelContext, ChannelMetrics
@@ -132,7 +132,7 @@ ANPR-System-v0.8_web/
 **`database/`:**
 - Purpose: PostgreSQL data access layer
 - Contains: Event repository, plate lists repository, schema SQL, error types
-- Key files: `postgres_event_repository.py`, `plate_lists_repository.py`, `postgres/schema.sql`
+- Key files: `postgres_event_repository.py`, `lists_repository.py`, `postgres/schema.sql`
 
 **`runtime/`:**
 - Purpose: Video processing runtime, event delivery, debug infrastructure
@@ -171,7 +171,7 @@ ANPR-System-v0.8_web/
 
 **Database:**
 - `database/postgres_event_repository.py`: PostgresEventDatabase
-- `database/plate_lists_repository.py`: ListDatabase
+- `database/lists_repository.py`: ListDatabase
 - `database/postgres/schema.sql`: PostgreSQL schema DDL
 - `database/errors.py`: StorageUnavailableError
 

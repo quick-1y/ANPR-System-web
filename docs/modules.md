@@ -14,7 +14,7 @@
 | `app/api/routers/channels.py` | CRUD каналов, start/stop/restart, snapshot, MJPEG, health |
 | `app/api/routers/events.py` | Журнал событий, детали, медиа, SSE-поток |
 | `app/api/routers/controllers.py` | CRUD аппаратных контроллеров, тест реле |
-| `app/api/routers/lists.py` | Управление plate lists и записями |
+| `app/api/routers/lists.py` | Управление списками и клиентами |
 | `app/api/routers/settings.py` | Глобальные настройки и логика перезапуска pipeline при изменении параметров |
 | `app/api/routers/data.py` | Retention policy, ручной запуск, экспорт, backup / restore |
 | `app/api/routers/system.py` | Health check, CPU/RAM, статус БД, Web UI |
@@ -63,7 +63,7 @@
 | Файл / директория | Ответственность |
 |---|---|
 | `database/postgres_event_repository.py` | `PostgresEventDatabase`: insert, pagination, fetch, delete, export |
-| `database/plate_lists_repository.py` | `ListDatabase`: CRUD для plate lists и entries, проверка вхождения номера |
+| `database/lists_repository.py` | `ListDatabase`: CRUD для списков и клиентов, проверка вхождения номера |
 | `database/postgres/schema.sql` | SQL-схема инициализации PostgreSQL |
 | `database/errors.py` | Ошибки слоя хранения, включая `StorageUnavailableError` |
 

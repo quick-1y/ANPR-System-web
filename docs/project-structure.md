@@ -52,7 +52,7 @@ ANPR-System-v0.8_web/
 │   ├── postgres/
 │   │   └── schema.sql
 │   ├── errors.py
-│   ├── plate_lists_repository.py
+│   ├── lists_repository.py
 │   └── postgres_event_repository.py
 ├── nginx/                         # Конфиг reverse proxy
 │   └── default.conf
@@ -93,7 +93,7 @@ ANPR-System-v0.8_web/
 Центральная точка управления настройками, их нормализацией, миграцией и сохранением.
 
 ### `database/`
-Слой доступа к данным: события, списки номеров, SQL-схема PostgreSQL.
+Слой доступа к данным: события, списки и клиенты (номера), SQL-схема PostgreSQL.
 
 ### `controllers/`
 Интеграция с внешними аппаратными контроллерами реле и шлагбаумов.

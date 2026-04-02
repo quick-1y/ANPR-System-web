@@ -5,7 +5,7 @@ import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, app
 import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
 import { loadJournal, initJournalScroll } from './journal.js';
-import { loadLists, loadEntries, refreshPlateLookup, exportCurrentListCSV, importCurrentListCSV, getEditingEntryId, setEditingEntryId } from './lists.js';
+import { loadLists, loadEntries, refreshPlateLookup, exportCurrentListCSV, importCurrentListCSV, getEditingEntryId, setEditingEntryId, getDeletingEntryId, setDeletingEntryId } from './lists.js';
 import { loadGlobalSettings, saveGeneral } from './settings.js';
 import { loadControllers, createController, _doCreateController, deleteController, _doDeleteController, saveController, testController } from './controllers.js';
 import { applyDebugPanelVisibility, loadDebugLogHistory, setupDebugLogStream, setupStream } from './debug.js';
@@ -135,6 +135,19 @@ document.getElementById("addEntryConfirm").onclick = async () => {
   renderEventFeed(true);
 };
 document.getElementById("addEntryModal").onclick = (e) => { if (e.target.id === "addEntryModal") { setEditingEntryId(null); closeModal("addEntryModal"); } };
+
+// --- Delete entry ---
+document.getElementById("deleteEntryCancel").onclick = () => { setDeletingEntryId(null); closeModal("deleteEntryModal"); };
+document.getElementById("deleteEntryConfirm").onclick = async () => {
+  const entryId = getDeletingEntryId();
+  if (!entryId || !state.selectedListId) return;
+  const { jfetch } = await import('./api.js');
+  await jfetch(api(`/api/lists/${state.selectedListId}/entries/${entryId}`), "DELETE");
+  setDeletingEntryId(null);
+  closeModal("deleteEntryModal");
+  await loadLists();
+};
+document.getElementById("deleteEntryModal").onclick = (e) => { if (e.target.id === "deleteEntryModal") { setDeletingEntryId(null); closeModal("deleteEntryModal"); } };
 
 // --- Export/Import ---
 document.getElementById("exportListBtn").onclick = exportCurrentListCSV;

@@ -184,7 +184,7 @@ ANPR-System-v0.8_web/
 │   ├── postgres/               # PostgreSQL-specific files
 │   │   └── schema.sql          # Database schema DDL
 │   ├── errors.py               # StorageUnavailableError
-│   ├── plate_lists_repository.py  # Plate lists CRUD
+│   ├── lists_repository.py        # Lists and clients CRUD
 │   └── postgres_event_repository.py  # Event CRUD with psycopg_pool
 ├── runtime/                    # Channel processing runtime
 │   ├── channel_runtime.py      # ChannelProcessor, ChannelContext, ChannelMetrics

@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 from fastapi import HTTPException
 
-from database.plate_lists_repository import ListDatabase
+from database.lists_repository import ListDatabase
 from config.settings_manager import SettingsManager
 from database.postgres_event_repository import PostgresEventDatabase
 from database.errors import StorageUnavailableError

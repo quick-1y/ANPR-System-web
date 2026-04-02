@@ -6,7 +6,7 @@
 
 **Broad Exception Handling:**
 - Issue: Multiple catch-all `except Exception` blocks throughout the codebase suppress specific errors, making debugging harder and preventing targeted recovery
-- Files: `database/postgres_event_repository.py` (lines 72, 107, 121, 165, 179, 194, 213, 256), `database/plate_lists_repository.py` (lines 70, 156), `anpr/detection/yolo_detector.py` (lines 55, 171, 232), `runtime/channel_runtime.py` (lines 268, 601), `controllers/service.py` (lines 105, 210), `common/logging.py` (lines 51, 88, 169, 173), `app/api/container.py` (line 139), `app/api/routers/settings.py` (line 68)
+- Files: `database/postgres_event_repository.py` (lines 72, 107, 121, 165, 179, 194, 213, 256), `database/lists_repository.py` (lines 70, 156), `anpr/detection/yolo_detector.py` (lines 55, 171, 232), `runtime/channel_runtime.py` (lines 268, 601), `controllers/service.py` (lines 105, 210), `common/logging.py` (lines 51, 88, 169, 173), `app/api/container.py` (line 139), `app/api/routers/settings.py` (line 68)
 - Impact: Network failures, permission issues, and data corruption are treated identically. Database repository methods wrap all exceptions into `StorageUnavailableError`, losing granularity (connection timeout vs constraint violation vs encoding error). The YOLO detector silently falls back to CPU or disables tracking on any exception, not just CUDA/NMS errors
 - Fix approach: Replace broad catches with specific exception types (`psycopg.OperationalError`, `psycopg.IntegrityError`, `torch.cuda.CudaError`, etc.). Keep broad catch only at top-level channel loop in `_run_channel` where it acts as a crash guard
 
@@ -30,7 +30,7 @@
 
 **Duplicate Connection Pools:**
 - Issue: `PostgresEventDatabase` and `ListDatabase` each create their own independent `ConnectionPool` (min_size=2, max_size=10) with the same DSN. Additionally, `refresh_storage_clients()` in `app/api/container.py` creates entirely new instances without closing old pools
-- Files: `database/postgres_event_repository.py` (line 51), `database/plate_lists_repository.py` (line 35), `app/api/container.py` (lines 187-190)
+- Files: `database/postgres_event_repository.py` (line 51), `database/lists_repository.py` (line 35), `app/api/container.py` (lines 187-190)
 - Impact: Up to 20 connections consumed (2 pools x max 10) under normal operation. When `refresh_storage_clients()` is called, old pool instances are orphaned without explicit `close()`, potentially leaking connections until garbage collected
 - Fix approach: Share a single `ConnectionPool` between both repositories. Explicitly close old pools in `refresh_storage_clients()` before creating new ones
 
@@ -150,7 +150,7 @@
 **psycopg / psycopg_pool:**
 - Risk: Lazy import (`from psycopg_pool import ConnectionPool`) means import errors surface at runtime, not at startup
 - Impact: If psycopg_pool is not installed, the application starts successfully but crashes on first database operation
-- Files: `database/postgres_event_repository.py` (line 49), `database/plate_lists_repository.py` (line 33)
+- Files: `database/postgres_event_repository.py` (line 49), `database/lists_repository.py` (line 33)
 - Migration plan: Import at module level or add an explicit startup check
 
 ## Missing Critical Features
@@ -181,7 +181,7 @@
 
 **No Database Repository Tests:**
 - What's not tested: `PostgresEventDatabase` and `ListDatabase` query logic, schema bootstrap, connection pool lifecycle
-- Files: `database/postgres_event_repository.py`, `database/plate_lists_repository.py`
+- Files: `database/postgres_event_repository.py`, `database/lists_repository.py`
 - Risk: SQL query changes (especially in `fetch_journal_page` with dynamic WHERE clauses) cannot be verified without running against a real database
 - Priority: High
 

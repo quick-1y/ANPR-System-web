@@ -6,6 +6,7 @@ import { renderCustomListOptions } from './channels.js';
 import { renderEventFeed } from './events.js';
 
 let editingEntryId = null;
+let deletingEntryId = null;
 let currentChannelCustomListIds_ref = [];
 
 export function setCurrentChannelCustomListIds(v) { currentChannelCustomListIds_ref = v; }
@@ -81,10 +82,17 @@ export async function loadEntries(listId) {
     let info = {};
     try { info = JSON.parse(r.comment || "{}"); } catch (_e) {}
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td class='plate-cell'>${r.plate}</td><td>${info.first_name || ""}</td><td>${info.last_name || ""}</td><td>${info.patronymic || ""}</td><td>${info.phone || ""}</td><td>${info.car_make || ""}</td><td class="col-actions"><button class="entry-edit-btn">Изменить</button></td>`;
+    tr.innerHTML = `<td class='plate-cell'>${r.plate}</td><td>${info.first_name || ""}</td><td>${info.last_name || ""}</td><td>${info.patronymic || ""}</td><td>${info.phone || ""}</td><td>${info.car_make || ""}</td><td class="col-actions"><button class="entry-edit-btn">Изменить</button> <button class="entry-delete-btn">Удалить</button></td>`;
     tr.querySelector(".entry-edit-btn").onclick = () => openEditEntryModal(r);
+    tr.querySelector(".entry-delete-btn").onclick = () => openDeleteEntryModal(r);
     body.appendChild(tr);
   });
+}
+
+export function openDeleteEntryModal(entry) {
+  deletingEntryId = entry.id;
+  document.getElementById("deleteEntryPlateLabel").textContent = entry.plate;
+  openModal("deleteEntryModal");
 }
 
 export function openEditEntryModal(entry) {
@@ -194,3 +202,5 @@ export async function importCurrentListCSV(file) {
 // Expose for DOM bindings
 export function getEditingEntryId() { return editingEntryId; }
 export function setEditingEntryId(v) { editingEntryId = v; }
+export function getDeletingEntryId() { return deletingEntryId; }
+export function setDeletingEntryId(v) { deletingEntryId = v; }
