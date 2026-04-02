@@ -55,7 +55,8 @@
       "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/poetry.exe\" run:*)",
       "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/poetry.exe\" add:*)",
       "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/pytest.exe\" tests/test_lists_repository.py -v)",
-      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/pytest.exe\" tests/ -v --ignore=tests/test_lists_repository.py)"
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/pytest.exe\" tests/ -v --ignore=tests/test_lists_repository.py)",
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/pytest.exe\" tests/ -q)"
     ]
   }
 }

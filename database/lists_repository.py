@@ -12,9 +12,30 @@ LIST_TYPES = OrderedDict([
     ("black", "Черный список"),
 ])
 
+# Visually-equivalent Cyrillic plate characters → Latin counterparts.
+# Only the 13 characters that appear on Russian plates and have an
+# identical-looking Latin glyph are translated.  All other characters
+# (including non-plate Cyrillic such as Б, Г, Д …) are left as-is so
+# the function is predictable and safe for arbitrary input.
+#
+# Source order: А  В  Е  К  М  Н  О  Р  С  Т  У  Х  Ё
+# Target order: A  B  E  K  M  H  O  P  C  T  Y  X  E  (all Latin)
+_CYRILLIC_TO_LATIN = str.maketrans("АВЕКМНОРСТУХЁ", "ABEKMHOPCTYXE")
+
 
 def normalize_plate(value: str) -> str:
-    return "".join(str(value or "").upper().split())
+    """Return the canonical Latin form of a plate string.
+
+    Steps:
+      1. Remove all whitespace and uppercase.
+      2. Translate visually-equivalent Cyrillic plate letters to Latin.
+
+    The result is stored in ``clients.plate_normalized`` and used for
+    all matching / uniqueness checks.  The original user-entered value
+    is stored in ``clients.plate`` and shown in the UI unchanged.
+    """
+    upper = "".join(str(value or "").upper().split())
+    return upper.translate(_CYRILLIC_TO_LATIN)
 
 
 class ListDatabase(PooledDatabase):
