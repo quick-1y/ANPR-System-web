@@ -79,6 +79,10 @@
             </div>
             <input id="apiBase" type="hidden" value="" />
             <button class="icon-btn" id="themeToggleBtn" title="Тема">◐</button>
+            <div class="topbar-user-pill" id="topbarUserPill">
+              <span class="topbar-user-login" id="topbarUserLogin"></span>
+              <button class="icon-btn topbar-logout-btn" id="logoutBtn" title="Выход">⏏</button>
+            </div>
           </div>
         </div>
         <div class="content">
@@ -1276,13 +1280,14 @@
       </div>
     </div>
 
-    <!-- Auth overlay — shown when API_KEY is required and not yet entered -->
-    <div id="auth-overlay">
+    <!-- Login overlay — shown when user is not authenticated -->
+    <div id="login-overlay">
       <div class="auth-card">
-        <div class="auth-title">Введите API-ключ</div>
-        <input id="auth-key-input" type="password" class="auth-input" placeholder="API ключ" autocomplete="current-password" />
-        <div id="auth-error" class="auth-error"></div>
-        <button id="auth-submit" class="auth-btn">Войти</button>
+        <div class="auth-title">Вход в систему</div>
+        <input id="login-input" type="text" class="auth-input" placeholder="Логин" autocomplete="username" />
+        <input id="login-password" type="password" class="auth-input login-password-input" placeholder="Пароль" autocomplete="current-password" />
+        <div id="login-error" class="auth-error"></div>
+        <button id="login-submit" class="auth-btn">Войти</button>
       </div>
     </div>
     <script type="module" src="/web/js/app.js"></script>

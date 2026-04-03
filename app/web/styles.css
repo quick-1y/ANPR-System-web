@@ -1026,13 +1026,14 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
 .btn-sm { height: 28px !important; padding: 0 12px !important; font-size: 11px !important; }
 .lists-data-wrap { margin: 12px; border-radius: var(--radius); overflow: hidden; }
 
-/* ─── Auth overlay (design-system integrated) ──────── */
-#auth-overlay {
+/* ─── Login overlay (design-system integrated) ─────── */
+#login-overlay {
   display: none; position: fixed; inset: 0;
   background: rgba(0,0,0,0.78); backdrop-filter: blur(5px);
   z-index: 9999; align-items: center; justify-content: center;
 }
-#auth-overlay.active { display: flex; }
+#login-overlay.active { display: flex; }
+.login-password-input { margin-top: 2px; }
 .auth-card {
   background: var(--surface); border: 1px solid var(--border2);
   border-radius: var(--radius-lg); padding: 28px 24px;
@@ -1067,6 +1068,17 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
 }
 .auth-btn:hover { box-shadow: 0 3px 16px rgba(232,168,56,0.32); transform: translateY(-1px); }
 .auth-btn:active { transform: translateY(0); }
+.auth-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+/* ─── Topbar user pill ─────────────────────────────── */
+.topbar-user-pill {
+  display: none; align-items: center; gap: 4px; padding: 2px 4px 2px 9px;
+  border: 1px solid var(--border); border-radius: 99px;
+  font-size: 11px; font-family: var(--mono); color: var(--text2);
+  background: var(--field);
+}
+.topbar-user-login { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-logout-btn { width: 24px; height: 24px; border-radius: 99px; font-size: 11px; }
 
 /* ─── General settings: narrower cards ─────────────── */
 #sp-general .s-card { max-width: 560px; }

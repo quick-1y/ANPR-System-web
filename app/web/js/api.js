@@ -1,55 +1,100 @@
-// API layer — fetch wrapper, auth helpers
+// API layer — fetch wrapper, JWT auth helpers
 
-const AUTH_KEY_STORAGE = "anpr_api_key";
+const TOKEN_STORAGE = "anpr_token";
 
 export function api(path) {
   return `${document.getElementById("apiBase").value.trim()}${path}`;
 }
 
-export function getApiKey() { return localStorage.getItem(AUTH_KEY_STORAGE) || ""; }
-export function setApiKey(k) { if (k) localStorage.setItem(AUTH_KEY_STORAGE, k); else localStorage.removeItem(AUTH_KEY_STORAGE); }
+export function getToken() { return localStorage.getItem(TOKEN_STORAGE) || ""; }
+export function setToken(t) { if (t) localStorage.setItem(TOKEN_STORAGE, t); else localStorage.removeItem(TOKEN_STORAGE); }
 
-/** Append ?api_key=<key> when a key is configured (for EventSource / MJPEG URLs). */
+/** Append ?token=<jwt> when a token is configured (for EventSource / MJPEG URLs). */
 export function apiUrl(path) {
-  const k = getApiKey();
-  return k ? `${api(path)}${path.includes("?") ? "&" : "?"}api_key=${encodeURIComponent(k)}` : api(path);
+  const t = getToken();
+  return t ? `${api(path)}${path.includes("?") ? "&" : "?"}token=${encodeURIComponent(t)}` : api(path);
 }
 
-export function showAuthOverlay(onSuccess) {
-  const overlay = document.getElementById("auth-overlay");
+export async function loginRequest(loginStr, password) {
+  const r = await fetch(api("/api/auth/login"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ login: loginStr, password }),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || "Неверный логин или пароль");
+  }
+  return r.json();
+}
+
+export async function getCurrentUser() {
+  const t = getToken();
+  const r = await fetch(api("/api/auth/me"), {
+    headers: t ? { "Authorization": `Bearer ${t}` } : {},
+  });
+  if (!r.ok) throw new Error("Не авторизован");
+  return r.json();
+}
+
+export function showLoginOverlay(onSuccess) {
+  const overlay = document.getElementById("login-overlay");
   if (!overlay) return;
   overlay.classList.add("active");
-  const btn = document.getElementById("auth-submit");
-  const inp = document.getElementById("auth-key-input");
-  const err = document.getElementById("auth-error");
+  const btn = document.getElementById("login-submit");
+  const loginInp = document.getElementById("login-input");
+  const passInp = document.getElementById("login-password");
+  const err = document.getElementById("login-error");
   if (err) err.textContent = "";
+  if (loginInp) loginInp.value = "";
+  if (passInp) passInp.value = "";
+
   const handler = async () => {
-    const key = (inp ? inp.value : "").trim();
-    if (!key) return;
+    const loginVal = (loginInp ? loginInp.value : "").trim();
+    const passVal = passInp ? passInp.value : "";
+    if (!loginVal || !passVal) {
+      if (err) err.textContent = "Введите логин и пароль";
+      return;
+    }
+    if (btn) btn.disabled = true;
+    if (err) err.textContent = "";
     try {
-      const r = await fetch(api("/api/health"), { headers: { "X-Api-Key": key } });
-      if (r.ok) {
-        setApiKey(key);
-        overlay.classList.remove("active");
-        if (btn) btn.removeEventListener("click", handler);
-        if (onSuccess) onSuccess();
-      } else {
-        if (err) err.textContent = "Неверный ключ";
-      }
-    } catch {
-      if (err) err.textContent = "Ошибка соединения";
+      const data = await loginRequest(loginVal, passVal);
+      setToken(data.access_token);
+      overlay.classList.remove("active");
+      cleanup();
+      if (onSuccess) onSuccess(data.user);
+    } catch (e) {
+      if (err) err.textContent = e.message || "Ошибка входа";
+    } finally {
+      if (btn) btn.disabled = false;
     }
   };
-  if (btn) { btn.removeEventListener("click", handler); btn.addEventListener("click", handler); }
+
+  const keyHandler = (e) => { if (e.key === "Enter") handler(); };
+
+  function cleanup() {
+    if (btn) btn.removeEventListener("click", handler);
+    if (loginInp) loginInp.removeEventListener("keydown", keyHandler);
+    if (passInp) passInp.removeEventListener("keydown", keyHandler);
+  }
+
+  cleanup();
+  if (btn) btn.addEventListener("click", handler);
+  if (loginInp) loginInp.addEventListener("keydown", keyHandler);
+  if (passInp) passInp.addEventListener("keydown", keyHandler);
+
+  setTimeout(() => { if (loginInp) loginInp.focus(); }, 50);
 }
 
 export async function jfetch(url, method = "GET", body = null) {
   const headers = { "Content-Type": "application/json" };
-  const k = getApiKey();
-  if (k) headers["X-Api-Key"] = k;
+  const t = getToken();
+  if (t) headers["Authorization"] = `Bearer ${t}`;
   const r = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : null });
   if (r.status === 401) {
-    showAuthOverlay(() => jfetch(url, method, body));
+    setToken(null);
+    showLoginOverlay(() => { location.reload(); });
     throw new Error("Требуется аутентификация");
   }
   if (!r.ok) throw new Error(await r.text());

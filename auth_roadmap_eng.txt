@@ -505,13 +505,36 @@
     the completed Phase 2 implementation. .env.example updated with JWT_SECRET_KEY and
     JWT_EXPIRATION_MINUTES variables.
 
-  Phase 3: Frontend Login Integration
+  Phase 3: Frontend Login Integration  ✅ COMPLETED
 
   - Replace API-key overlay with login form.
   - Store JWT in localStorage.
   - Update jfetch() and apiUrl() to use Bearer token.
   - Add logout button and flow.
   - Fetch and store current user on startup.
+
+  Implementation notes (Phase 3):
+  - app/web/index.html: replaced #auth-overlay (API-key prompt) with #login-overlay containing
+    login + password inputs, error area, and "Войти" button. Added topbar-user-pill with
+    username display and logout button (⏏) in the topbar-right area.
+  - app/web/styles.css: renamed overlay CSS from #auth-overlay to #login-overlay; added
+    .topbar-user-pill styles (hidden by default, shown after auth).
+  - app/web/js/api.js: rewritten — localStorage key changed from anpr_api_key to anpr_token;
+    getToken/setToken replace getApiKey/setApiKey; jfetch() sends Authorization: Bearer;
+    apiUrl() appends ?token=; showLoginOverlay() replaces showAuthOverlay() and handles the
+    full login form flow (call loginRequest(), store token, invoke onSuccess(user));
+    loginRequest() and getCurrentUser() added as explicit async helpers.
+  - app/web/js/state.js: state.currentUser added; setCurrentUser(), isAdmin(),
+    hasPermission(key) exported for use by all modules.
+  - app/web/js/app.js: init() now checks getToken() on startup, calls getCurrentUser() to
+    validate, shows login overlay on missing/expired token; on success stores user in state
+    and calls _applyUserUI() to display username + activate the logout button; logout handler
+    calls setToken(null) + location.reload().
+  - app/web/js/backup.js: updated to use getToken/showLoginOverlay and Bearer headers.
+  - 5 Phase 3 contract tests added to tests/test_auth_router.py (TestLoginResponseContract,
+    TestMeResponseContract) — all passing.
+  - README.md updated with "Web UI — вход и выход" section.
+  - docs/modules.md updated with individual frontend module entries.
 
   Phase 4: Permission-Based UI Visibility
 
@@ -646,7 +669,7 @@
   - Parallel: After T2.5.
 
   ---
-  Phase 3 Tasks
+  Phase 3 Tasks  ✅ ALL COMPLETED
 
   ---
   T3.1 — Create login screen HTML

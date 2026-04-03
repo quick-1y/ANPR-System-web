@@ -64,7 +64,17 @@
       "Bash(\"C:/Users/User/AppData/Local/pypoetry/Cache/virtualenvs/anpr-system-wAD8mgqr-py3.13/Scripts/python.exe\" -m pytest tests/test_user_repository.py -v)",
       "Bash(C:/Users/User/AppData/Local/pypoetry/Cache/virtualenvs/anpr-system-wAD8mgqr-py3.13/Scripts/python.exe:*)",
       "Bash(python -m pytest tests/test_auth_utils.py -v)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(python -m pytest tests/test_auth_utils.py tests/test_auth_deps.py tests/test_auth_router.py tests/test_user_repository.py -v --tb=short)",
+      "Bash(python -m pytest tests/test_auth_router.py -v --tb=short)",
+      "Bash(python -m pytest --tb=short)",
+      "Bash(python -c ':*)",
+      "Bash(grep -n \"getCurrentUser\\\\|showLoginOverlay\\\\|getApiKey\\\\|showAuthOverlay\\\\|anpr_api_key\\\\|X-Api-Key\" app/web/js/*.js)",
+      "Bash(node --check app/web/js/api.js)",
+      "Bash(node --check app/web/js/app.js)",
+      "Bash(node --check app/web/js/state.js)",
+      "Bash(node --check app/web/js/backup.js)",
+      "Bash(node --check app/web/js/api.js app/web/js/app.js app/web/js/state.js app/web/js/backup.js)"
     ]
   }
 }

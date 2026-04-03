@@ -135,3 +135,54 @@ class TestAvailablePermissions:
         assert result == AVAILABLE_PERMISSIONS
         assert "tab:obs" in result
         assert "tab:settings" in result
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Frontend contract validation
+# These tests verify the exact response structure the JS frontend relies on.
+# ---------------------------------------------------------------------------
+
+class TestLoginResponseContract:
+    """Verify that POST /api/auth/login returns the shape the frontend requires.
+
+    The frontend (api.js) destructures: { access_token, user }
+    and stores user in state.currentUser = { id, login, role, permissions }.
+    """
+
+    def test_login_response_has_access_token(self):
+        user = _make_user(password="secret")
+        result = login(LoginRequest(login="admin", password="secret"), _make_container(user=user))
+        assert isinstance(result.access_token, str)
+        assert len(result.access_token) > 0
+
+    def test_login_response_user_has_required_frontend_fields(self):
+        user = _make_user(user_id=42, login="op1", role="operator",
+                          permissions=["tab:obs", "tab:journal"], password="pw")
+        result = login(LoginRequest(login="op1", password="pw"), _make_container(user=user))
+        u = result.user
+        assert u.id == 42
+        assert u.login == "op1"
+        assert u.role == "operator"
+        assert u.permissions == ["tab:obs", "tab:journal"]
+
+    def test_login_response_admin_has_empty_permissions_array(self):
+        """Admin permissions array is empty by convention; admin access is implied by role."""
+        user = _make_user(role="admin", permissions=[], password="pw")
+        result = login(LoginRequest(login="admin", password="pw"), _make_container(user=user))
+        assert result.user.permissions == []
+        assert result.user.role == "admin"
+
+
+class TestMeResponseContract:
+    """Verify that GET /api/auth/me returns the shape the frontend requires on startup."""
+
+    def test_me_returns_is_active(self):
+        user = _make_user(is_active=True)
+        result = me(current_user=user)
+        assert result.is_active is True
+
+    def test_me_returns_permissions_list(self):
+        user = _make_user(role="operator", permissions=["tab:obs", "tab:lists"])
+        result = me(current_user=user)
+        assert "tab:obs" in result.permissions
+        assert "tab:lists" in result.permissions

@@ -23,7 +23,12 @@
 | `app/api/routers/debug.py` | Debug-настройки, overlay state, лог-панель SSE |
 | `app/worker/main.py` | `RetentionScheduler`: async цикл retention; отдельный FastAPI-сервис |
 | `app/shared/data_lifecycle.py` | `DataLifecycleService`: cleanup событий/медиа, контроль размера, CSV/ZIP export |
-| `app/web/` | Статика web UI: HTML, JS, CSS, иконки, изображения, флаги |
+| `app/web/index.html` | Единственная HTML-страница SPA; включает `#login-overlay` для аутентификации и кнопку «Выход» в topbar |
+| `app/web/js/api.js` | HTTP-слой: `getToken/setToken` (JWT в `localStorage`), `jfetch()` (Bearer), `apiUrl()` (?token=), `loginRequest()`, `getCurrentUser()`, `showLoginOverlay()` |
+| `app/web/js/state.js` | Глобальное состояние SPA; `state.currentUser`, `setCurrentUser()`, `isAdmin()`, `hasPermission(key)` |
+| `app/web/js/app.js` | Точка входа: проверка JWT при старте, показ login overlay, инициализация после аутентификации, logout |
+| `app/web/js/backup.js` | Backup/restore с JWT Bearer-заголовками |
+| `app/web/` | Прочая статика web UI: JS-модули, CSS, иконки, изображения, флаги |
 
 ## `runtime/` — выполнение каналов
 
@@ -91,7 +96,7 @@
 
 | Директория / файл | Назначение |
 |---|---|
-| `tests/` | Тесты ключевых компонентов: validator, motion detector, direction estimator, track aggregator, user repository, JWT utils, auth deps, auth router |
+| `tests/` | Тесты ключевых компонентов: validator, motion detector, direction estimator, track aggregator, user repository, JWT utils, auth deps, auth router (включая Phase 3 contract-тесты) |
 | `nginx/` | Конфигурация reverse proxy |
 | `.planning/codebase/` | Аналитические markdown-файлы по архитектуре, стеку, структуре, соглашениям и интеграциям |
 | `Dockerfile` | Сборка приложения |
