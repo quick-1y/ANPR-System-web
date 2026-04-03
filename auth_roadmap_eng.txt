@@ -500,6 +500,10 @@
   - Auth router registered in app/api/main.py.
   - 42 unit tests added across tests/test_auth_utils.py, tests/test_auth_deps.py,
     tests/test_auth_router.py (all passing).
+  - Documentation audit (2026-04-03): docs/modules.md, docs/technology-stack.md,
+    docs/project-structure.md, docs/endpoints.md, and README.md all updated to reflect
+    the completed Phase 2 implementation. .env.example updated with JWT_SECRET_KEY and
+    JWT_EXPIRATION_MINUTES variables.
 
   Phase 3: Frontend Login Integration
 
