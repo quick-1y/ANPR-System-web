@@ -1,7 +1,7 @@
 // Application entry point — initialization, DOM bindings, timers
 import { eventSource, debugLogSource, overlayRefreshTimer, eventFeedRenderFrame, eventFeedRenderScheduled, setEventFeedRenderScheduled, setEventFeedRenderFrame } from './state.js';
-import { api, getToken, setToken, getCurrentUser, showLoginOverlay } from './api.js';
-import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, loadBarColor, applyTabVisibility } from './ui.js';
+import { api, getToken, setToken, isTokenExpired, getCurrentUser, showLoginOverlay, logoutRequest } from './api.js';
+import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, loadBarColor, applyTabVisibility, showToast } from './ui.js';
 import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
 import { loadJournal, initJournalScroll } from './journal.js';
@@ -306,7 +306,8 @@ initBackupBindings();
 
   // --- Auth check ---
   const token = getToken();
-  if (!token) {
+  if (!token || isTokenExpired()) {
+    setToken(null);
     showLoginOverlay((user) => { setCurrentUser(user); _applyUserUI(user); location.reload(); });
     return;
   }
@@ -324,9 +325,22 @@ initBackupBindings();
   applyTabVisibility(currentUser.permissions || [], currentUser.role === "admin");
   initUsersPane();
 
+  // --- Default password warning (set by showLoginOverlay after successful login) ---
+  if (sessionStorage.getItem("anpr_warn_pwd")) {
+    sessionStorage.removeItem("anpr_warn_pwd");
+    showToast(
+      "Вы используете пароль по умолчанию. Рекомендуется сменить пароль в разделе Настройки → Пользователи.",
+      8000,
+    );
+  }
+
   // --- Logout button ---
   const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn) logoutBtn.onclick = () => { setToken(null); location.reload(); };
+  if (logoutBtn) logoutBtn.onclick = async () => {
+    await logoutRequest();
+    setToken(null);
+    location.reload();
+  };
 
   syncChannelConfigVisibility();
   syncControllerConfigVisibility();

@@ -46,7 +46,7 @@ class TestHashPassword:
 
 class TestRowToDict:
     def test_converts_tuple_to_dict(self):
-        row = (1, "admin", "$2b$hash", "admin", ["tab:obs"], True, "2024-01-01", "2024-01-01")
+        row = (1, "admin", "$2b$hash", "admin", ["tab:obs"], True, "2024-01-01", "2024-01-01", None)
         result = _row_to_dict(row)
         assert result["id"] == 1
         assert result["login"] == "admin"
@@ -54,14 +54,28 @@ class TestRowToDict:
         assert result["role"] == "admin"
         assert result["permissions"] == ["tab:obs"]
         assert result["is_active"] is True
+        assert result["password_changed_at"] is None
+
+    def test_includes_password_changed_at_when_set(self):
+        from datetime import datetime, timezone
+        changed_at = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        row = (1, "admin", "$2b$hash", "admin", [], True, "2024-01-01", "2024-01-01", changed_at)
+        result = _row_to_dict(row)
+        assert result["password_changed_at"] == changed_at
+
+    def test_password_changed_at_defaults_to_none_for_legacy_rows(self):
+        """8-element rows (pre-Phase 6) map password_changed_at to None."""
+        row = (1, "admin", "$2b$hash", "admin", ["tab:obs"], True, "2024-01-01", "2024-01-01")
+        result = _row_to_dict(row)
+        assert result["password_changed_at"] is None
 
     def test_parses_json_string_permissions(self):
-        row = (1, "op", "hash", "operator", '["tab:obs"]', True, "2024-01-01", "2024-01-01")
+        row = (1, "op", "hash", "operator", '["tab:obs"]', True, "2024-01-01", "2024-01-01", None)
         result = _row_to_dict(row)
         assert result["permissions"] == ["tab:obs"]
 
     def test_handles_none_permissions(self):
-        row = (1, "op", "hash", "operator", None, True, "2024-01-01", "2024-01-01")
+        row = (1, "op", "hash", "operator", None, True, "2024-01-01", "2024-01-01", None)
         result = _row_to_dict(row)
         assert result["permissions"] == []
 
@@ -271,6 +285,15 @@ class TestUpdatePassword:
         conn, cursor = _mock_conn(rowcount=0)
         with patch.object(db, "_connect", return_value=conn):
             assert db.update_password(999, "$2b$newhash") is False
+
+    def test_sets_password_changed_at(self):
+        """update_password SQL must include password_changed_at = now() (Phase 6)."""
+        db = _make_db()
+        conn, cursor = _mock_conn(rowcount=1)
+        with patch.object(db, "_connect", return_value=conn):
+            db.update_password(1, "$2b$newhash")
+        sql = cursor.execute.call_args[0][0]
+        assert "password_changed_at" in sql
 
 
 # ---------------------------------------------------------------------------

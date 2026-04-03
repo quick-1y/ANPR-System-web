@@ -9,6 +9,22 @@ export function api(path) {
 export function getToken() { return localStorage.getItem(TOKEN_STORAGE) || ""; }
 export function setToken(t) { if (t) localStorage.setItem(TOKEN_STORAGE, t); else localStorage.removeItem(TOKEN_STORAGE); }
 
+/**
+ * Check if the stored JWT is expired (decoded client-side, no network).
+ * Returns true when the token is missing, malformed, or past its exp claim.
+ */
+export function isTokenExpired() {
+  const token = getToken();
+  if (!token) return true;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    // exp is in seconds; Date.now() is in milliseconds
+    return Date.now() >= payload.exp * 1000;
+  } catch (_e) {
+    return true;
+  }
+}
+
 /** Append ?token=<jwt> when a token is configured (for EventSource / MJPEG URLs). */
 export function apiUrl(path) {
   const t = getToken();
@@ -37,6 +53,21 @@ export async function getCurrentUser() {
   return r.json();
 }
 
+/** Notify the server about logout (best-effort, for audit logging). */
+export async function logoutRequest() {
+  const t = getToken();
+  try {
+    await fetch(api("/api/auth/logout"), {
+      method: "POST",
+      headers: t
+        ? { "Authorization": `Bearer ${t}`, "Content-Type": "application/json" }
+        : { "Content-Type": "application/json" },
+    });
+  } catch (_e) {
+    // Ignore errors — client-side cleanup proceeds regardless
+  }
+}
+
 export function showLoginOverlay(onSuccess) {
   const overlay = document.getElementById("login-overlay");
   if (!overlay) return;
@@ -61,6 +92,10 @@ export function showLoginOverlay(onSuccess) {
     try {
       const data = await loginRequest(loginVal, passVal);
       setToken(data.access_token);
+      // Store default-password warning flag for display after page reload
+      if (data.warn_default_password) {
+        sessionStorage.setItem("anpr_warn_pwd", "1");
+      }
       overlay.classList.remove("active");
       cleanup();
       if (onSuccess) onSuccess(data.user);
@@ -88,6 +123,12 @@ export function showLoginOverlay(onSuccess) {
 }
 
 export async function jfetch(url, method = "GET", body = null) {
+  // Pre-flight expiry check — avoids sending a request we know will fail
+  if (isTokenExpired()) {
+    setToken(null);
+    showLoginOverlay(() => { location.reload(); });
+    throw new Error("Токен авторизации истёк");
+  }
   const headers = { "Content-Type": "application/json" };
   const t = getToken();
   if (t) headers["Authorization"] = `Bearer ${t}`;

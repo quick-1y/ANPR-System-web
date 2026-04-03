@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-import secrets
 from typing import Any, Dict
 
 import jwt
@@ -14,10 +12,6 @@ from common.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Legacy API_KEY fallback — allows scripts/integrations that use the static key
-# to keep working alongside JWT auth.  Will be removed in a hardening phase.
-_API_KEY_FALLBACK = os.getenv("API_KEY", "").strip()
-
 
 def get_container(request: Request) -> AppContainer:
     return request.app.state.container
@@ -29,22 +23,7 @@ def get_current_user(request: Request, container: AppContainer = Depends(get_con
     Token is read from:
       1. ``Authorization: Bearer <token>`` header
       2. ``?token=<jwt>`` query parameter (for SSE / MJPEG streams)
-
-    Legacy fallback: if ``API_KEY`` env var is set and the request carries
-    that key via ``X-Api-Key`` header or ``?api_key=`` param, the default
-    admin user is returned.
     """
-    # Legacy API_KEY fallback
-    if _API_KEY_FALLBACK:
-        api_key = (
-            request.headers.get("X-Api-Key", "")
-            or request.query_params.get("api_key", "")
-        )
-        if api_key and secrets.compare_digest(api_key, _API_KEY_FALLBACK):
-            admin = container.user_db.find_by_login("admin")
-            if admin and admin.get("is_active"):
-                return admin
-
     token = _extract_token(request)
     if not token:
         raise HTTPException(status_code=401, detail="Не предоставлен токен авторизации")
