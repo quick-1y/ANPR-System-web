@@ -7,10 +7,12 @@
 | Файл / директория | Ответственность |
 |---|---|
 | `app/api/main.py` | FastAPI app, middleware, роутеры, lifecycle |
-| `app/api/auth.py` | `APIKeyMiddleware`: валидация ключа из заголовка / query param; исключения для health, SSE, preview |
+| `app/api/auth.py` | `APIKeyMiddleware`: устаревший fallback для статического API-ключа; JWT Bearer пропускается насквозь к dependency-слою |
+| `app/api/auth_utils.py` | JWT-утилиты: `hash_password()`, `verify_password()`, `create_access_token()`, `decode_access_token()` |
 | `app/api/container.py` | `AppContainer`: DI-контейнер всех сервисов; `build()`, `startup()`, `shutdown()` |
-| `app/api/deps.py` | FastAPI зависимости (`get_container()`) |
-| `app/api/schemas.py` | Pydantic-модели запросов и ответов |
+| `app/api/deps.py` | FastAPI зависимости: `get_container()`, `get_current_user()`, `require_role()`, `require_permission()` |
+| `app/api/schemas.py` | Pydantic-модели запросов и ответов (включая `LoginRequest`, `LoginResponse`, `UserOut`) |
+| `app/api/routers/auth.py` | Auth endpoints: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/permissions/available` |
 | `app/api/routers/channels.py` | CRUD каналов, start/stop/restart, snapshot, MJPEG, health |
 | `app/api/routers/events.py` | Журнал событий, детали, медиа, SSE-поток |
 | `app/api/routers/controllers.py` | CRUD аппаратных контроллеров, тест реле |
@@ -89,7 +91,7 @@
 
 | Директория / файл | Назначение |
 |---|---|
-| `tests/` | Тесты ключевых компонентов, включая validator, motion detector, direction estimator и track aggregator |
+| `tests/` | Тесты ключевых компонентов: validator, motion detector, direction estimator, track aggregator, user repository, JWT utils, auth deps, auth router |
 | `nginx/` | Конфигурация reverse proxy |
 | `.planning/codebase/` | Аналитические markdown-файлы по архитектуре, стеку, структуре, соглашениям и интеграциям |
 | `Dockerfile` | Сборка приложения |

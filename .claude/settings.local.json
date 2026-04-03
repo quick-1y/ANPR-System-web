@@ -62,7 +62,9 @@
       "Bash(\"C:/Users/User/AppData/Local/pypoetry/Cache/virtualenvs/anpr-system-wAD8mgqr-py3.13/Scripts/python.exe\" -m pytest tests/test_auth_utils.py tests/test_auth_deps.py tests/test_auth_router.py -v)",
       "Bash(\"C:/Users/User/AppData/Local/pypoetry/Cache/virtualenvs/anpr-system-wAD8mgqr-py3.13/Scripts/pip.exe\" install:*)",
       "Bash(\"C:/Users/User/AppData/Local/pypoetry/Cache/virtualenvs/anpr-system-wAD8mgqr-py3.13/Scripts/python.exe\" -m pytest tests/test_user_repository.py -v)",
-      "Bash(C:/Users/User/AppData/Local/pypoetry/Cache/virtualenvs/anpr-system-wAD8mgqr-py3.13/Scripts/python.exe:*)"
+      "Bash(C:/Users/User/AppData/Local/pypoetry/Cache/virtualenvs/anpr-system-wAD8mgqr-py3.13/Scripts/python.exe:*)",
+      "Bash(python -m pytest tests/test_auth_utils.py -v)",
+      "Bash(pip install:*)"
     ]
   }
 }
