@@ -233,6 +233,11 @@
             Контроллеры
           </div>
 
+          <div class="snav-item" id="snav-users" data-sp="users" style="display:none">
+            <img class="ui-icon ui-icon-sm" src="/web/assets/icons/users.svg" alt="" />
+            Пользователи
+          </div>
+
           <div class="snav-item" data-sp="sysdata">
             <img class="ui-icon ui-icon-sm" src="/web/assets/icons/sysdata.svg" alt="" />
             Системные данные
@@ -968,6 +973,94 @@
               </div>
             </div>
           </div>
+          <!-- Users management pane (admin only) -->
+          <div class="settings-pane" id="sp-users">
+            <div class="ch-layout">
+              <div class="ch-sidebar">
+                <div class="sidebar-toolbar compact-actions">
+                  <button class="icon-btn-sm" id="createUserBtn" title="Добавить пользователя">+</button>
+                </div>
+                <div class="ch-list" id="userItems"></div>
+              </div>
+
+              <!-- Create user form -->
+              <div class="ch-config-pane" id="userCreatePane" style="display:none">
+                <div class="s-card">
+                  <div class="s-card-header">Новый пользователь</div>
+                  <div class="s-card-body">
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Логин</div></div>
+                      <input class="s-input" id="newUserLogin" autocomplete="off" />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Пароль</div></div>
+                      <input class="s-input" type="password" id="newUserPassword" autocomplete="new-password" />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Подтверждение пароля</div></div>
+                      <input class="s-input" type="password" id="newUserPasswordConfirm" autocomplete="new-password" />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Роль</div></div>
+                      <select class="s-input" id="newUserRole">
+                        <option value="operator">Оператор</option>
+                        <option value="admin">Администратор</option>
+                      </select>
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Доступные вкладки</div></div>
+                      <div id="newUserPermissions" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 0"></div>
+                    </div>
+                  </div>
+                </div>
+                <div id="createUserError" style="color:var(--danger);font-size:12px;min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
+                <div class="form-actions">
+                  <button class="btn btn-ghost" id="cancelCreateUserBtn">Отмена</button>
+                  <button class="btn btn-primary" id="confirmCreateUserBtn">Создать</button>
+                </div>
+              </div>
+
+              <!-- Edit user form -->
+              <div class="ch-config-pane" id="userEditPane" style="display:none">
+                <div class="s-card">
+                  <div class="s-card-header">Параметры пользователя</div>
+                  <div class="s-card-body">
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Логин</div></div>
+                      <input class="s-input" id="editUserLogin" readonly style="opacity:0.6" />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Роль</div></div>
+                      <select class="s-input" id="editUserRole">
+                        <option value="operator">Оператор</option>
+                        <option value="admin">Администратор</option>
+                      </select>
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Доступные вкладки</div></div>
+                      <div id="editUserPermissions" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 0"></div>
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Активен</div></div>
+                      <input type="checkbox" id="editUserActive" />
+                    </div>
+                  </div>
+                </div>
+                <div id="editUserError" style="color:var(--danger);font-size:12px;min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
+                <div class="form-actions">
+                  <button class="btn btn-ghost" id="changeUserPasswordBtn">Сменить пароль</button>
+                  <div style="flex:1"></div>
+                  <button class="btn btn-primary" id="saveUserBtn">Сохранить</button>
+                </div>
+              </div>
+
+              <!-- Empty state -->
+              <div class="empty-pane" id="userConfigEmpty">
+                Выберите пользователя или нажмите «+» для создания нового.
+              </div>
+            </div>
+          </div>
+
           <div class="settings-pane" id="sp-debug">
             <div class="s-card">
               <div class="s-card-header">Настройки отладки</div>
@@ -1276,6 +1369,31 @@
         <div class="app-modal-footer">
           <button class="btn btn-ghost" id="settingsRestoreCancel">Отменить</button>
           <button class="btn btn-danger" id="settingsRestoreConfirm">Восстановить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Password Change Modal -->
+    <div class="app-modal" id="userPasswordModal">
+      <div class="app-modal-card app-modal-card-sm">
+        <div class="app-modal-head">
+          <span>Смена пароля</span>
+          <button class="btn btn-ghost btn-sm" id="userPasswordModalClose">✕</button>
+        </div>
+        <div class="app-modal-body">
+          <div class="modal-field">
+            <label class="modal-label">Новый пароль</label>
+            <input class="s-input" style="width:100%" type="password" id="userNewPassword" autocomplete="new-password" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Подтверждение пароля</label>
+            <input class="s-input" style="width:100%" type="password" id="userConfirmPassword" autocomplete="new-password" />
+          </div>
+          <div id="userPasswordError" class="modal-error"></div>
+        </div>
+        <div class="app-modal-footer">
+          <button class="btn btn-ghost" id="userPasswordCancel">Отмена</button>
+          <button class="btn btn-primary" id="userPasswordConfirm">Сохранить</button>
         </div>
       </div>
     </div>

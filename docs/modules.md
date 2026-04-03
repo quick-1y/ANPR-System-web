@@ -11,8 +11,9 @@
 | `app/api/auth_utils.py` | JWT-утилиты: `hash_password()`, `verify_password()`, `create_access_token()`, `decode_access_token()` |
 | `app/api/container.py` | `AppContainer`: DI-контейнер всех сервисов; `build()`, `startup()`, `shutdown()` |
 | `app/api/deps.py` | FastAPI зависимости: `get_container()`, `get_current_user()`, `require_role()`, `require_permission()` |
-| `app/api/schemas.py` | Pydantic-модели запросов и ответов (включая `LoginRequest`, `LoginResponse`, `UserOut`) |
+| `app/api/schemas.py` | Pydantic-модели запросов и ответов (включая `LoginRequest`, `LoginResponse`, `UserOut`, `UserCreate`, `UserUpdate`, `UserPasswordChange`) |
 | `app/api/routers/auth.py` | Auth endpoints: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/permissions/available` (admin-only, возвращает `{key,label,group}`) |
+| `app/api/routers/users.py` | User management (admin-only): list, create, get, update, change password, deactivate |
 | `app/api/routers/channels.py` | CRUD каналов, start/stop/restart, snapshot, MJPEG, health — авторизованный |
 | `app/api/routers/events.py` | Журнал событий, детали, медиа, SSE-поток — авторизованный |
 | `app/api/routers/controllers.py` | CRUD аппаратных контроллеров, тест реле — **только Admin** |
@@ -26,7 +27,8 @@
 | `app/web/index.html` | Единственная HTML-страница SPA; включает `#login-overlay` для аутентификации и кнопку «Выход» в topbar |
 | `app/web/js/api.js` | HTTP-слой: `getToken/setToken` (JWT в `localStorage`), `jfetch()` (Bearer), `apiUrl()` (?token=), `loginRequest()`, `getCurrentUser()`, `showLoginOverlay()` |
 | `app/web/js/state.js` | Глобальное состояние SPA; `state.currentUser`, `setCurrentUser()`, `isAdmin()`, `hasPermission(key)` — используется `app.js` для передачи данных в `applyTabVisibility()` |
-| `app/web/js/app.js` | Точка входа: проверка JWT при старте, показ login overlay, инициализация после аутентификации, `applyTabVisibility()` после получения пользователя, logout |
+| `app/web/js/app.js` | Точка входа: проверка JWT при старте, показ login overlay, инициализация после аутентификации, `applyTabVisibility()` после получения пользователя, logout; вызывает `initUsersPane()` для admin |
+| `app/web/js/users.js` | Управление пользователями (Settings → Пользователи, admin-only): список, создание, редактирование, смена пароля, деактивация |
 | `app/web/js/backup.js` | Backup/restore с JWT Bearer-заголовками |
 | `app/web/` | Прочая статика web UI: JS-модули, CSS, иконки, изображения, флаги |
 

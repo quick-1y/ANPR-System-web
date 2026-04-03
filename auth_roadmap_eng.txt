@@ -567,12 +567,35 @@
   - docs/endpoints.md, docs/modules.md: access levels documented (авторизованный /
     только Admin) for all affected endpoints and modules.
 
-  Phase 5: User Management UI
+  Phase 5: User Management UI  ✅ COMPLETED
 
   - Create app/api/routers/users.py with CRUD endpoints.
   - Create app/web/js/users.js module.
   - Add "Пользователи" section in Settings.
   - Implement: list, create, edit role, change password, toggle active, configure permissions.
+
+  Implementation notes (Phase 5):
+  - app/api/schemas.py: added UserCreate (login, password, role, permissions + validators),
+    UserUpdate (role, permissions, is_active), UserPasswordChange (new_password, min 4 chars).
+  - app/api/routers/users.py created with endpoints:
+    GET  /api/users          — list all users (admin).
+    POST /api/users          — create user (admin); 409 on duplicate login.
+    GET  /api/users/{id}     — get user by ID (admin).
+    PUT  /api/users/{id}     — update role/permissions/is_active (admin); admin self-lock
+                               prevention: cannot deactivate self, cannot remove own admin
+                               role when last active admin.
+    PUT  /api/users/{id}/password — change password; admin can change any, operator only own.
+    DELETE /api/users/{id}   — deactivate user (soft-delete, admin); blocked for self.
+  - app/api/main.py: users_router imported and registered.
+  - app/web/assets/icons/users.svg: new user group icon.
+  - app/web/index.html: added "Пользователи" snav-item (hidden by default, shown by
+    initUsersPane() when admin); added sp-users pane (ch-layout with user list sidebar,
+    create form, edit form, empty state); added #userPasswordModal for password change.
+  - app/web/js/users.js: new module — initUsersPane(), loadUsers(); user list rendering;
+    create/edit/password-change flows; admin self-lock messages surfaced in UI.
+  - app/web/js/app.js: imports initUsersPane from users.js; calls it after applyTabVisibility().
+  - app/web/js/ui.js: added "users": "Пользователи" to settingsLabels in updateTopbarTitle().
+  - 22 unit tests added in tests/test_users_router.py (all passing).
 
   Phase 6: Hardening & Polish
 

@@ -12,6 +12,7 @@ import { applyDebugPanelVisibility, loadDebugLogHistory, setupDebugLogStream, se
 import { initHelpSystem } from './help.js';
 import { initBackupBindings } from './backup.js';
 import { state, setCurrentUser } from './state.js';
+import { initUsersPane } from './users.js';
 
 // --- System monitoring ---
 async function refreshSystemResources() {
@@ -321,6 +322,7 @@ initBackupBindings();
   }
   _applyUserUI(currentUser);
   applyTabVisibility(currentUser.permissions || [], currentUser.role === "admin");
+  initUsersPane();
 
   // --- Logout button ---
   const logoutBtn = document.getElementById("logoutBtn");

@@ -39,6 +39,7 @@ export function updateTopbarTitle() {
     general: "Общие",
     channels: "Каналы",
     controllers: "Контроллеры",
+    users: "Пользователи",
     sysdata: "Системные данные",
     debug: "Debug",
   };

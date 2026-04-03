@@ -76,7 +76,10 @@
       "Bash(node --check app/web/js/backup.js)",
       "Bash(node --check app/web/js/api.js app/web/js/app.js app/web/js/state.js app/web/js/backup.js)",
       "Bash(python -m pytest tests/test_permission_guards.py tests/test_auth_router.py tests/test_auth_deps.py -v)",
-      "Bash(python -m pytest -v)"
+      "Bash(python -m pytest -v)",
+      "Bash(python -m pytest tests/test_users_router.py -v)",
+      "Bash(python -m pytest tests/ -q --tb=no)",
+      "Bash(python -c \"from app.api.routers.users import router; from app.api.schemas import UserCreate, UserUpdate, UserPasswordChange; print\\('OK'\\)\")"
     ]
   }
 }

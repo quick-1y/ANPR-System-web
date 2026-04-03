@@ -32,6 +32,59 @@ class LoginResponse(BaseModel):
     user: UserOut
 
 
+class UserCreate(BaseModel):
+    login: str
+    password: str
+    role: str = "operator"
+    permissions: List[str] = []
+
+    @field_validator("login")
+    @classmethod
+    def validate_login(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Логин не может быть пустым")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 4:
+            raise ValueError("Пароль должен содержать не менее 4 символов")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ("admin", "operator"):
+            raise ValueError("Роль должна быть 'admin' или 'operator'")
+        return v
+
+
+class UserUpdate(BaseModel):
+    role: Optional[str] = None
+    permissions: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ("admin", "operator"):
+            raise ValueError("Роль должна быть 'admin' или 'operator'")
+        return v
+
+
+class UserPasswordChange(BaseModel):
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 4:
+            raise ValueError("Пароль должен содержать не менее 4 символов")
+        return v
+
+
 class ChannelPayload(BaseModel):
     name: str
     source: str
