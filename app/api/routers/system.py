@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
 from app.api.container import AppContainer, WEB_DIR
-from app.api.deps import get_container
+from app.api.deps import get_container, get_current_user
 
 router = APIRouter()
 
@@ -28,7 +28,7 @@ def health(container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
 
 
 @router.get("/api/system/resources")
-def system_resources() -> Dict[str, float]:
+def system_resources(_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, float]:
     vm = psutil.virtual_memory()
     return {
         "cpu_percent": float(psutil.cpu_percent(interval=None)),
@@ -37,12 +37,12 @@ def system_resources() -> Dict[str, float]:
 
 
 @router.get("/api/storage/status")
-def storage_status(container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def storage_status(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     return container.db_status()
 
 
 @router.get("/api/telemetry/channels")
-def channels_telemetry(container: AppContainer = Depends(get_container)) -> List[Dict[str, Any]]:
+def channels_telemetry(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> List[Dict[str, Any]]:
     channels = {int(item["id"]): item for item in container.settings.get_channels()}
     metrics = container.processor.list_states()
     items: List[Dict[str, Any]] = []

@@ -10,14 +10,14 @@ from database.errors import StorageUnavailableError
 from fastapi.responses import Response, StreamingResponse
 
 from app.api.container import AppContainer
-from app.api.deps import get_container
+from app.api.deps import get_container, get_current_user
 from app.api.schemas import ChannelConfigPayload, ChannelFilterPayload, ChannelOCRPayload, ChannelPayload
 
 router = APIRouter()
 
 
 @router.get("/api/channels")
-def list_channels(container: AppContainer = Depends(get_container)) -> List[Dict[str, Any]]:
+def list_channels(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> List[Dict[str, Any]]:
     channels = container.settings.get_channels()
     metrics = container.processor.list_states()
     debug_states = container.processor.list_debug_states()
@@ -31,7 +31,7 @@ def list_channels(container: AppContainer = Depends(get_container)) -> List[Dict
 
 
 @router.get("/api/channels/last-plates")
-def channels_last_plates(container: AppContainer = Depends(get_container)) -> Dict[int, Dict[str, Any]]:
+def channels_last_plates(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[int, Dict[str, Any]]:
     channel_ids = [int(item.get("id", 0)) for item in container.settings.get_channels() if int(item.get("id", 0)) > 0]
     try:
         return container.events_db.fetch_last_plates_by_channel_ids(channel_ids)
@@ -40,7 +40,7 @@ def channels_last_plates(container: AppContainer = Depends(get_container)) -> Di
 
 
 @router.get("/api/channels/{channel_id}/snapshot.jpg")
-def channel_snapshot(channel_id: int, container: AppContainer = Depends(get_container)) -> Response:
+def channel_snapshot(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Response:
     channels = {int(item["id"]): item for item in container.settings.get_channels()}
     if channel_id not in channels:
         raise HTTPException(status_code=404, detail="Канал не найден")
@@ -61,7 +61,7 @@ def channel_snapshot(channel_id: int, container: AppContainer = Depends(get_cont
 
 
 @router.get("/api/channels/{channel_id}/preview/status")
-def channel_preview_status(channel_id: int, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def channel_preview_status(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     channels = {int(item["id"]): item for item in container.settings.get_channels()}
     if channel_id not in channels:
         raise HTTPException(status_code=404, detail="Канал не найден")
@@ -79,7 +79,7 @@ def channel_preview_status(channel_id: int, container: AppContainer = Depends(ge
 
 
 @router.get("/api/channels/{channel_id}/preview.mjpg")
-async def channel_preview_stream(channel_id: int, request: Request, container: AppContainer = Depends(get_container)) -> StreamingResponse:
+async def channel_preview_stream(channel_id: int, request: Request, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> StreamingResponse:
     channels = {int(item["id"]): item for item in container.settings.get_channels()}
     if channel_id not in channels:
         raise HTTPException(status_code=404, detail="Канал не найден")
@@ -119,7 +119,7 @@ async def channel_preview_stream(channel_id: int, request: Request, container: A
 
 
 @router.get("/api/channels/{channel_id}/health")
-def channel_health(channel_id: int, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def channel_health(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     channels = {int(item["id"]): item for item in container.settings.get_channels()}
     if channel_id not in channels:
         raise HTTPException(status_code=404, detail="Канал не найден")
@@ -131,7 +131,7 @@ def channel_health(channel_id: int, container: AppContainer = Depends(get_contai
 
 
 @router.post("/api/channels")
-def create_channel(payload: ChannelPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def create_channel(payload: ChannelPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     channels = container.settings.get_channels()
     next_id = max([int(item.get("id", 0)) for item in channels] + [0]) + 1
     channel = {
@@ -158,7 +158,7 @@ def create_channel(payload: ChannelPayload, container: AppContainer = Depends(ge
 
 
 @router.put("/api/channels/{channel_id}")
-def update_channel(channel_id: int, payload: Dict[str, Any], container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def update_channel(channel_id: int, payload: Dict[str, Any], container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     channels = container.settings.get_channels()
     for idx, channel in enumerate(channels):
         if int(channel["id"]) == channel_id:
@@ -177,7 +177,7 @@ def update_channel(channel_id: int, payload: Dict[str, Any], container: AppConta
 
 
 @router.get("/api/channels/{channel_id}/config")
-def get_channel_config(channel_id: int, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def get_channel_config(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     for channel in container.settings.get_channels():
         if int(channel.get("id", 0)) == channel_id:
             return channel
@@ -185,7 +185,7 @@ def get_channel_config(channel_id: int, container: AppContainer = Depends(get_co
 
 
 @router.put("/api/channels/{channel_id}/config")
-def put_channel_config(channel_id: int, payload: ChannelConfigPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def put_channel_config(channel_id: int, payload: ChannelConfigPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     data = payload.model_dump()
     data["min_plate_size"] = payload.min_plate_size.model_dump()
     data["max_plate_size"] = payload.max_plate_size.model_dump()
@@ -198,17 +198,17 @@ def put_channel_config(channel_id: int, payload: ChannelConfigPayload, container
 
 
 @router.put("/api/channels/{channel_id}/ocr")
-def update_channel_ocr(channel_id: int, payload: ChannelOCRPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def update_channel_ocr(channel_id: int, payload: ChannelOCRPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     return update_channel(channel_id, payload.model_dump(), container)
 
 
 @router.put("/api/channels/{channel_id}/filter")
-def update_channel_filter(channel_id: int, payload: ChannelFilterPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def update_channel_filter(channel_id: int, payload: ChannelFilterPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     return update_channel(channel_id, payload.model_dump(), container)
 
 
 @router.delete("/api/channels/{channel_id}")
-def delete_channel(channel_id: int, container: AppContainer = Depends(get_container)) -> Dict[str, str]:
+def delete_channel(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, str]:
     channels = [item for item in container.settings.get_channels() if int(item["id"]) != channel_id]
     container.settings.save_channels(channels)
     container.processor.remove_channel(channel_id)
@@ -216,18 +216,18 @@ def delete_channel(channel_id: int, container: AppContainer = Depends(get_contai
 
 
 @router.post("/api/channels/{channel_id}/start")
-def start_channel(channel_id: int, container: AppContainer = Depends(get_container)) -> Dict[str, str]:
+def start_channel(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, str]:
     container.processor.start(channel_id)
     return {"status": "running"}
 
 
 @router.post("/api/channels/{channel_id}/stop")
-def stop_channel(channel_id: int, container: AppContainer = Depends(get_container)) -> Dict[str, str]:
+def stop_channel(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, str]:
     container.processor.stop(channel_id)
     return {"status": "stopped"}
 
 
 @router.post("/api/channels/{channel_id}/restart")
-def restart_channel(channel_id: int, container: AppContainer = Depends(get_container)) -> Dict[str, str]:
+def restart_channel(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, str]:
     container.processor.restart(channel_id)
     return {"status": "restarted"}

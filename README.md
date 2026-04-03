@@ -121,11 +121,58 @@ docker compose down -v
 
 ---
 
+## Авторизация и аутентификация
+
+Система использует JWT-аутентификацию для защиты API.
+
+### Механизм
+
+- Аутентификация через `POST /api/auth/login` (логин + пароль) — возвращает JWT access token.
+- Все API-эндпоинты (кроме `/api/health` и `/api/auth/login`) требуют валидный JWT.
+- Токен передаётся в заголовке `Authorization: Bearer <token>` или в query-параметре `?token=<jwt>` (для SSE/MJPEG стримов).
+- Срок жизни токена: 8 часов (настраивается через `JWT_EXPIRATION_MINUTES`).
+
+### Модель пользователей
+
+- Роли: `admin` (полный доступ) и `operator` (ограниченный доступ).
+- Разрешения хранятся как JSONB-массив строковых ключей: `["tab:obs", "tab:journal", "tab:lists", "tab:settings"]`.
+- Администраторы имеют все разрешения неявно.
+
+### Первый запуск
+
+При первом запуске автоматически создаётся пользователь по умолчанию:
+- Логин: `admin`
+- Пароль: `1234`
+- Роль: `admin`
+
+### Auth API endpoints
+
+| Метод | URL | Описание |
+|---|---|---|
+| `POST` | `/api/auth/login` | Аутентификация, возвращает JWT |
+| `POST` | `/api/auth/logout` | Подтверждение выхода (клиент удаляет токен) |
+| `GET` | `/api/auth/me` | Текущий пользователь |
+| `GET` | `/api/permissions/available` | Список доступных ключей разрешений |
+
+### Переменные окружения (auth)
+
+| Переменная | Описание | По умолчанию |
+|---|---|---|
+| `JWT_SECRET_KEY` | Секретный ключ для подписи JWT | `anpr-default-secret-change-me` |
+| `JWT_EXPIRATION_MINUTES` | Время жизни токена в минутах | `480` (8 часов) |
+| `API_KEY` | Устаревший статический ключ (обратная совместимость) | _(пусто)_ |
+
+### Обратная совместимость
+
+Если задана переменная `API_KEY`, статический ключ принимается наряду с JWT-токенами. Это позволяет существующим скриптам и интеграциям продолжать работать во время перехода. Поддержка `API_KEY` будет удалена в будущей фазе.
+
+---
+
 ## Конфигурация
 
 | Файл | Назначение |
 |---|---|
-| `.env` | Переменные окружения для Docker Compose (`POSTGRES_*`, `HTTP_PORT`, `LOG_LEVEL`, `API_KEY`, `SETTINGS_PATH`) |
+| `.env` | Переменные окружения для Docker Compose (`POSTGRES_*`, `HTTP_PORT`, `LOG_LEVEL`, `API_KEY`, `JWT_SECRET_KEY`, `SETTINGS_PATH`) |
 | `.env.example` | Шаблон `.env` |
 | `config/settings.yaml` | Runtime-конфигурация: каналы, ROI, OCR, retention, контроллеры |
 
@@ -208,6 +255,7 @@ API и retention_worker используют один и тот же `SETTINGS_P
 | `events` | `id`, `timestamp`, `channel_id`, `channel`, `plate`, `plate_display`, `country`, `confidence`, `source`, `frame_path`, `plate_path`, `direction` |
 | `lists` | `id`, `name`, `type` |
 | `clients` | `id`, `list_id`, `plate`, `plate_normalized`, `comment` |
+| `users` | `id`, `login`, `password` (bcrypt), `role`, `permissions` (JSONB), `is_active`, `created_at`, `updated_at` |
 
 **Индексы:** `(timestamp DESC, id DESC)` по событиям; `plate_normalized` и `(list_id, plate_normalized) UNIQUE` по клиентам.
 

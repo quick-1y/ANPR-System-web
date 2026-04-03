@@ -50,7 +50,19 @@
       "Bash(/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe:*)",
       "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe\" -m pytest tests/ -v)",
       "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe\" -c \"from database.user_repository import UserDatabase; print\\('UserDatabase import OK'\\)\")",
-      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe\" -c \"from app.api.container import AppContainer; print\\('AppContainer import OK'\\)\")"
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe\" -c \"from app.api.container import AppContainer; print\\('AppContainer import OK'\\)\")",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(git log:*)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r \"Depends\\\\|HTTPException\\\\|FastAPI\" /c/Users/User/PycharmProjects/ANPR-System-v0.8_web/app/api/routers/*.py)",
+      "Bash(python -m pytest tests/test_auth_utils.py tests/test_auth_deps.py tests/test_auth_router.py -v)",
+      "Bash(poetry run:*)",
+      "Bash(py -m pytest --version)",
+      "Bash(py -c \"import sys; print\\(sys.executable\\)\")",
+      "Bash(\"C:/Users/User/AppData/Local/pypoetry/Cache/virtualenvs/anpr-system-wAD8mgqr-py3.13/Scripts/python.exe\" -m pytest tests/test_auth_utils.py tests/test_auth_deps.py tests/test_auth_router.py -v)",
+      "Bash(\"C:/Users/User/AppData/Local/pypoetry/Cache/virtualenvs/anpr-system-wAD8mgqr-py3.13/Scripts/pip.exe\" install:*)",
+      "Bash(\"C:/Users/User/AppData/Local/pypoetry/Cache/virtualenvs/anpr-system-wAD8mgqr-py3.13/Scripts/python.exe\" -m pytest tests/test_user_repository.py -v)",
+      "Bash(C:/Users/User/AppData/Local/pypoetry/Cache/virtualenvs/anpr-system-wAD8mgqr-py3.13/Scripts/python.exe:*)"
     ]
   }
 }

@@ -471,13 +471,35 @@
     as container.user_db for DI. refresh_storage_clients() also refreshes user_db.
   - 28 unit tests added in tests/test_user_repository.py (all passing).
 
-  Phase 2: Auth Backend (login + token + protection)
+  Phase 2: Auth Backend (login + token + protection)  ✅ COMPLETED
 
   - Implement JWT utilities (create, decode, hash password).
   - Create POST /api/auth/login, GET /api/auth/me endpoints.
   - Create get_current_user FastAPI dependency.
   - Protect all API routes with auth dependency.
   - Keep API_KEY as fallback during transition.
+
+  Implementation notes (Phase 2):
+  - app/api/auth_utils.py created: hash_password(), verify_password(), create_access_token(),
+    decode_access_token(). JWT uses HS256 with configurable secret (JWT_SECRET_KEY env var)
+    and 8-hour expiration (JWT_EXPIRATION_MINUTES env var).
+  - Auth Pydantic schemas added to app/api/schemas.py: LoginRequest, LoginResponse, UserOut.
+  - app/api/routers/auth.py created with endpoints:
+    POST /api/auth/login — validate credentials, return JWT + user object.
+    POST /api/auth/logout — server acknowledgement (client-side token removal).
+    GET /api/auth/me — return current authenticated user.
+    GET /api/permissions/available — list known permission keys.
+  - app/api/deps.py updated: get_current_user() extracts JWT from Authorization: Bearer
+    header or ?token= query param, decodes it, loads user from DB, checks is_active.
+    require_role() and require_permission() dependencies added for future phases.
+    Legacy API_KEY fallback: if API_KEY env var is set, static key is accepted alongside JWT.
+  - All existing API routes protected with Depends(get_current_user). Public endpoints:
+    GET / (static files), GET /api/health, POST /api/auth/login, POST /api/auth/logout.
+  - APIKeyMiddleware updated to coexist with JWT: passes through JWT Bearer tokens to
+    the dependency layer while still accepting static API keys.
+  - Auth router registered in app/api/main.py.
+  - 42 unit tests added across tests/test_auth_utils.py, tests/test_auth_deps.py,
+    tests/test_auth_router.py (all passing).
 
   Phase 3: Frontend Login Integration
 
@@ -562,7 +584,7 @@
   - Parallel: After T1.3.
 
   ---
-  Phase 2 Tasks
+  Phase 2 Tasks  ✅ ALL COMPLETED
 
   ---
   T2.1 — Implement JWT utility functions

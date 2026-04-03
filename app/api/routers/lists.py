@@ -6,14 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from database.errors import StorageUnavailableError
 from app.api.container import AppContainer
-from app.api.deps import get_container
+from app.api.deps import get_container, get_current_user
 from app.api.schemas import EntryPayload, ListPayload, UpdateListPayload
 
 router = APIRouter()
 
 
 @router.get("/api/lists")
-def list_plate_lists(container: AppContainer = Depends(get_container)) -> List[Dict[str, Any]]:
+def list_plate_lists(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> List[Dict[str, Any]]:
     try:
         return container.lists_db.list_lists()
     except StorageUnavailableError as exc:
@@ -21,7 +21,7 @@ def list_plate_lists(container: AppContainer = Depends(get_container)) -> List[D
 
 
 @router.post("/api/lists")
-def create_plate_list(payload: ListPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def create_plate_list(payload: ListPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     try:
         list_id = container.lists_db.create_list(payload.name, payload.type)
         return {"id": list_id, "name": payload.name, "type": payload.type}
@@ -30,7 +30,7 @@ def create_plate_list(payload: ListPayload, container: AppContainer = Depends(ge
 
 
 @router.get("/api/lists/entry-by-plate")
-def entry_by_plate(plate: str = Query(..., min_length=1), container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def entry_by_plate(plate: str = Query(..., min_length=1), container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     try:
         result = container.lists_db.find_entry_by_plate(plate)
         if result is None:
@@ -41,7 +41,7 @@ def entry_by_plate(plate: str = Query(..., min_length=1), container: AppContaine
 
 
 @router.get("/api/lists/plates")
-def all_plates(container: AppContainer = Depends(get_container)) -> List[Dict[str, Any]]:
+def all_plates(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> List[Dict[str, Any]]:
     try:
         return container.lists_db.all_plates_with_type()
     except StorageUnavailableError as exc:
@@ -49,7 +49,7 @@ def all_plates(container: AppContainer = Depends(get_container)) -> List[Dict[st
 
 
 @router.delete("/api/lists/{list_id}")
-def delete_plate_list(list_id: int, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def delete_plate_list(list_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     try:
         ok = container.lists_db.delete_list(list_id)
         if not ok:
@@ -60,7 +60,7 @@ def delete_plate_list(list_id: int, container: AppContainer = Depends(get_contai
 
 
 @router.put("/api/lists/{list_id}")
-def update_plate_list(list_id: int, payload: UpdateListPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def update_plate_list(list_id: int, payload: UpdateListPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     try:
         ok = container.lists_db.update_list(list_id, payload.name, payload.type)
         if not ok:
@@ -71,7 +71,7 @@ def update_plate_list(list_id: int, payload: UpdateListPayload, container: AppCo
 
 
 @router.get("/api/lists/{list_id}/entries")
-def list_entries(list_id: int, container: AppContainer = Depends(get_container)) -> List[Dict[str, Any]]:
+def list_entries(list_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> List[Dict[str, Any]]:
     try:
         return container.lists_db.list_entries(list_id)
     except StorageUnavailableError as exc:
@@ -79,7 +79,7 @@ def list_entries(list_id: int, container: AppContainer = Depends(get_container))
 
 
 @router.post("/api/lists/{list_id}/entries")
-def add_entry(list_id: int, payload: EntryPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def add_entry(list_id: int, payload: EntryPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     try:
         entry_id = container.lists_db.add_entry(
             list_id=list_id,
@@ -99,7 +99,7 @@ def add_entry(list_id: int, payload: EntryPayload, container: AppContainer = Dep
 
 
 @router.put("/api/lists/{list_id}/entries/{entry_id}")
-def update_entry(list_id: int, entry_id: int, payload: EntryPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def update_entry(list_id: int, entry_id: int, payload: EntryPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     try:
         ok = container.lists_db.update_entry(
             entry_id,
@@ -119,7 +119,7 @@ def update_entry(list_id: int, entry_id: int, payload: EntryPayload, container: 
 
 
 @router.delete("/api/lists/{list_id}/entries/{entry_id}")
-def delete_entry(list_id: int, entry_id: int, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def delete_entry(list_id: int, entry_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     try:
         ok = container.lists_db.delete_entry(entry_id)
         if not ok:

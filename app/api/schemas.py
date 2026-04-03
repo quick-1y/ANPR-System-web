@@ -1,10 +1,35 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from config.settings_schema import SUPPORTED_CONTROLLER_TYPES
+
+
+# ── Auth schemas ──────────────────────────────────────────────────────
+
+
+class LoginRequest(BaseModel):
+    login: str
+    password: str
+
+
+class UserOut(BaseModel):
+    id: int
+    login: str
+    role: str
+    permissions: List[str] = []
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
 
 
 class ChannelPayload(BaseModel):
