@@ -12,21 +12,21 @@
 | `app/api/container.py` | `AppContainer`: DI-контейнер всех сервисов; `build()`, `startup()`, `shutdown()` |
 | `app/api/deps.py` | FastAPI зависимости: `get_container()`, `get_current_user()`, `require_role()`, `require_permission()` |
 | `app/api/schemas.py` | Pydantic-модели запросов и ответов (включая `LoginRequest`, `LoginResponse`, `UserOut`) |
-| `app/api/routers/auth.py` | Auth endpoints: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/permissions/available` |
-| `app/api/routers/channels.py` | CRUD каналов, start/stop/restart, snapshot, MJPEG, health |
-| `app/api/routers/events.py` | Журнал событий, детали, медиа, SSE-поток |
-| `app/api/routers/controllers.py` | CRUD аппаратных контроллеров, тест реле |
-| `app/api/routers/lists.py` | Управление списками и клиентами |
-| `app/api/routers/settings.py` | Глобальные настройки и логика перезапуска pipeline при изменении параметров |
-| `app/api/routers/data.py` | Retention policy, ручной запуск, экспорт, backup / restore |
+| `app/api/routers/auth.py` | Auth endpoints: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/permissions/available` (admin-only, возвращает `{key,label,group}`) |
+| `app/api/routers/channels.py` | CRUD каналов, start/stop/restart, snapshot, MJPEG, health — авторизованный |
+| `app/api/routers/events.py` | Журнал событий, детали, медиа, SSE-поток — авторизованный |
+| `app/api/routers/controllers.py` | CRUD аппаратных контроллеров, тест реле — **только Admin** |
+| `app/api/routers/lists.py` | Управление списками и клиентами — авторизованный |
+| `app/api/routers/settings.py` | Глобальные настройки и логика перезапуска pipeline — **только Admin** |
+| `app/api/routers/data.py` | Retention policy, экспорт, backup / restore — **только Admin** |
 | `app/api/routers/system.py` | Health check, CPU/RAM, статус БД, Web UI |
-| `app/api/routers/debug.py` | Debug-настройки, overlay state, лог-панель SSE |
+| `app/api/routers/debug.py` | Debug-настройки, overlay state, лог-панель SSE — **только Admin** |
 | `app/worker/main.py` | `RetentionScheduler`: async цикл retention; отдельный FastAPI-сервис |
 | `app/shared/data_lifecycle.py` | `DataLifecycleService`: cleanup событий/медиа, контроль размера, CSV/ZIP export |
 | `app/web/index.html` | Единственная HTML-страница SPA; включает `#login-overlay` для аутентификации и кнопку «Выход» в topbar |
 | `app/web/js/api.js` | HTTP-слой: `getToken/setToken` (JWT в `localStorage`), `jfetch()` (Bearer), `apiUrl()` (?token=), `loginRequest()`, `getCurrentUser()`, `showLoginOverlay()` |
-| `app/web/js/state.js` | Глобальное состояние SPA; `state.currentUser`, `setCurrentUser()`, `isAdmin()`, `hasPermission(key)` |
-| `app/web/js/app.js` | Точка входа: проверка JWT при старте, показ login overlay, инициализация после аутентификации, logout |
+| `app/web/js/state.js` | Глобальное состояние SPA; `state.currentUser`, `setCurrentUser()`, `isAdmin()`, `hasPermission(key)` — используется `app.js` для передачи данных в `applyTabVisibility()` |
+| `app/web/js/app.js` | Точка входа: проверка JWT при старте, показ login overlay, инициализация после аутентификации, `applyTabVisibility()` после получения пользователя, logout |
 | `app/web/js/backup.js` | Backup/restore с JWT Bearer-заголовками |
 | `app/web/` | Прочая статика web UI: JS-модули, CSS, иконки, изображения, флаги |
 
@@ -96,7 +96,7 @@
 
 | Директория / файл | Назначение |
 |---|---|
-| `tests/` | Тесты ключевых компонентов: validator, motion detector, direction estimator, track aggregator, user repository, JWT utils, auth deps, auth router (включая Phase 3 contract-тесты) |
+| `tests/` | Тесты ключевых компонентов: validator, motion detector, direction estimator, track aggregator, user repository, JWT utils, auth deps, auth router (включая Phase 3 contract-тесты), permission guards (Phase 4) |
 | `nginx/` | Конфигурация reverse proxy |
 | `.planning/codebase/` | Аналитические markdown-файлы по архитектуре, стеку, структуре, соглашениям и интеграциям |
 | `Dockerfile` | Сборка приложения |

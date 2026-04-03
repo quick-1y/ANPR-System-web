@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.auth_utils import create_access_token, verify_password
 from app.api.container import AppContainer
-from app.api.deps import get_container, get_current_user
+from app.api.deps import get_container, get_current_user, require_role
 from app.api.schemas import LoginRequest, LoginResponse, UserOut
 
 from common.logging import get_logger
@@ -15,12 +15,12 @@ logger = get_logger(__name__)
 
 router = APIRouter()
 
-# Available permission keys (for admin UI in future phases).
+# Available permission keys with metadata (for admin UI — Phase 5 user management).
 AVAILABLE_PERMISSIONS = [
-    "tab:obs",
-    "tab:journal",
-    "tab:lists",
-    "tab:settings",
+    {"key": "tab:obs", "label": "Наблюдение", "group": "tabs"},
+    {"key": "tab:journal", "label": "Журнал", "group": "tabs"},
+    {"key": "tab:lists", "label": "Списки", "group": "tabs"},
+    {"key": "tab:settings", "label": "Настройки", "group": "tabs"},
 ]
 
 
@@ -62,6 +62,6 @@ def me(current_user: Dict[str, Any] = Depends(get_current_user)):
 
 
 @router.get("/api/permissions/available")
-def available_permissions(current_user: Dict[str, Any] = Depends(get_current_user)):
-    """Return the list of all known permission keys (for admin UI)."""
+def available_permissions(current_user: Dict[str, Any] = Depends(require_role("admin"))):
+    """Return known permission keys with labels (admin-only, for user management UI)."""
     return AVAILABLE_PERMISSIONS

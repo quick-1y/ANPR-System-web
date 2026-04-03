@@ -536,12 +536,36 @@
   - README.md updated with "Web UI — вход и выход" section.
   - docs/modules.md updated with individual frontend module entries.
 
-  Phase 4: Permission-Based UI Visibility
+  Phase 4: Permission-Based UI Visibility  ✅ COMPLETED
 
   - Implement applyTabVisibility() in frontend.
   - Hide tabs based on user permissions.
   - Backend: add require_permission() dependency.
   - Protect settings/data/debug routes as admin-only.
+
+  Implementation notes (Phase 4):
+  - app/web/js/ui.js: added applyTabVisibility(permissions, userIsAdmin) — iterates
+    .ttab elements, hides those lacking tab:<name> permission (operators), shows all
+    for admins. If the active tab becomes hidden, switches to the first visible tab.
+    switchTab() patched to refuse switching to a hidden tab (style.display==="none").
+  - app/web/js/app.js: imports applyTabVisibility; calls it immediately after
+    _applyUserUI(currentUser) on page load with currentUser.permissions and
+    (currentUser.role === "admin") flag.
+  - app/api/routers/settings.py: all endpoints changed from get_current_user to
+    require_role("admin") — operators get 403.
+  - app/api/routers/controllers.py: all endpoints changed to require_role("admin").
+  - app/api/routers/data.py: all endpoints changed to require_role("admin")
+    (includes retention policy, CSV/bundle export, backup/restore).
+  - app/api/routers/debug.py: all endpoints changed to require_role("admin").
+  - app/api/routers/auth.py: GET /api/permissions/available changed to
+    require_role("admin"); response format updated from list of strings to list of
+    {key, label, group} objects for Phase 5 user management UI.
+  - tests/test_auth_router.py: TestAvailablePermissions updated for new rich format
+    and operator-blocked assertion.
+  - tests/test_permission_guards.py: new test file — 17 tests covering require_role
+    unit behaviour, operator blocking, router-import smoke checks.
+  - docs/endpoints.md, docs/modules.md: access levels documented (авторизованный /
+    только Admin) for all affected endpoints and modules.
 
   Phase 5: User Management UI
 
@@ -709,7 +733,7 @@
   - Parallel: After T3.3.
 
   ---
-  Phase 4 Tasks
+  Phase 4 Tasks  ✅ ALL COMPLETED
 
   ---
   T4.1 — Implement applyTabVisibility() in frontend

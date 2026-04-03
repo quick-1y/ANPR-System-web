@@ -23,9 +23,14 @@
 | `POST` | `/api/auth/login` | Аутентификация (логин + пароль) -> JWT | Публичный |
 | `POST` | `/api/auth/logout` | Подтверждение выхода | Публичный |
 | `GET` | `/api/auth/me` | Текущий пользователь (роль, разрешения) | Авторизованный |
-| `GET` | `/api/permissions/available` | Список доступных ключей разрешений | Авторизованный |
+| `GET` | `/api/permissions/available` | Список ключей разрешений с метаданными `{key, label, group}` | **Только Admin** |
 
 Все остальные API-эндпоинты (кроме `/api/health`) требуют валидный JWT-токен в заголовке `Authorization: Bearer <token>` или query-параметре `?token=<jwt>`.
+
+**Уровни доступа (Phase 4):**
+- *Публичный* — без токена
+- *Авторизованный* — любой активный пользователь
+- **Только Admin** — роль `admin`; операторы получают `403`
 
 ### Channels
 
@@ -57,7 +62,7 @@
 | `GET` | `/api/events/item/{event_id}/media/{kind}` | Медиафайл события (`kind=frame` или `plate`) |
 | `GET` | `/api/events/stream` | SSE-поток live событий (`text/event-stream`; keepalive `: ping`; auto-retry) |
 
-### Controllers
+### Controllers *(только Admin)*
 
 | Метод | Путь | Описание |
 |---|---|---|
@@ -82,14 +87,15 @@
 | `GET` | `/api/lists/entry-by-plate` | Найти запись по номеру |
 | `GET` | `/api/lists/plates` | Все номера с типами списков |
 
-### Settings
+### Settings *(только Admin)*
 
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/api/settings` | Все глобальные настройки |
 | `PUT` | `/api/settings` | Обновить настройки (изменение параметров распознавания номеров и DSN перезапускает pipeline) |
+| `GET` | `/api/countries` | Список доступных конфигураций стран |
 
-### Data & Export
+### Data & Export *(только Admin)*
 
 | Метод | Путь | Описание |
 |---|---|---|
@@ -112,7 +118,7 @@
 | `GET` | `/api/storage/status` | Статус PostgreSQL |
 | `GET` | `/api/telemetry/channels` | Метрики каналов (FPS, latency, reconnect_count и др.) |
 
-### Debug
+### Debug *(только Admin)*
 
 | Метод | Путь | Описание |
 |---|---|---|

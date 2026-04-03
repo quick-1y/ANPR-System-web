@@ -1,7 +1,7 @@
 // Application entry point — initialization, DOM bindings, timers
 import { eventSource, debugLogSource, overlayRefreshTimer, eventFeedRenderFrame, eventFeedRenderScheduled, setEventFeedRenderScheduled, setEventFeedRenderFrame } from './state.js';
 import { api, getToken, setToken, getCurrentUser, showLoginOverlay } from './api.js';
-import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, loadBarColor } from './ui.js';
+import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, loadBarColor, applyTabVisibility } from './ui.js';
 import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
 import { loadJournal, initJournalScroll } from './journal.js';
@@ -320,6 +320,7 @@ initBackupBindings();
     return;
   }
   _applyUserUI(currentUser);
+  applyTabVisibility(currentUser.permissions || [], currentUser.role === "admin");
 
   // --- Logout button ---
   const logoutBtn = document.getElementById("logoutBtn");

@@ -129,12 +129,37 @@ class TestMe:
 # ---------------------------------------------------------------------------
 
 class TestAvailablePermissions:
-    def test_returns_permission_list(self):
-        user = _make_user()
+    def test_returns_list_of_objects(self):
+        user = _make_user(role="admin")
         result = available_permissions(current_user=user)
-        assert result == AVAILABLE_PERMISSIONS
-        assert "tab:obs" in result
-        assert "tab:settings" in result
+        assert isinstance(result, list)
+        assert len(result) == len(AVAILABLE_PERMISSIONS)
+
+    def test_each_item_has_required_fields(self):
+        user = _make_user(role="admin")
+        result = available_permissions(current_user=user)
+        for item in result:
+            assert "key" in item
+            assert "label" in item
+            assert "group" in item
+
+    def test_contains_all_tab_keys(self):
+        user = _make_user(role="admin")
+        result = available_permissions(current_user=user)
+        keys = [item["key"] for item in result]
+        assert "tab:obs" in keys
+        assert "tab:journal" in keys
+        assert "tab:lists" in keys
+        assert "tab:settings" in keys
+
+    def test_operator_is_blocked(self):
+        """available_permissions is admin-only — operators get 403."""
+        from app.api.deps import require_role
+        user_op = _make_user(role="operator")
+        dep = require_role("admin")
+        with pytest.raises(Exception) as exc_info:
+            dep(current_user=user_op)
+        assert exc_info.value.status_code == 403
 
 
 # ---------------------------------------------------------------------------
