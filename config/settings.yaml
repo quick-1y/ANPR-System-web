@@ -30,10 +30,10 @@ channels:
   region:
     unit: percent
     points:
-    - x: 0.561
-      y: 17.643
-    - x: 92.593
-      y: 18.739
+    - x: 0.73
+      y: 20.035
+    - x: 98.541
+      y: 15.25
     - x: 87.598
       y: 98.879
     - x: 0.954
@@ -110,7 +110,7 @@ channels:
   max_plate_size:
     width: 447
     height: 145
-  controller_id: 1
+  controller_id: null
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []

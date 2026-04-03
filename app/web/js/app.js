@@ -1,7 +1,7 @@
 // Application entry point — initialization, DOM bindings, timers
 import { eventSource, debugLogSource, overlayRefreshTimer, eventFeedRenderFrame, eventFeedRenderScheduled, setEventFeedRenderScheduled, setEventFeedRenderFrame } from './state.js';
-import { api, getApiKey } from './api.js';
-import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, loadBarColor } from './ui.js';
+import { api, getToken, setToken, getCurrentUser, showLoginOverlay } from './api.js';
+import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, loadBarColor, applyTabVisibility } from './ui.js';
 import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
 import { loadJournal, initJournalScroll } from './journal.js';
@@ -11,13 +11,14 @@ import { loadControllers, createController, _doCreateController, deleteControlle
 import { applyDebugPanelVisibility, loadDebugLogHistory, setupDebugLogStream, setupStream } from './debug.js';
 import { initHelpSystem } from './help.js';
 import { initBackupBindings } from './backup.js';
-import { state } from './state.js';
+import { state, setCurrentUser } from './state.js';
+import { initUsersPane } from './users.js';
 
 // --- System monitoring ---
 async function refreshSystemResources() {
   if (document.hidden) return;
   try {
-    const resources = await (await fetch(api("/api/system/resources"), { headers: (() => { const h = { "Content-Type": "application/json" }; const k = getApiKey(); if (k) h["X-Api-Key"] = k; return h; })() })).json();
+    const resources = await (await fetch(api("/api/system/resources"), { headers: (() => { const h = { "Content-Type": "application/json" }; const t = getToken(); if (t) h["Authorization"] = `Bearer ${t}`; return h; })() })).json();
     const cpu = Math.round(Number(resources.cpu_percent) || 0);
     const ram = Math.round(Number(resources.ram_percent) || 0);
     const cpuStat = document.getElementById("cpuStat");
@@ -36,8 +37,8 @@ async function checkServerHealth() {
   const dot = document.getElementById("serverDot");
   if (!dot) return;
   try {
-    const k = getApiKey();
-    const headers = k ? { "X-Api-Key": k } : {};
+    const t = getToken();
+    const headers = t ? { "Authorization": `Bearer ${t}` } : {};
     const r = await fetch(api("/api/health"), { method: "GET", headers, signal: AbortSignal.timeout(4000) });
     dot.className = r.ok ? "server-dot live" : "server-dot off";
   } catch (_e) { dot.className = "server-dot off"; }
@@ -302,6 +303,31 @@ initBackupBindings();
   if (apiBaseEl) apiBaseEl.value = window.location.origin;
   try { applyTheme(localStorage.getItem("anpr_theme") || "dark"); }
   catch (_e) { applyTheme("dark"); }
+
+  // --- Auth check ---
+  const token = getToken();
+  if (!token) {
+    showLoginOverlay((user) => { setCurrentUser(user); _applyUserUI(user); location.reload(); });
+    return;
+  }
+  let currentUser;
+  try {
+    currentUser = await getCurrentUser();
+    setCurrentUser(currentUser);
+  } catch (_e) {
+    // Token expired or invalid — clear it and re-authenticate
+    setToken(null);
+    showLoginOverlay((user) => { setCurrentUser(user); _applyUserUI(user); location.reload(); });
+    return;
+  }
+  _applyUserUI(currentUser);
+  applyTabVisibility(currentUser.permissions || [], currentUser.role === "admin");
+  initUsersPane();
+
+  // --- Logout button ---
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) logoutBtn.onclick = () => { setToken(null); location.reload(); };
+
   syncChannelConfigVisibility();
   syncControllerConfigVisibility();
   setupVideoGridLayoutGuards(() => {
@@ -329,3 +355,11 @@ initBackupBindings();
   setInterval(refreshChannels, 8000);
   syncOverlayPolling();
 })();
+
+function _applyUserUI(user) {
+  if (!user) return;
+  const pill = document.getElementById("topbarUserPill");
+  const loginEl = document.getElementById("topbarUserLogin");
+  if (loginEl) loginEl.textContent = user.login || "";
+  if (pill) pill.style.display = "inline-flex";
+}

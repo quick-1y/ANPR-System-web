@@ -61,6 +61,8 @@
 | `psycopg[binary]` | PostgreSQL driver |
 | `psycopg_pool` | Pool подключений к PostgreSQL |
 | `psutil` | Метрики CPU и RAM |
+| `bcrypt` | Хэширование паролей пользователей |
+| `PyJWT` | Генерация и валидация JWT-токенов (auth Phase 2) |
 
 ## Коммуникации и форматы API
 

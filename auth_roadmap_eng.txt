@@ -452,14 +452,26 @@
   ---
   8. Phased Roadmap
 
-  Phase 1: Foundation (database + dependencies)
+  Phase 1: Foundation (database + dependencies)  ✅ COMPLETED
 
   - Add bcrypt and PyJWT to pyproject.toml.
   - Create users table in schema.sql.
   - Implement UserDatabase repository.
   - Seed default admin on first startup.
 
-  Phase 2: Auth Backend (login + token + protection)
+  Implementation notes (Phase 1):
+  - bcrypt and PyJWT added to pyproject.toml [dependencies] section.
+  - users table DDL added to database/postgres/schema.sql (id, login, password, role,
+    permissions JSONB, is_active, created_at, updated_at; unique index on login).
+  - database/user_repository.py created: UserDatabase(PooledDatabase) with methods
+    find_by_login, find_by_id, list_all, create_user, update_user, update_password,
+    deactivate, count_active_admins. _ensure_schema() creates table + seeds default
+    admin (login=admin, password=bcrypt("1234"), role=admin) when table is empty.
+  - AppContainer.build() now instantiates user_db=UserDatabase(dsn) and exposes it
+    as container.user_db for DI. refresh_storage_clients() also refreshes user_db.
+  - 28 unit tests added in tests/test_user_repository.py (all passing).
+
+  Phase 2: Auth Backend (login + token + protection)  ✅ COMPLETED
 
   - Implement JWT utilities (create, decode, hash password).
   - Create POST /api/auth/login, GET /api/auth/me endpoints.
@@ -467,7 +479,33 @@
   - Protect all API routes with auth dependency.
   - Keep API_KEY as fallback during transition.
 
-  Phase 3: Frontend Login Integration
+  Implementation notes (Phase 2):
+  - app/api/auth_utils.py created: hash_password(), verify_password(), create_access_token(),
+    decode_access_token(). JWT uses HS256 with configurable secret (JWT_SECRET_KEY env var)
+    and 8-hour expiration (JWT_EXPIRATION_MINUTES env var).
+  - Auth Pydantic schemas added to app/api/schemas.py: LoginRequest, LoginResponse, UserOut.
+  - app/api/routers/auth.py created with endpoints:
+    POST /api/auth/login — validate credentials, return JWT + user object.
+    POST /api/auth/logout — server acknowledgement (client-side token removal).
+    GET /api/auth/me — return current authenticated user.
+    GET /api/permissions/available — list known permission keys.
+  - app/api/deps.py updated: get_current_user() extracts JWT from Authorization: Bearer
+    header or ?token= query param, decodes it, loads user from DB, checks is_active.
+    require_role() and require_permission() dependencies added for future phases.
+    Legacy API_KEY fallback: if API_KEY env var is set, static key is accepted alongside JWT.
+  - All existing API routes protected with Depends(get_current_user). Public endpoints:
+    GET / (static files), GET /api/health, POST /api/auth/login, POST /api/auth/logout.
+  - APIKeyMiddleware updated to coexist with JWT: passes through JWT Bearer tokens to
+    the dependency layer while still accepting static API keys.
+  - Auth router registered in app/api/main.py.
+  - 42 unit tests added across tests/test_auth_utils.py, tests/test_auth_deps.py,
+    tests/test_auth_router.py (all passing).
+  - Documentation audit (2026-04-03): docs/modules.md, docs/technology-stack.md,
+    docs/project-structure.md, docs/endpoints.md, and README.md all updated to reflect
+    the completed Phase 2 implementation. .env.example updated with JWT_SECRET_KEY and
+    JWT_EXPIRATION_MINUTES variables.
+
+  Phase 3: Frontend Login Integration  ✅ COMPLETED
 
   - Replace API-key overlay with login form.
   - Store JWT in localStorage.
@@ -475,19 +513,89 @@
   - Add logout button and flow.
   - Fetch and store current user on startup.
 
-  Phase 4: Permission-Based UI Visibility
+  Implementation notes (Phase 3):
+  - app/web/index.html: replaced #auth-overlay (API-key prompt) with #login-overlay containing
+    login + password inputs, error area, and "Войти" button. Added topbar-user-pill with
+    username display and logout button (⏏) in the topbar-right area.
+  - app/web/styles.css: renamed overlay CSS from #auth-overlay to #login-overlay; added
+    .topbar-user-pill styles (hidden by default, shown after auth).
+  - app/web/js/api.js: rewritten — localStorage key changed from anpr_api_key to anpr_token;
+    getToken/setToken replace getApiKey/setApiKey; jfetch() sends Authorization: Bearer;
+    apiUrl() appends ?token=; showLoginOverlay() replaces showAuthOverlay() and handles the
+    full login form flow (call loginRequest(), store token, invoke onSuccess(user));
+    loginRequest() and getCurrentUser() added as explicit async helpers.
+  - app/web/js/state.js: state.currentUser added; setCurrentUser(), isAdmin(),
+    hasPermission(key) exported for use by all modules.
+  - app/web/js/app.js: init() now checks getToken() on startup, calls getCurrentUser() to
+    validate, shows login overlay on missing/expired token; on success stores user in state
+    and calls _applyUserUI() to display username + activate the logout button; logout handler
+    calls setToken(null) + location.reload().
+  - app/web/js/backup.js: updated to use getToken/showLoginOverlay and Bearer headers.
+  - 5 Phase 3 contract tests added to tests/test_auth_router.py (TestLoginResponseContract,
+    TestMeResponseContract) — all passing.
+  - README.md updated with "Web UI — вход и выход" section.
+  - docs/modules.md updated with individual frontend module entries.
+
+  Phase 4: Permission-Based UI Visibility  ✅ COMPLETED
 
   - Implement applyTabVisibility() in frontend.
   - Hide tabs based on user permissions.
   - Backend: add require_permission() dependency.
   - Protect settings/data/debug routes as admin-only.
 
-  Phase 5: User Management UI
+  Implementation notes (Phase 4):
+  - app/web/js/ui.js: added applyTabVisibility(permissions, userIsAdmin) — iterates
+    .ttab elements, hides those lacking tab:<name> permission (operators), shows all
+    for admins. If the active tab becomes hidden, switches to the first visible tab.
+    switchTab() patched to refuse switching to a hidden tab (style.display==="none").
+  - app/web/js/app.js: imports applyTabVisibility; calls it immediately after
+    _applyUserUI(currentUser) on page load with currentUser.permissions and
+    (currentUser.role === "admin") flag.
+  - app/api/routers/settings.py: all endpoints changed from get_current_user to
+    require_role("admin") — operators get 403.
+  - app/api/routers/controllers.py: all endpoints changed to require_role("admin").
+  - app/api/routers/data.py: all endpoints changed to require_role("admin")
+    (includes retention policy, CSV/bundle export, backup/restore).
+  - app/api/routers/debug.py: all endpoints changed to require_role("admin").
+  - app/api/routers/auth.py: GET /api/permissions/available changed to
+    require_role("admin"); response format updated from list of strings to list of
+    {key, label, group} objects for Phase 5 user management UI.
+  - tests/test_auth_router.py: TestAvailablePermissions updated for new rich format
+    and operator-blocked assertion.
+  - tests/test_permission_guards.py: new test file — 17 tests covering require_role
+    unit behaviour, operator blocking, router-import smoke checks.
+  - docs/endpoints.md, docs/modules.md: access levels documented (авторизованный /
+    только Admin) for all affected endpoints and modules.
+
+  Phase 5: User Management UI  ✅ COMPLETED
 
   - Create app/api/routers/users.py with CRUD endpoints.
   - Create app/web/js/users.js module.
   - Add "Пользователи" section in Settings.
   - Implement: list, create, edit role, change password, toggle active, configure permissions.
+
+  Implementation notes (Phase 5):
+  - app/api/schemas.py: added UserCreate (login, password, role, permissions + validators),
+    UserUpdate (role, permissions, is_active), UserPasswordChange (new_password, min 4 chars).
+  - app/api/routers/users.py created with endpoints:
+    GET  /api/users          — list all users (admin).
+    POST /api/users          — create user (admin); 409 on duplicate login.
+    GET  /api/users/{id}     — get user by ID (admin).
+    PUT  /api/users/{id}     — update role/permissions/is_active (admin); admin self-lock
+                               prevention: cannot deactivate self, cannot remove own admin
+                               role when last active admin.
+    PUT  /api/users/{id}/password — change password; admin can change any, operator only own.
+    DELETE /api/users/{id}   — deactivate user (soft-delete, admin); blocked for self.
+  - app/api/main.py: users_router imported and registered.
+  - app/web/assets/icons/users.svg: new user group icon.
+  - app/web/index.html: added "Пользователи" snav-item (hidden by default, shown by
+    initUsersPane() when admin); added sp-users pane (ch-layout with user list sidebar,
+    create form, edit form, empty state); added #userPasswordModal for password change.
+  - app/web/js/users.js: new module — initUsersPane(), loadUsers(); user list rendering;
+    create/edit/password-change flows; admin self-lock messages surfaced in UI.
+  - app/web/js/app.js: imports initUsersPane from users.js; calls it after applyTabVisibility().
+  - app/web/js/ui.js: added "users": "Пользователи" to settingsLabels in updateTopbarTitle().
+  - 22 unit tests added in tests/test_users_router.py (all passing).
 
   Phase 6: Hardening & Polish
 
@@ -501,7 +609,7 @@
   ---
   9. Task Backlog
 
-  Phase 1 Tasks
+  Phase 1 Tasks  ✅ ALL COMPLETED
 
   ---
   T1.1 — Add auth dependencies to pyproject.toml
@@ -550,7 +658,7 @@
   - Parallel: After T1.3.
 
   ---
-  Phase 2 Tasks
+  Phase 2 Tasks  ✅ ALL COMPLETED
 
   ---
   T2.1 — Implement JWT utility functions
@@ -608,7 +716,7 @@
   - Parallel: After T2.5.
 
   ---
-  Phase 3 Tasks
+  Phase 3 Tasks  ✅ ALL COMPLETED
 
   ---
   T3.1 — Create login screen HTML
@@ -648,7 +756,7 @@
   - Parallel: After T3.3.
 
   ---
-  Phase 4 Tasks
+  Phase 4 Tasks  ✅ ALL COMPLETED
 
   ---
   T4.1 — Implement applyTabVisibility() in frontend

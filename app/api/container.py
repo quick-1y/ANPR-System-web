@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 from fastapi import HTTPException
 
 from database.lists_repository import ListDatabase
+from database.user_repository import UserDatabase
 from config.settings_manager import SettingsManager
 from database.postgres_event_repository import PostgresEventDatabase
 from database.errors import StorageUnavailableError
@@ -27,6 +28,7 @@ class AppContainer:
     settings: SettingsManager
     events_db: PostgresEventDatabase
     lists_db: ListDatabase
+    user_db: UserDatabase
     controller_service: ControllerService
     controller_automation: ControllerAutomationService
     event_bus: EventBus
@@ -48,6 +50,7 @@ class AppContainer:
         dsn = str(settings.get_storage_settings().get("postgres_dsn", "")).strip()
         events_db = PostgresEventDatabase(dsn)
         lists_db = ListDatabase(dsn)
+        user_db = UserDatabase(dsn)
         controller_service = ControllerService()
         event_bus = EventBus()
         debug_registry = DebugRegistry(settings.get_debug_settings())
@@ -57,6 +60,7 @@ class AppContainer:
             settings=settings,
             events_db=events_db,
             lists_db=lists_db,
+            user_db=user_db,
             controller_service=controller_service,
             controller_automation=None,  # type: ignore[arg-type]
             event_bus=event_bus,
@@ -192,6 +196,7 @@ class AppContainer:
         self.events_db = PostgresEventDatabase(dsn)
         self.lifecycle = self._build_lifecycle()
         self.lists_db = ListDatabase(dsn)
+        self.user_db = UserDatabase(dsn)
         self.controller_automation = ControllerAutomationService(
             self.controller_service,
             get_channels=self.settings.get_channels,
