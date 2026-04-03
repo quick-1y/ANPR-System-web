@@ -30,6 +30,7 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+    warn_default_password: bool = False
 
 
 class UserCreate(BaseModel):

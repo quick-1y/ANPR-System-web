@@ -597,7 +597,7 @@
   - app/web/js/ui.js: added "users": "Пользователи" to settingsLabels in updateTopbarTitle().
   - 22 unit tests added in tests/test_users_router.py (all passing).
 
-  Phase 6: Hardening & Polish
+  Phase 6: Hardening & Polish  ✅ COMPLETED
 
   - Brute-force rate limiting on login.
   - Admin self-lock prevention.
@@ -605,6 +605,45 @@
   - Password-change warning for default admin.
   - Remove API_KEY fallback.
   - Token expiration handling in frontend.
+
+  Implementation notes (Phase 6):
+  - app/api/routers/auth.py: in-memory per-IP brute-force rate limiter added to
+    POST /api/auth/login — max 5 failed attempts per 60-second rolling window per IP
+    (HTTP 429). Counter resets on successful login. Thread-safe via threading.Lock.
+  - app/api/routers/auth.py: structured audit logging (WARNING on failure, INFO on
+    success/logout) with login, ip, and reason fields.
+  - app/api/routers/auth.py: POST /api/auth/logout now requires authentication
+    (get_current_user) so the logout event is attributed and logged.
+  - app/api/routers/auth.py: login response includes warn_default_password: bool —
+    true when the user has role=admin and password_changed_at IS NULL (never changed).
+  - database/user_repository.py: password_changed_at TIMESTAMPTZ column added to
+    _SCHEMA and _MIGRATE_ADD_PASSWORD_CHANGED_AT applied in _ensure_schema() for
+    existing installs (ALTER TABLE ... ADD COLUMN IF NOT EXISTS). update_password()
+    sets password_changed_at = now() on every password change. All SELECT/RETURNING
+    queries updated to include the new column.
+  - database/postgres/schema.sql: password_changed_at column added to CREATE TABLE
+    DDL + DO $$ migration block for existing installs.
+  - app/api/schemas.py: LoginResponse.warn_default_password: bool = False added.
+  - app/api/deps.py: _API_KEY_FALLBACK and all legacy API_KEY logic removed. JWT-only
+    authentication is now enforced.
+  - app/api/main.py: APIKeyMiddleware import and conditional registration removed.
+  - app/web/js/api.js: isTokenExpired() function added — decodes JWT exp claim
+    client-side (no network) and returns true if expired or malformed. jfetch() calls
+    isTokenExpired() before every request; if expired, clears token and shows login
+    overlay. logoutRequest() added — POSTs to /api/auth/logout with Bearer token
+    (best-effort, errors are ignored).
+  - app/web/js/api.js: showLoginOverlay() stores warn_default_password in
+    sessionStorage before page reload if the server returned the warning flag.
+  - app/web/js/app.js: isTokenExpired() check added before getCurrentUser() on startup
+    — expired token triggers immediate re-authentication without a redundant API call.
+    logoutRequest() called before token clear in logout handler. Default password
+    warning toast shown from sessionStorage flag after successful login + reload.
+  - .env.example: API_KEY entry removed.
+  - docs/endpoints.md: Phase 6 hardening notes added to Auth section.
+  - 20 new unit tests added across tests/test_auth_router.py (TestRateLimiter,
+    TestWarnDefaultPassword) and tests/test_user_repository.py
+    (TestRowToDict, TestUpdatePassword); tests/test_auth_deps.py cleaned of
+    legacy API_KEY fallback tests. All 129 auth/user/permission tests passing.
 
   ---
   9. Task Backlog

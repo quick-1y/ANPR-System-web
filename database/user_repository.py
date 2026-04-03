@@ -32,6 +32,7 @@ def _row_to_dict(row: Any) -> Dict[str, Any]:
         "is_active": row[5],
         "created_at": row[6],
         "updated_at": row[7],
+        "password_changed_at": row[8] if len(row) > 8 else None,
     }
 
 
@@ -40,16 +41,21 @@ class UserDatabase(PooledDatabase):
 
     _SCHEMA = """
     CREATE TABLE IF NOT EXISTS users (
-        id          BIGSERIAL PRIMARY KEY,
-        login       TEXT NOT NULL UNIQUE,
-        password    TEXT NOT NULL,
-        role        TEXT NOT NULL DEFAULT 'operator',
-        permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
-        is_active   BOOLEAN NOT NULL DEFAULT TRUE,
-        created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+        id                  BIGSERIAL PRIMARY KEY,
+        login               TEXT NOT NULL UNIQUE,
+        password            TEXT NOT NULL,
+        role                TEXT NOT NULL DEFAULT 'operator',
+        permissions         JSONB NOT NULL DEFAULT '[]'::jsonb,
+        is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+        password_changed_at TIMESTAMPTZ DEFAULT NULL
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON users(login);
+    """
+
+    _MIGRATE_ADD_PASSWORD_CHANGED_AT = """
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ DEFAULT NULL;
     """
 
     _SEED_ADMIN = """
@@ -62,8 +68,16 @@ class UserDatabase(PooledDatabase):
         return self._SCHEMA
 
     def _ensure_schema(self) -> None:
-        """Create table and seed default admin if the table is empty."""
+        """Create table, run migrations, and seed default admin if the table is empty."""
         super()._ensure_schema()
+        # Phase 6 migration: add password_changed_at for existing installs
+        try:
+            with self._connect() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(self._MIGRATE_ADD_PASSWORD_CHANGED_AT)
+                    conn.commit()
+        except Exception:
+            logger.exception("Ошибка при миграции users (password_changed_at)")
         self._seed_default_admin()
 
     def _seed_default_admin(self) -> None:
@@ -90,7 +104,7 @@ class UserDatabase(PooledDatabase):
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT id, login, password, role, permissions, is_active, created_at, updated_at "
+                    "SELECT id, login, password, role, permissions, is_active, created_at, updated_at, password_changed_at "
                     "FROM users WHERE login = %s",
                     (login,),
                 )
@@ -102,7 +116,7 @@ class UserDatabase(PooledDatabase):
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT id, login, password, role, permissions, is_active, created_at, updated_at "
+                    "SELECT id, login, password, role, permissions, is_active, created_at, updated_at, password_changed_at "
                     "FROM users WHERE id = %s",
                     (user_id,),
                 )
@@ -114,7 +128,7 @@ class UserDatabase(PooledDatabase):
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT id, login, password, role, permissions, is_active, created_at, updated_at "
+                    "SELECT id, login, password, role, permissions, is_active, created_at, updated_at, password_changed_at "
                     "FROM users ORDER BY id"
                 )
                 return [_row_to_dict(row) for row in cur.fetchall()]
@@ -135,7 +149,7 @@ class UserDatabase(PooledDatabase):
                 cur.execute(
                     "INSERT INTO users (login, password, role, permissions) "
                     "VALUES (%s, %s, %s, %s::jsonb) "
-                    "RETURNING id, login, password, role, permissions, is_active, created_at, updated_at",
+                    "RETURNING id, login, password, role, permissions, is_active, created_at, updated_at, password_changed_at",
                     (login, password_hash, role, perms_json),
                 )
                 row = cur.fetchone()
@@ -168,7 +182,7 @@ class UserDatabase(PooledDatabase):
         params.append(user_id)
         query = (
             f"UPDATE users SET {', '.join(sets)} WHERE id = %s "
-            "RETURNING id, login, password, role, permissions, is_active, created_at, updated_at"
+            "RETURNING id, login, password, role, permissions, is_active, created_at, updated_at, password_changed_at"
         )
         with self._connect() as conn:
             with conn.cursor() as cur:
@@ -182,7 +196,8 @@ class UserDatabase(PooledDatabase):
         with self._connect() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "UPDATE users SET password = %s, updated_at = now() WHERE id = %s",
+                    "UPDATE users SET password = %s, updated_at = now(), "
+                    "password_changed_at = now() WHERE id = %s",
                     (password_hash, user_id),
                 )
                 conn.commit()

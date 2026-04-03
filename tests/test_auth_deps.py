@@ -5,7 +5,7 @@ Uses mocks to avoid a live FastAPI/PostgreSQL instance.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import HTTPException
@@ -41,6 +41,7 @@ def _make_user(user_id=1, login="admin", role="admin", is_active=True, permissio
         "is_active": is_active,
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
+        "password_changed_at": None,
     }
 
 
@@ -82,7 +83,6 @@ class TestExtractToken:
 # ---------------------------------------------------------------------------
 
 class TestGetCurrentUser:
-    @patch("app.api.deps._API_KEY_FALLBACK", "")
     def test_valid_jwt_returns_user(self):
         user = _make_user(user_id=5)
         token = create_access_token(user_id=5, role="admin")
@@ -93,7 +93,6 @@ class TestGetCurrentUser:
         assert result["id"] == 5
         container.user_db.find_by_id.assert_called_once_with(5)
 
-    @patch("app.api.deps._API_KEY_FALLBACK", "")
     def test_no_token_raises_401(self):
         request = _make_request()
         container = _make_container()
@@ -102,7 +101,6 @@ class TestGetCurrentUser:
             get_current_user(request, container)
         assert exc_info.value.status_code == 401
 
-    @patch("app.api.deps._API_KEY_FALLBACK", "")
     def test_expired_token_raises_401(self):
         token = create_access_token(user_id=1, role="admin", exp_minutes=-1)
         request = _make_request(auth_header=f"Bearer {token}")
@@ -113,7 +111,6 @@ class TestGetCurrentUser:
         assert exc_info.value.status_code == 401
         assert "истёк" in exc_info.value.detail
 
-    @patch("app.api.deps._API_KEY_FALLBACK", "")
     def test_invalid_token_raises_401(self):
         request = _make_request(auth_header="Bearer garbage")
         container = _make_container()
@@ -122,7 +119,6 @@ class TestGetCurrentUser:
             get_current_user(request, container)
         assert exc_info.value.status_code == 401
 
-    @patch("app.api.deps._API_KEY_FALLBACK", "")
     def test_user_not_found_raises_401(self):
         token = create_access_token(user_id=999, role="admin")
         request = _make_request(auth_header=f"Bearer {token}")
@@ -132,7 +128,6 @@ class TestGetCurrentUser:
             get_current_user(request, container)
         assert exc_info.value.status_code == 401
 
-    @patch("app.api.deps._API_KEY_FALLBACK", "")
     def test_inactive_user_raises_401(self):
         user = _make_user(user_id=3, is_active=False)
         token = create_access_token(user_id=3, role="admin")
@@ -144,7 +139,6 @@ class TestGetCurrentUser:
         assert exc_info.value.status_code == 401
         assert "деактивирована" in exc_info.value.detail
 
-    @patch("app.api.deps._API_KEY_FALLBACK", "")
     def test_query_param_token(self):
         user = _make_user(user_id=10)
         token = create_access_token(user_id=10, role="operator")
@@ -153,35 +147,6 @@ class TestGetCurrentUser:
 
         result = get_current_user(request, container)
         assert result["id"] == 10
-
-    # Legacy API_KEY fallback
-    @patch("app.api.deps._API_KEY_FALLBACK", "test-api-key")
-    def test_api_key_fallback_via_header(self):
-        admin = _make_user(user_id=1, login="admin", role="admin")
-        request = _make_request(headers={"X-Api-Key": "test-api-key"})
-        container = _make_container(user=admin)
-
-        result = get_current_user(request, container)
-        assert result["login"] == "admin"
-        container.user_db.find_by_login.assert_called_once_with("admin")
-
-    @patch("app.api.deps._API_KEY_FALLBACK", "test-api-key")
-    def test_api_key_fallback_via_query(self):
-        admin = _make_user(user_id=1, login="admin", role="admin")
-        request = _make_request(query_params={"api_key": "test-api-key"})
-        container = _make_container(user=admin)
-
-        result = get_current_user(request, container)
-        assert result["login"] == "admin"
-
-    @patch("app.api.deps._API_KEY_FALLBACK", "test-api-key")
-    def test_wrong_api_key_falls_through_to_jwt(self):
-        request = _make_request(headers={"X-Api-Key": "wrong-key"})
-        container = _make_container()
-
-        with pytest.raises(HTTPException) as exc_info:
-            get_current_user(request, container)
-        assert exc_info.value.status_code == 401
 
 
 # ---------------------------------------------------------------------------

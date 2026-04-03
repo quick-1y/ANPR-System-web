@@ -10,7 +10,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.auth import APIKeyMiddleware
 from app.api.container import AppContainer, WEB_DIR
 from app.api.routers.auth import router as auth_router
 from app.api.routers.channels import router as channels_router
@@ -51,12 +50,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Legacy API_KEY fallback: if the env var is set, the static key is also accepted
-# alongside JWT tokens.  This will be removed in a future hardening phase.
-_api_key = os.getenv("API_KEY", "").strip()
-if _api_key:
-    app.add_middleware(APIKeyMiddleware, api_key=_api_key)
 
 app.mount("/web", StaticFiles(directory=str(WEB_DIR), html=True), name="web")
 
