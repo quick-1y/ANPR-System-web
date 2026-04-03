@@ -452,12 +452,24 @@
   ---
   8. Phased Roadmap
 
-  Phase 1: Foundation (database + dependencies)
+  Phase 1: Foundation (database + dependencies)  ✅ COMPLETED
 
   - Add bcrypt and PyJWT to pyproject.toml.
   - Create users table in schema.sql.
   - Implement UserDatabase repository.
   - Seed default admin on first startup.
+
+  Implementation notes (Phase 1):
+  - bcrypt and PyJWT added to pyproject.toml [dependencies] section.
+  - users table DDL added to database/postgres/schema.sql (id, login, password, role,
+    permissions JSONB, is_active, created_at, updated_at; unique index on login).
+  - database/user_repository.py created: UserDatabase(PooledDatabase) with methods
+    find_by_login, find_by_id, list_all, create_user, update_user, update_password,
+    deactivate, count_active_admins. _ensure_schema() creates table + seeds default
+    admin (login=admin, password=bcrypt("1234"), role=admin) when table is empty.
+  - AppContainer.build() now instantiates user_db=UserDatabase(dsn) and exposes it
+    as container.user_db for DI. refresh_storage_clients() also refreshes user_db.
+  - 28 unit tests added in tests/test_user_repository.py (all passing).
 
   Phase 2: Auth Backend (login + token + protection)
 
@@ -501,7 +513,7 @@
   ---
   9. Task Backlog
 
-  Phase 1 Tasks
+  Phase 1 Tasks  ✅ ALL COMPLETED
 
   ---
   T1.1 — Add auth dependencies to pyproject.toml

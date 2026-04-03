@@ -37,7 +37,20 @@
       "Bash(python -c \"import py_compile; py_compile.compile\\(''anpr/pipeline/anpr_pipeline.py'', doraise=True\\); py_compile.compile\\(''runtime/debug.py'', doraise=True\\); py_compile.compile\\(''runtime/channel_runtime.py'', doraise=True\\); print\\(''OK''\\)\")",
       "Bash(python -c \"import py_compile; py_compile.compile\\(''app/api/container.py'', doraise=True\\); print\\(''OK''\\)\")",
       "Bash(python -c \"import py_compile; py_compile.compile\\(''database/plate_lists_repository.py'', doraise=True\\); print\\(''OK''\\)\")",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(poetry add:*)",
+      "Bash(where poetry:*)",
+      "Bash(where pip:*)",
+      "Bash(cmd.exe /c \"where poetry\")",
+      "Bash(cmd.exe /c \"where python\")",
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe\" --version)",
+      "Bash(\"/c/Users/User/AppData/Local/pypoetry/venv/Scripts/poetry.exe\" --version)",
+      "Read(//c/Users/User/AppData/Roaming/Python//**)",
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/Scripts/pip.exe\" install:*)",
+      "Bash(/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe:*)",
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe\" -m pytest tests/ -v)",
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe\" -c \"from database.user_repository import UserDatabase; print\\('UserDatabase import OK'\\)\")",
+      "Bash(\"/c/Users/User/AppData/Local/Programs/Python/Python313/python.exe\" -c \"from app.api.container import AppContainer; print\\('AppContainer import OK'\\)\")"
     ]
   }
 }

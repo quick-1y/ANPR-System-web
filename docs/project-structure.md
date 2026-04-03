@@ -53,7 +53,8 @@ ANPR-System-v0.8_web/
 │   │   └── schema.sql
 │   ├── errors.py
 │   ├── lists_repository.py
-│   └── postgres_event_repository.py
+│   ├── postgres_event_repository.py
+│   └── user_repository.py
 ├── nginx/                         # Конфиг reverse proxy
 │   └── default.conf
 ├── runtime/                       # Выполнение каналов и runtime-сервисы
@@ -63,9 +64,11 @@ ANPR-System-v0.8_web/
 │   └── event_sink.py
 ├── tests/                         # Тесты ключевых компонентов
 │   ├── test_direction_estimator.py
+│   ├── test_lists_repository.py
 │   ├── test_motion_detector.py
 │   ├── test_plate_validator.py
-│   └── test_track_aggregator.py
+│   ├── test_track_aggregator.py
+│   └── test_user_repository.py
 ├── .planning/
 │   └── codebase/                  # Аналитические markdown-файлы по проекту
 ├── AGENTS.md

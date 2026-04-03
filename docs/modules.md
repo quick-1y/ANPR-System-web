@@ -64,7 +64,8 @@
 |---|---|
 | `database/postgres_event_repository.py` | `PostgresEventDatabase`: insert, pagination, fetch, delete, export |
 | `database/lists_repository.py` | `ListDatabase`: CRUD для списков и клиентов, проверка вхождения номера |
-| `database/postgres/schema.sql` | SQL-схема инициализации PostgreSQL |
+| `database/user_repository.py` | `UserDatabase`: CRUD пользователей, seed admin по умолчанию |
+| `database/postgres/schema.sql` | SQL-схема инициализации PostgreSQL (events, users) |
 | `database/errors.py` | Ошибки слоя хранения, включая `StorageUnavailableError` |
 
 ## `config/` — конфигурация
