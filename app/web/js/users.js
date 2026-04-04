@@ -65,6 +65,18 @@ export async function loadUsers() {
     }
 }
 
+// --- Helpers ---
+
+const _ROLE_BADGES = {
+    superadmin: '<span style="font-size:9px;color:var(--accent2);margin-left:4px;font-family:var(--mono)">СА</span>',
+    admin:      '<span style="font-size:9px;color:var(--accent2);margin-left:4px;font-family:var(--mono)">АДМ</span>',
+    operator:   '<span style="font-size:9px;color:var(--text3);margin-left:4px;font-family:var(--mono)">ОПЕ</span>',
+};
+
+function _roleBadge(role) {
+    return _ROLE_BADGES[role] ?? `<span style="font-size:9px;color:var(--text3);margin-left:4px;font-family:var(--mono)">${_esc(role)}</span>`;
+}
+
 // --- User list ---
 
 function _renderUserList() {
@@ -76,9 +88,7 @@ function _renderUserList() {
         item.className = "ch-item" + (_selectedUserId === u.id ? " active" : "");
         item.dataset.userId = u.id;
 
-        const roleBadge = u.role === "superadmin"
-            ? '<span style="font-size:9px;color:var(--accent2);margin-left:4px;font-family:var(--mono)">АДМ</span>'
-            : '<span style="font-size:9px;color:var(--text3);margin-left:4px;font-family:var(--mono)">ОПЕ</span>';
+        const roleBadge = _roleBadge(u.role);
         const inactiveTag = u.is_active
             ? ""
             : '<span style="font-size:9px;color:var(--danger);margin-left:4px;font-family:var(--mono)">НЕАКТ</span>';
