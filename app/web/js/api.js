@@ -92,10 +92,6 @@ export function showLoginOverlay(onSuccess) {
     try {
       const data = await loginRequest(loginVal, passVal);
       setToken(data.access_token);
-      // Store default-password warning flag for display after page reload
-      if (data.warn_default_password) {
-        sessionStorage.setItem("anpr_warn_pwd", "1");
-      }
       overlay.classList.remove("active");
       cleanup();
       if (onSuccess) onSuccess(data.user);

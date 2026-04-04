@@ -243,9 +243,9 @@
             Системные данные
           </div>
 
-          <div class="snav-label">Разработка</div>
-        
-          <div class="snav-item" data-sp="debug">
+          <div class="snav-label" id="snav-label-dev" style="display:none">Разработка</div>
+
+          <div class="snav-item" id="snav-debug" data-sp="debug" style="display:none">
             <img class="ui-icon ui-icon-sm" src="/web/assets/icons/debug.svg" alt="" />
             Отладка
           </div>
@@ -1005,7 +1005,6 @@
                       <select class="s-input" id="newUserRole">
                         <option value="operator">Оператор</option>
                         <option value="admin">Администратор</option>
-                        <option value="superadmin">Супер Администратор</option>
                       </select>
                     </div>
                     <div class="s-row">
@@ -1035,7 +1034,6 @@
                       <select class="s-input" id="editUserRole">
                         <option value="operator">Оператор</option>
                         <option value="admin">Администратор</option>
-                        <option value="superadmin">Супер Администратор</option>
                       </select>
                     </div>
                     <div class="s-row">

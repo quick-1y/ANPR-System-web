@@ -31,9 +31,13 @@ def list_users(
     current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
     container: AppContainer = Depends(get_container),
 ):
-    """Return all users (admin only)."""
+    """Return all users (admin only). Excludes the technical superadmin account."""
     users = container.user_db.list_all()
-    return [UserOut(**{k: v for k, v in u.items() if k != "password"}) for u in users]
+    return [
+        UserOut(**{k: v for k, v in u.items() if k != "password"})
+        for u in users
+        if u.get("role") != "superadmin"
+    ]
 
 
 @router.post("/api/users", response_model=UserOut, status_code=201)
@@ -42,7 +46,9 @@ def create_user(
     current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
     container: AppContainer = Depends(get_container),
 ):
-    """Create a new user (admin only)."""
+    """Create a new user (admin only). The superadmin role cannot be assigned here."""
+    if body.role == "superadmin":
+        raise HTTPException(status_code=400, detail="Роль 'superadmin' недоступна для создания пользователей")
     if container.user_db.find_by_login(body.login):
         raise HTTPException(
             status_code=409,

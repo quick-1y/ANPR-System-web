@@ -106,16 +106,9 @@ def login(
     token = create_access_token(user_id=user["id"], role=user["role"])
     logger.info("login login='%s' id=%s ip='%s'", user["login"], user["id"], ip)
 
-    # Warn if superadmin still uses the default password (never changed).
-    warn_default_password = (
-        user.get("role") == "superadmin"
-        and user.get("password_changed_at") is None
-    )
-
     return LoginResponse(
         access_token=token,
         user=UserOut(**{k: v for k, v in user.items() if k != "password"}),
-        warn_default_password=warn_default_password,
     )
 
 

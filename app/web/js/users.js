@@ -92,7 +92,7 @@ function _renderUserList() {
     const el = document.getElementById("userItems");
     if (!el) return;
     el.innerHTML = "";
-    for (const u of _users) {
+    for (const u of _users.filter(u => u.role !== "superadmin")) {
         const item = document.createElement("div");
         item.className = "ch-item" + (_selectedUserId === u.id ? " active" : "");
         item.dataset.userId = u.id;
