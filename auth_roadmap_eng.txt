@@ -80,7 +80,7 @@
   - Each user has a role (admin or operator).
   - Each user has a set of permission keys stored in a JSON/JSONB column or a junction table.
   - Role provides coarse defaults; explicit permissions provide fine-grained overrides.
-  - Backend route protection via a reusable FastAPI dependency: require_role("admin") and require_permission("tab:settings").
+  - Backend route protection via a reusable FastAPI dependency: require_role("superadmin") and require_permission("tab:settings").
 
   Frontend Access Control Model
 
@@ -121,7 +121,7 @@
 
   During _ensure_schema() in the new UserRepository:
   1. Check if the users table has any rows.
-  2. If empty, INSERT the default admin: login=admin, password=bcrypt("1234"), role=admin, is_active=true.
+  2. If empty, INSERT the default admin: login=superadmin, password=bcrypt("1234"), role=superadmin, is_active=true.
   3. This runs once on first startup — idempotent, no risk of duplicates.
 
   ---
@@ -133,7 +133,7 @@
       id          BIGSERIAL PRIMARY KEY,
       login       TEXT NOT NULL UNIQUE,
       password    TEXT NOT NULL,              -- bcrypt hash
-      role        TEXT NOT NULL DEFAULT 'operator',  -- 'admin' | 'operator'
+      role        TEXT NOT NULL DEFAULT 'operator',  -- 'superadmin' | 'operator'
       permissions JSONB NOT NULL DEFAULT '[]'::jsonb, -- ["tab:obs", "tab:journal", ...]
       is_active   BOOLEAN NOT NULL DEFAULT TRUE,
       created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -151,7 +151,7 @@
   Initial Seed Data
 
   INSERT INTO users (login, password, role, permissions, is_active)
-  VALUES ('admin', '<bcrypt_hash_of_1234>', 'admin', '[]'::jsonb, true)
+  VALUES ('superadmin', '<bcrypt_hash_of_1234>', 'admin', '[]'::jsonb, true)
   ON CONFLICT (login) DO NOTHING;
 
   Admin gets empty permissions array because admins implicitly have all permissions.
@@ -396,7 +396,7 @@
 
   - Backend: DELETE /api/users/{id} (deactivate) returns 400 if id == current_user.id.
   - Backend: PUT /api/users/{id} prevents removing admin role from yourself if you're the last active admin.
-  - Query: SELECT count(*) FROM users WHERE role='admin' AND is_active=true — must remain >= 1.
+  - Query: SELECT count(*) FROM users WHERE role='superadmin' AND is_active=true — must remain >= 1.
 
   Future Production Hardening
 
@@ -465,8 +465,8 @@
     permissions JSONB, is_active, created_at, updated_at; unique index on login).
   - database/user_repository.py created: UserDatabase(PooledDatabase) with methods
     find_by_login, find_by_id, list_all, create_user, update_user, update_password,
-    deactivate, count_active_admins. _ensure_schema() creates table + seeds default
-    admin (login=admin, password=bcrypt("1234"), role=admin) when table is empty.
+    deactivate, count_active_superadmins. _ensure_schema() creates table + seeds default
+    admin (login=superadmin, password=bcrypt("1234"), role=superadmin) when table is empty.
   - AppContainer.build() now instantiates user_db=UserDatabase(dsn) and exposes it
     as container.user_db for DI. refresh_storage_clients() also refreshes user_db.
   - 28 unit tests added in tests/test_user_repository.py (all passing).
@@ -524,7 +524,7 @@
     apiUrl() appends ?token=; showLoginOverlay() replaces showAuthOverlay() and handles the
     full login form flow (call loginRequest(), store token, invoke onSuccess(user));
     loginRequest() and getCurrentUser() added as explicit async helpers.
-  - app/web/js/state.js: state.currentUser added; setCurrentUser(), isAdmin(),
+  - app/web/js/state.js: state.currentUser added; setCurrentUser(), isSuperAdmin(),
     hasPermission(key) exported for use by all modules.
   - app/web/js/app.js: init() now checks getToken() on startup, calls getCurrentUser() to
     validate, shows login overlay on missing/expired token; on success stores user in state
@@ -550,15 +550,15 @@
     switchTab() patched to refuse switching to a hidden tab (style.display==="none").
   - app/web/js/app.js: imports applyTabVisibility; calls it immediately after
     _applyUserUI(currentUser) on page load with currentUser.permissions and
-    (currentUser.role === "admin") flag.
+    (currentUser.role === "superadmin") flag.
   - app/api/routers/settings.py: all endpoints changed from get_current_user to
-    require_role("admin") — operators get 403.
-  - app/api/routers/controllers.py: all endpoints changed to require_role("admin").
-  - app/api/routers/data.py: all endpoints changed to require_role("admin")
+    require_role("superadmin") — operators get 403.
+  - app/api/routers/controllers.py: all endpoints changed to require_role("superadmin").
+  - app/api/routers/data.py: all endpoints changed to require_role("superadmin")
     (includes retention policy, CSV/bundle export, backup/restore).
-  - app/api/routers/debug.py: all endpoints changed to require_role("admin").
+  - app/api/routers/debug.py: all endpoints changed to require_role("superadmin").
   - app/api/routers/auth.py: GET /api/permissions/available changed to
-    require_role("admin"); response format updated from list of strings to list of
+    require_role("superadmin"); response format updated from list of strings to list of
     {key, label, group} objects for Phase 5 user management UI.
   - tests/test_auth_router.py: TestAvailablePermissions updated for new rich format
     and operator-blocked assertion.
@@ -615,7 +615,7 @@
   - app/api/routers/auth.py: POST /api/auth/logout now requires authentication
     (get_current_user) so the logout event is attributed and logged.
   - app/api/routers/auth.py: login response includes warn_default_password: bool —
-    true when the user has role=admin and password_changed_at IS NULL (never changed).
+    true when the user has role=superadmin and password_changed_at IS NULL (never changed).
   - database/user_repository.py: password_changed_at TIMESTAMPTZ column added to
     _SCHEMA and _MIGRATE_ADD_PASSWORD_CHANGED_AT applied in _ensure_schema() for
     existing installs (ALTER TABLE ... ADD COLUMN IF NOT EXISTS). update_password()
@@ -779,10 +779,10 @@
   ---
   T3.3 — Add current user to frontend state
   - Goal: Store authenticated user info in state.js and make it accessible to all modules.
-  - Scope: Add currentUser to state. On app init, call /api/auth/me and populate. Export helper: isAdmin(), hasPermission(key).
+  - Scope: Add currentUser to state. On app init, call /api/auth/me and populate. Export helper: isSuperAdmin(), hasPermission(key).
   - Affected files: app/web/js/state.js, app/web/js/app.js
   - Dependencies: T3.2.
-  - Acceptance criteria: After login, state.currentUser contains { id, login, role, permissions }. isAdmin() returns true for admin role.
+  - Acceptance criteria: After login, state.currentUser contains { id, login, role, permissions }. isSuperAdmin() returns true for admin role.
   - Parallel: After T3.2.
 
   ---
@@ -810,7 +810,7 @@
   ---
   T4.2 — Implement require_role() and require_permission() dependencies
   - Goal: Create reusable FastAPI dependencies for role and permission checks.
-  - Scope: require_role("admin") → raises 403 if user is not admin. require_permission("tab:settings") → raises 403 if user lacks the permission (admins always pass).
+  - Scope: require_role("superadmin") → raises 403 if user is not admin. require_permission("tab:settings") → raises 403 if user lacks the permission (admins always pass).
   - Affected files: app/api/deps.py
   - Dependencies: T2.4.
   - Acceptance criteria: Operators without required permission get 403. Admins always pass. Clear error messages.
@@ -819,7 +819,7 @@
   ---
   T4.3 — Apply role/permission guards to admin-only routes
   - Goal: Restrict settings, controllers, data, debug, and user-management routes to admin role.
-  - Scope: Add Depends(require_role("admin")) to: settings, controllers, data (backup/restore), debug routers.
+  - Scope: Add Depends(require_role("superadmin")) to: settings, controllers, data (backup/restore), debug routers.
   - Affected files: app/api/routers/settings.py, app/api/routers/controllers.py, app/api/routers/data.py, app/api/routers/debug.py
   - Dependencies: T4.2.
   - Acceptance criteria: Operators get 403 on admin-only endpoints. Admins have full access.
@@ -900,7 +900,7 @@
   T6.2 — Admin self-lock prevention
   - Goal: Prevent admin from deactivating themselves or removing the last admin.
   - Scope: In DELETE /api/users/{id}: reject if id == current_user.id. In PUT /api/users/{id}: if changing role away from admin, check that at least 1 other active admin remains.
-  - Affected files: app/api/routers/users.py, database/user_repository.py (add count_active_admins())
+  - Affected files: app/api/routers/users.py, database/user_repository.py (add count_active_superadmins())
   - Dependencies: T5.1.
   - Acceptance criteria: Cannot deactivate self (400 error). Cannot demote self if last admin (400 error). Error message is clear.
   - Parallel: After T5.1.

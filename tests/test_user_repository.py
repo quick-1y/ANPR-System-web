@@ -5,7 +5,7 @@ Covers logic that can be verified without a live PostgreSQL connection:
   - schema SQL shape
   - _row_to_dict conversion
   - repository methods via psycopg mocks
-  - default admin seeding logic
+  - default superadmin seeding logic
 """
 from __future__ import annotations
 
@@ -46,12 +46,12 @@ class TestHashPassword:
 
 class TestRowToDict:
     def test_converts_tuple_to_dict(self):
-        row = (1, "admin", "$2b$hash", "admin", ["tab:obs"], True, "2024-01-01", "2024-01-01", None)
+        row = (1, "superadmin", "$2b$hash", "superadmin", ["tab:obs"], True, "2024-01-01", "2024-01-01", None)
         result = _row_to_dict(row)
         assert result["id"] == 1
-        assert result["login"] == "admin"
+        assert result["login"] == "superadmin"
         assert result["password"] == "$2b$hash"
-        assert result["role"] == "admin"
+        assert result["role"] == "superadmin"
         assert result["permissions"] == ["tab:obs"]
         assert result["is_active"] is True
         assert result["password_changed_at"] is None
@@ -59,13 +59,13 @@ class TestRowToDict:
     def test_includes_password_changed_at_when_set(self):
         from datetime import datetime, timezone
         changed_at = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
-        row = (1, "admin", "$2b$hash", "admin", [], True, "2024-01-01", "2024-01-01", changed_at)
+        row = (1, "superadmin", "$2b$hash", "superadmin", [], True, "2024-01-01", "2024-01-01", changed_at)
         result = _row_to_dict(row)
         assert result["password_changed_at"] == changed_at
 
     def test_password_changed_at_defaults_to_none_for_legacy_rows(self):
         """8-element rows (pre-Phase 6) map password_changed_at to None."""
-        row = (1, "admin", "$2b$hash", "admin", ["tab:obs"], True, "2024-01-01", "2024-01-01")
+        row = (1, "superadmin", "$2b$hash", "superadmin", ["tab:obs"], True, "2024-01-01", "2024-01-01")
         result = _row_to_dict(row)
         assert result["password_changed_at"] is None
 
@@ -146,13 +146,13 @@ def _mock_conn(fetchone=None, fetchall=None, rowcount=1):
 class TestFindByLogin:
     def test_returns_user_dict_when_found(self):
         db = _make_db()
-        row = (1, "admin", "$2b$hash", "admin", [], True, "2024-01-01", "2024-01-01")
+        row = (1, "superadmin", "$2b$hash", "superadmin", [], True, "2024-01-01", "2024-01-01")
         conn, cursor = _mock_conn(fetchone=row)
         with patch.object(db, "_connect", return_value=conn):
-            result = db.find_by_login("admin")
+            result = db.find_by_login("superadmin")
         assert result is not None
-        assert result["login"] == "admin"
-        assert result["role"] == "admin"
+        assert result["login"] == "superadmin"
+        assert result["role"] == "superadmin"
 
     def test_returns_none_when_not_found(self):
         db = _make_db()
@@ -193,14 +193,14 @@ class TestListAll:
     def test_returns_list_of_users(self):
         db = _make_db()
         rows = [
-            (1, "admin", "$2b$h1", "admin", [], True, "2024-01-01", "2024-01-01"),
+            (1, "superadmin", "$2b$h1", "superadmin", [], True, "2024-01-01", "2024-01-01"),
             (2, "op1", "$2b$h2", "operator", ["tab:obs"], True, "2024-01-01", "2024-01-01"),
         ]
         conn, cursor = _mock_conn(fetchall=rows)
         with patch.object(db, "_connect", return_value=conn):
             result = db.list_all()
         assert len(result) == 2
-        assert result[0]["login"] == "admin"
+        assert result[0]["login"] == "superadmin"
         assert result[1]["login"] == "op1"
 
     def test_returns_empty_list_when_no_users(self):
@@ -242,7 +242,7 @@ class TestCreateUser:
 class TestUpdateUser:
     def test_updates_role(self):
         db = _make_db()
-        row = (1, "admin", "h", "operator", [], True, "2024-01-01", "2024-01-01")
+        row = (1, "superadmin", "h", "operator", [], True, "2024-01-01", "2024-01-01")
         conn, cursor = _mock_conn(fetchone=row)
         with patch.object(db, "_connect", return_value=conn):
             result = db.update_user(1, role="operator")
@@ -317,42 +317,42 @@ class TestDeactivate:
 
 
 # ---------------------------------------------------------------------------
-# count_active_admins
+# count_active_superadmins
 # ---------------------------------------------------------------------------
 
-class TestCountActiveAdmins:
+class TestCountActiveSuperadmins:
     def test_returns_count(self):
         db = _make_db()
         conn, cursor = _mock_conn(fetchone=(2,))
         with patch.object(db, "_connect", return_value=conn):
-            assert db.count_active_admins() == 2
+            assert db.count_active_superadmins() == 2
 
 
 # ---------------------------------------------------------------------------
-# Default admin seeding
+# Default superadmin seeding
 # ---------------------------------------------------------------------------
 
-class TestSeedDefaultAdmin:
-    def test_seeds_admin_when_table_empty(self):
+class TestSeedDefaultSuperadmin:
+    def test_seeds_superadmin_when_table_empty(self):
         db = _make_db()
         # First query: count(*) returns 0
         conn, cursor = _mock_conn(fetchone=(0,))
         with patch.object(db, "_connect", return_value=conn):
-            db._seed_default_admin()
+            db._seed_default_superadmin()
         calls = cursor.execute.call_args_list
         # Should have 2 calls: SELECT count(*) and INSERT
         assert len(calls) == 2
         insert_sql = calls[1][0][0]
         assert "INSERT INTO users" in insert_sql
         insert_params = calls[1][0][1]
-        assert insert_params[0] == "admin"  # login
+        assert insert_params[0] == "superadmin"  # login
         assert insert_params[1].startswith("$2")  # bcrypt hash
 
     def test_skips_seed_when_table_not_empty(self):
         db = _make_db()
         conn, cursor = _mock_conn(fetchone=(3,))
         with patch.object(db, "_connect", return_value=conn):
-            db._seed_default_admin()
+            db._seed_default_superadmin()
         calls = cursor.execute.call_args_list
         # Only the count query, no INSERT
         assert len(calls) == 1

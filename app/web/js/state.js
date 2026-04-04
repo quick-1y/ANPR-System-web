@@ -37,9 +37,9 @@ export function setEventFeedRenderFrame(v) { eventFeedRenderFrame = v; }
 
 // Current user helpers
 export function setCurrentUser(user) { state.currentUser = user; }
-export function isAdmin() { return state.currentUser?.role === "admin"; }
+export function isSuperAdmin() { return state.currentUser?.role === "superadmin"; }
 export function hasPermission(key) {
   if (!state.currentUser) return false;
-  if (isAdmin()) return true;
+  if (isSuperAdmin()) return true;
   return Array.isArray(state.currentUser.permissions) && state.currentUser.permissions.includes(key);
 }

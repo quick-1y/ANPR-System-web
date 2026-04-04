@@ -106,9 +106,9 @@ def login(
     token = create_access_token(user_id=user["id"], role=user["role"])
     logger.info("login login='%s' id=%s ip='%s'", user["login"], user["id"], ip)
 
-    # Warn if admin still uses the default password (never changed).
+    # Warn if superadmin still uses the default password (never changed).
     warn_default_password = (
-        user.get("role") == "admin"
+        user.get("role") == "superadmin"
         and user.get("password_changed_at") is None
     )
 
@@ -133,6 +133,6 @@ def me(current_user: Dict[str, Any] = Depends(get_current_user)):
 
 
 @router.get("/api/permissions/available")
-def available_permissions(current_user: Dict[str, Any] = Depends(require_role("admin"))):
-    """Return known permission keys with labels (admin-only, for user management UI)."""
+def available_permissions(current_user: Dict[str, Any] = Depends(require_role("superadmin"))):
+    """Return known permission keys with labels (superadmin-only, for user management UI)."""
     return AVAILABLE_PERMISSIONS

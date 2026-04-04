@@ -57,7 +57,7 @@ class TestVerifyPassword:
 
 class TestCreateAccessToken:
     def test_returns_string(self):
-        token = create_access_token(user_id=1, role="admin")
+        token = create_access_token(user_id=1, role="superadmin")
         assert isinstance(token, str)
         assert len(token) > 0
 
@@ -70,7 +70,7 @@ class TestCreateAccessToken:
         assert "iat" in payload
 
     def test_custom_expiration(self):
-        token = create_access_token(user_id=1, role="admin", exp_minutes=1)
+        token = create_access_token(user_id=1, role="superadmin", exp_minutes=1)
         payload = pyjwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         # exp should be close to now + 1 minute
         assert payload["exp"] - payload["iat"] <= 120  # allow some tolerance
@@ -82,13 +82,13 @@ class TestCreateAccessToken:
 
 class TestDecodeAccessToken:
     def test_valid_token(self):
-        token = create_access_token(user_id=7, role="admin")
+        token = create_access_token(user_id=7, role="superadmin")
         payload = decode_access_token(token)
         assert payload["sub"] == "7"
-        assert payload["role"] == "admin"
+        assert payload["role"] == "superadmin"
 
     def test_expired_token_raises(self):
-        token = create_access_token(user_id=1, role="admin", exp_minutes=-1)
+        token = create_access_token(user_id=1, role="superadmin", exp_minutes=-1)
         with pytest.raises(pyjwt.ExpiredSignatureError):
             decode_access_token(token)
 
@@ -97,14 +97,14 @@ class TestDecodeAccessToken:
             decode_access_token("not.a.valid.token")
 
     def test_tampered_token_raises(self):
-        token = create_access_token(user_id=1, role="admin")
+        token = create_access_token(user_id=1, role="superadmin")
         # Tamper with the token
         tampered = token[:-5] + "XXXXX"
         with pytest.raises(pyjwt.InvalidTokenError):
             decode_access_token(tampered)
 
     def test_wrong_secret_raises(self):
-        payload = {"sub": "1", "role": "admin", "exp": int(time.time()) + 3600}
+        payload = {"sub": "1", "role": "superadmin", "exp": int(time.time()) + 3600}
         token = pyjwt.encode(payload, "wrong-secret", algorithm=JWT_ALGORITHM)
         with pytest.raises(pyjwt.InvalidTokenError):
             decode_access_token(token)

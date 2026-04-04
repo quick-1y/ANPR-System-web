@@ -1,7 +1,7 @@
 // User management — admin-only Settings sub-pane (Phase 5)
 import { api, jfetch } from './api.js';
 import { showToast, switchSettings, openModal, closeModal } from './ui.js';
-import { isAdmin } from './state.js';
+import { isSuperAdmin } from './state.js';
 
 let _allPermissions = [];
 let _users = [];
@@ -10,7 +10,7 @@ let _selectedUserId = null;
 // --- Init ---
 
 export function initUsersPane() {
-    if (!isAdmin()) return;
+    if (!isSuperAdmin()) return;
 
     const navItem = document.getElementById("snav-users");
     if (navItem) {
@@ -76,7 +76,7 @@ function _renderUserList() {
         item.className = "ch-item" + (_selectedUserId === u.id ? " active" : "");
         item.dataset.userId = u.id;
 
-        const roleBadge = u.role === "admin"
+        const roleBadge = u.role === "superadmin"
             ? '<span style="font-size:9px;color:var(--accent2);margin-left:4px;font-family:var(--mono)">АДМ</span>'
             : '<span style="font-size:9px;color:var(--text3);margin-left:4px;font-family:var(--mono)">ОПЕ</span>';
         const inactiveTag = u.is_active

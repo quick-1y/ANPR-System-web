@@ -57,8 +57,8 @@ class UserCreate(BaseModel):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: str) -> str:
-        if v not in ("admin", "operator"):
-            raise ValueError("Роль должна быть 'admin' или 'operator'")
+        if v not in ("superadmin", "operator"):
+            raise ValueError("Роль должна быть 'superadmin' или 'operator'")
         return v
 
 
@@ -70,8 +70,8 @@ class UserUpdate(BaseModel):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in ("admin", "operator"):
-            raise ValueError("Роль должна быть 'admin' или 'operator'")
+        if v is not None and v not in ("superadmin", "operator"):
+            raise ValueError("Роль должна быть 'superadmin' или 'operator'")
         return v
 
 

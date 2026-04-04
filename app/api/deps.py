@@ -62,11 +62,11 @@ def require_role(role: str):
 def require_permission(permission: str):
     """Return a dependency that checks the current user has a specific permission key.
 
-    Admins implicitly have all permissions.
+    Superadmins implicitly have all permissions.
     """
 
     def _check(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-        if current_user.get("role") == "admin":
+        if current_user.get("role") == "superadmin":
             return current_user
         user_permissions = current_user.get("permissions", [])
         if permission not in user_permissions:

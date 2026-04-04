@@ -322,7 +322,7 @@ initBackupBindings();
     return;
   }
   _applyUserUI(currentUser);
-  applyTabVisibility(currentUser.permissions || [], currentUser.role === "admin");
+  applyTabVisibility(currentUser.permissions || [], currentUser.role === "superadmin");
   initUsersPane();
 
   // --- Default password warning (set by showLoginOverlay after successful login) ---

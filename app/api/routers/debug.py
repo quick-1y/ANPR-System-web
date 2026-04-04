@@ -15,19 +15,19 @@ router = APIRouter()
 
 
 @router.get("/api/debug/settings")
-def get_debug_settings(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("admin"))) -> Dict[str, Any]:
+def get_debug_settings(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
     return container.processor.get_debug_settings()
 
 
 @router.put("/api/debug/settings")
-def put_debug_settings(payload: DebugPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("admin"))) -> Dict[str, Any]:
+def put_debug_settings(payload: DebugPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
     body = payload.model_dump()
     container.settings.save_debug_settings(body)
     return container.processor.update_debug_settings(body)
 
 
 @router.get("/api/debug/channels")
-def debug_channels(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("admin"))) -> Dict[str, Any]:
+def debug_channels(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
     metrics = container.processor.list_states()
     states = container.processor.list_debug_states()
     return {
@@ -44,7 +44,7 @@ def debug_channels(container: AppContainer = Depends(get_container), _user: Dict
 
 
 @router.get("/api/debug/state")
-def debug_state(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("admin"))) -> Dict[str, Any]:
+def debug_state(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
     return {
         "settings": container.processor.get_debug_settings(),
         "channel_states": container.processor.list_debug_states(),
@@ -52,12 +52,12 @@ def debug_state(container: AppContainer = Depends(get_container), _user: Dict[st
 
 
 @router.get("/api/debug/logs")
-def debug_logs(limit: int = 200, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("admin"))) -> Dict[str, Any]:
+def debug_logs(limit: int = 200, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
     return {"items": container.debug_log_bus.snapshot(limit=limit)}
 
 
 @router.get("/api/debug/logs/stream")
-async def stream_debug_logs(request: Request, last_id: int = 0, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("admin"))) -> StreamingResponse:
+async def stream_debug_logs(request: Request, last_id: int = 0, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> StreamingResponse:
     async def generator():
         loop = asyncio.get_running_loop()
         queue = container.debug_log_bus.subscribe(loop)

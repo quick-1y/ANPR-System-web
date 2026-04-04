@@ -31,7 +31,7 @@ def _make_request(*, auth_header: str = "", query_params: dict | None = None, he
     return req
 
 
-def _make_user(user_id=1, login="admin", role="admin", is_active=True, permissions=None):
+def _make_user(user_id=1, login="superadmin", role="superadmin", is_active=True, permissions=None):
     return {
         "id": user_id,
         "login": login,
@@ -85,7 +85,7 @@ class TestExtractToken:
 class TestGetCurrentUser:
     def test_valid_jwt_returns_user(self):
         user = _make_user(user_id=5)
-        token = create_access_token(user_id=5, role="admin")
+        token = create_access_token(user_id=5, role="superadmin")
         request = _make_request(auth_header=f"Bearer {token}")
         container = _make_container(user=user)
 
@@ -102,7 +102,7 @@ class TestGetCurrentUser:
         assert exc_info.value.status_code == 401
 
     def test_expired_token_raises_401(self):
-        token = create_access_token(user_id=1, role="admin", exp_minutes=-1)
+        token = create_access_token(user_id=1, role="superadmin", exp_minutes=-1)
         request = _make_request(auth_header=f"Bearer {token}")
         container = _make_container()
 
@@ -120,7 +120,7 @@ class TestGetCurrentUser:
         assert exc_info.value.status_code == 401
 
     def test_user_not_found_raises_401(self):
-        token = create_access_token(user_id=999, role="admin")
+        token = create_access_token(user_id=999, role="superadmin")
         request = _make_request(auth_header=f"Bearer {token}")
         container = _make_container(user=None)
 
@@ -130,7 +130,7 @@ class TestGetCurrentUser:
 
     def test_inactive_user_raises_401(self):
         user = _make_user(user_id=3, is_active=False)
-        token = create_access_token(user_id=3, role="admin")
+        token = create_access_token(user_id=3, role="superadmin")
         request = _make_request(auth_header=f"Bearer {token}")
         container = _make_container(user=user)
 
@@ -155,14 +155,14 @@ class TestGetCurrentUser:
 
 class TestRequireRole:
     def test_matching_role_passes(self):
-        user = _make_user(role="admin")
-        dep = require_role("admin")
+        user = _make_user(role="superadmin")
+        dep = require_role("superadmin")
         result = dep(current_user=user)
-        assert result["role"] == "admin"
+        assert result["role"] == "superadmin"
 
     def test_wrong_role_raises_403(self):
         user = _make_user(role="operator")
-        dep = require_role("admin")
+        dep = require_role("superadmin")
         with pytest.raises(HTTPException) as exc_info:
             dep(current_user=user)
         assert exc_info.value.status_code == 403
@@ -173,11 +173,11 @@ class TestRequireRole:
 # ---------------------------------------------------------------------------
 
 class TestRequirePermission:
-    def test_admin_bypasses_permission_check(self):
-        user = _make_user(role="admin", permissions=[])
+    def test_superadmin_bypasses_permission_check(self):
+        user = _make_user(role="superadmin", permissions=[])
         dep = require_permission("tab:settings")
         result = dep(current_user=user)
-        assert result["role"] == "admin"
+        assert result["role"] == "superadmin"
 
     def test_operator_with_permission_passes(self):
         user = _make_user(role="operator", permissions=["tab:obs", "tab:journal"])

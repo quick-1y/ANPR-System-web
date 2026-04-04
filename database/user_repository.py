@@ -11,9 +11,9 @@ from database.base import PooledDatabase
 
 logger = get_logger(__name__)
 
-# Default admin credentials created on first startup.
-_DEFAULT_ADMIN_LOGIN = "admin"
-_DEFAULT_ADMIN_PASSWORD = "1234"
+# Default superadmin credentials created on first startup.
+_DEFAULT_SUPERADMIN_LOGIN = "superadmin"
+_DEFAULT_SUPERADMIN_PASSWORD = "1234"
 
 
 def _hash_password(plain: str) -> str:
@@ -58,9 +58,9 @@ class UserDatabase(PooledDatabase):
     ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ DEFAULT NULL;
     """
 
-    _SEED_ADMIN = """
+    _SEED_SUPERADMIN = """
     INSERT INTO users (login, password, role, permissions, is_active)
-    VALUES (%s, %s, 'admin', '[]'::jsonb, true)
+    VALUES (%s, %s, 'superadmin', '[]'::jsonb, true)
     ON CONFLICT (login) DO NOTHING;
     """
 
@@ -68,7 +68,7 @@ class UserDatabase(PooledDatabase):
         return self._SCHEMA
 
     def _ensure_schema(self) -> None:
-        """Create table, run migrations, and seed default admin if the table is empty."""
+        """Create table, run migrations, and seed default superadmin if the table is empty."""
         super()._ensure_schema()
         # Phase 6 migration: add password_changed_at for existing installs
         try:
@@ -78,20 +78,20 @@ class UserDatabase(PooledDatabase):
                     conn.commit()
         except Exception:
             logger.exception("Ошибка при миграции users (password_changed_at)")
-        self._seed_default_admin()
+        self._seed_default_superadmin()
 
-    def _seed_default_admin(self) -> None:
-        """Insert the default admin user when the users table is empty."""
+    def _seed_default_superadmin(self) -> None:
+        """Insert the default superadmin user when the users table is empty."""
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
                     cur.execute("SELECT count(*) FROM users")
                     count = cur.fetchone()[0]
                     if count == 0:
-                        hashed = _hash_password(_DEFAULT_ADMIN_PASSWORD)
-                        cur.execute(self._SEED_ADMIN, (_DEFAULT_ADMIN_LOGIN, hashed))
+                        hashed = _hash_password(_DEFAULT_SUPERADMIN_PASSWORD)
+                        cur.execute(self._SEED_SUPERADMIN, (_DEFAULT_SUPERADMIN_LOGIN, hashed))
                         conn.commit()
-                        logger.info("Создан пользователь по умолчанию: admin")
+                        logger.info("Создан пользователь по умолчанию: superadmin")
                     else:
                         conn.rollback()
         except Exception:
@@ -214,9 +214,9 @@ class UserDatabase(PooledDatabase):
                 conn.commit()
                 return cur.rowcount > 0
 
-    def count_active_admins(self) -> int:
+    def count_active_superadmins(self) -> int:
         self._ensure_schema()
         with self._connect() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT count(*) FROM users WHERE role = 'admin' AND is_active = true")
+                cur.execute("SELECT count(*) FROM users WHERE role = 'superadmin' AND is_active = true")
                 return cur.fetchone()[0]
