@@ -15,6 +15,16 @@ logger = get_logger(__name__)
 
 router = APIRouter()
 
+# Permissions that are not assignable to operators.
+_OPERATOR_FORBIDDEN_PERMISSIONS: frozenset[str] = frozenset({"tab:settings"})
+
+
+def _strip_operator_forbidden(role: str, permissions: list[str]) -> list[str]:
+    """Remove permissions that are not allowed for the given role."""
+    if role == "operator":
+        return [p for p in permissions if p not in _OPERATOR_FORBIDDEN_PERMISSIONS]
+    return permissions
+
 
 @router.get("/api/users", response_model=List[UserOut])
 def list_users(
@@ -39,7 +49,8 @@ def create_user(
             detail="Пользователь с таким логином уже существует",
         )
     pw_hash = hash_password(body.password)
-    user = container.user_db.create_user(body.login, pw_hash, body.role, body.permissions)
+    permissions = _strip_operator_forbidden(body.role, body.permissions)
+    user = container.user_db.create_user(body.login, pw_hash, body.role, permissions)
     logger.info(
         "Создан пользователь: '%s' (role=%s, admin: %s)",
         body.login,
@@ -92,10 +103,16 @@ def update_user(
                     detail="Невозможно снять роль супер администратора: вы единственный активный супер администратор",
                 )
 
+    effective_role = body.role if body.role is not None else user["role"]
+    permissions = (
+        _strip_operator_forbidden(effective_role, body.permissions)
+        if body.permissions is not None
+        else None
+    )
     updated = container.user_db.update_user(
         user_id,
         role=body.role,
-        permissions=body.permissions,
+        permissions=permissions,
         is_active=body.is_active,
     )
     if not updated:

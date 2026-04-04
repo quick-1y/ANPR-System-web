@@ -33,6 +33,15 @@ function _bindButtons() {
     document.getElementById("userPasswordModal").onclick = (e) => {
         if (e.target.id === "userPasswordModal") closeModal("userPasswordModal");
     };
+    document.getElementById("newUserRole").addEventListener("change", () => {
+        const role = document.getElementById("newUserRole").value;
+        _renderPermCheckboxes("newUserPermissions", [], role);
+    });
+    document.getElementById("editUserRole").addEventListener("change", () => {
+        const role = document.getElementById("editUserRole").value;
+        const kept = _getCheckedPermissions("editUserPermissions");
+        _renderPermCheckboxes("editUserPermissions", kept, role);
+    });
     document.getElementById("newUserPassword").addEventListener("keydown", (e) => {
         if (e.key === "Enter") document.getElementById("confirmCreateUserBtn").click();
     });
@@ -117,7 +126,7 @@ function _showCreateForm() {
     document.getElementById("newUserPasswordConfirm").value = "";
     document.getElementById("newUserRole").value = "operator";
     document.getElementById("createUserError").textContent = "";
-    _renderPermCheckboxes("newUserPermissions", []);
+    _renderPermCheckboxes("newUserPermissions", [], "operator");
     document.getElementById("userCreatePane").style.display = "";
     document.getElementById("userEditPane").style.display = "none";
     document.getElementById("userConfigEmpty").style.display = "none";
@@ -155,7 +164,7 @@ function _showEditForm(user) {
     document.getElementById("editUserRole").value = user.role;
     document.getElementById("editUserActive").checked = user.is_active;
     document.getElementById("editUserError").textContent = "";
-    _renderPermCheckboxes("editUserPermissions", user.permissions || []);
+    _renderPermCheckboxes("editUserPermissions", user.permissions || [], user.role);
     document.getElementById("userCreatePane").style.display = "none";
     document.getElementById("userEditPane").style.display = "";
     document.getElementById("userConfigEmpty").style.display = "none";
@@ -218,11 +227,12 @@ function _showEmpty() {
     document.getElementById("userConfigEmpty").style.display = "";
 }
 
-function _renderPermCheckboxes(containerId, currentPerms) {
+function _renderPermCheckboxes(containerId, currentPerms, role) {
     const el = document.getElementById(containerId);
     if (!el) return;
     el.innerHTML = "";
     for (const p of _allPermissions) {
+        if (role === "operator" && p.key === "tab:settings") continue;
         const label = document.createElement("label");
         label.style.cssText = "display:inline-flex;align-items:center;gap:5px;margin-right:12px;margin-bottom:4px;font-size:12px;cursor:pointer";
         const cb = document.createElement("input");
