@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.api.auth_utils import create_access_token, verify_password
 from app.api.container import AppContainer
-from app.api.deps import get_container, get_current_user, require_role
+from app.api.deps import get_container, get_current_user, require_permission
 from app.api.schemas import LoginRequest, LoginResponse, UserOut
 
 from common.logging import get_logger
@@ -133,6 +133,6 @@ def me(current_user: Dict[str, Any] = Depends(get_current_user)):
 
 
 @router.get("/api/permissions/available")
-def available_permissions(current_user: Dict[str, Any] = Depends(require_role("superadmin"))):
+def available_permissions(current_user: Dict[str, Any] = Depends(require_permission("tab:settings"))):
     """Return known permission keys with labels (superadmin-only, for user management UI)."""
     return AVAILABLE_PERMISSIONS

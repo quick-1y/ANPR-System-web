@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.auth_utils import hash_password
 from app.api.container import AppContainer
-from app.api.deps import get_container, get_current_user, require_role
+from app.api.deps import get_container, get_current_user, require_permission
 from app.api.schemas import UserCreate, UserOut, UserPasswordChange, UserUpdate
 
 from common.logging import get_logger
@@ -18,7 +18,7 @@ router = APIRouter()
 
 @router.get("/api/users", response_model=List[UserOut])
 def list_users(
-    current_user: Dict[str, Any] = Depends(require_role("superadmin")),
+    current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
     container: AppContainer = Depends(get_container),
 ):
     """Return all users (admin only)."""
@@ -29,7 +29,7 @@ def list_users(
 @router.post("/api/users", response_model=UserOut, status_code=201)
 def create_user(
     body: UserCreate,
-    current_user: Dict[str, Any] = Depends(require_role("superadmin")),
+    current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
     container: AppContainer = Depends(get_container),
 ):
     """Create a new user (admin only)."""
@@ -52,7 +52,7 @@ def create_user(
 @router.get("/api/users/{user_id}", response_model=UserOut)
 def get_user(
     user_id: int,
-    current_user: Dict[str, Any] = Depends(require_role("superadmin")),
+    current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
     container: AppContainer = Depends(get_container),
 ):
     """Get a single user by ID (admin only)."""
@@ -66,7 +66,7 @@ def get_user(
 def update_user(
     user_id: int,
     body: UserUpdate,
-    current_user: Dict[str, Any] = Depends(require_role("superadmin")),
+    current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
     container: AppContainer = Depends(get_container),
 ):
     """Update user role, permissions, or active state (admin only).
@@ -121,7 +121,8 @@ def change_password(
     Admins can change any user's password.
     Regular users can only change their own password.
     """
-    if current_user["role"] != "superadmin" and user_id != current_user["id"]:
+    can_manage_users = current_user["role"] == "superadmin" or "tab:settings" in current_user.get("permissions", [])
+    if not can_manage_users and user_id != current_user["id"]:
         raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     user = container.user_db.find_by_id(user_id)
@@ -144,7 +145,7 @@ def change_password(
 @router.delete("/api/users/{user_id}", status_code=204)
 def deactivate_user(
     user_id: int,
-    current_user: Dict[str, Any] = Depends(require_role("superadmin")),
+    current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
     container: AppContainer = Depends(get_container),
 ):
     """Deactivate a user (soft-delete). Admin cannot deactivate themselves."""

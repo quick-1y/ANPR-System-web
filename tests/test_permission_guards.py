@@ -167,6 +167,6 @@ class TestRouterImports:
         assert "require_role" in src
         assert "get_current_user" not in src
 
-    def test_auth_router_available_permissions_uses_require_role(self):
+    def test_auth_router_available_permissions_uses_require_permission(self):
         src = self._read_router_source("app/api/routers/auth.py")
-        assert "require_role" in src
+        assert "require_permission" in src

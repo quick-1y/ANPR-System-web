@@ -1,7 +1,7 @@
-// User management — admin-only Settings sub-pane (Phase 5)
+// User management — Settings sub-pane (Phase 5)
 import { api, jfetch } from './api.js';
 import { showToast, switchSettings, openModal, closeModal } from './ui.js';
-import { isSuperAdmin } from './state.js';
+import { hasPermission } from './state.js';
 
 let _allPermissions = [];
 let _users = [];
@@ -10,7 +10,7 @@ let _selectedUserId = null;
 // --- Init ---
 
 export function initUsersPane() {
-    if (!isSuperAdmin()) return;
+    if (!hasPermission("tab:settings")) return;
 
     const navItem = document.getElementById("snav-users");
     if (navItem) {
