@@ -87,7 +87,10 @@
       "Bash(python -m pytest tests/test_auth_router.py tests/test_auth_deps.py tests/test_auth_utils.py tests/test_permission_guards.py tests/test_users_router.py tests/test_user_repository.py -v --tb=short)",
       "Bash(grep:*)",
       "Bash(xargs basename:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(ls *.md)",
+      "Bash(find . -name '*.py' -not -path './.git/*' -not -path '*/__pycache__/*' -exec wc -l {} +)",
+      "Bash(find . -name '*.js' -not -path './node_modules/*' -exec wc -l {} +)"
     ]
   }
 }
