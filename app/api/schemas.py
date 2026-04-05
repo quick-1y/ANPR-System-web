@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from config.settings_schema import SUPPORTED_CONTROLLER_TYPES
+from config.settings_schema import SUPPORTED_CONTROLLER_TYPES, normalize_hotkey
 
 
 # ── Auth schemas ──────────────────────────────────────────────────────
@@ -158,30 +158,7 @@ class ChannelFilterPayload(BaseModel):
 
 
 def _normalize_hotkey(value: str) -> str:
-    normalized = str(value or "").strip().upper()
-    if not normalized:
-        return ""
-    parts = [part.strip() for part in normalized.split("+") if part.strip()]
-    if not parts:
-        return ""
-    modifiers_order = ["CTRL", "ALT", "SHIFT"]
-    seen_modifiers: set[str] = set()
-    normalized_parts: list[str] = []
-    key_part = ""
-    for part in parts:
-        if part in modifiers_order:
-            seen_modifiers.add(part)
-            continue
-        if key_part:
-            raise ValueError("Хоткей должен содержать только одну основную клавишу")
-        key_part = part
-    if not key_part:
-        raise ValueError("Хоткей должен содержать основную клавишу")
-    for modifier in modifiers_order:
-        if modifier in seen_modifiers:
-            normalized_parts.append(modifier)
-    normalized_parts.append(key_part)
-    return "+".join(normalized_parts)
+    return normalize_hotkey(value, strict=True)
 
 
 class RelayPayload(BaseModel):

@@ -19,6 +19,7 @@ from config.settings_schema import (
     inference_defaults,
     logging_defaults,
     model_defaults,
+    normalize_hotkey,
     normalize_log_level,
     normalize_region_config as schema_normalize_region_config,
     ocr_defaults,
@@ -47,29 +48,7 @@ class SettingsNormalizer:
 
     @staticmethod
     def _normalize_hotkey(value: Any) -> str:
-        raw = str(value or "").strip()
-        if not raw:
-            return ""
-        normalized = raw.upper()
-        parts = [part.strip() for part in normalized.split("+") if part.strip()]
-        modifiers_order = ["CTRL", "ALT", "SHIFT"]
-        modifiers: list[str] = []
-        key_part = ""
-        for part in parts:
-            if part in modifiers_order:
-                if part not in modifiers:
-                    modifiers.append(part)
-                continue
-            if key_part:
-                logger.warning("Некорректный hotkey '%s': больше одной основной клавиши. Значение сохранено без изменений", raw)
-                return raw
-            key_part = part
-        if not key_part:
-            logger.warning("Некорректный hotkey '%s': отсутствует основная клавиша. Значение сохранено без изменений", raw)
-            return raw
-        ordered = [item for item in modifiers_order if item in modifiers]
-        ordered.append(key_part)
-        return "+".join(ordered)
+        return normalize_hotkey(value, strict=False)
 
     def _normalize_relay(self, relay: Dict[str, Any]) -> Dict[str, Any]:
         defaults = self._relay_defaults()

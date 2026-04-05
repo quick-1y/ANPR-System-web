@@ -15,7 +15,8 @@ from unittest.mock import MagicMock, patch, call
 
 import pytest
 
-from database.user_repository import UserDatabase, _hash_password, _row_to_dict
+from app.api.auth_utils import hash_password
+from database.user_repository import UserDatabase, _row_to_dict
 
 
 # ---------------------------------------------------------------------------
@@ -24,19 +25,19 @@ from database.user_repository import UserDatabase, _hash_password, _row_to_dict
 
 class TestHashPassword:
     def test_returns_bcrypt_hash(self):
-        hashed = _hash_password("1234")
+        hashed = hash_password("1234")
         assert hashed.startswith("$2")  # bcrypt prefix
         assert len(hashed) == 60
 
     def test_different_calls_produce_different_hashes(self):
-        h1 = _hash_password("test")
-        h2 = _hash_password("test")
+        h1 = hash_password("test")
+        h2 = hash_password("test")
         assert h1 != h2  # different salts
 
     def test_hash_verifiable_with_bcrypt(self):
         import bcrypt
         plain = "securePassword123"
-        hashed = _hash_password(plain)
+        hashed = hash_password(plain)
         assert bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 

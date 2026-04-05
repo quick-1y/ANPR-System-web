@@ -90,7 +90,17 @@
       "Bash(sed:*)",
       "Bash(ls *.md)",
       "Bash(find . -name '*.py' -not -path './.git/*' -not -path '*/__pycache__/*' -exec wc -l {} +)",
-      "Bash(find . -name '*.js' -not -path './node_modules/*' -exec wc -l {} +)"
+      "Bash(find . -name '*.js' -not -path './node_modules/*' -exec wc -l {} +)",
+      "Bash(python -m pytest tests/test_user_repository.py -x -q)",
+      "Bash(python -m pytest tests/ -x -q)",
+      "Bash(python -m pytest tests/test_auth_router.py::TestWarnDefaultPassword::test_warn_flag_true_when_password_never_changed -x -q)",
+      "Bash(python -m pytest tests/test_settings_normalizer.py tests/test_schemas.py tests/test_user_repository.py -x -q)",
+      "Bash(python -m pytest tests/test_schemas.py tests/test_user_repository.py -x -q)",
+      "Bash(python -m pytest tests/test_user_repository.py tests/ -k \"hotkey or normaliz or schema\" -x -q)",
+      "Bash(python -m pytest tests/ -k \"hotkey or controller or settings\" -x -q)",
+      "Bash(python -c \"from config.settings_schema import normalize_hotkey; print\\(normalize_hotkey\\('shift+ctrl+a'\\)\\); print\\(normalize_hotkey\\('ctrl+a+b', strict=False\\)\\)\")",
+      "Bash(python -c \"from config.settings_schema import normalize_hotkey; normalize_hotkey\\('ctrl+a+b', strict=True\\)\")",
+      "Bash(python -m pytest tests/ -k \"channel or event or runtime or sink\" -x -q)"
     ]
   }
 }

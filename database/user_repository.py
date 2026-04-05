@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-import bcrypt
+from app.api.auth_utils import hash_password
 
 from common.logging import get_logger
 from database.base import PooledDatabase
@@ -14,11 +14,6 @@ logger = get_logger(__name__)
 # Default superadmin credentials created on first startup.
 _DEFAULT_SUPERADMIN_LOGIN = "superadmin"
 _DEFAULT_SUPERADMIN_PASSWORD = "1234"
-
-
-def _hash_password(plain: str) -> str:
-    """Return a bcrypt hash of the plain-text password."""
-    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def _row_to_dict(row: Any) -> Dict[str, Any]:
@@ -88,7 +83,7 @@ class UserDatabase(PooledDatabase):
                     cur.execute("SELECT count(*) FROM users")
                     count = cur.fetchone()[0]
                     if count == 0:
-                        hashed = _hash_password(_DEFAULT_SUPERADMIN_PASSWORD)
+                        hashed = hash_password(_DEFAULT_SUPERADMIN_PASSWORD)
                         cur.execute(self._SEED_SUPERADMIN, (_DEFAULT_SUPERADMIN_LOGIN, hashed))
                         conn.commit()
                         logger.info("Создан пользователь по умолчанию: superadmin")

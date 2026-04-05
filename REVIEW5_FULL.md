@@ -206,8 +206,8 @@ Log messages are predominantly Russian, but some are English (e.g., `controllers
 | Item | Evidence | Status |
 |------|----------|--------|
 | `APIKeyMiddleware` in `app/api/auth.py` | Legacy static API key middleware. Still present but middleware is not registered in `main.py` — JWT is the primary auth. The `API_KEY` env var path may be dead. | Verify if `API_KEY` env var is still used in deployment. If not, remove `auth.py` entirely. |
-| `EventSink` in `runtime/event_sink.py` | Trivial proxy (was multi-backend, now single). Still wired in `ChannelProcessor`. | Replace with direct `PostgresEventDatabase` usage |
-| `_hash_password` in `database/user_repository.py` | Duplicate of `auth_utils.hash_password`. Used only for superadmin seed. | Replace with import from `auth_utils` |
+| ~~`EventSink` in `runtime/event_sink.py`~~ | ✅ Removed — `ChannelProcessor` uses `PostgresEventDatabase` directly | Done |
+| ~~`_hash_password` in `database/user_repository.py`~~ | ✅ Consolidated — now imports from `auth_utils` | Done |
 
 ---
 
@@ -384,9 +384,9 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 
 | Item | File | What to Do |
 |------|------|------------|
-| `EventSink` | `runtime/event_sink.py` | Inline into `ChannelProcessor` — use `PostgresEventDatabase` directly |
-| `_hash_password` | `database/user_repository.py:19` | Replace with import from `app.api.auth_utils.hash_password` |
-| `_normalize_hotkey` (duplicate) | `app/api/schemas.py:160` + `config/settings_normalizer.py:49` | Extract to shared utility |
+| ~~`EventSink`~~ | ~~`runtime/event_sink.py`~~ | ✅ Removed — inlined `PostgresEventDatabase` into `ChannelProcessor` |
+| ~~`_hash_password`~~ | ~~`database/user_repository.py:19`~~ | ✅ Consolidated into `app.api.auth_utils.hash_password` |
+| ~~`_normalize_hotkey` (duplicate)~~ | ~~`app/api/schemas.py` + `config/settings_normalizer.py`~~ | ✅ Consolidated into `config.settings_schema.normalize_hotkey` |
 | Controller normalization (duplicate) | `config/settings_manager.py:140-186` | Delegate to normalizer's `_fill_controller_defaults()` |
 | `channels.js` (1,298 lines) | `app/web/js/channels.js` | Split into grid, preview, roi-editor, plate-size-editor, channel-crud modules |
 | 14 pass-through `_*_defaults()` methods | `config/settings_normalizer.py` | Import `settings_schema` directly where needed |
@@ -395,56 +395,55 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 
 ## 9. Independent Implementation Tasks
 
-### Task 1: Consolidate Duplicate `hash_password`
+### Task 1: Consolidate Duplicate `hash_password` ✅ COMPLETED
 
 **Problem**: Two identical `hash_password` functions exist — one in `database/user_repository.py` (private `_hash_password`) and one in `app/api/auth_utils.py` (public `hash_password`). If hashing strategy changes, one will be missed.
 
-**What to change**:
-- In `database/user_repository.py`, remove `_hash_password` function (lines 19-21)
-- Import `hash_password` from `app.api.auth_utils` instead
-- Update `_seed_default_superadmin()` to use the imported function
-- Update `tests/test_user_repository.py` imports
+**What was done**:
+- Removed `_hash_password` from `database/user_repository.py`
+- Replaced `import bcrypt` with `from app.api.auth_utils import hash_password`
+- Updated `_seed_default_superadmin()` to call `hash_password()`
+- Updated `tests/test_user_repository.py` to import `hash_password` from `app.api.auth_utils`
+- All 31 tests pass.
 
-**Files affected**: `database/user_repository.py`, `tests/test_user_repository.py`
+**Files changed**: `database/user_repository.py`, `tests/test_user_repository.py`
 
-**Expected result**: Single source of truth for password hashing.
-
-**Risk**: Low — both functions are identical, test coverage exists.
+**Result**: Single source of truth for password hashing in `app/api/auth_utils.py`.
 
 ---
 
-### Task 2: Consolidate Duplicate `_normalize_hotkey`
+### Task 2: Consolidate Duplicate `_normalize_hotkey` ✅ COMPLETED
 
 **Problem**: Two divergent hotkey normalization functions — `config/settings_normalizer.py:49` (warns on error, returns raw value) and `app/api/schemas.py:160` (raises ValueError).
 
-**What to change**:
-- Create a shared function in a new location (e.g., `config/settings_schema.py` since it's already imported by both consumers) or in a small utility module
-- The function should accept a `strict: bool` parameter — strict mode raises ValueError, lenient mode returns raw value with a log warning
-- Update both call sites
+**What was done**:
+- Added shared `normalize_hotkey(value, *, strict=False)` to `config/settings_schema.py`
+- `strict=True` raises `ValueError` (API validation behavior)
+- `strict=False` logs warning and returns raw value (settings normalization behavior)
+- Updated `config/settings_normalizer.py` — `_normalize_hotkey` now delegates to `normalize_hotkey(value, strict=False)`
+- Updated `app/api/schemas.py` — `_normalize_hotkey` now delegates to `normalize_hotkey(value, strict=True)`
+- All 10 hotkey/controller/settings tests pass.
 
-**Files affected**: `config/settings_normalizer.py`, `app/api/schemas.py`, possibly a new utility location
+**Files changed**: `config/settings_schema.py`, `config/settings_normalizer.py`, `app/api/schemas.py`
 
-**Expected result**: Single normalization algorithm, two modes of error handling.
-
-**Risk**: Low — behavior preserved at both call sites.
+**Result**: Single normalization algorithm with two error-handling modes.
 
 ---
 
-### Task 3: Remove `EventSink` Proxy Layer
+### Task 3: Remove `EventSink` Proxy Layer ✅ COMPLETED
 
 **Problem**: `runtime/event_sink.py` is a 42-line class that wraps `PostgresEventDatabase.insert_event()` with zero added logic. It was a multi-backend abstraction that now has only one backend.
 
-**What to change**:
-- In `runtime/channel_runtime.py`, replace `self._sink = EventSink(...)` with `self._events_db = events_db` (the `events_db` parameter is already passed in)
-- Replace `self._sink.insert_event(...)` calls with `self._events_db.insert_event(...)`
-- Delete `runtime/event_sink.py`
-- Update imports in `__init__.py` if EventSink is exported
+**What was done**:
+- Replaced `EventSink` import with `PostgresEventDatabase` in `channel_runtime.py`
+- Replaced `self._sink = EventSink(...)` with `self._events_db = events_db or PostgresEventDatabase(...)`
+- Replaced `self._sink.insert_event(...)` with `self._events_db.insert_event(...)`
+- Deleted `runtime/event_sink.py`
+- `EventSink` was not exported from `runtime/__init__.py` — no changes needed there
 
-**Files affected**: `runtime/channel_runtime.py`, `runtime/event_sink.py` (delete), `runtime/__init__.py`
+**Files changed**: `runtime/channel_runtime.py`, `runtime/event_sink.py` (deleted)
 
-**Expected result**: One less indirection layer. No behavior change.
-
-**Risk**: Low — trivial mechanical refactor.
+**Result**: One less indirection layer. `ChannelProcessor` uses `PostgresEventDatabase` directly.
 
 ---
 

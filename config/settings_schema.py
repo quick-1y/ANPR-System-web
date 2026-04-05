@@ -6,11 +6,52 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
+from common.logging import get_logger
+
 SETTINGS_VERSION = 1
 SETTINGS_LINEAGE_KEY = "settings_lineage"
 SETTINGS_LINEAGE = "mainline"
 LOG_LEVELS = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 SUPPORTED_CONTROLLER_TYPES = ("DTWONDER2CH",)
+
+_logger = get_logger(__name__)
+
+
+def normalize_hotkey(value: Any, *, strict: bool = False) -> str:
+    """Normalize a hotkey string to canonical CTRL+ALT+SHIFT+KEY order.
+
+    In strict mode, raises ValueError for invalid hotkeys.
+    In lenient mode, logs a warning and returns the raw value.
+    """
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    normalized = raw.upper()
+    parts = [part.strip() for part in normalized.split("+") if part.strip()]
+    if not parts:
+        return ""
+    modifiers_order = ["CTRL", "ALT", "SHIFT"]
+    modifiers: list[str] = []
+    key_part = ""
+    for part in parts:
+        if part in modifiers_order:
+            if part not in modifiers:
+                modifiers.append(part)
+            continue
+        if key_part:
+            if strict:
+                raise ValueError("Хоткей должен содержать только одну основную клавишу")
+            _logger.warning("Некорректный hotkey '%s': больше одной основной клавиши. Значение сохранено без изменений", raw)
+            return raw
+        key_part = part
+    if not key_part:
+        if strict:
+            raise ValueError("Хоткей должен содержать основную клавишу")
+        _logger.warning("Некорректный hotkey '%s': отсутствует основная клавиша. Значение сохранено без изменений", raw)
+        return raw
+    ordered = [item for item in modifiers_order if item in modifiers]
+    ordered.append(key_part)
+    return "+".join(ordered)
 
 
 def normalize_log_level(value: Any) -> str:
