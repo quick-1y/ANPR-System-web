@@ -205,7 +205,7 @@ Log messages are predominantly Russian, but some are English (e.g., `controllers
 
 | Item | Evidence | Status |
 |------|----------|--------|
-| `APIKeyMiddleware` in `app/api/auth.py` | Legacy static API key middleware. Still present but middleware is not registered in `main.py` — JWT is the primary auth. The `API_KEY` env var path may be dead. | Verify if `API_KEY` env var is still used in deployment. If not, remove `auth.py` entirely. |
+| ~~`APIKeyMiddleware` in `app/api/auth.py`~~ | ✅ Deleted — not registered in main.py, not in deployment configs, `docs/endpoints.md` already stated removal | Done |
 | ~~`EventSink` in `runtime/event_sink.py`~~ | ✅ Removed — `ChannelProcessor` uses `PostgresEventDatabase` directly | Done |
 | ~~`_hash_password` in `database/user_repository.py`~~ | ✅ Consolidated — now imports from `auth_utils` | Done |
 
@@ -356,27 +356,27 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 
 | Item | File | Lines | Evidence |
 |------|------|-------|----------|
-| `auth_roadmap_eng.txt` | project root | entire file | Planning artifact, auth is implemented |
-| `SettingsManager._channel_defaults` | `config/settings_manager.py` | 48-50 | Never called; normalizer version is used |
-| `SettingsManager._debug_defaults` | `config/settings_manager.py` | 52-54 | Never called |
-| `SettingsManager._relay_defaults` | `config/settings_manager.py` | 56-58 | Only called from duplicated normalization code |
-| `SettingsManager._reconnect_defaults` | `config/settings_manager.py` | 60-62 | Never called externally; normalizer version used |
-| `SettingsManager._storage_defaults` | `config/settings_manager.py` | 64-66 | Same |
-| `SettingsManager._plate_defaults` | `config/settings_manager.py` | 68-70 | Same |
-| `SettingsManager._model_defaults` | `config/settings_manager.py` | 72-74 | Same |
-| `SettingsManager._inference_defaults` | `config/settings_manager.py` | 76-78 | Same |
-| `SettingsManager._plate_size_defaults` | `config/settings_manager.py` | 80-82 | Same |
-| `SettingsManager._direction_defaults` | `config/settings_manager.py` | 84-86 | Same |
-| `SettingsManager._ocr_defaults` | `config/settings_manager.py` | 88-90 | Same |
-| `SettingsManager._detector_defaults` | `config/settings_manager.py` | 92-94 | Same |
-| `SettingsManager._time_defaults` | `config/settings_manager.py` | 96-98 | Same |
-| `SettingsManager._logging_defaults` | `config/settings_manager.py` | 100-102 | Same |
+| ~~`auth_roadmap_eng.txt`~~ | ~~project root~~ | ~~entire file~~ | ✅ Deleted |
+| ~~`SettingsManager._channel_defaults`~~ | ~~`config/settings_manager.py`~~ | ~~48-50~~ | ✅ Removed — all 14 pass-through wrappers deleted |
+| ~~`SettingsManager._debug_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._relay_defaults`~~ | | | ✅ Removed — replaced with direct `relay_defaults()` call |
+| ~~`SettingsManager._reconnect_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._storage_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._plate_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._model_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._inference_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._plate_size_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._direction_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._ocr_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._detector_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._time_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._logging_defaults`~~ | | | ✅ Removed |
 
 ### Needs Verification Before Removal
 
 | Item | File | Risk | What to Check |
 |------|------|------|---------------|
-| `APIKeyMiddleware` class | `app/api/auth.py` | Medium | Is `API_KEY` env var still used in Docker/deployment? If middleware is not registered in `main.py`, the whole file may be dead. |
+| ~~`APIKeyMiddleware` class~~ | ~~`app/api/auth.py`~~ | | ✅ Deleted — not registered in main.py, not in deployment configs |
 | `docs/` directory (6 files) | `docs/*` | Low | Are these linked from README or external tools? |
 | `AGENTS.md` | project root | Low | Is this read by `.claude/` tooling? |
 
@@ -387,9 +387,10 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 | ~~`EventSink`~~ | ~~`runtime/event_sink.py`~~ | ✅ Removed — inlined `PostgresEventDatabase` into `ChannelProcessor` |
 | ~~`_hash_password`~~ | ~~`database/user_repository.py:19`~~ | ✅ Consolidated into `app.api.auth_utils.hash_password` |
 | ~~`_normalize_hotkey` (duplicate)~~ | ~~`app/api/schemas.py` + `config/settings_normalizer.py`~~ | ✅ Consolidated into `config.settings_schema.normalize_hotkey` |
-| Controller normalization (duplicate) | `config/settings_manager.py:140-186` | Delegate to normalizer's `_fill_controller_defaults()` |
+| ~~Controller normalization (duplicate)~~ | ~~`config/settings_manager.py:140-186`~~ | ✅ `get_controllers()` now delegates to `_fill_controller_defaults()` |
 | `channels.js` (1,298 lines) | `app/web/js/channels.js` | Split into grid, preview, roi-editor, plate-size-editor, channel-crud modules |
-| 14 pass-through `_*_defaults()` methods | `config/settings_normalizer.py` | Import `settings_schema` directly where needed |
+| ~~14 pass-through `_*_defaults()` methods in SettingsManager~~ | ~~`config/settings_manager.py`~~ | ✅ Removed — direct `settings_schema` calls used instead |
+| 14 pass-through `_*_defaults()` methods in SettingsNormalizer | `config/settings_normalizer.py` | Import `settings_schema` directly where needed |
 
 ---
 
@@ -447,68 +448,65 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 
 ---
 
-### Task 4: Remove 14 Pass-Through `_*_defaults()` from SettingsManager
+### Task 4: Remove 14 Pass-Through `_*_defaults()` from SettingsManager ✅ COMPLETED
 
-**Problem**: `SettingsManager` has 14 `@staticmethod` methods (lines 48-103) that each call the identically-named function from `settings_schema`. The `SettingsNormalizer` also has 14 identical wrappers. The manager's wrappers are never called (the normalizer's versions are used instead).
+**Problem**: `SettingsManager` has 14 `@staticmethod` methods (lines 48-103) that each call the identically-named function from `settings_schema`. The `SettingsNormalizer` also has 14 identical wrappers. The manager's wrappers are never called externally (the normalizer's versions are used instead).
 
-**What to change**:
-- Remove all 14 static methods from `SettingsManager` (lines 48-103)
-- In `get_controllers()`, replace `self._relay_defaults()` with `relay_defaults()` (already imported at top of file from `settings_schema`)
-- In `get_reconnect()`, `get_storage_settings()`, etc. — these already use `self._normalizer._fill_*()`, so no changes needed there
+**What was done**:
+- Removed all 14 static methods from `SettingsManager` (lines 48-103)
+- Replaced all internal `self._xxx_defaults()` calls with direct `settings_schema` function calls (e.g., `relay_defaults()`, `reconnect_defaults()`, etc.)
+- Cleaned up unused imports: `channel_defaults`, `schema_plate_size_defaults`, `schema_direction_defaults`, `Optional`
+- All 10 settings/controller/channel tests pass.
 
-**Files affected**: `config/settings_manager.py`
+**Files changed**: `config/settings_manager.py`
 
-**Expected result**: ~55 lines removed. Cleaner class with only real responsibilities.
-
-**Risk**: Low — grep confirms these methods have no external callers.
-
----
-
-### Task 5: Deduplicate Controller Normalization
-
-**Problem**: `SettingsManager.get_controllers()` (lines 140-186) contains controller normalization logic that is nearly identical to `SettingsNormalizer._fill_controller_defaults()` (lines 260-312). Changes must be made in two places.
-
-**What to change**:
-- Refactor `get_controllers()` to loop over controllers and call `self._normalizer._fill_controller_defaults(data)` per controller (a new small method), similar to how `get_channels()` calls `self._normalizer._fill_channel_defaults()`
-- Keep the "save if changed" wrapper logic in `get_controllers()`
-- Remove the duplicated normalization code from `get_controllers()`
-
-**Files affected**: `config/settings_manager.py`, `config/settings_normalizer.py` (may need a small public method)
-
-**Expected result**: Single source of truth for controller normalization.
-
-**Risk**: Low-Medium — need to verify test coverage for controller settings flow.
+**Result**: 55 lines removed. `SettingsManager` now calls `settings_schema` functions directly — no pass-through wrappers.
 
 ---
 
-### Task 6: Remove `auth_roadmap_eng.txt`
+### Task 5: Deduplicate Controller Normalization ✅ COMPLETED
+
+**Problem**: `SettingsManager.get_controllers()` contained controller normalization logic (ID assignment, type validation, relay normalization) nearly identical to `SettingsNormalizer._fill_controller_defaults()`. Changes had to be made in two places.
+
+**What was done**:
+- Replaced the entire normalization body in `get_controllers()` (~40 lines) with a single delegation: `self._normalizer._fill_controller_defaults(wrapper)`
+- The method now wraps controllers in a dict, calls the normalizer, and handles save-if-changed — matching the pattern used by `get_channels()`
+- Removed unused `relay_defaults` import (was only used in the duplicated code)
+- Bonus: the normalizer's hotkey duplicate warning (which was missing from the manager's version) now applies consistently
+- All 10 settings/controller/channel tests pass; no regressions vs baseline
+
+**Files changed**: `config/settings_manager.py`
+
+**Result**: Single source of truth for controller normalization in `SettingsNormalizer._fill_controller_defaults()`.
+
+---
+
+### Task 6: Remove `auth_roadmap_eng.txt` ✅ COMPLETED
 
 **Problem**: Planning artifact from the auth implementation phase. Not code, not documentation, not actionable.
 
-**What to change**: Delete the file.
+**What was done**: Deleted the file. Confirmed no references outside the review doc.
 
-**Files affected**: `auth_roadmap_eng.txt`
+**Files changed**: `auth_roadmap_eng.txt` (deleted)
 
-**Expected result**: Cleaner project root.
-
-**Risk**: None.
+**Result**: Planning artifact removed from project root.
 
 ---
 
-### Task 7: Verify and Clean Up `APIKeyMiddleware`
+### Task 7: Verify and Clean Up `APIKeyMiddleware` ✅ COMPLETED
 
 **Problem**: `app/api/auth.py` contains `APIKeyMiddleware` — the legacy static API key authentication. It is NOT registered as middleware in `app/api/main.py` (JWT is the primary auth). The class may be entirely dead code.
 
-**What to change**:
-- Check if `API_KEY` environment variable is referenced in Docker, CI, or deployment configs
-- If not used: delete `app/api/auth.py` entirely
-- If used as a backwards-compatibility path: add a comment explaining the intentional retention, or register it conditionally
+**What was done**:
+- Verified `APIKeyMiddleware` is not imported or registered anywhere in the codebase
+- Verified `API_KEY` env var is not referenced in `Dockerfile`, `docker-compose.yml`, or `.env.example`
+- `docs/endpoints.md` already states "API_KEY fallback удалён. Принимается только JWT."
+- Deleted `app/api/auth.py` entirely (76 lines of dead code)
+- All auth/settings tests pass; no regressions
 
-**Files affected**: `app/api/auth.py`, possibly `Dockerfile`, `docker-compose.yml`, `.env.example`
+**Files changed**: `app/api/auth.py` (deleted)
 
-**Expected result**: Either clean removal of dead code, or documented intentional retention.
-
-**Risk**: Medium — need to verify deployment configuration.
+**Result**: Dead legacy middleware removed. JWT is the sole authentication mechanism.
 
 ---
 

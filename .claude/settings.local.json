@@ -100,7 +100,12 @@
       "Bash(python -m pytest tests/ -k \"hotkey or controller or settings\" -x -q)",
       "Bash(python -c \"from config.settings_schema import normalize_hotkey; print\\(normalize_hotkey\\('shift+ctrl+a'\\)\\); print\\(normalize_hotkey\\('ctrl+a+b', strict=False\\)\\)\")",
       "Bash(python -c \"from config.settings_schema import normalize_hotkey; normalize_hotkey\\('ctrl+a+b', strict=True\\)\")",
-      "Bash(python -m pytest tests/ -k \"channel or event or runtime or sink\" -x -q)"
+      "Bash(python -m pytest tests/ -k \"channel or event or runtime or sink\" -x -q)",
+      "Bash(git stash:*)",
+      "Bash(python -m pytest tests/ -x -q -k \"settings or controller or channel\")",
+      "Bash(python -m pytest tests/ -q --ignore=tests/test_auth_router.py)",
+      "Bash(python -c \"from app.api.main import app; print\\('OK'\\)\")",
+      "Bash(python -m pytest tests/ -x -q -k \"settings or controller or channel or auth\")"
     ]
   }
 }
