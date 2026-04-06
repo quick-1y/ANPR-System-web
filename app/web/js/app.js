@@ -322,16 +322,15 @@ initBackupBindings();
     return;
   }
   _applyUserUI(currentUser);
-  applyTabVisibility(currentUser.permissions || [], currentUser.role === "admin");
+  applyTabVisibility(currentUser.permissions || [], currentUser.role === "superadmin");
   initUsersPane();
 
-  // --- Default password warning (set by showLoginOverlay after successful login) ---
-  if (sessionStorage.getItem("anpr_warn_pwd")) {
-    sessionStorage.removeItem("anpr_warn_pwd");
-    showToast(
-      "Вы используете пароль по умолчанию. Рекомендуется сменить пароль в разделе Настройки → Пользователи.",
-      8000,
-    );
+  // --- Superadmin-only: reveal "Разработка" section ---
+  if (currentUser.role === "superadmin") {
+    const devLabel = document.getElementById("snav-label-dev");
+    const debugItem = document.getElementById("snav-debug");
+    if (devLabel) devLabel.style.removeProperty("display");
+    if (debugItem) debugItem.style.removeProperty("display");
   }
 
   // --- Logout button ---
@@ -362,8 +361,10 @@ initBackupBindings();
   await loadJournal();
   await loadGlobalSettings();
   await refreshOverlayStates();
-  await loadDebugLogHistory();
-  setupDebugLogStream();
+  if (currentUser.role === "superadmin") {
+    await loadDebugLogHistory();
+    setupDebugLogStream();
+  }
   await loadControllers();
   setupStream();
   setInterval(refreshChannels, 8000);

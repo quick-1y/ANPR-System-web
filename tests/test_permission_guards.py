@@ -1,7 +1,7 @@
-"""Phase 4 tests — admin-only route protection via require_role("admin").
+"""Phase 4 tests — superadmin-only route protection via require_role("superadmin").
 
 Verifies that the settings, controllers, data, and debug routers correctly
-reject operator-role users with HTTP 403, while admins pass through.
+reject operator-role users with HTTP 403, while superadmins pass through.
 
 These tests call the FastAPI dependency functions directly (unit-style),
 matching the pattern used in test_auth_deps.py.
@@ -18,8 +18,8 @@ from app.api.deps import require_role
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _admin_user():
-    return {"id": 1, "login": "admin", "role": "admin", "permissions": [], "is_active": True}
+def _superadmin_user():
+    return {"id": 1, "login": "superadmin", "role": "superadmin", "permissions": [], "is_active": True}
 
 
 def _operator_user(permissions=None):
@@ -32,58 +32,58 @@ def _operator_user(permissions=None):
     }
 
 
-def _call_require_admin(user):
-    """Invoke require_role('admin') with the given user (simulates DI resolution)."""
-    dep = require_role("admin")
+def _call_require_superadmin(user):
+    """Invoke require_role('superadmin') with the given user (simulates DI resolution)."""
+    dep = require_role("superadmin")
     return dep(current_user=user)
 
 
 # ---------------------------------------------------------------------------
-# require_role("admin") — unit tests
+# require_role("superadmin") — unit tests
 # ---------------------------------------------------------------------------
 
-class TestRequireAdmin:
-    def test_admin_passes(self):
-        result = _call_require_admin(_admin_user())
-        assert result["role"] == "admin"
+class TestRequireSuperadmin:
+    def test_superadmin_passes(self):
+        result = _call_require_superadmin(_superadmin_user())
+        assert result["role"] == "superadmin"
 
     def test_operator_raises_403(self):
         with pytest.raises(HTTPException) as exc_info:
-            _call_require_admin(_operator_user())
+            _call_require_superadmin(_operator_user())
         assert exc_info.value.status_code == 403
 
     def test_operator_with_all_tab_permissions_still_raises_403(self):
-        """Having all tab permissions does not grant admin route access."""
+        """Having all tab permissions does not grant superadmin route access."""
         op = _operator_user(permissions=["tab:obs", "tab:journal", "tab:lists", "tab:settings"])
         with pytest.raises(HTTPException) as exc_info:
-            _call_require_admin(op)
+            _call_require_superadmin(op)
         assert exc_info.value.status_code == 403
 
     def test_error_message_is_russian(self):
         with pytest.raises(HTTPException) as exc_info:
-            _call_require_admin(_operator_user())
+            _call_require_superadmin(_operator_user())
         assert "прав" in exc_info.value.detail
 
 
 # ---------------------------------------------------------------------------
-# Settings router — verify require_role("admin") is applied
+# Settings router — verify require_role("superadmin") is applied
 # ---------------------------------------------------------------------------
 
 class TestSettingsRouterGuards:
-    """Verify that settings endpoints use require_role('admin') by calling the
-    handler with the admin-dependency result pre-resolved.
+    """Verify that settings endpoints use require_role('superadmin') by calling the
+    handler with the superadmin-dependency result pre-resolved.
 
     We only test the dependency guard itself; full handler logic is covered
     by integration/smoke tests elsewhere.
     """
 
-    def test_admin_passes_require_admin_dep(self):
-        result = _call_require_admin(_admin_user())
-        assert result["role"] == "admin"
+    def test_superadmin_passes_require_superadmin_dep(self):
+        result = _call_require_superadmin(_superadmin_user())
+        assert result["role"] == "superadmin"
 
     def test_operator_blocked_from_settings(self):
         with pytest.raises(HTTPException) as exc_info:
-            _call_require_admin(_operator_user())
+            _call_require_superadmin(_operator_user())
         assert exc_info.value.status_code == 403
 
 
@@ -92,13 +92,13 @@ class TestSettingsRouterGuards:
 # ---------------------------------------------------------------------------
 
 class TestControllersRouterGuards:
-    def test_admin_passes(self):
-        result = _call_require_admin(_admin_user())
-        assert result["role"] == "admin"
+    def test_superadmin_passes(self):
+        result = _call_require_superadmin(_superadmin_user())
+        assert result["role"] == "superadmin"
 
     def test_operator_blocked(self):
         with pytest.raises(HTTPException) as exc_info:
-            _call_require_admin(_operator_user())
+            _call_require_superadmin(_operator_user())
         assert exc_info.value.status_code == 403
 
 
@@ -107,13 +107,13 @@ class TestControllersRouterGuards:
 # ---------------------------------------------------------------------------
 
 class TestDataRouterGuards:
-    def test_admin_passes(self):
-        result = _call_require_admin(_admin_user())
-        assert result["role"] == "admin"
+    def test_superadmin_passes(self):
+        result = _call_require_superadmin(_superadmin_user())
+        assert result["role"] == "superadmin"
 
     def test_operator_blocked_from_backup(self):
         with pytest.raises(HTTPException) as exc_info:
-            _call_require_admin(_operator_user())
+            _call_require_superadmin(_operator_user())
         assert exc_info.value.status_code == 403
 
 
@@ -122,13 +122,13 @@ class TestDataRouterGuards:
 # ---------------------------------------------------------------------------
 
 class TestDebugRouterGuards:
-    def test_admin_passes(self):
-        result = _call_require_admin(_admin_user())
-        assert result["role"] == "admin"
+    def test_superadmin_passes(self):
+        result = _call_require_superadmin(_superadmin_user())
+        assert result["role"] == "superadmin"
 
     def test_operator_blocked_from_debug(self):
         with pytest.raises(HTTPException) as exc_info:
-            _call_require_admin(_operator_user())
+            _call_require_superadmin(_operator_user())
         assert exc_info.value.status_code == 403
 
 
@@ -137,7 +137,7 @@ class TestDebugRouterGuards:
 # ---------------------------------------------------------------------------
 
 class TestRouterImports:
-    """Smoke-check that admin-only routers use require_role, not get_current_user,
+    """Smoke-check that superadmin-only routers use require_role, not get_current_user,
     by reading the source files directly (avoids importing heavy dependencies)."""
 
     def _read_router_source(self, relative_path: str) -> str:
@@ -167,6 +167,6 @@ class TestRouterImports:
         assert "require_role" in src
         assert "get_current_user" not in src
 
-    def test_auth_router_available_permissions_uses_require_role(self):
+    def test_auth_router_available_permissions_uses_require_permission(self):
         src = self._read_router_source("app/api/routers/auth.py")
-        assert "require_role" in src
+        assert "require_permission" in src

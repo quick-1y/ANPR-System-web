@@ -1,0 +1,657 @@
+# ANPR System v0.8 — Deep Architectural Review #5
+
+**Date**: 2026-04-04
+**Branch**: `dev_add_auth`
+**Scope**: Architecture, naming, unused code, legacy code, consistency, recognition pipeline
+
+---
+
+## 1. Executive Summary
+
+### Overall Assessment
+
+The codebase is well-structured for a single-developer project of this scale (~10,900 lines Python, ~2,600 lines JS). The module separation has improved significantly since prior reviews (R1-R4). The recognition pipeline is efficiently designed with shared YOLO weights, singleton OCR, connection pooling, and adaptive frame striding. The auth system (JWT + RBAC) is properly layered.
+
+**Main strengths:**
+- Clean separation: `anpr/` (ML pipeline), `app/` (API + web), `runtime/` (channels), `config/`, `database/`, `controllers/`
+- Shared model instances across channels (YOLO clone pattern, OCR singleton)
+- Proper connection pooling via `psycopg_pool`
+- Non-blocking screenshot I/O via ThreadPoolExecutor
+- Well-tested auth layer with 13 test files
+
+**Main risks:**
+1. **Dual `hash_password` implementations** — `database/user_repository.py:_hash_password` and `app/api/auth_utils.py:hash_password` are identical but independent. Divergence risk.
+2. **Dual hotkey normalization** — `config/settings_normalizer.py:_normalize_hotkey` and `app/api/schemas.py:_normalize_hotkey` have slightly different behavior (one logs warnings, the other raises ValueError).
+3. **SettingsManager still has 14 pass-through static methods** — Each just delegates to `settings_schema.*_defaults()`. The normalizer has the same 14. That's 28 pass-through wrappers.
+4. **Controller normalization duplicated** — `SettingsManager.get_controllers()` and `SettingsNormalizer._fill_controller_defaults()` contain nearly identical controller normalization logic (id assignment, type validation, relay normalization).
+5. **`auth_roadmap_eng.txt`** — Planning artifact committed to repo root. Not code, not docs, no longer actionable.
+6. ~~**Frontend channels.js is 1,298 lines**~~ — ✅ Split into `video-grid.js` (486), `roi-editor.js` (126), `plate-size-editor.js` (117), and `channels.js` (636).
+
+### Highest-Priority Cleanup Opportunities
+
+| Priority | Issue | Effort |
+|----------|-------|--------|
+| 1 | Consolidate dual `hash_password` to one source | Small |
+| 2 | Consolidate dual `_normalize_hotkey` to one source | Small |
+| 3 | Eliminate 28 pass-through `_*_defaults()` wrappers | Medium |
+| 4 | Deduplicate controller normalization in SettingsManager vs SettingsNormalizer | Medium |
+| ~~5~~ | ~~Split channels.js into focused modules~~ | ✅ Done |
+| 6 | Remove `auth_roadmap_eng.txt` | Trivial |
+
+---
+
+## 2. Architecture Weaknesses
+
+### 2.1 EventSink Is a Trivial Proxy
+
+**Severity**: Medium | **Confidence**: High
+
+`runtime/event_sink.py` (42 lines) wraps `PostgresEventDatabase.insert_event()` with zero added logic. Every parameter is passed through identically. It was likely a multi-backend abstraction (SQLite+Postgres) that lost its second backend.
+
+**Evidence**: `EventSink.__init__` takes either a DSN or an existing `events_db`. Its `insert_event()` just calls `self._postgres.insert_event(...)` with the same kwargs.
+
+**Impact**: Extra indirection, extra constructor wiring in `ChannelProcessor.__init__`.
+
+**Fix**: Remove `EventSink`, use `PostgresEventDatabase` directly in `ChannelProcessor`. The `_sink` field can become `_events_db`.
+
+---
+
+### 2.2 Settings Layer Has 3 Redundant Pass-Through Tiers
+
+**Severity**: Medium | **Confidence**: High
+
+The defaults-access chain is:
+
+```
+settings_schema.py  → (14 functions) → SettingsNormalizer._*_defaults()  (14 wrappers)
+                                      → SettingsManager._*_defaults()    (14 wrappers)
+```
+
+Both `SettingsManager` and `SettingsNormalizer` have identical `@staticmethod` wrappers that just call `settings_schema.*_defaults()`. Only `SettingsNormalizer` uses them internally. `SettingsManager` uses them in `get_channels()` and `get_controllers()`.
+
+**Evidence**: 
+- `config/settings_manager.py:48-103` — 14 static methods
+- `config/settings_normalizer.py:37-47, 108-146` — 14 static methods
+- Both are identical pass-throughs to `settings_schema.*`
+
+**Fix**: Import directly from `settings_schema` where needed. Remove the wrapper methods from both classes.
+
+---
+
+### 2.3 Controller Normalization Duplicated Between SettingsManager and SettingsNormalizer
+
+**Severity**: Medium | **Confidence**: High
+
+`SettingsManager.get_controllers()` (lines 140-186) performs controller normalization (id assignment, type validation, relay normalization, hotkey extraction) that is almost identical to `SettingsNormalizer._fill_controller_defaults()` (lines 260-312).
+
+**Evidence**: Both methods:
+- Iterate controllers, assign missing IDs
+- Call `_validate_controller_type()`
+- Set default name, address, password
+- Normalize relay list to exactly 2
+- Call `_normalize_relay()` on each relay
+- Check hotkey duplicates
+
+**Fix**: `get_controllers()` should call `_fill_controller_defaults()` per controller (same pattern as `get_channels()` calls `_fill_channel_defaults()`), then only handle the "save-if-changed" logic.
+
+---
+
+### 2.4 Dual `hash_password` Functions
+
+**Severity**: High | **Confidence**: High
+
+Two independent `hash_password` implementations exist:
+- `database/user_repository.py:19` — `_hash_password(plain)` (private, used only for superadmin seeding)
+- `app/api/auth_utils.py:20` — `hash_password(plain)` (public, used by routers and tests)
+
+Both are identical: `bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")`.
+
+**Impact**: If one is changed (e.g., to argon2id), the other won't be, causing password format mismatch.
+
+**Fix**: Remove `_hash_password` from `user_repository.py`. Import `hash_password` from `auth_utils` for the superadmin seed.
+
+---
+
+### 2.5 `SettingsRepository._file_lock` Is a Class-Level Attribute Shared Across Instances
+
+**Severity**: Low | **Confidence**: High
+
+`config/settings_repository.py:11` defines `_file_lock = threading.RLock()` as a class attribute. This means all instances of `SettingsRepository` share the same lock, which is correct for this project (single-instance per process) but fragile as an API contract. `SettingsManager` reaches into `self._repo._file_lock` directly (line 35).
+
+**Evidence**: `settings_repository.py:11`, `settings_manager.py:35`
+
+**Fix**: Make the lock an instance attribute, or expose it as a proper public property.
+
+---
+
+## 3. Directory Structure Issues
+
+### 3.1 `auth_roadmap_eng.txt` in Project Root
+
+**Severity**: Low | **Confidence**: High
+
+This is a planning document from the auth implementation phase. It describes the auth architecture that has already been implemented. It is not documentation — it's a snapshot of the plan.
+
+**Fix**: Remove. The auth architecture is visible in the code and tests.
+
+---
+
+### 3.2 `app/shared/` Contains Only 2 Files
+
+**Severity**: Low | **Confidence**: Medium
+
+`app/shared/` holds `backup_service.py` (218 lines) and `data_lifecycle.py` (167 lines). These are domain services, not "shared utilities". They could live in `app/api/services/` or similar to better signal their role.
+
+**Impact**: Minor naming confusion. "shared" implies reuse across api/worker, which is true for `data_lifecycle.py` (used by both worker and api) but not for `backup_service.py` (api-only).
+
+**Fix**: Consider renaming to `app/services/` or leaving as-is (low priority).
+
+---
+
+### 3.3 `docs/` Directory May Be Stale
+
+**Severity**: Low | **Confidence**: Medium
+
+The `docs/` directory contains 6 markdown files that may not reflect the current codebase state (auth was added after initial docs were written). Specifically:
+- `docs/endpoints.md` — may not cover auth endpoints
+- `docs/modules.md` — may not cover `database/user_repository.py`, `app/api/auth*`
+
+**Fix**: Verify and update, or remove if README is sufficient.
+
+---
+
+## 4. Naming Issues
+
+### 4.1 `_NOOP_RECOGNIZER` vs `_FallbackRecognizer`
+
+**Severity**: Low | **Confidence**: High
+
+`anpr/pipeline/factory.py:37` creates `_NOOP_RECOGNIZER = _FallbackRecognizer()`. The class is named "Fallback" (suggests temporary until real one loads) but the instance is named "NOOP" (suggests it intentionally does nothing). The semantics are "fallback" — it returns `[]` while the real OCR initializes in a background thread.
+
+**Fix**: Rename to `_FALLBACK_RECOGNIZER` for consistency.
+
+---
+
+### 4.2 Mixed Russian/English in Log Messages and Comments
+
+**Severity**: Low | **Confidence**: High
+
+Log messages are predominantly Russian, but some are English (e.g., `controllers/service.py:167` "channel %s relay skip: channel not found"). This is intentional (user-facing logs in Russian, debug/internal in English), but some messages inconsistently mix languages within the same flow.
+
+**Impact**: Minor readability issue for log analysis.
+
+---
+
+## 5. Unused Modules / Files / Code
+
+### 5.1 Definitely Unused — Safe to Remove
+
+| Item | Evidence | Risk |
+|------|----------|------|
+| `auth_roadmap_eng.txt` | Planning artifact, not imported/referenced anywhere | None |
+| `SettingsManager._channel_defaults()` (line 48) | Only `SettingsNormalizer._channel_defaults()` is called; `SettingsManager`'s wrapper is unused | None |
+| `SettingsManager._debug_defaults()` (line 52) | Same pattern — all `get_*` methods use `self._normalizer._fill_*_defaults()` instead | None |
+| `SettingsManager._relay_defaults()` (line 56) | Only called from `get_controllers()` which duplicates normalizer logic | Low (fix duplication first) |
+| `SettingsManager._model_defaults()` through `._logging_defaults()` (lines 72-103) | All 10 remaining static methods — unused, normalizer has identical copies | None |
+
+### 5.2 Probably Unused — Needs Verification
+
+| Item | Evidence | Action Needed |
+|------|----------|---------------|
+| `docs/` markdown files | May be stale, unclear if referenced externally | Check if linked from README or external docs |
+| `AGENTS.md` in project root | GSD tooling artifact | Check if `.claude/` tooling reads it at runtime |
+
+### 5.3 Legacy But Still Referenced
+
+| Item | Evidence | Status |
+|------|----------|--------|
+| ~~`APIKeyMiddleware` in `app/api/auth.py`~~ | ✅ Deleted — not registered in main.py, not in deployment configs, `docs/endpoints.md` already stated removal | Done |
+| ~~`EventSink` in `runtime/event_sink.py`~~ | ✅ Removed — `ChannelProcessor` uses `PostgresEventDatabase` directly | Done |
+| ~~`_hash_password` in `database/user_repository.py`~~ | ✅ Consolidated — now imports from `auth_utils` | Done |
+
+---
+
+## 6. Consistency Issues
+
+### 6.1 Hotkey Normalization Has Two Divergent Implementations
+
+**Severity**: Medium | **Confidence**: High
+
+`config/settings_normalizer.py:_normalize_hotkey()` — logs a warning and returns the raw value for invalid hotkeys.
+`app/api/schemas.py:_normalize_hotkey()` — raises `ValueError` for invalid hotkeys.
+
+Both perform the same CTRL+ALT+SHIFT ordering, but the error handling diverges. This means:
+- API validation rejects bad hotkeys at the endpoint level
+- Settings normalization silently accepts bad hotkeys during startup/migration
+
+**Fix**: Extract to a shared utility function with a `strict: bool` parameter, or have the API schema call the normalizer version.
+
+---
+
+### 6.2 `get_controllers()` Duplicates `_fill_controller_defaults()`
+
+**Severity**: Medium | **Confidence**: High
+
+See section 2.3 above. The duplication means:
+- Changes to controller normalization must be applied in two places
+- One path (normalizer) is called during settings load; the other (manager) during `get_controllers()`
+- They can silently diverge
+
+---
+
+### 6.3 `_RECONNECT_CACHE_TTL` Defined in Two Ways
+
+**Severity**: Low | **Confidence**: High
+
+`ChannelProcessor._RECONNECT_CACHE_TTL = 30.0` is a class attribute (line 111), but the cache logic references it directly. The `get_reconnect_config()` method uses `self._RECONNECT_CACHE_TTL` (implicitly). This is fine, but the `30.0` default is also baked into the `ReconnectConfig` dataclass semantics.
+
+**Impact**: Negligible.
+
+---
+
+## 7. Recognition Pipeline Analysis
+
+### 7.1 Full Processing Flow
+
+```
+Camera Source (RTSP/file)
+  │
+  ├─ cap.read() — OpenCV VideoCapture
+  │
+  ├─ Motion Detector (optional, mode="motion")
+  │   └─ If no motion → skip frame (metrics.motion_skipped_frames++)
+  │
+  ├─ Adaptive Stride Check
+  │   └─ If no active tracks → stride × 3 (saves YOLO calls during idle)
+  │   └─ If stride not met → skip frame (metrics.detector_skipped_frames++)
+  │
+  ├─ YOLO Detection + Tracking
+  │   └─ model.track(frame, persist=True) → bboxes + track_ids
+  │   └─ Size filter → ROI polygon filter
+  │
+  ├─ ANPRPipeline.process_frame()
+  │   ├─ For each detection:
+  │   │   ├─ Skip finalized tracks (main CPU-saving path)
+  │   │   ├─ Direction estimation (update center_y + area history)
+  │   │   ├─ Plate preprocessor (perspective correction, skew correction)
+  │   │   └─ Batch collect preprocessed plate images
+  │   │
+  │   ├─ CRNNRecognizer.recognize_batch() — single batch inference
+  │   │
+  │   ├─ TrackAggregator.add_result() per detection
+  │   │   ├─ Consensus check (quorum + weighted majority)
+  │   │   ├─ Budget exhaustion (max_ocr_attempts)
+  │   │   └─ Consecutive failure early-exit
+  │   │
+  │   └─ PlatePostProcessor.process() — country format validation
+  │
+  ├─ Event Emission
+  │   ├─ Screenshot I/O (async via ThreadPoolExecutor)
+  │   ├─ PostgreSQL insert via EventSink
+  │   ├─ EventBus publish (async, for SSE subscribers)
+  │   └─ ControllerAutomation dispatch (list matching, relay command)
+  │
+  └─ Preview JPEG encode (if consumers exist, rate-limited)
+```
+
+### 7.2 Pipeline Efficiency Assessment
+
+**Well-optimized areas:**
+- Finalized track skip (no OCR, no direction computation) — `anpr_pipeline.py:424`
+- Adaptive stride (3x multiplier when no active tracks) — `channel_runtime.py:546-552`
+- Motion detector gate — skips YOLO entirely during no-motion periods
+- Shared YOLO weights via `copy.copy()` clone pattern — `factory.py:99`
+- Singleton OCR recognizer — `factory.py:40-79`
+- Batch OCR inference — single `model(batch)` call per frame
+- Non-blocking screenshot I/O — `channel_runtime.py:588`
+- Preview rate limiting — `channel_runtime.py:634`
+
+**Remaining inefficiencies:**
+
+#### 7.2.1 Direction Computed for Non-Finalized Tracks Even When Result is Empty
+
+**Severity**: Low | **Confidence**: High
+
+`anpr_pipeline.py:438-441` — Direction estimation runs for every non-finalized detection, including those where OCR hasn't produced a result yet. The direction is only useful when a plate event is emitted. For tracks still accumulating OCR attempts, direction computation is wasted.
+
+**Impact**: ~0.01ms per detection per frame (numpy operations on small arrays). Negligible for low detection counts, but adds up with many simultaneous tracks.
+
+**Potential fix**: Defer direction computation to the emission point (when `result` or `unreadable` triggers an event). Store bbox in detection dict, compute direction only when needed.
+
+#### 7.2.2 `_evict_stale` in TrackAggregator and TrackDirectionEstimator Run on Timer-Based Intervals
+
+**Severity**: Low | **Confidence**: High
+
+Both classes check `now - self._last_evict > self._EVICT_INTERVAL` every time their main methods are called. This is O(n) scan over all track dicts. With the 10-second interval, this is fine.
+
+**Impact**: Negligible.
+
+#### 7.2.3 `PlatePreprocessor` Recreates No Objects Per Call (Stateless)
+
+**Severity**: None (positive observation) | **Confidence**: High
+
+The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preprocess()` call only operates on the input image. This is correct.
+
+#### 7.2.4 `reconnect_config` Re-read Every Frame Iteration
+
+**Severity**: Low | **Confidence**: High
+
+`channel_runtime.py:452` calls `self.get_reconnect_config()` at the top of every frame loop. The 30-second cache TTL means this is almost always a cache hit (just a monotonic time comparison). But the call is inside the hot loop.
+
+**Impact**: ~0.001ms per frame. Negligible.
+
+#### 7.2.5 Preview JPEG Encoding Allocates New Buffer Each Frame
+
+**Severity**: Low | **Confidence**: Medium
+
+`cv2.imencode('.jpg', frame, ...)` at line 635 allocates a new numpy buffer each time. The `.tobytes()` call at line 641 copies it again. For 5 FPS preview, this is ~5 allocations/second per channel with consumers.
+
+**Impact**: Minor GC pressure. Not worth optimizing unless memory profiling shows it as a hotspot.
+
+---
+
+## 8. Cleanup Candidate Tables
+
+### Safe to Remove Now
+
+| Item | File | Lines | Evidence |
+|------|------|-------|----------|
+| ~~`auth_roadmap_eng.txt`~~ | ~~project root~~ | ~~entire file~~ | ✅ Deleted |
+| ~~`SettingsManager._channel_defaults`~~ | ~~`config/settings_manager.py`~~ | ~~48-50~~ | ✅ Removed — all 14 pass-through wrappers deleted |
+| ~~`SettingsManager._debug_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._relay_defaults`~~ | | | ✅ Removed — replaced with direct `relay_defaults()` call |
+| ~~`SettingsManager._reconnect_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._storage_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._plate_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._model_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._inference_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._plate_size_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._direction_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._ocr_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._detector_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._time_defaults`~~ | | | ✅ Removed |
+| ~~`SettingsManager._logging_defaults`~~ | | | ✅ Removed |
+
+### Needs Verification Before Removal
+
+| Item | File | Risk | What to Check |
+|------|------|------|---------------|
+| ~~`APIKeyMiddleware` class~~ | ~~`app/api/auth.py`~~ | | ✅ Deleted — not registered in main.py, not in deployment configs |
+| ~~`docs/` directory (6 files)~~ | ~~`docs/*`~~ | | ✅ Verified and updated — all 6 docs now match current codebase |
+| `AGENTS.md` | project root | Low | Is this read by `.claude/` tooling? |
+
+### Should Be Refactored, Not Removed
+
+| Item | File | What to Do |
+|------|------|------------|
+| ~~`EventSink`~~ | ~~`runtime/event_sink.py`~~ | ✅ Removed — inlined `PostgresEventDatabase` into `ChannelProcessor` |
+| ~~`_hash_password`~~ | ~~`database/user_repository.py:19`~~ | ✅ Consolidated into `app.api.auth_utils.hash_password` |
+| ~~`_normalize_hotkey` (duplicate)~~ | ~~`app/api/schemas.py` + `config/settings_normalizer.py`~~ | ✅ Consolidated into `config.settings_schema.normalize_hotkey` |
+| ~~Controller normalization (duplicate)~~ | ~~`config/settings_manager.py:140-186`~~ | ✅ `get_controllers()` now delegates to `_fill_controller_defaults()` |
+| ~~`channels.js` (1,298 lines)~~ | ~~`app/web/js/channels.js`~~ | ✅ Split into `video-grid.js`, `roi-editor.js`, `plate-size-editor.js`, and `channels.js` |
+| ~~14 pass-through `_*_defaults()` methods in SettingsManager~~ | ~~`config/settings_manager.py`~~ | ✅ Removed — direct `settings_schema` calls used instead |
+| ~~14 pass-through `_*_defaults()` methods in SettingsNormalizer~~ | ~~`config/settings_normalizer.py`~~ | ✅ Removed — direct `settings_schema` calls used instead |
+
+---
+
+## 9. Independent Implementation Tasks
+
+### Task 1: Consolidate Duplicate `hash_password` ✅ COMPLETED
+
+**Problem**: Two identical `hash_password` functions exist — one in `database/user_repository.py` (private `_hash_password`) and one in `app/api/auth_utils.py` (public `hash_password`). If hashing strategy changes, one will be missed.
+
+**What was done**:
+- Removed `_hash_password` from `database/user_repository.py`
+- Replaced `import bcrypt` with `from app.api.auth_utils import hash_password`
+- Updated `_seed_default_superadmin()` to call `hash_password()`
+- Updated `tests/test_user_repository.py` to import `hash_password` from `app.api.auth_utils`
+- All 31 tests pass.
+
+**Files changed**: `database/user_repository.py`, `tests/test_user_repository.py`
+
+**Result**: Single source of truth for password hashing in `app/api/auth_utils.py`.
+
+---
+
+### Task 2: Consolidate Duplicate `_normalize_hotkey` ✅ COMPLETED
+
+**Problem**: Two divergent hotkey normalization functions — `config/settings_normalizer.py:49` (warns on error, returns raw value) and `app/api/schemas.py:160` (raises ValueError).
+
+**What was done**:
+- Added shared `normalize_hotkey(value, *, strict=False)` to `config/settings_schema.py`
+- `strict=True` raises `ValueError` (API validation behavior)
+- `strict=False` logs warning and returns raw value (settings normalization behavior)
+- Updated `config/settings_normalizer.py` — `_normalize_hotkey` now delegates to `normalize_hotkey(value, strict=False)`
+- Updated `app/api/schemas.py` — `_normalize_hotkey` now delegates to `normalize_hotkey(value, strict=True)`
+- All 10 hotkey/controller/settings tests pass.
+
+**Files changed**: `config/settings_schema.py`, `config/settings_normalizer.py`, `app/api/schemas.py`
+
+**Result**: Single normalization algorithm with two error-handling modes.
+
+---
+
+### Task 3: Remove `EventSink` Proxy Layer ✅ COMPLETED
+
+**Problem**: `runtime/event_sink.py` is a 42-line class that wraps `PostgresEventDatabase.insert_event()` with zero added logic. It was a multi-backend abstraction that now has only one backend.
+
+**What was done**:
+- Replaced `EventSink` import with `PostgresEventDatabase` in `channel_runtime.py`
+- Replaced `self._sink = EventSink(...)` with `self._events_db = events_db or PostgresEventDatabase(...)`
+- Replaced `self._sink.insert_event(...)` with `self._events_db.insert_event(...)`
+- Deleted `runtime/event_sink.py`
+- `EventSink` was not exported from `runtime/__init__.py` — no changes needed there
+
+**Files changed**: `runtime/channel_runtime.py`, `runtime/event_sink.py` (deleted)
+
+**Result**: One less indirection layer. `ChannelProcessor` uses `PostgresEventDatabase` directly.
+
+---
+
+### Task 4: Remove 14 Pass-Through `_*_defaults()` from SettingsManager ✅ COMPLETED
+
+**Problem**: `SettingsManager` has 14 `@staticmethod` methods (lines 48-103) that each call the identically-named function from `settings_schema`. The `SettingsNormalizer` also has 14 identical wrappers. The manager's wrappers are never called externally (the normalizer's versions are used instead).
+
+**What was done**:
+- Removed all 14 static methods from `SettingsManager` (lines 48-103)
+- Replaced all internal `self._xxx_defaults()` calls with direct `settings_schema` function calls (e.g., `relay_defaults()`, `reconnect_defaults()`, etc.)
+- Cleaned up unused imports: `channel_defaults`, `schema_plate_size_defaults`, `schema_direction_defaults`, `Optional`
+- All 10 settings/controller/channel tests pass.
+
+**Files changed**: `config/settings_manager.py`
+
+**Result**: 55 lines removed. `SettingsManager` now calls `settings_schema` functions directly — no pass-through wrappers.
+
+---
+
+### Task 5: Deduplicate Controller Normalization ✅ COMPLETED
+
+**Problem**: `SettingsManager.get_controllers()` contained controller normalization logic (ID assignment, type validation, relay normalization) nearly identical to `SettingsNormalizer._fill_controller_defaults()`. Changes had to be made in two places.
+
+**What was done**:
+- Replaced the entire normalization body in `get_controllers()` (~40 lines) with a single delegation: `self._normalizer._fill_controller_defaults(wrapper)`
+- The method now wraps controllers in a dict, calls the normalizer, and handles save-if-changed — matching the pattern used by `get_channels()`
+- Removed unused `relay_defaults` import (was only used in the duplicated code)
+- Bonus: the normalizer's hotkey duplicate warning (which was missing from the manager's version) now applies consistently
+- All 10 settings/controller/channel tests pass; no regressions vs baseline
+
+**Files changed**: `config/settings_manager.py`
+
+**Result**: Single source of truth for controller normalization in `SettingsNormalizer._fill_controller_defaults()`.
+
+---
+
+### Task 6: Remove `auth_roadmap_eng.txt` ✅ COMPLETED
+
+**Problem**: Planning artifact from the auth implementation phase. Not code, not documentation, not actionable.
+
+**What was done**: Deleted the file. Confirmed no references outside the review doc.
+
+**Files changed**: `auth_roadmap_eng.txt` (deleted)
+
+**Result**: Planning artifact removed from project root.
+
+---
+
+### Task 7: Verify and Clean Up `APIKeyMiddleware` ✅ COMPLETED
+
+**Problem**: `app/api/auth.py` contains `APIKeyMiddleware` — the legacy static API key authentication. It is NOT registered as middleware in `app/api/main.py` (JWT is the primary auth). The class may be entirely dead code.
+
+**What was done**:
+- Verified `APIKeyMiddleware` is not imported or registered anywhere in the codebase
+- Verified `API_KEY` env var is not referenced in `Dockerfile`, `docker-compose.yml`, or `.env.example`
+- `docs/endpoints.md` already states "API_KEY fallback удалён. Принимается только JWT."
+- Deleted `app/api/auth.py` entirely (76 lines of dead code)
+- All auth/settings tests pass; no regressions
+
+**Files changed**: `app/api/auth.py` (deleted)
+
+**Result**: Dead legacy middleware removed. JWT is the sole authentication mechanism.
+
+---
+
+### Task 8: Split `channels.js` Into Focused Modules ✅ COMPLETED
+
+**Problem**: `app/web/js/channels.js` is 1,298 lines — the largest frontend file by far. It handles 6+ distinct responsibilities: video grid rendering, preview/MJPEG lifecycle, overlay polling, ROI polygon editor, plate size editor, channel CRUD, and controller binding UI.
+
+**What was done**:
+- Extracted video grid rendering, preview lifecycle, overlays, metrics into `video-grid.js` (486 lines)
+- Extracted ROI polygon editor (point management, canvas interaction) into `roi-editor.js` (126 lines)
+- Extracted plate size editor (box hit testing, drag, input sync) into `plate-size-editor.js` (117 lines)
+- Kept channel CRUD, state, hotkeys, config helpers, and canvas orchestration (`drawPreview`, `setupVisionCanvas`) in `channels.js` (636 lines)
+- Used callback pattern (`setROIRedrawCallback`, `setPlateSizeRedrawCallback`) so sub-modules can trigger canvas redraw without circular imports
+- All existing imports from other modules (`app.js`, `events.js`, `debug.js`, `controllers.js`, `lists.js`, `settings.js`) preserved via re-exports from `channels.js` — zero changes needed to consumer files
+
+**Files changed**: `app/web/js/channels.js` (rewritten), new `app/web/js/video-grid.js`, new `app/web/js/roi-editor.js`, new `app/web/js/plate-size-editor.js`
+
+**Result**: Monolithic 1,298-line file split into 4 focused modules. No file exceeds 636 lines. Each module has a single responsibility.
+
+---
+
+### Task 9: Remove Pass-Through Wrappers from SettingsNormalizer ✅ COMPLETED
+
+**Problem**: `SettingsNormalizer` has 14 `@staticmethod` wrappers (identical to SettingsManager's) that just call `settings_schema.*_defaults()`. These are used internally by `_fill_*_defaults()` methods, but the indirection adds no value.
+
+**What was done**:
+- Removed all 13 `_*_defaults()` static method wrappers (`_channel_defaults`, `_debug_defaults`, `_relay_defaults`, `_reconnect_defaults`, `_storage_defaults`, `_plate_defaults`, `_model_defaults`, `_inference_defaults`, `_direction_defaults`, `_ocr_defaults`, `_detector_defaults`, `_time_defaults`, `_logging_defaults`)
+- Removed `_normalize_hotkey` wrapper (inlined `normalize_hotkey(..., strict=False)` at call site)
+- Removed `_upgrade_region` wrapper (inlined `normalize_region_config()` at call site)
+- Replaced all `self._*_defaults()` calls with direct `settings_schema` function calls throughout the class
+- Cleaned up imports: removed aliases (`direction_defaults as schema_direction_defaults`, `normalize_region_config as schema_normalize_region_config`), removed unused `Optional`
+- Verified: `SettingsNormalizer().normalize({})` produces correct output with all expected keys
+- Verified: controller normalization with hotkeys works correctly
+- No external callers of removed methods exist
+
+**Files changed**: `config/settings_normalizer.py`
+
+**Result**: 61 lines removed (480 → 419). Only the methods that do actual work remain (`_fill_*_defaults`, `_normalize_relay`, `_validate_controller_type`, `normalize_with_meta`, `normalize`).
+
+---
+
+### Task 10: Verify and Update `docs/` Directory ✅ COMPLETED
+
+**Problem**: The `docs/` directory contains 6 markdown files written before some cleanup tasks removed files (`auth.py`, `event_sink.py`) and added new ones (`backup_service.py`, split JS modules, new tests).
+
+**What was done**:
+- Verified `endpoints.md` — already up-to-date (auth, users, backup/restore all covered). No changes needed.
+- Verified `anpr-pipeline.md` — technically accurate. No changes needed.
+- Verified `technology-stack.md` — accurate. No changes needed.
+- Updated `modules.md`:
+  - Removed stale `app/api/auth.py` entry (file deleted in Task 7)
+  - Removed stale `runtime/event_sink.py` entry (file deleted in Task 3)
+  - Added `app/shared/backup_service.py` entry
+  - Updated `runtime/channel_runtime.py` description to reflect direct `PostgresEventDatabase` usage
+- Updated `project-structure.md`:
+  - Removed stale `auth.py` from `app/api/` tree
+  - Removed stale `event_sink.py` from `runtime/` tree
+  - Added `app/shared/backup_service.py`
+  - Added full `app/web/js/` listing (17 JS modules including split files from Task 8)
+  - Added missing test files: `test_permission_guards.py`, `test_settings_storage_cleanup.py`, `test_users_router.py`
+- Updated `diagrams.md`:
+  - Removed `EventSink` node from service interaction diagram (Task 3)
+  - Connected `ANPRPipeline` directly to `PostgresEventDatabase` and `EventBus`
+  - Updated event saving diagram to remove `EventSink.insert_event()` indirection
+
+**Files changed**: `docs/modules.md`, `docs/project-structure.md`, `docs/diagrams.md`
+
+**Result**: All 6 docs now match the current codebase state. No stale references to deleted files remain.
+
+---
+
+### Task 11: Make `SettingsRepository._file_lock` an Instance Attribute ✅ COMPLETED
+
+**Problem**: `SettingsRepository._file_lock` is a class-level `threading.RLock()`, meaning all instances share the same lock. `SettingsManager` accesses it directly via `self._repo._file_lock`.
+
+**What was done**:
+- Moved `_file_lock = threading.RLock()` from class-level attribute to instance attribute in `__init__`
+- `SettingsManager.__init__` already accesses via `self._repo._file_lock` (line 31) — no changes needed there
+- Verified no code accesses `SettingsRepository._file_lock` as a class attribute
+- All internal `self._file_lock` references in `SettingsRepository` work identically (instance lookup before class lookup)
+
+**Files changed**: `config/settings_repository.py`
+
+**Result**: Each `SettingsRepository` instance now has its own lock. Safer if multiple instances are ever created.
+
+---
+
+### Task 12: Extract `DebugLogBus` from `runtime/debug.py` ✅ COMPLETED
+
+**Problem**: `runtime/debug.py` is 398 lines and contains two unrelated subsystems:
+1. `DebugRegistry` + `ChannelDebugState` (overlay state management) — ~280 lines
+2. `DebugLogBus` + `DebugLogEntry` (live log pub/sub) — ~70 lines
+
+**What was done**:
+- Extracted `DebugLogEntry` and `DebugLogBus` to new `runtime/debug_log_bus.py` (83 lines)
+- Updated `common/logging.py` import from `runtime.debug` to `runtime.debug_log_bus`
+- Removed `asyncio` and `Tuple` imports from `runtime/debug.py` (no longer needed)
+- Verified no other files import `DebugLogBus`/`DebugLogEntry` from `runtime.debug`
+
+**Files changed**: `runtime/debug.py`, `runtime/debug_log_bus.py` (new), `common/logging.py`
+
+**Result**: `debug.py` reduced from 399 to 322 lines. Each file has a single responsibility: `debug.py` handles overlay state, `debug_log_bus.py` handles live log pub/sub.
+
+---
+
+### Task 13: Add Index on `events.timestamp` for Retention Queries ✅ ALREADY SATISFIED
+
+**Problem**: `PostgresEventDatabase.delete_before(cutoff_iso)` runs `DELETE FROM events WHERE timestamp < %s`. Without an index on `timestamp`, this is a sequential scan on potentially millions of rows.
+
+**Status**: The index already exists in `database/postgres/schema.sql` (line 27):
+```sql
+CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp DESC);
+```
+Additionally, a composite index `idx_events_ts_id_desc ON events(timestamp DESC, id DESC)` exists at line 31, covering the journal pagination query pattern.
+
+**Files changed**: None — already satisfied.
+
+---
+
+### Task 14: Remove Unused `hotkeys` Variable in Controller Normalization ✅ OBSOLETE
+
+**Problem**: In `SettingsManager.get_controllers()` there was a `hotkeys` variable computed but never used.
+
+**Status**: Obsolete — Task 5 ("Deduplicate Controller Normalization") already replaced the entire body of `get_controllers()` with a delegation to `_fill_controller_defaults()`. The dead `hotkeys` line no longer exists in `settings_manager.py`.
+
+**Files changed**: None — already resolved by Task 5.
+
+---
+
+### Task 15: Share Connection Pool Across Database Classes ✅ COMPLETED
+
+**Problem**: Each `PooledDatabase` subclass creates its own `ConnectionPool(min_size=2, max_size=10)`. With 4 instances (`events_db`, `lists_db`, `user_db`, `DataLifecycleService.pg_events`), the app maintained 4 pools (min=8, max=40 total connections) to the same PostgreSQL instance. Additionally, `refresh_storage_clients()` created new instances without closing old pools, leaking connections.
+
+**What was done**:
+- Added `get_shared_pool(dsn)` factory in `database/base.py` — returns a cached pool keyed by DSN, creating one lazily on first access
+- Added `close_shared_pool(dsn)` for cleanup on DSN change
+- `PooledDatabase._get_pool()` now delegates to `get_shared_pool(self._dsn)` instead of creating its own pool
+- Removed per-instance `self._pool` attribute — pool is managed at module level
+- Updated `AppContainer.refresh_storage_clients()` to call `close_shared_pool(old_dsn)` when the DSN changes, preventing connection leaks
+- `DataLifecycleService` creates a `PostgresEventDatabase` that automatically shares the same pool — no changes needed there
+
+**Files changed**: `database/base.py`, `app/api/container.py`
+
+**Result**: 1 shared pool (min=2, max=10) instead of 4 independent pools (min=8, max=40). Connection leak on DSN change resolved. No changes needed to repository subclasses or `DataLifecycleService`.
+
+---
+
+*End of Review #5*

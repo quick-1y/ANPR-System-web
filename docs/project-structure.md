@@ -19,16 +19,34 @@ ANPR-System-v0.8_web/
 │   └── model_config.py            # Конфигурация путей к моделям
 ├── app/                           # Application layer
 │   ├── api/                       # Основной FastAPI API server
-│   │   ├── routers/               # Channels, events, settings, data, debug, auth, ...
-│   │   ├── auth.py
+│   │   ├── routers/               # Channels, events, settings, data, debug, auth, users, ...
 │   │   ├── auth_utils.py
 │   │   ├── container.py
 │   │   ├── deps.py
 │   │   ├── main.py
 │   │   └── schemas.py
 │   ├── shared/                    # Общие сервисы приложения
+│   │   ├── backup_service.py
 │   │   └── data_lifecycle.py
 │   ├── web/                       # Статический frontend
+│   │   ├── js/                    # JS-модули SPA
+│   │   │   ├── api.js
+│   │   │   ├── app.js
+│   │   │   ├── backup.js
+│   │   │   ├── channels.js
+│   │   │   ├── controllers.js
+│   │   │   ├── debug.js
+│   │   │   ├── events.js
+│   │   │   ├── help.js
+│   │   │   ├── journal.js
+│   │   │   ├── lists.js
+│   │   │   ├── plate-size-editor.js
+│   │   │   ├── roi-editor.js
+│   │   │   ├── settings.js
+│   │   │   ├── state.js
+│   │   │   ├── ui.js
+│   │   │   ├── users.js
+│   │   │   └── video-grid.js
 │   │   ├── assets/
 │   │   ├── favicon/
 │   │   └── images/
@@ -61,8 +79,7 @@ ANPR-System-v0.8_web/
 ├── runtime/                       # Выполнение каналов и runtime-сервисы
 │   ├── channel_runtime.py
 │   ├── debug.py
-│   ├── event_bus.py
-│   └── event_sink.py
+│   └── event_bus.py
 ├── tests/                         # Тесты ключевых компонентов
 │   ├── test_auth_deps.py
 │   ├── test_auth_router.py
@@ -70,9 +87,12 @@ ANPR-System-v0.8_web/
 │   ├── test_direction_estimator.py
 │   ├── test_lists_repository.py
 │   ├── test_motion_detector.py
+│   ├── test_permission_guards.py
 │   ├── test_plate_validator.py
+│   ├── test_settings_storage_cleanup.py
 │   ├── test_track_aggregator.py
-│   └── test_user_repository.py
+│   ├── test_user_repository.py
+│   └── test_users_router.py
 ├── .planning/
 │   └── codebase/                  # Аналитические markdown-файлы по проекту
 ├── AGENTS.md

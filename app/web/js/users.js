@@ -1,7 +1,7 @@
-// User management — admin-only Settings sub-pane (Phase 5)
+// User management — Settings sub-pane (Phase 5)
 import { api, jfetch } from './api.js';
 import { showToast, switchSettings, openModal, closeModal } from './ui.js';
-import { isAdmin } from './state.js';
+import { hasPermission } from './state.js';
 
 let _allPermissions = [];
 let _users = [];
@@ -10,7 +10,7 @@ let _selectedUserId = null;
 // --- Init ---
 
 export function initUsersPane() {
-    if (!isAdmin()) return;
+    if (!hasPermission("tab:settings")) return;
 
     const navItem = document.getElementById("snav-users");
     if (navItem) {
@@ -33,6 +33,15 @@ function _bindButtons() {
     document.getElementById("userPasswordModal").onclick = (e) => {
         if (e.target.id === "userPasswordModal") closeModal("userPasswordModal");
     };
+    document.getElementById("newUserRole").addEventListener("change", () => {
+        const role = document.getElementById("newUserRole").value;
+        _renderPermCheckboxes("newUserPermissions", [], role);
+    });
+    document.getElementById("editUserRole").addEventListener("change", () => {
+        const role = document.getElementById("editUserRole").value;
+        const kept = _getCheckedPermissions("editUserPermissions");
+        _renderPermCheckboxes("editUserPermissions", kept, role);
+    });
     document.getElementById("newUserPassword").addEventListener("keydown", (e) => {
         if (e.key === "Enter") document.getElementById("confirmCreateUserBtn").click();
     });
@@ -65,20 +74,30 @@ export async function loadUsers() {
     }
 }
 
+// --- Helpers ---
+
+const _ROLE_BADGES = {
+    superadmin: '<span style="font-size:9px;color:var(--accent2);margin-left:4px;font-family:var(--mono)">СА</span>',
+    admin:      '<span style="font-size:9px;color:var(--accent2);margin-left:4px;font-family:var(--mono)">АДМ</span>',
+    operator:   '<span style="font-size:9px;color:var(--text3);margin-left:4px;font-family:var(--mono)">ОПЕ</span>',
+};
+
+function _roleBadge(role) {
+    return _ROLE_BADGES[role] ?? `<span style="font-size:9px;color:var(--text3);margin-left:4px;font-family:var(--mono)">${_esc(role)}</span>`;
+}
+
 // --- User list ---
 
 function _renderUserList() {
     const el = document.getElementById("userItems");
     if (!el) return;
     el.innerHTML = "";
-    for (const u of _users) {
+    for (const u of _users.filter(u => u.role !== "superadmin")) {
         const item = document.createElement("div");
         item.className = "ch-item" + (_selectedUserId === u.id ? " active" : "");
         item.dataset.userId = u.id;
 
-        const roleBadge = u.role === "admin"
-            ? '<span style="font-size:9px;color:var(--accent2);margin-left:4px;font-family:var(--mono)">АДМ</span>'
-            : '<span style="font-size:9px;color:var(--text3);margin-left:4px;font-family:var(--mono)">ОПЕ</span>';
+        const roleBadge = _roleBadge(u.role);
         const inactiveTag = u.is_active
             ? ""
             : '<span style="font-size:9px;color:var(--danger);margin-left:4px;font-family:var(--mono)">НЕАКТ</span>';
@@ -107,7 +126,7 @@ function _showCreateForm() {
     document.getElementById("newUserPasswordConfirm").value = "";
     document.getElementById("newUserRole").value = "operator";
     document.getElementById("createUserError").textContent = "";
-    _renderPermCheckboxes("newUserPermissions", []);
+    _renderPermCheckboxes("newUserPermissions", [], "operator");
     document.getElementById("userCreatePane").style.display = "";
     document.getElementById("userEditPane").style.display = "none";
     document.getElementById("userConfigEmpty").style.display = "none";
@@ -145,7 +164,7 @@ function _showEditForm(user) {
     document.getElementById("editUserRole").value = user.role;
     document.getElementById("editUserActive").checked = user.is_active;
     document.getElementById("editUserError").textContent = "";
-    _renderPermCheckboxes("editUserPermissions", user.permissions || []);
+    _renderPermCheckboxes("editUserPermissions", user.permissions || [], user.role);
     document.getElementById("userCreatePane").style.display = "none";
     document.getElementById("userEditPane").style.display = "";
     document.getElementById("userConfigEmpty").style.display = "none";
@@ -208,11 +227,12 @@ function _showEmpty() {
     document.getElementById("userConfigEmpty").style.display = "";
 }
 
-function _renderPermCheckboxes(containerId, currentPerms) {
+function _renderPermCheckboxes(containerId, currentPerms, role) {
     const el = document.getElementById(containerId);
     if (!el) return;
     el.innerHTML = "";
     for (const p of _allPermissions) {
+        if (role === "operator" && p.key === "tab:settings") continue;
         const label = document.createElement("label");
         label.style.cssText = "display:inline-flex;align-items:center;gap:5px;margin-right:12px;margin-bottom:4px;font-size:12px;cursor:pointer";
         const cb = document.createElement("input");

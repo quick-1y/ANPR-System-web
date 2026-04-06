@@ -24,7 +24,7 @@ theme: dark
 channels:
 - id: 1
   name: Въезд
-  source: rtsp://admin:admin@78.138.142.26:2001/0
+  source: rtsp://admin:admin@78.138.142.26:2000/0
   enabled: true
   roi_enabled: true
   region:
@@ -61,7 +61,7 @@ channels:
   max_plate_size:
     width: 232
     height: 59
-  controller_id: 1
+  controller_id: null
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []
@@ -71,7 +71,7 @@ channels:
   preview_fps_limit: 10
 - id: 2
   name: Выезд
-  source: rtsp://admin:admin@78.138.142.26:2000/0
+  source: rtsp://admin:admin@78.138.142.26:2001/0
   enabled: true
   roi_enabled: true
   region:

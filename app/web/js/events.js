@@ -1,6 +1,6 @@
 // Event feed, event streaming, event details modal
 import { state, eventFeedRenderScheduled, eventFeedRenderFrame, setEventFeedRenderScheduled, setEventFeedRenderFrame, setEventFeedResizeObserver } from './state.js';
-import { api, jfetch } from './api.js';
+import { api, apiUrl, jfetch } from './api.js';
 import { getActiveTabName, formatDirection, flagHtml, normalizePlate, openModal, closeModal } from './ui.js';
 import { updateChannelLastPlate } from './channels.js';
 import { journalState, makeJournalRow } from './journal.js';
@@ -224,8 +224,8 @@ export async function openEventDetails(ev) {
     .map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`)
     .join("") + listHtml;
   if (id > 0) {
-    setModalImage("eventFrameImg", api(`/api/events/item/${id}/media/frame`));
-    setModalImage("eventPlateImg", api(`/api/events/item/${id}/media/plate`));
+    setModalImage("eventFrameImg", apiUrl(`/api/events/item/${id}/media/frame`));
+    setModalImage("eventPlateImg", apiUrl(`/api/events/item/${id}/media/plate`));
   } else {
     setModalImage("eventFrameImg", null);
     setModalImage("eventPlateImg", null);

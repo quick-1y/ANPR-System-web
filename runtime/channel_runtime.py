@@ -14,7 +14,7 @@ import numpy as np
 
 from common.logging import get_logger
 from runtime.debug import DebugRegistry
-from runtime.event_sink import EventSink
+from database.postgres_event_repository import PostgresEventDatabase
 
 if TYPE_CHECKING:
     from anpr.model_config import AnprModelConfig
@@ -81,9 +81,8 @@ class ChannelProcessor:
         self._contexts: Dict[int, ChannelContext] = {}
         self._lock = threading.RLock()
         self._storage_settings = storage_settings or {}
-        self._sink = EventSink(
-            postgres_dsn=str(self._storage_settings.get("postgres_dsn", "")),
-            events_db=events_db,
+        self._events_db = events_db if events_db is not None else PostgresEventDatabase(
+            str(self._storage_settings.get("postgres_dsn", ""))
         )
         self._plate_settings = plate_settings or {}
         self._reconnect_config = self._build_reconnect_config(reconnect_settings or {})
@@ -601,7 +600,7 @@ class ChannelProcessor:
                             "plate_path": plate_path,
                             "direction": detection.get("direction", "UNKNOWN"),
                         }
-                        event_id = self._sink.insert_event(**{
+                        event_id = self._events_db.insert_event(**{
                             k: event[k]
                             for k in (
                                 "channel",

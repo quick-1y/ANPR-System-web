@@ -8,9 +8,9 @@ import yaml
 
 
 class SettingsRepository:
-    _file_lock = threading.RLock()
 
     def __init__(self, manager: Any, path: str | None = None) -> None:
+        self._file_lock = threading.RLock()
         self._manager = manager
         self.path = path or os.getenv("SETTINGS_PATH", "config/settings.yaml")
         self.settings = self._load()
