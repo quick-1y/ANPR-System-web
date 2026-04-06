@@ -25,7 +25,7 @@ The codebase is well-structured for a single-developer project of this scale (~1
 3. **SettingsManager still has 14 pass-through static methods** — Each just delegates to `settings_schema.*_defaults()`. The normalizer has the same 14. That's 28 pass-through wrappers.
 4. **Controller normalization duplicated** — `SettingsManager.get_controllers()` and `SettingsNormalizer._fill_controller_defaults()` contain nearly identical controller normalization logic (id assignment, type validation, relay normalization).
 5. **`auth_roadmap_eng.txt`** — Planning artifact committed to repo root. Not code, not docs, no longer actionable.
-6. **Frontend channels.js is 1,298 lines** — largest JS file by far; handles grid rendering, preview lifecycle, overlay, ROI editor, plate size editor, and full channel CRUD.
+6. ~~**Frontend channels.js is 1,298 lines**~~ — ✅ Split into `video-grid.js` (486), `roi-editor.js` (126), `plate-size-editor.js` (117), and `channels.js` (636).
 
 ### Highest-Priority Cleanup Opportunities
 
@@ -35,7 +35,7 @@ The codebase is well-structured for a single-developer project of this scale (~1
 | 2 | Consolidate dual `_normalize_hotkey` to one source | Small |
 | 3 | Eliminate 28 pass-through `_*_defaults()` wrappers | Medium |
 | 4 | Deduplicate controller normalization in SettingsManager vs SettingsNormalizer | Medium |
-| 5 | Split channels.js into focused modules | Medium-Large |
+| ~~5~~ | ~~Split channels.js into focused modules~~ | ✅ Done |
 | 6 | Remove `auth_roadmap_eng.txt` | Trivial |
 
 ---
@@ -388,7 +388,7 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 | ~~`_hash_password`~~ | ~~`database/user_repository.py:19`~~ | ✅ Consolidated into `app.api.auth_utils.hash_password` |
 | ~~`_normalize_hotkey` (duplicate)~~ | ~~`app/api/schemas.py` + `config/settings_normalizer.py`~~ | ✅ Consolidated into `config.settings_schema.normalize_hotkey` |
 | ~~Controller normalization (duplicate)~~ | ~~`config/settings_manager.py:140-186`~~ | ✅ `get_controllers()` now delegates to `_fill_controller_defaults()` |
-| `channels.js` (1,298 lines) | `app/web/js/channels.js` | Split into grid, preview, roi-editor, plate-size-editor, channel-crud modules |
+| ~~`channels.js` (1,298 lines)~~ | ~~`app/web/js/channels.js`~~ | ✅ Split into `video-grid.js`, `roi-editor.js`, `plate-size-editor.js`, and `channels.js` |
 | ~~14 pass-through `_*_defaults()` methods in SettingsManager~~ | ~~`config/settings_manager.py`~~ | ✅ Removed — direct `settings_schema` calls used instead |
 | 14 pass-through `_*_defaults()` methods in SettingsNormalizer | `config/settings_normalizer.py` | Import `settings_schema` directly where needed |
 
@@ -510,21 +510,21 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 
 ---
 
-### Task 8: Split `channels.js` Into Focused Modules
+### Task 8: Split `channels.js` Into Focused Modules ✅ COMPLETED
 
 **Problem**: `app/web/js/channels.js` is 1,298 lines — the largest frontend file by far. It handles 6+ distinct responsibilities: video grid rendering, preview/MJPEG lifecycle, overlay polling, ROI polygon editor, plate size editor, channel CRUD, and controller binding UI.
 
-**What to change**:
-- Extract ROI editor logic into `roi-editor.js`
-- Extract plate size editor logic into `plate-size-editor.js`
-- Extract video grid rendering into `video-grid.js`
-- Keep channel CRUD and state management in `channels.js`
+**What was done**:
+- Extracted video grid rendering, preview lifecycle, overlays, metrics into `video-grid.js` (486 lines)
+- Extracted ROI polygon editor (point management, canvas interaction) into `roi-editor.js` (126 lines)
+- Extracted plate size editor (box hit testing, drag, input sync) into `plate-size-editor.js` (117 lines)
+- Kept channel CRUD, state, hotkeys, config helpers, and canvas orchestration (`drawPreview`, `setupVisionCanvas`) in `channels.js` (636 lines)
+- Used callback pattern (`setROIRedrawCallback`, `setPlateSizeRedrawCallback`) so sub-modules can trigger canvas redraw without circular imports
+- All existing imports from other modules (`app.js`, `events.js`, `debug.js`, `controllers.js`, `lists.js`, `settings.js`) preserved via re-exports from `channels.js` — zero changes needed to consumer files
 
-**Files affected**: `app/web/js/channels.js` (split), `app/web/js/app.js` (update imports)
+**Files changed**: `app/web/js/channels.js` (rewritten), new `app/web/js/video-grid.js`, new `app/web/js/roi-editor.js`, new `app/web/js/plate-size-editor.js`
 
-**Expected result**: Each file under ~400 lines, focused on one responsibility.
-
-**Risk**: Medium — many cross-references between functions. Need to carefully manage module exports.
+**Result**: Monolithic 1,298-line file split into 4 focused modules. No file exceeds 636 lines. Each module has a single responsibility.
 
 ---
 
