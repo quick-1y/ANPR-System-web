@@ -377,7 +377,7 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 | Item | File | Risk | What to Check |
 |------|------|------|---------------|
 | ~~`APIKeyMiddleware` class~~ | ~~`app/api/auth.py`~~ | | ✅ Deleted — not registered in main.py, not in deployment configs |
-| `docs/` directory (6 files) | `docs/*` | Low | Are these linked from README or external tools? |
+| ~~`docs/` directory (6 files)~~ | ~~`docs/*`~~ | | ✅ Verified and updated — all 6 docs now match current codebase |
 | `AGENTS.md` | project root | Low | Is this read by `.claude/` tooling? |
 
 ### Should Be Refactored, Not Removed
@@ -548,22 +548,33 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 
 ---
 
-### Task 10: Verify and Update `docs/` Directory
+### Task 10: Verify and Update `docs/` Directory ✅ COMPLETED
 
-**Problem**: The `docs/` directory contains 6 markdown files (`anpr-pipeline.md`, `diagrams.md`, `endpoints.md`, `modules.md`, `project-structure.md`, `technology-stack.md`) written before the auth system, user management, and backup features were added.
+**Problem**: The `docs/` directory contains 6 markdown files written before some cleanup tasks removed files (`auth.py`, `event_sink.py`) and added new ones (`backup_service.py`, split JS modules, new tests).
 
-**What to change**:
-- Review each doc against current codebase
-- Update `endpoints.md` to include auth, users, backup/restore endpoints
-- Update `modules.md` to include `database/user_repository.py`, `app/api/auth*`, `app/shared/backup_service.py`
-- Update `project-structure.md` to reflect current directory layout
-- If docs are not maintained, consider removing them and relying on code + README
+**What was done**:
+- Verified `endpoints.md` — already up-to-date (auth, users, backup/restore all covered). No changes needed.
+- Verified `anpr-pipeline.md` — technically accurate. No changes needed.
+- Verified `technology-stack.md` — accurate. No changes needed.
+- Updated `modules.md`:
+  - Removed stale `app/api/auth.py` entry (file deleted in Task 7)
+  - Removed stale `runtime/event_sink.py` entry (file deleted in Task 3)
+  - Added `app/shared/backup_service.py` entry
+  - Updated `runtime/channel_runtime.py` description to reflect direct `PostgresEventDatabase` usage
+- Updated `project-structure.md`:
+  - Removed stale `auth.py` from `app/api/` tree
+  - Removed stale `event_sink.py` from `runtime/` tree
+  - Added `app/shared/backup_service.py`
+  - Added full `app/web/js/` listing (17 JS modules including split files from Task 8)
+  - Added missing test files: `test_permission_guards.py`, `test_settings_storage_cleanup.py`, `test_users_router.py`
+- Updated `diagrams.md`:
+  - Removed `EventSink` node from service interaction diagram (Task 3)
+  - Connected `ANPRPipeline` directly to `PostgresEventDatabase` and `EventBus`
+  - Updated event saving diagram to remove `EventSink.insert_event()` indirection
 
-**Files affected**: `docs/*.md`
+**Files changed**: `docs/modules.md`, `docs/project-structure.md`, `docs/diagrams.md`
 
-**Expected result**: Documentation matches codebase, or is removed if not maintained.
-
-**Risk**: Low.
+**Result**: All 6 docs now match the current codebase state. No stale references to deleted files remain.
 
 ---
 

@@ -7,7 +7,6 @@
 | Файл / директория | Ответственность |
 |---|---|
 | `app/api/main.py` | FastAPI app, middleware, роутеры, lifecycle |
-| `app/api/auth.py` | `APIKeyMiddleware`: устаревший fallback для статического API-ключа; JWT Bearer пропускается насквозь к dependency-слою |
 | `app/api/auth_utils.py` | JWT-утилиты: `hash_password()`, `verify_password()`, `create_access_token()`, `decode_access_token()` |
 | `app/api/container.py` | `AppContainer`: DI-контейнер всех сервисов; `build()`, `startup()`, `shutdown()` |
 | `app/api/deps.py` | FastAPI зависимости: `get_container()`, `get_current_user()`, `require_role()`, `require_permission()` |
@@ -23,6 +22,7 @@
 | `app/api/routers/system.py` | Health check, CPU/RAM, статус БД, Web UI |
 | `app/api/routers/debug.py` | Debug-настройки, overlay state, лог-панель SSE — **только Admin** |
 | `app/worker/main.py` | `RetentionScheduler`: async цикл retention; отдельный FastAPI-сервис |
+| `app/shared/backup_service.py` | `BackupService`: бэкап и восстановление базы данных и settings.yaml |
 | `app/shared/data_lifecycle.py` | `DataLifecycleService`: cleanup событий/медиа, контроль размера, CSV/ZIP export |
 | `app/web/index.html` | Единственная HTML-страница SPA; включает `#login-overlay` для аутентификации и кнопку «Выход» в topbar |
 | `app/web/js/api.js` | HTTP-слой: `getToken/setToken` (JWT в `localStorage`), `jfetch()` (Bearer), `apiUrl()` (?token=), `loginRequest()`, `getCurrentUser()`, `showLoginOverlay()` |
@@ -36,9 +36,8 @@
 
 | Файл / директория | Ответственность |
 |---|---|
-| `runtime/channel_runtime.py` | `ChannelProcessor`: запуск, остановка и restart потоков каналов; preview cache; метрики |
+| `runtime/channel_runtime.py` | `ChannelProcessor`: запуск, остановка и restart потоков каналов; preview cache; метрики; запись событий в PostgreSQL напрямую через `PostgresEventDatabase` |
 | `runtime/event_bus.py` | `EventBus`: in-memory pub/sub для SSE на базе `asyncio.Queue` |
-| `runtime/event_sink.py` | `EventSink`: запись событий в PostgreSQL через репозиторий |
 | `runtime/debug.py` | `DebugRegistry`: хранение debug overlay state по каналу с TTL |
 
 ## `anpr/` — ядро распознавания
