@@ -15,13 +15,13 @@ from config.settings_schema import (
     channel_defaults,
     debug_defaults,
     detector_defaults,
-    direction_defaults as schema_direction_defaults,
+    direction_defaults,
     inference_defaults,
     logging_defaults,
     model_defaults,
     normalize_hotkey,
     normalize_log_level,
-    normalize_region_config as schema_normalize_region_config,
+    normalize_region_config,
     ocr_defaults,
     plate_defaults,
     reconnect_defaults,
@@ -34,24 +34,8 @@ logger = get_logger(__name__)
 
 
 class SettingsNormalizer:
-    @staticmethod
-    def _channel_defaults(tracking_defaults: Dict[str, Any]) -> Dict[str, Any]:
-        return channel_defaults(tracking_defaults)
-
-    @staticmethod
-    def _debug_defaults() -> Dict[str, Any]:
-        return debug_defaults()
-
-    @staticmethod
-    def _relay_defaults() -> Dict[str, Any]:
-        return relay_defaults()
-
-    @staticmethod
-    def _normalize_hotkey(value: Any) -> str:
-        return normalize_hotkey(value, strict=False)
-
     def _normalize_relay(self, relay: Dict[str, Any]) -> Dict[str, Any]:
-        defaults = self._relay_defaults()
+        defaults = relay_defaults()
         normalized = dict(defaults)
         normalized.update(relay or {})
         mode = str(normalized.get("mode", "pulse") or "pulse")
@@ -65,7 +49,7 @@ class SettingsNormalizer:
         if mode == "pulse":
             timer = 1
         normalized["timer_seconds"] = max(1, timer)
-        normalized["hotkey"] = self._normalize_hotkey(normalized.get("hotkey", ""))
+        normalized["hotkey"] = normalize_hotkey(normalized.get("hotkey", ""), strict=False)
         return normalized
 
     @staticmethod
@@ -80,52 +64,8 @@ class SettingsNormalizer:
                 f"Неподдерживаемый тип контроллера '{controller_type}'. Поддерживаемые типы: {supported}"
             )
 
-    @staticmethod
-    def _upgrade_region(region: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        return schema_normalize_region_config(region)
-
-    @staticmethod
-    def _reconnect_defaults() -> Dict[str, Any]:
-        return reconnect_defaults()
-
-    @staticmethod
-    def _storage_defaults() -> Dict[str, Any]:
-        return storage_defaults()
-
-    @staticmethod
-    def _plate_defaults() -> Dict[str, Any]:
-        return plate_defaults()
-
-    @staticmethod
-    def _model_defaults() -> Dict[str, Any]:
-        return model_defaults()
-
-    @staticmethod
-    def _inference_defaults() -> Dict[str, Any]:
-        return inference_defaults()
-
-    @staticmethod
-    def _direction_defaults() -> Dict[str, float | int]:
-        return schema_direction_defaults()
-
-    @staticmethod
-    def _ocr_defaults() -> Dict[str, Any]:
-        return ocr_defaults()
-
-    @staticmethod
-    def _detector_defaults() -> Dict[str, Any]:
-        return detector_defaults()
-
-    @staticmethod
-    def _time_defaults() -> Dict[str, Any]:
-        return time_defaults()
-
-    @staticmethod
-    def _logging_defaults() -> Dict[str, Any]:
-        return logging_defaults()
-
     def _fill_channel_defaults(self, channel: Dict[str, Any], tracking_defaults: Dict[str, Any]) -> bool:
-        defaults = self._channel_defaults(tracking_defaults)
+        defaults = channel_defaults(tracking_defaults)
         changed = False
         for key, value in defaults.items():
             if key not in channel:
@@ -135,18 +75,18 @@ class SettingsNormalizer:
             channel.pop("debug", None)
             changed = True
 
-        direction_defaults = defaults.get("direction", self._direction_defaults())
+        dir_defaults = defaults.get("direction", direction_defaults())
         channel_direction = channel.get("direction")
         if channel_direction is None:
-            channel["direction"] = dict(direction_defaults)
+            channel["direction"] = dict(dir_defaults)
             changed = True
         else:
-            for key, value in direction_defaults.items():
+            for key, value in dir_defaults.items():
                 if key not in channel_direction:
                     channel_direction[key] = value
                     changed = True
 
-        upgraded_region = self._upgrade_region(channel.get("region"))
+        upgraded_region = normalize_region_config(channel.get("region"))
         if channel.get("region") != upgraded_region:
             channel["region"] = upgraded_region
             changed = True
@@ -274,7 +214,7 @@ class SettingsNormalizer:
                 changed = True
             relays = controller.get("relays")
             if not isinstance(relays, list) or len(relays) != 2:
-                controller["relays"] = [self._relay_defaults(), self._relay_defaults()]
+                controller["relays"] = [relay_defaults(), relay_defaults()]
                 changed = True
                 relays = controller["relays"]
             normalized_relays = [self._normalize_relay(relay) for relay in relays[:2]]
@@ -433,14 +373,14 @@ class SettingsNormalizer:
             normalized["sidebar_locked"] = False
             changed = True
 
-        direction_defaults = self._direction_defaults()
+        dir_defaults = direction_defaults()
         direction_settings = tracking_defaults.get("direction")
         if direction_settings is None:
-            tracking_defaults["direction"] = direction_defaults
+            tracking_defaults["direction"] = dir_defaults
             normalized["tracking"] = tracking_defaults
             changed = True
         else:
-            for key, value in direction_defaults.items():
+            for key, value in dir_defaults.items():
                 if key not in direction_settings:
                     direction_settings[key] = value
                     changed = True
@@ -449,25 +389,25 @@ class SettingsNormalizer:
             if self._fill_channel_defaults(channel, tracking_defaults):
                 changed = True
 
-        if self._fill_reconnect_defaults(normalized, self._reconnect_defaults()):
+        if self._fill_reconnect_defaults(normalized, reconnect_defaults()):
             changed = True
-        if self._fill_model_defaults(normalized, self._model_defaults()):
+        if self._fill_model_defaults(normalized, model_defaults()):
             changed = True
-        if self._fill_ocr_defaults(normalized, self._ocr_defaults()):
+        if self._fill_ocr_defaults(normalized, ocr_defaults()):
             changed = True
-        if self._fill_detector_defaults(normalized, self._detector_defaults()):
+        if self._fill_detector_defaults(normalized, detector_defaults()):
             changed = True
-        if self._fill_inference_defaults(normalized, self._inference_defaults()):
+        if self._fill_inference_defaults(normalized, inference_defaults()):
             changed = True
-        if self._fill_storage_defaults(normalized, self._storage_defaults()):
+        if self._fill_storage_defaults(normalized, storage_defaults()):
             changed = True
-        if self._fill_plate_defaults(normalized, self._plate_defaults()):
+        if self._fill_plate_defaults(normalized, plate_defaults()):
             changed = True
-        if self._fill_time_defaults(normalized, self._time_defaults()):
+        if self._fill_time_defaults(normalized, time_defaults()):
             changed = True
-        if self._fill_logging_defaults(normalized, self._logging_defaults()):
+        if self._fill_logging_defaults(normalized, logging_defaults()):
             changed = True
-        if self._fill_debug_defaults(normalized, self._debug_defaults()):
+        if self._fill_debug_defaults(normalized, debug_defaults()):
             changed = True
         if self._fill_controller_defaults(normalized):
             changed = True

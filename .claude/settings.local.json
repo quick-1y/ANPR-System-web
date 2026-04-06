@@ -105,7 +105,12 @@
       "Bash(python -m pytest tests/ -x -q -k \"settings or controller or channel\")",
       "Bash(python -m pytest tests/ -q --ignore=tests/test_auth_router.py)",
       "Bash(python -c \"from app.api.main import app; print\\('OK'\\)\")",
-      "Bash(python -m pytest tests/ -x -q -k \"settings or controller or channel or auth\")"
+      "Bash(python -m pytest tests/ -x -q -k \"settings or controller or channel or auth\")",
+      "Bash(python -m pytest tests/test_settings*.py tests/test_controller*.py tests/test_channel*.py -v --tb=short)",
+      "Bash(ls .venv/Scripts/pytest*)",
+      "Bash(ls venv/Scripts/pytest*)",
+      "Bash(pip list:*)",
+      "Bash(python -c \"from config.settings_normalizer import SettingsNormalizer; print\\('Import OK'\\)\")"
     ]
   }
 }

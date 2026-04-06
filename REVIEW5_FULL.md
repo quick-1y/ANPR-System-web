@@ -390,7 +390,7 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 | ~~Controller normalization (duplicate)~~ | ~~`config/settings_manager.py:140-186`~~ | ✅ `get_controllers()` now delegates to `_fill_controller_defaults()` |
 | ~~`channels.js` (1,298 lines)~~ | ~~`app/web/js/channels.js`~~ | ✅ Split into `video-grid.js`, `roi-editor.js`, `plate-size-editor.js`, and `channels.js` |
 | ~~14 pass-through `_*_defaults()` methods in SettingsManager~~ | ~~`config/settings_manager.py`~~ | ✅ Removed — direct `settings_schema` calls used instead |
-| 14 pass-through `_*_defaults()` methods in SettingsNormalizer | `config/settings_normalizer.py` | Import `settings_schema` directly where needed |
+| ~~14 pass-through `_*_defaults()` methods in SettingsNormalizer~~ | ~~`config/settings_normalizer.py`~~ | ✅ Removed — direct `settings_schema` calls used instead |
 
 ---
 
@@ -528,19 +528,23 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 
 ---
 
-### Task 9: Remove Pass-Through Wrappers from SettingsNormalizer
+### Task 9: Remove Pass-Through Wrappers from SettingsNormalizer ✅ COMPLETED
 
 **Problem**: `SettingsNormalizer` has 14 `@staticmethod` wrappers (identical to SettingsManager's) that just call `settings_schema.*_defaults()`. These are used internally by `_fill_*_defaults()` methods, but the indirection adds no value.
 
-**What to change**:
-- In each `_fill_*_defaults()` method, call `settings_schema.*_defaults()` directly instead of `self._*_defaults()`
-- Remove the 14 wrapper methods from `SettingsNormalizer`
+**What was done**:
+- Removed all 13 `_*_defaults()` static method wrappers (`_channel_defaults`, `_debug_defaults`, `_relay_defaults`, `_reconnect_defaults`, `_storage_defaults`, `_plate_defaults`, `_model_defaults`, `_inference_defaults`, `_direction_defaults`, `_ocr_defaults`, `_detector_defaults`, `_time_defaults`, `_logging_defaults`)
+- Removed `_normalize_hotkey` wrapper (inlined `normalize_hotkey(..., strict=False)` at call site)
+- Removed `_upgrade_region` wrapper (inlined `normalize_region_config()` at call site)
+- Replaced all `self._*_defaults()` calls with direct `settings_schema` function calls throughout the class
+- Cleaned up imports: removed aliases (`direction_defaults as schema_direction_defaults`, `normalize_region_config as schema_normalize_region_config`), removed unused `Optional`
+- Verified: `SettingsNormalizer().normalize({})` produces correct output with all expected keys
+- Verified: controller normalization with hotkeys works correctly
+- No external callers of removed methods exist
 
-**Files affected**: `config/settings_normalizer.py`
+**Files changed**: `config/settings_normalizer.py`
 
-**Expected result**: ~50 lines removed. The class methods that actually do work (`_fill_*_defaults`, `normalize_with_meta`, etc.) become the only methods.
-
-**Risk**: Low — purely internal refactor, no API change.
+**Result**: 61 lines removed (480 → 419). Only the methods that do actual work remain (`_fill_*_defaults`, `_normalize_relay`, `_validate_controller_type`, `normalize_with_meta`, `normalize`).
 
 ---
 
