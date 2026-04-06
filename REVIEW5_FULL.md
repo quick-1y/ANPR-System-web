@@ -612,19 +612,17 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 
 ---
 
-### Task 13: Add Index on `events.timestamp` for Retention Queries
+### Task 13: Add Index on `events.timestamp` for Retention Queries ✅ ALREADY SATISFIED
 
 **Problem**: `PostgresEventDatabase.delete_before(cutoff_iso)` runs `DELETE FROM events WHERE timestamp < %s`. Without an index on `timestamp`, this is a sequential scan on potentially millions of rows.
 
-**What to change**:
-- Add `CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);` to `database/postgres/schema.sql`
-- This will be picked up by `_ensure_schema()` on next startup
+**Status**: The index already exists in `database/postgres/schema.sql` (line 27):
+```sql
+CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp DESC);
+```
+Additionally, a composite index `idx_events_ts_id_desc ON events(timestamp DESC, id DESC)` exists at line 31, covering the journal pagination query pattern.
 
-**Files affected**: `database/postgres/schema.sql`
-
-**Expected result**: Faster retention cleanup, faster journal queries with date filters.
-
-**Risk**: Low — additive schema change, no data migration.
+**Files changed**: None — already satisfied.
 
 ---
 
