@@ -626,19 +626,13 @@ Additionally, a composite index `idx_events_ts_id_desc ON events(timestamp DESC,
 
 ---
 
-### Task 14: Remove Unused `hotkeys` Variable in Controller Normalization
+### Task 14: Remove Unused `hotkeys` Variable in Controller Normalization ✅ OBSOLETE
 
-**Problem**: In both `SettingsManager.get_controllers()` (line 183) and `SettingsNormalizer._fill_controller_defaults()` (line 305), there is a `hotkeys` variable that is computed but never used for duplicate detection in the manager version (only the normalizer version checks duplicates).
+**Problem**: In `SettingsManager.get_controllers()` there was a `hotkeys` variable computed but never used.
 
-**Evidence**: `settings_manager.py:183` — `hotkeys = [relay.get("hotkey", "") for relay in normalized_relays if relay.get("hotkey")]` — computed but not used afterward.
+**Status**: Obsolete — Task 5 ("Deduplicate Controller Normalization") already replaced the entire body of `get_controllers()` with a delegation to `_fill_controller_defaults()`. The dead `hotkeys` line no longer exists in `settings_manager.py`.
 
-**What to change**: Remove the dead `hotkeys` line from `get_controllers()`.
-
-**Files affected**: `config/settings_manager.py`
-
-**Expected result**: Dead code removed.
-
-**Risk**: None.
+**Files changed**: None — already resolved by Task 5.
 
 ---
 
