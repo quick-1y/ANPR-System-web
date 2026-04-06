@@ -578,40 +578,37 @@ The preprocessor caches CLAHE and morphology kernel in `__init__`. Each `preproc
 
 ---
 
-### Task 11: Make `SettingsRepository._file_lock` an Instance Attribute
+### Task 11: Make `SettingsRepository._file_lock` an Instance Attribute ✅ COMPLETED
 
 **Problem**: `SettingsRepository._file_lock` is a class-level `threading.RLock()`, meaning all instances share the same lock. `SettingsManager` accesses it directly via `self._repo._file_lock`.
 
-**What to change**:
-- Move `_file_lock` to `__init__` as `self._file_lock = threading.RLock()`
-- Expose it via a property or keep as a public attribute
-- Update `SettingsManager.__init__` to access `self._repo._file_lock` (already does, but semantics change)
+**What was done**:
+- Moved `_file_lock = threading.RLock()` from class-level attribute to instance attribute in `__init__`
+- `SettingsManager.__init__` already accesses via `self._repo._file_lock` (line 31) — no changes needed there
+- Verified no code accesses `SettingsRepository._file_lock` as a class attribute
+- All internal `self._file_lock` references in `SettingsRepository` work identically (instance lookup before class lookup)
 
-**Files affected**: `config/settings_repository.py`, `config/settings_manager.py`
+**Files changed**: `config/settings_repository.py`
 
-**Expected result**: Each repository instance has its own lock. Safer if multiple instances are ever created.
-
-**Risk**: Low — currently only one instance exists.
+**Result**: Each `SettingsRepository` instance now has its own lock. Safer if multiple instances are ever created.
 
 ---
 
-### Task 12: Extract `DebugLogBus` from `runtime/debug.py`
+### Task 12: Extract `DebugLogBus` from `runtime/debug.py` ✅ COMPLETED
 
 **Problem**: `runtime/debug.py` is 398 lines and contains two unrelated subsystems:
 1. `DebugRegistry` + `ChannelDebugState` (overlay state management) — ~280 lines
 2. `DebugLogBus` + `DebugLogEntry` (live log pub/sub) — ~70 lines
 
-These are imported separately: `DebugRegistry` by `ChannelProcessor` and `AppContainer`, `DebugLogBus` by `common/logging.py`.
+**What was done**:
+- Extracted `DebugLogEntry` and `DebugLogBus` to new `runtime/debug_log_bus.py` (83 lines)
+- Updated `common/logging.py` import from `runtime.debug` to `runtime.debug_log_bus`
+- Removed `asyncio` and `Tuple` imports from `runtime/debug.py` (no longer needed)
+- Verified no other files import `DebugLogBus`/`DebugLogEntry` from `runtime.debug`
 
-**What to change**:
-- Move `DebugLogBus` and `DebugLogEntry` to `runtime/debug_log_bus.py`
-- Update imports in `common/logging.py`
+**Files changed**: `runtime/debug.py`, `runtime/debug_log_bus.py` (new), `common/logging.py`
 
-**Files affected**: `runtime/debug.py`, new `runtime/debug_log_bus.py`, `common/logging.py`
-
-**Expected result**: Each file has a single responsibility. ~70 lines extracted.
-
-**Risk**: Low.
+**Result**: `debug.py` reduced from 399 to 322 lines. Each file has a single responsibility: `debug.py` handles overlay state, `debug_log_bus.py` handles live log pub/sub.
 
 ---
 
