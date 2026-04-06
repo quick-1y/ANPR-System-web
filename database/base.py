@@ -5,6 +5,37 @@ from abc import ABC, abstractmethod
 
 from database.errors import StorageUnavailableError
 
+_pool_registry_lock = threading.Lock()
+_pool_registry: dict[str, object] = {}
+
+
+def get_shared_pool(dsn: str):
+    """Return (or create) a shared ConnectionPool for *dsn*.
+
+    All PooledDatabase subclasses using the same DSN share one pool,
+    keeping the total connection count bounded (min=2, max=10) instead
+    of multiplied per-class.
+    """
+    with _pool_registry_lock:
+        pool = _pool_registry.get(dsn)
+        if pool is None:
+            from psycopg_pool import ConnectionPool  # type: ignore
+
+            pool = ConnectionPool(dsn, min_size=2, max_size=10, open=True)
+            _pool_registry[dsn] = pool
+        return pool
+
+
+def close_shared_pool(dsn: str) -> None:
+    """Close and discard the shared pool for *dsn* (used on DSN change)."""
+    with _pool_registry_lock:
+        pool = _pool_registry.pop(dsn, None)
+    if pool is not None:
+        try:
+            pool.close()  # type: ignore[union-attr]
+        except Exception:  # noqa: BLE001
+            pass
+
 
 class PooledDatabase(ABC):
     """Base class with lazy PostgreSQL connection pool and schema bootstrap."""
@@ -15,14 +46,9 @@ class PooledDatabase(ABC):
             raise ValueError("postgres_dsn обязателен")
         self._init_lock = threading.Lock()
         self._initialized = False
-        self._pool = None
 
     def _get_pool(self):
-        if self._pool is None:
-            from psycopg_pool import ConnectionPool  # type: ignore
-
-            self._pool = ConnectionPool(self._dsn, min_size=2, max_size=10, open=True)
-        return self._pool
+        return get_shared_pool(self._dsn)
 
     def _connect(self):
         return self._get_pool().connection()
@@ -48,4 +74,4 @@ class PooledDatabase(ABC):
             self._initialized = True
 
 
-__all__ = ["PooledDatabase"]
+__all__ = ["PooledDatabase", "get_shared_pool", "close_shared_pool"]

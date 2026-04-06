@@ -636,24 +636,21 @@ Additionally, a composite index `idx_events_ts_id_desc ON events(timestamp DESC,
 
 ---
 
-### Task 15: Consider Connection Pool per Database Class (Not per Instance)
+### Task 15: Share Connection Pool Across Database Classes ✅ COMPLETED
 
-**Problem**: Each `PooledDatabase` subclass creates its own `ConnectionPool(min_size=2, max_size=10)`. With 3 database classes (`PostgresEventDatabase`, `ListDatabase`, `UserDatabase`) plus `DataLifecycleService`'s own `PostgresEventDatabase`, the app maintains 4+ connection pools to the same PostgreSQL instance.
+**Problem**: Each `PooledDatabase` subclass creates its own `ConnectionPool(min_size=2, max_size=10)`. With 4 instances (`events_db`, `lists_db`, `user_db`, `DataLifecycleService.pg_events`), the app maintained 4 pools (min=8, max=40 total connections) to the same PostgreSQL instance. Additionally, `refresh_storage_clients()` created new instances without closing old pools, leaking connections.
 
-**Evidence**: 
-- `AppContainer.build()` creates `events_db`, `lists_db`, `user_db` — 3 pools
-- `DataLifecycleService.__init__` creates another `PostgresEventDatabase` — 4th pool
-- `EventSink` may share `events_db` or create its own (depends on wiring)
+**What was done**:
+- Added `get_shared_pool(dsn)` factory in `database/base.py` — returns a cached pool keyed by DSN, creating one lazily on first access
+- Added `close_shared_pool(dsn)` for cleanup on DSN change
+- `PooledDatabase._get_pool()` now delegates to `get_shared_pool(self._dsn)` instead of creating its own pool
+- Removed per-instance `self._pool` attribute — pool is managed at module level
+- Updated `AppContainer.refresh_storage_clients()` to call `close_shared_pool(old_dsn)` when the DSN changes, preventing connection leaks
+- `DataLifecycleService` creates a `PostgresEventDatabase` that automatically shares the same pool — no changes needed there
 
-**What to change**:
-- Share a single `ConnectionPool` across all database classes via a pool factory keyed by DSN
-- Each `PooledDatabase` subclass receives the shared pool instead of creating its own
+**Files changed**: `database/base.py`, `app/api/container.py`
 
-**Files affected**: `database/base.py`, `database/postgres_event_repository.py`, `database/lists_repository.py`, `database/user_repository.py`, `app/shared/data_lifecycle.py`
-
-**Expected result**: 1 pool (min=2, max=10) instead of 4 pools (min=8, max=40 total connections).
-
-**Risk**: Medium — need to ensure pool lifecycle management is correct when classes are recreated (e.g., `refresh_storage_clients()`).
+**Result**: 1 shared pool (min=2, max=10) instead of 4 independent pools (min=8, max=40). Connection leak on DSN change resolved. No changes needed to repository subclasses or `DataLifecycleService`.
 
 ---
 

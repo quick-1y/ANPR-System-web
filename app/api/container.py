@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 
 from fastapi import HTTPException
 
+from database.base import close_shared_pool
 from database.lists_repository import ListDatabase
 from database.user_repository import UserDatabase
 from config.settings_manager import SettingsManager
@@ -192,7 +193,10 @@ class AppContainer:
             )
 
     def refresh_storage_clients(self) -> None:
+        old_dsn = self.events_db._dsn
         dsn = self._resolve_dsn()
+        if dsn != old_dsn:
+            close_shared_pool(old_dsn)
         self.events_db = PostgresEventDatabase(dsn)
         self.lifecycle = self._build_lifecycle()
         self.lists_db = ListDatabase(dsn)
