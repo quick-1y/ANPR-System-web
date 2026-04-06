@@ -80,14 +80,9 @@ body {
   box-shadow: 4px 0 24px rgba(0,0,0,0.35);
 }
 .left-rail.rail-expanded .ttab {
-  width: 156px; height: 42px; justify-content: flex-start; padding-left: 12px; gap: 10px;
+  width: 156px; height: 42px;
   border-radius: 11px;
 }
-.left-rail.rail-expanded .ttab span {
-  display: inline; font-size: 12.5px; white-space: nowrap; opacity: 1;
-  transition: opacity 0.18s ease;
-}
-.left-rail:not(.rail-expanded) .ttab span { opacity: 0; }
 .left-rail.rail-expanded .ttab.active::before { left: -1px; }
 .left-rail::after {
   content: '';
@@ -131,14 +126,37 @@ body {
 
 .ttab {
   width: 42px; height: 42px; border-radius: 11px; border: 1px solid transparent;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: flex-start;
+  gap: 0;
   color: var(--text2); cursor: pointer; position: relative; transition: var(--t);
   outline: none; isolation: isolate;
 }
-.ttab span { display: none; }
+.ttab-icon-wrap {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ttab-label {
+  display: inline-block;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(-2px);
+  transition: max-width 0.2s ease, opacity 0.18s ease, transform 0.18s ease;
+}
+.left-rail.rail-expanded .ttab-label {
+  max-width: 100px;
+  opacity: 1;
+  transform: translateX(0);
+}
 .ttab:hover {
   border-color: var(--border2); background: rgba(255,255,255,0.025);
-  color: var(--text1); transform: translateX(1px);
+  color: var(--text1);
 }
 .ttab.active {
   background: var(--accent-glow); border-color: var(--accent-border);
