@@ -120,7 +120,7 @@ body {
 }
 .rail-nav {
   display: flex; flex: 1 1 auto; min-height: 0; flex-direction: column;
-  align-items: center; gap: 4px; padding: 10px 0; width: 100%; overflow-y: auto;
+  align-items: flex-start; gap: 4px; padding: 10px 0 10px 8px; width: 100%; overflow-y: auto;
   position: relative; z-index: 1;
 }
 
@@ -128,6 +128,7 @@ body {
   width: 42px; height: 42px; border-radius: 11px; border: 1px solid transparent;
   display: flex; align-items: center; justify-content: flex-start;
   gap: 0;
+  overflow: hidden;
   color: var(--text2); cursor: pointer; position: relative; transition: var(--t);
   outline: none; isolation: isolate;
 }
@@ -146,13 +147,11 @@ body {
   overflow: hidden;
   max-width: 0;
   opacity: 0;
-  transform: translateX(-2px);
-  transition: max-width 0.2s ease, opacity 0.18s ease, transform 0.18s ease;
+  transition: max-width 0.2s ease, opacity 0.18s ease;
 }
 .left-rail.rail-expanded .ttab-label {
   max-width: 100px;
   opacity: 1;
-  transform: translateX(0);
 }
 .ttab:hover {
   border-color: var(--border2); background: rgba(255,255,255,0.025);
