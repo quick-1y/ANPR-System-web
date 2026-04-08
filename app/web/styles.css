@@ -327,6 +327,15 @@ select.s-input, select.api-input, select.grid-select, select.filter-input {
   min-height: 0; height: 100%; transition: border-color var(--t), box-shadow var(--t);
 }
 .video-cell:hover { border-color: #2c3150; }
+.video-cell.drag-source {
+  border-color: rgba(232,168,56,0.9);
+  box-shadow: 0 0 0 2px rgba(232,168,56,0.2), inset 0 0 20px rgba(232,168,56,0.08);
+  cursor: grabbing;
+}
+.video-cell.drag-over {
+  border-color: rgba(157,139,255,0.95);
+  box-shadow: 0 0 0 2px rgba(157,139,255,0.18);
+}
 .video-cell.motion-active {
   border-color: rgba(45,216,90,0.8);
   box-shadow: 0 0 0 1px rgba(45,216,90,0.12), inset 0 0 30px rgba(45,216,90,0.04);

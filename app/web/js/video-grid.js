@@ -10,6 +10,160 @@ function gridConfig(v) {
   return [2, 2];
 }
 
+let videoChannelOrder = [];
+let expandedChannelId = null;
+let previousGridValue = null;
+let gridInteractionsBound = false;
+let dragState = null;
+
+function syncVideoChannelOrder() {
+  const knownIds = new Set(state.channels.map((ch) => Number(ch.id)));
+  videoChannelOrder = videoChannelOrder.filter((id) => knownIds.has(id));
+  state.channels.forEach((ch) => {
+    const id = Number(ch.id);
+    if (!videoChannelOrder.includes(id)) {
+      videoChannelOrder.push(id);
+    }
+  });
+}
+
+function orderedChannels() {
+  syncVideoChannelOrder();
+  const byId = new Map(state.channels.map((ch) => [Number(ch.id), ch]));
+  return videoChannelOrder.map((id) => byId.get(id)).filter(Boolean);
+}
+
+function swapVideoChannelOrder(firstId, secondId) {
+  if (firstId === secondId) return false;
+  const firstIndex = videoChannelOrder.indexOf(Number(firstId));
+  const secondIndex = videoChannelOrder.indexOf(Number(secondId));
+  if (firstIndex < 0 || secondIndex < 0) return false;
+  const firstValue = videoChannelOrder[firstIndex];
+  videoChannelOrder[firstIndex] = videoChannelOrder[secondIndex];
+  videoChannelOrder[secondIndex] = firstValue;
+  return true;
+}
+
+function bindGridInteractions(grid) {
+  if (!grid || gridInteractionsBound) return;
+  gridInteractionsBound = true;
+  grid.addEventListener("dblclick", (event) => {
+    const cell = event.target.closest(".video-cell");
+    if (!cell || !grid.contains(cell)) return;
+    const channelId = Number(cell.dataset.channelId);
+    if (!Number.isFinite(channelId) || channelId <= 0) return;
+    const gridSelect = document.getElementById("gridSelect");
+    if (!gridSelect) return;
+    if (expandedChannelId === channelId) {
+      expandedChannelId = null;
+      if (previousGridValue) gridSelect.value = previousGridValue;
+      previousGridValue = null;
+    } else {
+      if (expandedChannelId === null) {
+        previousGridValue = gridSelect.value;
+      }
+      expandedChannelId = channelId;
+      gridSelect.value = "1x1";
+    }
+    scheduleVideoGridLayout(true);
+  });
+  grid.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    const cell = event.target.closest(".video-cell");
+    if (!cell || !grid.contains(cell)) return;
+    dragState = {
+      sourceCell: cell,
+      sourceId: Number(cell.dataset.channelId),
+      active: false,
+      startX: event.clientX,
+      startY: event.clientY,
+      hoveredCell: null,
+    };
+    document.addEventListener("mousemove", onGridDragMove);
+    document.addEventListener("mouseup", onGridDragEnd);
+  });
+  grid.addEventListener("mouseleave", (event) => {
+    if (!dragState || !event.relatedTarget || grid.contains(event.relatedTarget)) return;
+    if (dragState.active) {
+      cancelGridDrag();
+    }
+  });
+}
+
+function updateDragHover(event) {
+  if (!dragState) return;
+  const grid = document.getElementById("videoGrid");
+  if (!grid) return;
+  if (!grid.contains(event.target) && dragState.active) {
+    cancelGridDrag();
+    return;
+  }
+  const cell = event.target.closest(".video-cell");
+  if (!cell || !grid.contains(cell) || cell === dragState.sourceCell) {
+    if (dragState.hoveredCell) dragState.hoveredCell.classList.remove("drag-over");
+    dragState.hoveredCell = null;
+    return;
+  }
+  if (dragState.hoveredCell && dragState.hoveredCell !== cell) {
+    dragState.hoveredCell.classList.remove("drag-over");
+  }
+  dragState.hoveredCell = cell;
+  dragState.hoveredCell.classList.add("drag-over");
+}
+
+function onGridDragMove(event) {
+  if (!dragState) return;
+  if ((event.buttons & 1) !== 1) {
+    cancelGridDrag();
+    return;
+  }
+  const moved = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY);
+  if (!dragState.active && moved < 8) return;
+  if (!dragState.active) {
+    dragState.active = true;
+    dragState.sourceCell.classList.add("drag-source");
+  }
+  updateDragHover(event);
+}
+
+function clearGridDragClasses() {
+  if (!dragState) return;
+  dragState.sourceCell?.classList.remove("drag-source");
+  dragState.hoveredCell?.classList.remove("drag-over");
+}
+
+function finishGridDrag(event) {
+  if (!dragState) return;
+  const targetCell = event?.target?.closest?.(".video-cell");
+  const sourceId = Number(dragState.sourceId);
+  const targetId = Number(targetCell?.dataset?.channelId);
+  const canSwap = dragState.active
+    && targetCell
+    && targetCell !== dragState.sourceCell
+    && Number.isFinite(sourceId)
+    && Number.isFinite(targetId);
+  clearGridDragClasses();
+  document.removeEventListener("mousemove", onGridDragMove);
+  document.removeEventListener("mouseup", onGridDragEnd);
+  dragState = null;
+  if (!canSwap) return;
+  if (swapVideoChannelOrder(sourceId, targetId)) {
+    scheduleVideoGridLayout();
+  }
+}
+
+function cancelGridDrag() {
+  if (!dragState) return;
+  clearGridDragClasses();
+  document.removeEventListener("mousemove", onGridDragMove);
+  document.removeEventListener("mouseup", onGridDragEnd);
+  dragState = null;
+}
+
+function onGridDragEnd(event) {
+  finishGridDrag(event);
+}
+
 export function statusTextForChannel(ch) {
   const running = (ch.metrics || {}).state === "running";
   const lastError = (ch.metrics || {}).last_error;
@@ -386,8 +540,17 @@ function computeVideoGridRowHeight(grid, rows, cols) {
 export function renderVideoGrid() {
   const grid = document.getElementById("videoGrid");
   if (!grid) return;
-  const [presetRows, cols] = gridConfig(document.getElementById("gridSelect").value);
-  const visible = state.channels.slice(0, presetRows * cols);
+  bindGridInteractions(grid);
+  const gridSelect = document.getElementById("gridSelect");
+  const [presetRows, cols] = gridConfig(gridSelect?.value);
+  const ordered = orderedChannels();
+  const visible = expandedChannelId !== null
+    ? ordered.filter((ch) => Number(ch.id) === Number(expandedChannelId)).slice(0, 1)
+    : ordered.slice(0, presetRows * cols);
+  if (expandedChannelId !== null && visible.length === 0) {
+    expandedChannelId = null;
+    previousGridValue = null;
+  }
   const effectiveRows = visible.length > 0 ? Math.ceil(visible.length / cols) : 1;
 
   grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
