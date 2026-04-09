@@ -10,6 +10,164 @@ function gridConfig(v) {
   return [2, 2];
 }
 
+// --- Channel display order ---
+const CHANNEL_ORDER_KEY = "anpr_channel_order";
+
+function loadChannelOrder() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CHANNEL_ORDER_KEY) || "[]");
+    return Array.isArray(saved) ? saved.map(String) : [];
+  } catch { return []; }
+}
+
+function saveChannelOrder() {
+  try { localStorage.setItem(CHANNEL_ORDER_KEY, JSON.stringify(channelOrder)); } catch {}
+}
+
+let channelOrder = loadChannelOrder(); // string IDs in current display order
+
+function syncChannelOrder() {
+  const currentIds = state.channels.map(ch => String(ch.id));
+  const before = channelOrder.join(",");
+  channelOrder = channelOrder.filter(id => currentIds.includes(id));
+  for (const id of currentIds) {
+    if (!channelOrder.includes(id)) channelOrder.push(id);
+  }
+  if (channelOrder.join(",") !== before) saveChannelOrder();
+}
+
+function getOrderedChannels() {
+  return channelOrder
+    .map(id => state.channels.find(ch => String(ch.id) === id))
+    .filter(Boolean);
+}
+
+// --- Expand state ---
+let expandedChannelId = null;
+let savedGridValue = null;
+
+export function clearExpandMode() {
+  if (!expandedChannelId) return;
+  expandedChannelId = null;
+  savedGridValue = null;
+  const grid = document.getElementById("videoGrid");
+  if (grid) grid.classList.remove("grid-expanded");
+}
+
+// --- Drag-and-drop state ---
+let dragSourceId = null;
+let dragTargetId = null;
+let isDragging = false;
+let dragStartX = 0;
+let dragStartY = 0;
+const DRAG_THRESHOLD = 8;
+
+function cleanupDrag() {
+  const grid = document.getElementById("videoGrid");
+  if (grid) {
+    grid.querySelectorAll(".drag-source, .drag-over").forEach(c => {
+      c.classList.remove("drag-source", "drag-over");
+    });
+  }
+  document.body.style.userSelect = "";
+  document.body.style.cursor = "";
+  dragSourceId = null;
+  dragTargetId = null;
+  isDragging = false;
+}
+
+function swapChannelOrder(idA, idB) {
+  const ia = channelOrder.indexOf(String(idA));
+  const ib = channelOrder.indexOf(String(idB));
+  if (ia === -1 || ib === -1) return;
+  [channelOrder[ia], channelOrder[ib]] = [channelOrder[ib], channelOrder[ia]];
+  saveChannelOrder();
+}
+
+export function setupVideoGridDragDrop() {
+  const grid = document.getElementById("videoGrid");
+  if (!grid) return;
+
+  // Prevent native browser drag from interfering
+  grid.addEventListener("dragstart", e => e.preventDefault());
+
+  // Double-click to expand / restore
+  grid.addEventListener("dblclick", e => {
+    const cell = e.target.closest(".video-cell");
+    if (!cell) return;
+    const gridSelect = document.getElementById("gridSelect");
+    if (expandedChannelId) {
+      if (gridSelect && savedGridValue) gridSelect.value = savedGridValue;
+      expandedChannelId = null;
+      savedGridValue = null;
+    } else {
+      savedGridValue = gridSelect ? gridSelect.value : null;
+      expandedChannelId = String(cell.dataset.channelId);
+    }
+    renderVideoGrid();
+  });
+
+  // Drag start — track mousedown on a cell
+  grid.addEventListener("mousedown", e => {
+    if (e.button !== 0) return;
+    const cell = e.target.closest(".video-cell");
+    if (!cell) return;
+    dragSourceId = String(cell.dataset.channelId);
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    isDragging = false;
+  });
+
+  // Drag move — document-level to track outside grid
+  document.addEventListener("mousemove", e => {
+    if (!dragSourceId) return;
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    if (!isDragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+
+    if (!isDragging) {
+      isDragging = true;
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "grabbing";
+    }
+
+    // Refresh source highlight
+    grid.querySelectorAll(".drag-source, .drag-over").forEach(c => {
+      c.classList.remove("drag-source", "drag-over");
+    });
+    const sourceCell = grid.querySelector(`.video-cell[data-channel-id="${dragSourceId}"]`);
+    if (sourceCell) sourceCell.classList.add("drag-source");
+
+    // Find target cell under cursor
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const overCell = el?.closest(".video-cell");
+    if (overCell && grid.contains(overCell) && overCell.dataset.channelId !== dragSourceId) {
+      overCell.classList.add("drag-over");
+      dragTargetId = String(overCell.dataset.channelId);
+    } else {
+      dragTargetId = null;
+    }
+  });
+
+  // Drag end — document-level to catch release anywhere
+  document.addEventListener("mouseup", () => {
+    if (!dragSourceId) return;
+    if (isDragging && dragTargetId) {
+      const targetCell = grid.querySelector(`.video-cell[data-channel-id="${dragTargetId}"]`);
+      if (targetCell) {
+        swapChannelOrder(dragSourceId, dragTargetId);
+        renderVideoGrid();
+      }
+    }
+    cleanupDrag();
+  });
+
+  // Cancel drag when cursor leaves the grid area
+  grid.addEventListener("mouseleave", () => {
+    if (isDragging) cleanupDrag();
+  });
+}
+
 export function statusTextForChannel(ch) {
   const running = (ch.metrics || {}).state === "running";
   const lastError = (ch.metrics || {}).last_error;
@@ -386,15 +544,36 @@ function computeVideoGridRowHeight(grid, rows, cols) {
 export function renderVideoGrid() {
   const grid = document.getElementById("videoGrid");
   if (!grid) return;
-  const [presetRows, cols] = gridConfig(document.getElementById("gridSelect").value);
-  const visible = state.channels.slice(0, presetRows * cols);
-  const effectiveRows = visible.length > 0 ? Math.ceil(visible.length / cols) : 1;
+
+  syncChannelOrder();
+
+  let visible;
+  let cols, effectiveRows;
+
+  const expandedCh = expandedChannelId
+    ? state.channels.find(c => String(c.id) === expandedChannelId)
+    : null;
+
+  if (expandedCh) {
+    visible = [expandedCh];
+    cols = 1;
+    effectiveRows = 1;
+    grid.classList.add("grid-expanded");
+  } else {
+    if (expandedChannelId) { expandedChannelId = null; savedGridValue = null; } // channel gone
+    const [presetRows, presetCols] = gridConfig(document.getElementById("gridSelect").value);
+    cols = presetCols;
+    visible = getOrderedChannels().slice(0, presetRows * cols);
+    effectiveRows = visible.length > 0 ? Math.ceil(visible.length / cols) : 1;
+    grid.classList.remove("grid-expanded");
+  }
 
   grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
   const stableRowHeight = computeVideoGridRowHeight(grid, effectiveRows, cols);
   grid.style.gridTemplateRows = stableRowHeight
     ? `repeat(${effectiveRows}, ${stableRowHeight}px)`
     : `repeat(${effectiveRows}, minmax(0, 1fr))`;
+
   const countEl = document.getElementById("channelsCount");
   const newCount = `${state.channels.length} канала`;
   if (countEl && countEl.textContent !== newCount) {
