@@ -215,7 +215,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 
 ### 5.B Navigation (quick wins + redesign)
 
-#### N1. Rebuild the left rail
+#### ✅ N1. Rebuild the left rail
 - **Problem**: 58px rail with hover-expand, active `::before` notch, gold active-state, no mobile behavior. The hover-expand animation feels gimmicky and the 58px collapsed state wastes space on mobile.
 - **Change**: Keep 56px rail on `lg`+. On `md` and below convert into a 4-item bottom tab bar. Drop the `::before` accent notch in favor of a filled rounded background on active. Use blue accent, not gold.
 - **Why**: mobile becomes usable; visual noise drops.
@@ -231,7 +231,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: topbar fits in 52px at 360px viewport; no wrap or clipping down to 320px.
 - **Files**: `index.html` (topbar block), `styles.css` (`.topbar*`).
 
-#### N3. Settings nav becomes horizontal on mobile
+#### ✅ N3. Settings nav becomes horizontal on mobile
 - **Problem**: 210px `.settings-nav` sidebar on a 375px screen eats 56% of width.
 - **Change**: Below `md`, convert `.settings-nav` into a horizontally scrollable pill bar pinned under topbar; content fills below.
 - **Why**: settings become usable on phones.
