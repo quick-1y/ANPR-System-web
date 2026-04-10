@@ -17,7 +17,7 @@ inference:
   shared_memory: true
 debug:
   show_channel_metrics: false
-  log_panel_enabled: false
+  log_panel_enabled: true
   disable_video_output: false
 grid: 2x2
 theme: dark
@@ -88,8 +88,8 @@ channels:
       y: 100.0
     - x: 0.0
       y: 100.0
-  best_shots: 3
-  cooldown_seconds: 5
+  best_shots: 5
+  cooldown_seconds: 10
   ocr_min_confidence: 0.6
   direction:
     history_size: 12
@@ -111,7 +111,7 @@ channels:
   max_plate_size:
     width: 447
     height: 145
-  controller_id: 1
+  controller_id: null
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []
