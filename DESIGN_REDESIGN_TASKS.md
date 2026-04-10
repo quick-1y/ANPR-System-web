@@ -171,7 +171,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 
 ### 5.A Global design system (larger redesign)
 
-#### G1. Introduce a real type system and drop single-font usage
+#### ✅ G1. Introduce a real type system and drop single-font usage
 - **Problem**: `--mono` and `--sans` both point to `Eexpresswayfree`; DM Sans is linked but unused; font-sizes are hardcoded pixels across `styles.css`.
 - **Change**: Add two font stacks — humanist sans (Inter or DM Sans) for UI, monospace (JetBrains Mono or Space Mono) for data. Introduce tokens `--font-sans`, `--font-mono`, `--fs-xs … --fs-2xl`, `--lh-*`, `--tracking-*`. Replace every raw `font-size: Npx` with a token.
 - **Why**: single biggest lever for "looks human-designed". Restores hierarchy.
@@ -179,7 +179,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: no raw `font-size: *px` in stylesheet; body reads at ≥13px; headings, labels, values all use distinct type tokens.
 - **Files**: `app/web/styles.css` (token section + all rules), `app/web/index.html` (font `<link>`).
 
-#### G2. Replace the color system
+#### ✅ G2. Replace the color system
 - **Problem**: gold is everywhere; no cool interactive accent; light theme only flips a handful of tokens.
 - **Change**: Introduce new token groups per section 2. Reassign `--accent` to blue for interactive use; reserve gold for "alarm/match/hot" states only. Define `--video-bg` fixed-dark token.
 - **Why**: quieter UI, clearer semantics, working light theme.
@@ -187,7 +187,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: primary button is blue; focus rings are blue; gold only appears on plate matches and list alarms; no raw hex outside the token block.
 - **Files**: `app/web/styles.css` (`:root` + theme block + downstream).
 
-#### G3. Collapse parallel component patterns
+#### ✅ G3. Collapse parallel component patterns
 - **Problem**: four nav patterns, six input classes, five icon buttons, two modal scaffolds (section 1, item 9).
 - **Change**: Define a single `.input`, `.btn`, `.icon-btn`, `.nav-item`, `.card`, `.modal`, `.badge`. Re-express `.s-input`, `.filter-input`, `.grid-select`, `.api-input`, `.auth-input` as a single base. Same for nav items.
 - **Why**: smaller stylesheet, consistent behavior, easier future changes.
@@ -195,7 +195,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: one rule per primitive; no `!important` overrides of primitives; visual regression parity in both tabs.
 - **Files**: `app/web/styles.css`, `app/web/index.html` (classname swaps).
 
-#### G4. Extract all inline styles from `index.html`
+#### ✅ G4. Extract all inline styles from `index.html`
 - **Problem**: ≥30 inline `style="…"` attributes in markup (`index.html:178, 465, 491, 557, 1017, 1021, 1046, 1054, 1141, 1161 …`).
 - **Change**: Move each into a semantic utility or component class. Introduce a minimal utility layer (`.stack`, `.cluster`, `.flex-1`, `.hidden`, `.w-full`) if needed.
 - **Why**: every inline style is a design-system bypass.

@@ -329,8 +329,8 @@ initBackupBindings();
   if (currentUser.role === "superadmin") {
     const devLabel = document.getElementById("snav-label-dev");
     const debugItem = document.getElementById("snav-debug");
-    if (devLabel) devLabel.style.removeProperty("display");
-    if (debugItem) debugItem.style.removeProperty("display");
+    if (devLabel) devLabel.hidden = false;
+    if (debugItem) debugItem.hidden = false;
   }
 
   // --- Logout button ---

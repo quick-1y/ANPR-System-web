@@ -178,7 +178,7 @@
           <div class="panel-header">
             <span>Списки номеров</span>
             <button class="icon-btn-sm" id="addListBtn" title="Создать список"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-            <button class="icon-btn-sm" id="deleteListBtn" title="Удалить список" style="display:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
+            <button class="icon-btn-sm" id="deleteListBtn" title="Удалить список" hidden><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
           </div>
           <div class="list-items" id="listItems"></div>
         </div>
@@ -194,7 +194,7 @@
               <img class="btn-icon ui-icon-sm" src="/web/assets/icons/import.svg" alt="" />
               <span>Импорт списка</span>
             </button>
-            <input type="file" id="importListFileInput" accept=".csv" style="display:none" />
+            <input type="file" id="importListFileInput" accept=".csv" hidden />
             <button class="btn btn-ghost btn-sm" id="listSettingsBtn">Настройки</button>
           </div>
           <div class="lists-empty-state" id="listsEmptyState">
@@ -238,7 +238,7 @@
             Контроллеры
           </div>
 
-          <div class="snav-item" id="snav-users" data-sp="users" style="display:none">
+          <div class="snav-item" id="snav-users" data-sp="users" hidden>
             <img class="ui-icon ui-icon-sm" src="/web/assets/icons/users.svg" alt="" />
             Пользователи
           </div>
@@ -248,9 +248,9 @@
             Системные данные
           </div>
 
-          <div class="snav-label" id="snav-label-dev" style="display:none">Разработка</div>
+          <div class="snav-label" id="snav-label-dev" hidden>Разработка</div>
 
-          <div class="snav-item" id="snav-debug" data-sp="debug" style="display:none">
+          <div class="snav-item" id="snav-debug" data-sp="debug" hidden>
             <img class="ui-icon ui-icon-sm" src="/web/assets/icons/debug.svg" alt="" />
             Отладка
           </div>
@@ -463,8 +463,8 @@
             <div class="s-card">
               <div class="s-card-header">Распознавание номеров</div>
               <div class="s-card-body">
-                <div class="s-row" style="flex-direction:column;align-items:stretch;gap:6px">
-                  <div class="s-row-label" style="flex:none">
+                <div class="s-row s-row--vertical">
+                  <div class="s-row-label">
                     <button class="param-help-btn" data-help="g_countries"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
                     <div class="s-row-name">Страны</div>
                   </div>
@@ -487,15 +487,7 @@
                 <div class="ch-list" id="channelsList"></div>
               </div>
               <div class="ch-config-pane" id="channelConfigPane">
-                <div
-                  style="
-                    display: flex;
-                    gap: 8px;
-                    flex-wrap: wrap;
-                    margin-bottom: 10px;
-                  "
-                  id="channelTabs"
-                >
+                <div id="channelTabs">
                   <button
                     class="btn btn-ghost ch-tab active"
                     data-ch-tab="channel"
@@ -554,23 +546,23 @@
                         <option value="custom">Свои списки</option>
                       </select>
                     </div>
-                    <div class="s-row" id="c_custom_lists_block" style="display: none">
+                    <div class="s-row" id="c_custom_lists_block" hidden>
                       <div class="s-row-label">
                         <button class="param-help-btn" data-help="list_filter_list_ids"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
                         <div class="s-row-name">Выбрать списки</div>
                       </div>
                       <div class="custom-lists-container" id="c_list_ids_select"></div>
                     </div>
-                    <div class="s-row" id="c_custom_lists_hint" style="display: none">
+                    <div class="s-row" id="c_custom_lists_hint" hidden>
                       <div class="s-row-label"></div>
-                      <div class="roi-hint" style="margin-top:0">Черный список применяется всегда автоматически.</div>
+                      <div class="roi-hint">Черный список применяется всегда автоматически.</div>
                     </div>
                   </div>
                 </div>
                 <div
                   class="s-card ch-group"
                   id="ch-group-motion"
-                  style="display: none"
+                  hidden
                 >
                   <div class="s-card-header">Детектор движения</div>
                   <div class="s-card-body">
@@ -634,7 +626,7 @@
                 <div
                   class="s-card ch-group"
                   id="ch-group-plates"
-                  style="display: none"
+                  hidden
                 >
                   <div class="s-card-header">Детектор номерных рамок</div>
                   <div class="s-card-body">
@@ -661,7 +653,7 @@
                 <div
                   class="ch-group"
                   id="ch-group-vision"
-                  style="display: none"
+                  hidden
                 >
                   <div class="vision-layout">
                     <div class="vision-left">
@@ -729,7 +721,7 @@
                 <div
                   class="s-card ch-group"
                   id="ch-group-ocr"
-                  style="display: none"
+                  hidden
                 >
                   <div class="s-card-header">Распознавание номера</div>
                   <div class="s-card-body">
@@ -794,7 +786,7 @@
                 <div
                   class="s-card ch-group"
                   id="ch-group-controller"
-                  style="display: none"
+                  hidden
                 >
                   <div class="s-card-header">Контроллер</div>
                   <div class="s-card-body">
@@ -957,7 +949,7 @@
                     <img class="backup-icon" src="/web/assets/icons/import.svg" alt="" width="16" height="16" />
                     Импорт БД
                   </button>
-                  <input type="file" id="dbRestoreFileInput" accept=".zip" style="display:none" />
+                  <input type="file" id="dbRestoreFileInput" accept=".zip" hidden />
                 </div>
               </div>
             </div>
@@ -973,7 +965,7 @@
                     <img class="backup-icon" src="/web/assets/icons/import.svg" alt="" width="16" height="16" />
                     Импорт настроек
                   </button>
-                  <input type="file" id="settingsRestoreFileInput" accept=".yaml,.yml" style="display:none" />
+                  <input type="file" id="settingsRestoreFileInput" accept=".yaml,.yml" hidden />
                 </div>
               </div>
             </div>
@@ -989,7 +981,7 @@
               </div>
 
               <!-- Create user form -->
-              <div class="ch-config-pane" id="userCreatePane" style="display:none">
+              <div class="ch-config-pane" id="userCreatePane" hidden>
                 <div class="s-card">
                   <div class="s-card-header">Новый пользователь</div>
                   <div class="s-card-body">
@@ -1014,11 +1006,11 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label"><div class="s-row-name">Доступные вкладки</div></div>
-                      <div id="newUserPermissions" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 0"></div>
+                      <div id="newUserPermissions"></div>
                     </div>
                   </div>
                 </div>
-                <div id="createUserError" style="color:var(--danger);font-size:12px;min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
+                <div id="createUserError"></div>
                 <div class="form-actions">
                   <button class="btn btn-ghost" id="cancelCreateUserBtn">Отмена</button>
                   <button class="btn btn-primary" id="confirmCreateUserBtn">Создать</button>
@@ -1026,13 +1018,13 @@
               </div>
 
               <!-- Edit user form -->
-              <div class="ch-config-pane" id="userEditPane" style="display:none">
+              <div class="ch-config-pane" id="userEditPane" hidden>
                 <div class="s-card">
                   <div class="s-card-header">Параметры пользователя</div>
                   <div class="s-card-body">
                     <div class="s-row">
                       <div class="s-row-label"><div class="s-row-name">Логин</div></div>
-                      <input class="s-input" id="editUserLogin" readonly style="opacity:0.6" />
+                      <input class="s-input" id="editUserLogin" readonly />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label"><div class="s-row-name">Роль</div></div>
@@ -1043,7 +1035,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label"><div class="s-row-name">Доступные вкладки</div></div>
-                      <div id="editUserPermissions" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 0"></div>
+                      <div id="editUserPermissions"></div>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label"><div class="s-row-name">Активен</div></div>
@@ -1051,10 +1043,10 @@
                     </div>
                   </div>
                 </div>
-                <div id="editUserError" style="color:var(--danger);font-size:12px;min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
+                <div id="editUserError"></div>
                 <div class="form-actions">
                   <button class="btn btn-ghost" id="changeUserPasswordBtn">Сменить пароль</button>
-                  <div style="flex:1"></div>
+                  <div class="flex-1"></div>
                   <button class="btn btn-primary" id="saveUserBtn">Сохранить</button>
                 </div>
               </div>
@@ -1102,7 +1094,7 @@
       <div class="event-modal-card">
         <div class="event-modal-head">
           <span>Детальный просмотр события</span>
-          <div style="flex: 1"></div>
+          <div class="flex-1"></div>
           <button class="btn btn-ghost" id="eventModalClose">Закрыть</button>
         </div>
         <div class="event-modal-body">
@@ -1119,7 +1111,7 @@
               <img class="ui-icon ui-icon-sm" src="/web/assets/icons/plate.svg" alt="" />
               <span>Кадр номера</span>
             </div>
-            <div class="event-modal-img" style="min-height: 150px">
+            <div class="event-modal-img event-modal-img--sm">
               <img id="eventPlateImg" alt="plate" />
             </div>
           </div>
@@ -1138,7 +1130,7 @@
         <div class="app-modal-body">
           <div class="modal-field">
             <label class="modal-label">Название списка</label>
-            <input class="s-input" style="width:100%" id="newListName" placeholder="Введите название" autocomplete="off" />
+            <input class="s-input" id="newListName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
         <div class="app-modal-footer">
@@ -1158,31 +1150,31 @@
         <div class="app-modal-body">
           <div class="modal-field">
             <label class="modal-label">Фамилия</label>
-            <input class="s-input" style="width:100%" id="entryLastName" autocomplete="off" />
+            <input class="s-input" id="entryLastName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Имя <span class="modal-required">*</span></label>
-            <input class="s-input" style="width:100%" id="entryFirstName" autocomplete="off" />
+            <input class="s-input" id="entryFirstName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Отчество</label>
-            <input class="s-input" style="width:100%" id="entryMiddleName" autocomplete="off" />
+            <input class="s-input" id="entryMiddleName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Телефон</label>
-            <input class="s-input" style="width:100%" id="entryPhone" autocomplete="off" />
+            <input class="s-input" id="entryPhone" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Марка автомобиля</label>
-            <input class="s-input" style="width:100%" id="entryCar" autocomplete="off" />
+            <input class="s-input" id="entryCar" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Гос. номер автомобиля <span class="modal-required">*</span></label>
-            <input class="s-input" style="width:100%" id="entryPlate" autocomplete="off" />
+            <input class="s-input" id="entryPlate" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Комментарий</label>
-            <input class="s-input" style="width:100%" id="entryComment" autocomplete="off" />
+            <input class="s-input" id="entryComment" autocomplete="off" />
           </div>
           <div class="modal-error" id="addEntryError"></div>
         </div>
@@ -1203,11 +1195,11 @@
         <div class="app-modal-body">
           <div class="modal-field">
             <label class="modal-label">Название списка</label>
-            <input class="s-input" style="width:100%" id="settingsListName" autocomplete="off" />
+            <input class="s-input" id="settingsListName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Тип списка</label>
-            <select class="s-input" style="width:100%" id="settingsListType">
+            <select class="s-input" id="settingsListType">
               <option value="white">Белый список</option>
               <option value="info">Информационный список</option>
               <option value="black">Черный список</option>
@@ -1263,7 +1255,7 @@
         <div class="app-modal-body">
           <div class="modal-field">
             <label class="modal-label">Название канала</label>
-            <input class="s-input" style="width:100%" id="newChannelName" placeholder="Введите название" autocomplete="off" />
+            <input class="s-input" id="newChannelName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
         <div class="app-modal-footer">
@@ -1299,7 +1291,7 @@
         <div class="app-modal-body">
           <div class="modal-field">
             <label class="modal-label">Название контроллера</label>
-            <input class="s-input" style="width:100%" id="newControllerName" placeholder="Введите название" autocomplete="off" />
+            <input class="s-input" id="newControllerName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
         <div class="app-modal-footer">
@@ -1388,11 +1380,11 @@
         <div class="app-modal-body">
           <div class="modal-field">
             <label class="modal-label">Новый пароль</label>
-            <input class="s-input" style="width:100%" type="password" id="userNewPassword" autocomplete="new-password" />
+            <input class="s-input" type="password" id="userNewPassword" autocomplete="new-password" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Подтверждение пароля</label>
-            <input class="s-input" style="width:100%" type="password" id="userConfirmPassword" autocomplete="new-password" />
+            <input class="s-input" type="password" id="userConfirmPassword" autocomplete="new-password" />
           </div>
           <div id="userPasswordError" class="modal-error"></div>
         </div>
