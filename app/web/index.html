@@ -1398,24 +1398,11 @@
     <!-- Login overlay — shown when user is not authenticated -->
     <div id="login-overlay">
       <div class="auth-card">
-        <div class="auth-title">ANPR Web</div>
-        <div class="auth-subtitle">Авторизация оператора</div>
-        <input id="login-input" type="text" class="input input--lg auth-input" placeholder="Логин" autocomplete="username" />
-        <div class="auth-password-wrap">
-          <input id="login-password" type="password" class="input input--lg auth-input login-password-input" placeholder="Пароль" autocomplete="current-password" />
-          <button id="login-pass-toggle" class="auth-pass-toggle" type="button" aria-label="Показать пароль" aria-pressed="false">
-            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-          </button>
-        </div>
-        <div id="login-caps-hint" class="auth-caps-hint" hidden>Caps Lock включен</div>
+        <div class="auth-title">Вход в систему</div>
+        <input id="login-input" type="text" class="auth-input" placeholder="Логин" autocomplete="username" />
+        <input id="login-password" type="password" class="auth-input login-password-input" placeholder="Пароль" autocomplete="current-password" />
         <div id="login-error" class="auth-error"></div>
-        <button id="login-submit" class="auth-btn">
-          <span class="auth-btn-spinner" aria-hidden="true"></span>
-          <span class="auth-btn-text">Войти</span>
-        </button>
+        <button id="login-submit" class="auth-btn">Войти</button>
       </div>
     </div>
     <script type="module" src="/web/js/app.js"></script>

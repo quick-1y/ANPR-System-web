@@ -722,17 +722,17 @@ select.s-input, select.api-input, select.grid-select, select.filter-input {
 /* Toggle */
 .s-row input[type="checkbox"] {
   appearance: none; -webkit-appearance: none;
-  width: 38px; height: 22px; border-radius: var(--r-full);
+  width: 36px; height: 20px; border-radius: var(--r-full);
   border: 1px solid var(--border2); background: rgba(255,255,255,0.03);
   position: relative; cursor: pointer; transition: all 0.25s ease; flex-shrink: 0;
 }
 .s-row input[type="checkbox"]::before {
   content: ""; position: absolute; top: 2px; left: 2px;
-  width: 16px; height: 16px; border-radius: 50%; background: #5a6278;
+  width: 14px; height: 14px; border-radius: 50%; background: #5a6278;
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .s-row input[type="checkbox"]:checked {
-  background: color-mix(in srgb, var(--accent) 25%, transparent); border-color: var(--accent-border);
+  background: var(--accent-glow); border-color: var(--accent-border);
 }
 .s-row input[type="checkbox"]:checked::before {
   transform: translateX(16px); background: var(--accent);
@@ -952,15 +952,6 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
     width: 100%;
     padding-right: 0;
   }
-  .s-row input[type="checkbox"] {
-    width: 44px;
-    height: 26px;
-  }
-  .s-row input[type="checkbox"]::before {
-    width: 20px;
-    height: 20px;
-  }
-  .s-row input[type="checkbox"]:checked::before { transform: translateX(18px); }
 }
 
 /* ══════════════════════════════════════════════════════
@@ -1237,28 +1228,8 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
   font-family: var(--sans); font-size: var(--fs-lg); font-weight: 600;
   letter-spacing: var(--tracking-normal); color: var(--text1);
 }
-.auth-subtitle {
-  color: var(--text2);
-  font-size: var(--fs-sm);
-  margin-top: -8px;
-}
 /* G3: .auth-input base is shared with .s-input; only width override here */
 .auth-input { width: 100%; padding: 0 12px; }
-.auth-password-wrap { position: relative; display: flex; align-items: center; }
-.auth-password-wrap .auth-input { padding-right: 40px; }
-.auth-pass-toggle {
-  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-  width: 28px; height: 28px; border-radius: var(--r-sm);
-  border: 1px solid transparent; background: transparent;
-  color: var(--text2); cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.auth-pass-toggle:hover { color: var(--text1); border-color: var(--border2); }
-.auth-pass-toggle .ui-icon-sm { width: 16px; height: 16px; }
-.auth-caps-hint {
-  color: var(--warning); font-size: var(--fs-xs); min-height: 1.2em;
-  font-family: var(--sans);
-}
 .auth-error { color: var(--danger); font-size: var(--fs-xs); min-height: 1.2em; font-family: var(--mono); }
 .auth-btn {
   height: 36px; padding: 0 20px; border-radius: var(--r-sm);
@@ -1271,20 +1242,6 @@ textarea.s-input { min-height: 76px; height: auto; padding: 8px; resize: vertica
 .auth-btn:hover { background: var(--accent-hover); }
 .auth-btn:active { background: var(--accent); }
 .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.auth-btn-spinner {
-  width: 14px; height: 14px;
-  border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff;
-  border-radius: 50%;
-  animation: auth-spin 0.75s linear infinite;
-  display: none;
-}
-.auth-btn.is-loading { pointer-events: none; }
-.auth-btn.is-loading .auth-btn-spinner { display: inline-block; }
-.auth-btn.is-loading .auth-btn-text { opacity: 0.9; }
-
-@keyframes auth-spin {
-  to { transform: rotate(360deg); }
-}
 
 /* ─── Rail user / logout ───────────────────────────── */
 /* Uses .ttab / .ttab-icon-wrap / .ttab-label — no extra rules needed. */

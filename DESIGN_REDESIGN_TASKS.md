@@ -267,7 +267,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: help trigger visually matches other icon buttons; still opens the popover with the existing `data-help` key.
 - **Files**: `index.html` (all `param-help-btn` occurrences), `styles.css`, `app/web/js/settings.js` (if selector changes).
 
-#### ✅ F4. Toggle switch uses design-system colors and size
+#### F4. Toggle switch uses design-system colors and size
 - **Problem**: toggle is gold-checked (`styles.css:654`), mixes with primary button language.
 - **Change**: Use `--accent` (blue) for `:checked`. Increase touch size below `md` to 44×26. Share the base class with any future toggle.
 - **Why**: consistent with new accent system; better touch.
@@ -275,7 +275,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: checked toggles are blue; 44px tall on mobile.
 - **Files**: `styles.css`.
 
-#### ✅ F5. Login overlay — visibility toggle, caps hint, loading state
+#### F5. Login overlay — visibility toggle, caps hint, loading state
 - **Problem**: `#login-overlay` has login + password + error + button only.
 - **Change**: Add eye-toggle on password, caps-lock hint, spinner in button during auth. Brand the card header with the product name, not just "Вход в систему".
 - **Why**: reduces failed logins, looks like a real product.
