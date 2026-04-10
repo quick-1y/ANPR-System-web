@@ -243,7 +243,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 
 ### 5.C Forms, inputs, selects (quick wins)
 
-#### F1. Unify input primitive
+#### ✅ F1. Unify input primitive
 - **Problem**: six classes for the same `<input>`. Different heights (28, 30, 32, 36), different focus behavior, different paddings.
 - **Change**: One `.input` with modifier sizes `--sm/--md/--lg`. Single focus ring. Single disabled state. Selects use the same base plus a chevron utility.
 - **Why**: consistent forms everywhere.
@@ -251,7 +251,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: all `<input>` / `<select>` / `<textarea>` render with the same visual language.
 - **Files**: `styles.css`, `index.html`.
 
-#### F2. Labels above, not in 180px side column
+#### ✅ F2. Labels above, not in 180px side column
 - **Problem**: `.s-row-label` fixed at 180px; long labels truncate with ellipsis (`styles.css:1120`), losing meaning.
 - **Change**: Stack label above input by default. Keep two-column only when the whole row has room (use `.s-row--inline` variant).
 - **Why**: no truncation, better mobile, clearer scanning.
@@ -267,7 +267,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: help trigger visually matches other icon buttons; still opens the popover with the existing `data-help` key.
 - **Files**: `index.html` (all `param-help-btn` occurrences), `styles.css`, `app/web/js/settings.js` (if selector changes).
 
-#### F4. Toggle switch uses design-system colors and size
+#### ✅ F4. Toggle switch uses design-system colors and size
 - **Problem**: toggle is gold-checked (`styles.css:654`), mixes with primary button language.
 - **Change**: Use `--accent` (blue) for `:checked`. Increase touch size below `md` to 44×26. Share the base class with any future toggle.
 - **Why**: consistent with new accent system; better touch.
@@ -275,7 +275,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: checked toggles are blue; 44px tall on mobile.
 - **Files**: `styles.css`.
 
-#### F5. Login overlay — visibility toggle, caps hint, loading state
+#### ✅ F5. Login overlay — visibility toggle, caps hint, loading state
 - **Problem**: `#login-overlay` has login + password + error + button only.
 - **Change**: Add eye-toggle on password, caps-lock hint, spinner in button during auth. Brand the card header with the product name, not just "Вход в систему".
 - **Why**: reduces failed logins, looks like a real product.

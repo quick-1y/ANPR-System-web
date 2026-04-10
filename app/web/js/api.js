@@ -75,10 +75,40 @@ export function showLoginOverlay(onSuccess) {
   const btn = document.getElementById("login-submit");
   const loginInp = document.getElementById("login-input");
   const passInp = document.getElementById("login-password");
+  const passToggle = document.getElementById("login-pass-toggle");
+  const capsHint = document.getElementById("login-caps-hint");
   const err = document.getElementById("login-error");
   if (err) err.textContent = "";
   if (loginInp) loginInp.value = "";
-  if (passInp) passInp.value = "";
+  if (passInp) {
+    passInp.value = "";
+    passInp.type = "password";
+  }
+  if (passToggle) {
+    passToggle.setAttribute("aria-pressed", "false");
+    passToggle.setAttribute("aria-label", "Показать пароль");
+  }
+  if (capsHint) capsHint.hidden = true;
+
+  const setLoading = (loading) => {
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.classList.toggle("is-loading", loading);
+  };
+
+  const updateCapsHint = (event) => {
+    if (!capsHint || typeof event?.getModifierState !== "function") return;
+    capsHint.hidden = !event.getModifierState("CapsLock");
+  };
+
+  const togglePasswordVisibility = () => {
+    if (!passInp || !passToggle) return;
+    const showPassword = passInp.type === "password";
+    passInp.type = showPassword ? "text" : "password";
+    passToggle.setAttribute("aria-pressed", showPassword ? "true" : "false");
+    passToggle.setAttribute("aria-label", showPassword ? "Скрыть пароль" : "Показать пароль");
+    passInp.focus();
+  };
 
   const handler = async () => {
     const loginVal = (loginInp ? loginInp.value : "").trim();
@@ -87,7 +117,7 @@ export function showLoginOverlay(onSuccess) {
       if (err) err.textContent = "Введите логин и пароль";
       return;
     }
-    if (btn) btn.disabled = true;
+    setLoading(true);
     if (err) err.textContent = "";
     try {
       const data = await loginRequest(loginVal, passVal);
@@ -98,7 +128,7 @@ export function showLoginOverlay(onSuccess) {
     } catch (e) {
       if (err) err.textContent = e.message || "Ошибка входа";
     } finally {
-      if (btn) btn.disabled = false;
+      setLoading(false);
     }
   };
 
@@ -108,12 +138,20 @@ export function showLoginOverlay(onSuccess) {
     if (btn) btn.removeEventListener("click", handler);
     if (loginInp) loginInp.removeEventListener("keydown", keyHandler);
     if (passInp) passInp.removeEventListener("keydown", keyHandler);
+    if (loginInp) loginInp.removeEventListener("keydown", updateCapsHint);
+    if (passInp) passInp.removeEventListener("keydown", updateCapsHint);
+    if (passInp) passInp.removeEventListener("keyup", updateCapsHint);
+    if (passToggle) passToggle.removeEventListener("click", togglePasswordVisibility);
   }
 
   cleanup();
   if (btn) btn.addEventListener("click", handler);
   if (loginInp) loginInp.addEventListener("keydown", keyHandler);
   if (passInp) passInp.addEventListener("keydown", keyHandler);
+  if (loginInp) loginInp.addEventListener("keydown", updateCapsHint);
+  if (passInp) passInp.addEventListener("keydown", updateCapsHint);
+  if (passInp) passInp.addEventListener("keyup", updateCapsHint);
+  if (passToggle) passToggle.addEventListener("click", togglePasswordVisibility);
 
   setTimeout(() => { if (loginInp) loginInp.focus(); }, 50);
 }
