@@ -243,7 +243,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 
 ### 5.C Forms, inputs, selects (quick wins)
 
-#### ✅ F1. Unify input primitive
+#### F1. Unify input primitive
 - **Problem**: six classes for the same `<input>`. Different heights (28, 30, 32, 36), different focus behavior, different paddings.
 - **Change**: One `.input` with modifier sizes `--sm/--md/--lg`. Single focus ring. Single disabled state. Selects use the same base plus a chevron utility.
 - **Why**: consistent forms everywhere.
@@ -251,7 +251,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: all `<input>` / `<select>` / `<textarea>` render with the same visual language.
 - **Files**: `styles.css`, `index.html`.
 
-#### ✅ F2. Labels above, not in 180px side column
+#### F2. Labels above, not in 180px side column
 - **Problem**: `.s-row-label` fixed at 180px; long labels truncate with ellipsis (`styles.css:1120`), losing meaning.
 - **Change**: Stack label above input by default. Keep two-column only when the whole row has room (use `.s-row--inline` variant).
 - **Why**: no truncation, better mobile, clearer scanning.
