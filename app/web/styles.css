@@ -410,11 +410,12 @@ select.s-input, select.api-input, select.grid-select, select.filter-input {
 
 .cam-plate {
   z-index: 3; position: absolute; bottom: 9px; left: 50%; transform: translateX(-50%);
-  padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(232,168,56,0.38);
-  background: rgba(4,6,10,0.95); backdrop-filter: blur(6px);
-  color: var(--accent2); font-family: var(--mono); font-size: 12px;
-  letter-spacing: 0.14em; font-weight: 700; display: none;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.5), 0 0 14px rgba(232,168,56,0.08);
+  min-width: 220px; max-width: min(92%, 360px);
+  padding: 7px 20px; border-radius: 6px; border: 2px solid #111;
+  background: linear-gradient(180deg, #f4f4f4 0%, #e6e6e6 100%);
+  color: #050505; font-family: "Arial Narrow", "Roboto Condensed", var(--mono); font-size: 32px; line-height: 1;
+  letter-spacing: 0.22em; text-indent: 0.22em; text-align: center; font-weight: 700; text-transform: uppercase; display: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.42);
   animation: plate-appear 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 @keyframes plate-appear {
