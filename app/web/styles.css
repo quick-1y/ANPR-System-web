@@ -1,4 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+@font-face {
+  font-family: "Expressway";
+  src: url("/web/assets/fonts/Eexpresswayfree.ttf") format("ttf"),
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   --bg: #080a0f;
@@ -20,8 +26,8 @@
   --text1: #dce1ef;
   --text2: #8590a8;
   --text3: #4e5570;
-  --mono: "Space Mono", monospace;
-  --sans: "DM Sans", sans-serif;
+  --mono: "Eexpresswayfree", monospace;
+  --sans: "Eexpresswayfree", sans-serif;
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 14px;

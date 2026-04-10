@@ -61,10 +61,11 @@ channels:
   max_plate_size:
     width: 232
     height: 59
-  controller_id: 1
+  controller_id: null
   controller_relay: 0
-  list_filter_mode: all
-  list_filter_list_ids: []
+  list_filter_mode: custom
+  list_filter_list_ids:
+  - 1
   max_ocr_attempts: 15
   max_consecutive_empty_ocr: 5
   adaptive_stride_enabled: true
