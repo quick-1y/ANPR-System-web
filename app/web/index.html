@@ -17,12 +17,6 @@
   <body>
     <div class="app-shell">
       <aside class="left-rail" id="leftRail">
-        <div class="rail-top">
-          <button class="rail-logo" title="ANPR">
-            <img class="ui-icon ui-icon-logo" src="/web/assets/icons/logo.svg" alt="ANPR" />
-          </button>
-        </div>
-      
         <div class="rail-nav">
           <div class="ttab active" data-tab="obs" title="Наблюдение">
             <span class="ttab-icon-wrap">
@@ -53,7 +47,14 @@
           </div>
         </div>
       
-        <div class="rail-bottom"></div>
+        <div class="rail-bottom" id="railBottom">
+          <button class="ttab" id="logoutBtn" title="Выход">
+            <span class="ttab-icon-wrap">
+              <img class="ttab-icon ui-icon" src="/web/assets/icons/logout.svg" alt="" />
+            </span>
+            <span class="ttab-label" id="railUserLogin"></span>
+          </button>
+        </div>
       </aside>
       <div class="main-shell">
         <div class="topbar">
@@ -67,10 +68,6 @@
             </div>
           </div>
           <div class="topbar-right">
-            <div class="topbar-pill">
-              <div class="live-dot"></div>
-              <span id="channelsCount">0 каналов</span>
-            </div>
             <div class="topbar-load-stat" title="CPU">
               <span class="load-stat-label">CPU</span>
               <div class="load-bar"><div class="load-bar-fill" id="cpuBar"></div></div>
@@ -81,16 +78,16 @@
               <div class="load-bar"><div class="load-bar-fill" id="ramBar"></div></div>
               <span class="load-stat-val" id="ramStat">0%</span>
             </div>
+            <div class="topbar-pill">
+              <div class="live-dot"></div>
+              <span id="channelsCount">0 каналов</span>
+            </div>
             <div class="topbar-server-pill" id="serverStatusEl">
               <div class="server-dot off" id="serverDot"></div>
               <span>Сервер</span>
             </div>
             <input id="apiBase" type="hidden" value="" />
             <button class="icon-btn" id="themeToggleBtn" title="Тема">◐</button>
-            <div class="topbar-user-pill" id="topbarUserPill">
-              <span class="topbar-user-login" id="topbarUserLogin"></span>
-              <button class="icon-btn topbar-logout-btn" id="logoutBtn" title="Выход">⏏</button>
-            </div>
           </div>
         </div>
         <div class="content">
@@ -535,6 +532,19 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
+                        <button class="param-help-btn" data-help="preview_fps_limit">?</button>
+                        <div class="s-row-name">Лимит FPS предпросмотра</div>
+                      </div>
+                      <input
+                        class="s-input sm"
+                        id="c_preview_fps_limit"
+                        type="number"
+                        min="1"
+                        max="30"
+                      />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
                         <button class="param-help-btn" data-help="list_filter_mode">?</button>
                         <div class="s-row-name">Режим фильтра списков</div>
                       </div>
@@ -554,19 +564,6 @@
                     <div class="s-row" id="c_custom_lists_hint" style="display: none">
                       <div class="s-row-label"></div>
                       <div class="roi-hint" style="margin-top:0">Черный список применяется всегда автоматически.</div>
-                    </div>
-                    <div class="s-row">
-                      <div class="s-row-label">
-                        <button class="param-help-btn" data-help="preview_fps_limit">?</button>
-                        <div class="s-row-name">Лимит FPS предпросмотра</div>
-                      </div>
-                      <input
-                        class="s-input sm"
-                        id="c_preview_fps_limit"
-                        type="number"
-                        min="1"
-                        max="30"
-                      />
                     </div>
                   </div>
                 </div>

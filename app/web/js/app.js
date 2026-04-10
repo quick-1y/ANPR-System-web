@@ -374,8 +374,8 @@ initBackupBindings();
 
 function _applyUserUI(user) {
   if (!user) return;
-  const pill = document.getElementById("topbarUserPill");
-  const loginEl = document.getElementById("topbarUserLogin");
+  const loginEl = document.getElementById("railUserLogin");
   if (loginEl) loginEl.textContent = user.login || "";
-  if (pill) pill.style.display = "inline-flex";
+  const railBottom = document.getElementById("railBottom");
+  if (railBottom) railBottom.classList.add("has-user");
 }
