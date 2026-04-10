@@ -547,6 +547,15 @@ export function renderVideoGrid() {
 
   syncChannelOrder();
 
+  const pool = getCellPool();
+
+  // Purge pool entries for channels that no longer exist in state so we
+  // don't accumulate stale nodes after channel deletion.
+  const liveIds = new Set(state.channels.map(ch => String(ch.id)));
+  Array.from(pool.children).forEach(cell => {
+    if (!liveIds.has(cell.dataset.channelId || "")) cell.remove();
+  });
+
   let visible;
   let cols, effectiveRows;
 
@@ -583,19 +592,31 @@ export function renderVideoGrid() {
     countEl.style.animation = "count-bump 0.3s ease-out";
   }
 
+  // Move off-screen cells to the pool instead of removing them from the DOM.
+  // This keeps each channel's <img> element attached to the document so the
+  // browser never cancels its MJPEG connection — the stream stays alive and
+  // resumes instantly when the cell is moved back into the grid.
   const visibleIds = new Set(visible.map((ch) => String(ch.id)));
   Array.from(grid.children).forEach((cell) => {
     if (!visibleIds.has(cell.dataset.channelId || "")) {
-      cell.remove();
+      pool.appendChild(cell);
     }
   });
 
   for (const ch of visible) {
+    // 1. Check the live grid first.
     let cell = grid.querySelector(`.video-cell[data-channel-id='${ch.id}']`);
-    if (!cell) {
-      cell = createVideoCell(ch);
-    } else {
+    if (cell) {
       updateVideoCell(cell, ch);
+    } else {
+      // 2. Try to restore a parked cell (MJPEG stream still alive in pool).
+      cell = pool.querySelector(`.video-cell[data-channel-id='${ch.id}']`);
+      if (cell) {
+        updateVideoCell(cell, ch);
+      } else {
+        // 3. Truly new channel — create from scratch.
+        cell = createVideoCell(ch);
+      }
     }
     grid.appendChild(cell);
   }
@@ -604,6 +625,21 @@ export function renderVideoGrid() {
 let videoGridLayoutFrame = null;
 let videoGridSecondPassFrame = null;
 let videoGridResizeObserver = null;
+
+// Hidden cell pool — keeps <img> elements attached to the document so the
+// browser never cancels their MJPEG streams while channels are off-screen
+// (e.g. during expand mode).  Cells are moved here instead of removed, then
+// moved back to the grid when they become visible again.
+function getCellPool() {
+  let pool = document.getElementById("_anpr_cell_pool");
+  if (!pool) {
+    pool = document.createElement("div");
+    pool.id = "_anpr_cell_pool";
+    pool.style.cssText = "display:none;position:absolute;pointer-events:none;";
+    document.body.appendChild(pool);
+  }
+  return pool;
+}
 
 export function scheduleVideoGridLayout(secondPass = false) {
   if (videoGridLayoutFrame !== null) return;
