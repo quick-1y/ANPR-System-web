@@ -16,8 +16,8 @@ inference:
   workers: 2
   shared_memory: true
 debug:
-  show_channel_metrics: true
-  log_panel_enabled: true
+  show_channel_metrics: false
+  log_panel_enabled: false
   disable_video_output: false
 grid: 2x2
 theme: dark
@@ -61,7 +61,7 @@ channels:
   max_plate_size:
     width: 232
     height: 59
-  controller_id: null
+  controller_id: 1
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []
@@ -110,7 +110,7 @@ channels:
   max_plate_size:
     width: 447
     height: 145
-  controller_id: null
+  controller_id: 1
   controller_relay: 0
   list_filter_mode: all
   list_filter_list_ids: []

@@ -331,6 +331,16 @@ select.s-input, select.api-input, select.grid-select, select.filter-input {
   border-color: rgba(45,216,90,0.8);
   box-shadow: 0 0 0 1px rgba(45,216,90,0.12), inset 0 0 30px rgba(45,216,90,0.04);
 }
+.video-cell.drag-source {
+  opacity: 0.45;
+  border-color: var(--accent, #7c6bfa) !important;
+  box-shadow: none !important;
+}
+.video-cell.drag-over {
+  border-color: var(--accent, #7c6bfa) !important;
+  box-shadow: 0 0 0 2px rgba(124,107,250,0.45) !important;
+}
+.video-grid.grid-expanded .video-cell { cursor: zoom-out; }
 .cam-media-wrapper { position: absolute; inset: 0; z-index: 1; }
 .video-cell .cam-preview {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1;

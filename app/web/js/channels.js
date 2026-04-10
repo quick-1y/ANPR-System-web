@@ -26,8 +26,8 @@ import {
 // Other modules import from channels.js; these re-exports keep those imports working.
 export {
   statusTextForChannel, renderVideoGrid, scheduleVideoGridLayout,
-  setupVideoGridLayoutGuards, syncOverlayPolling, refreshOverlayStates,
-  updateChannelLastPlate,
+  setupVideoGridLayoutGuards, setupVideoGridDragDrop, syncOverlayPolling,
+  refreshOverlayStates, updateChannelLastPlate, clearExpandMode,
 } from './video-grid.js';
 export {
   roiPoints, defaultROIPointsForCanvas, renderROIPointsList, resetROIPoints,
