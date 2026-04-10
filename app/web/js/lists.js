@@ -40,9 +40,11 @@ function syncListMainVisibility() {
   const header = document.getElementById("listsMainHeader");
   const dataWrap = document.getElementById("listsDataWrap");
   const emptyState = document.getElementById("listsEmptyState");
+  const deleteBtn = document.getElementById("deleteListBtn");
   if (header) header.style.display = hasSelection ? "" : "none";
   if (dataWrap) dataWrap.style.display = hasSelection ? "" : "none";
   if (emptyState) emptyState.style.display = hasSelection ? "none" : "";
+  if (deleteBtn) deleteBtn.style.display = hasSelection ? "" : "none";
 }
 
 function listTypeDot(type) {

@@ -1,6 +1,6 @@
 # ANPR Web — Design Redesign Task List
 
-Status: proposal only. No implementation yet.
+Status: partial implementation — quick-win batch done (C1, C2, B1, B2, B3, F3, DK2, T3, N2-desktop, M2, M3, P4, G5).
 Scope: visual design, UX, hierarchy, spacing, typography, colors, states, responsive behavior. Product logic is out of scope unless a UX issue clearly requires it.
 Source reviewed: `app/web/index.html`, `app/web/styles.css`, screen inventory from `app/web/js/*`.
 
@@ -203,7 +203,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: no `style=` in `index.html` except runtime-toggled display:none handled via `hidden` attr or a `.is-hidden` class.
 - **Files**: `app/web/index.html`, `app/web/styles.css`.
 
-#### G5. Radius, spacing, shadow tokens — enforced
+#### [x] G5. Radius, spacing, shadow tokens — enforced
 - **Problem**: radii `3,5,6,7,8,10,11,14,99` and spacings `4,5,6,7,8,9,10,12,14` used raw.
 - **Change**: Use only `--r-sm/md/lg/full` and `--space-1…8`. Remove one-off values.
 - **Why**: visual rhythm.
@@ -223,7 +223,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: on 375px viewport, rail is at bottom, 64px tall, thumb-reachable; on desktop, rail active state has no notch.
 - **Files**: `index.html` (`.left-rail`), `styles.css` (`.left-rail`, `.ttab*`).
 
-#### N2. Topbar declutter
+#### [x] N2. Topbar declutter (desktop grouping done)
 - **Problem**: 7 info atoms in a 52px strip (section 1, item 15). On `md` it wraps or overlaps.
 - **Change**: On `lg`+: title | clock | (CPU+RAM grouped into a single "health" compact widget) | status pill | user. On `md` and below: title + status pill + overflow menu (CPU/RAM/server behind a "⋯" button). Theme toggle moves into user menu.
 - **Why**: one glance = one status.
@@ -259,7 +259,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: no label is clipped on any screen width.
 - **Files**: `styles.css` (`.s-row*`), `index.html`.
 
-#### F3. Replace the `?` text button with a real help icon
+#### [x] F3. Replace the `?` text button with a real help icon
 - **Problem**: 14px circle with text "?" (`styles.css:1125`). Looks unintentional.
 - **Change**: Use a proper `help-circle` icon inside an `.icon-btn` (20×20 glyph, 32×32 hit area). Keep the existing popover behavior.
 - **Why**: looks like a feature, not a typo.
@@ -303,7 +303,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: journal and lists tables readable at 360px width with no horizontal scroll.
 - **Files**: `styles.css`, possibly small changes in `app/web/js/journal.js`, `app/web/js/lists.js`.
 
-#### T3. Drop the left-border amber glow on list-matched rows
+#### [x] T3. Drop the left-border amber glow on list-matched rows
 - **Problem**: `tr.list-white/.list-black/.list-info` rows get amber background (`styles.css:1329–1333`) even though the border indicates color. The background + glow combine into a muddy highlight.
 - **Change**: Keep the 3px inset left border in list color (white/red/green). Remove the amber glow background. Use a 6% tint of the list color instead for the row bg.
 - **Why**: each list type reads as its own semantic, not "gold match".
@@ -315,7 +315,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 
 ### 5.E Cards and panels (quick wins)
 
-#### C1. Remove the gold left accent on every `s-card-header`
+#### [x] C1. Remove the gold left accent on every `s-card-header`
 - **Problem**: `styles.css:826` forces `border-left: 3px solid rgba(232,168,56,0.22)` on every section header. Every single card in Settings looks alarm-adjacent.
 - **Change**: Drop that rule. Differentiate section headers with weight/size, not color.
 - **Why**: calmer Settings; reserve gold for real alerts.
@@ -323,7 +323,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Acceptance**: no `border-left` on `s-card-header`.
 - **Files**: `styles.css`.
 
-#### C2. Card header typography reset
+#### [x] C2. Card header typography reset
 - **Problem**: 10px uppercase letter-spaced — unreadable.
 - **Change**: 13px medium, sentence case. Keep a small uppercase eyebrow only if used as a section label above a large header.
 - **Why**: hierarchy.
@@ -348,14 +348,14 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Priority**: Medium.
 - **Files**: `styles.css`, `index.html`, `app/web/js/events.js`.
 
-#### M2. Scrim and entry animation
+#### [x] M2. Scrim and entry animation
 - **Problem**: modal-in animation uses a spring-bounce `cubic-bezier(0.34, 1.56, 0.64, 1)` scale — playful, wrong tone for a destructive confirm dialog.
 - **Change**: `opacity 160ms ease-out` + `transform: translateY(8px) → 0`. No bounce.
 - **Why**: production feel.
 - **Priority**: Low.
 - **Files**: `styles.css`.
 
-#### M3. Modal header: use sentence-case title
+#### [x] M3. Modal header: use sentence-case title
 - **Problem**: modal heads use uppercase mono 10px.
 - **Change**: 15px semibold sentence case. Keep close button on the right.
 - **Why**: clarity.
@@ -366,20 +366,20 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 
 ### 5.G Buttons (quick wins)
 
-#### B1. Flatten the primary button
+#### [x] B1. Flatten the primary button
 - **Problem**: gold gradient + inset highlight + outer glow + hover `translateY(-1px)` (`styles.css:537–546`).
 - **Change**: Solid `--accent` (blue). No gradient. No transform. 2px focus ring. Disabled `.5` opacity.
 - **Why**: removes "gamified" feel.
 - **Priority**: High (quick win).
 - **Files**: `styles.css` (`.btn-primary`).
 
-#### B2. Ghost button
+#### [x] B2. Ghost button
 - **Problem**: hover turns border gold + bg gold glow. Every secondary action feels primary.
 - **Change**: Hover = `bg: rgba(255,255,255,0.04)`, border unchanged, fg `--fg-1`. Active = slightly darker bg.
 - **Priority**: High.
 - **Files**: `styles.css` (`.btn-ghost`).
 
-#### B3. Danger button consistency
+#### [x] B3. Danger button consistency
 - **Problem**: danger button uses gradient + transform, matching primary's gamified style.
 - **Change**: Solid `--danger`, no gradient, no transform.
 - **Priority**: Medium.
@@ -424,7 +424,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Priority**: High.
 - **Files**: `styles.css` global.
 
-#### DK2. Remove HUD noise from video cells
+#### [x] DK2. Remove HUD noise from video cells
 - **Problem**: diagonal-stripe background + radial gold glow on every `.video-cell` (`styles.css:384–388`) + scanning line on no-signal + pulsing live dot.
 - **Change**: Flat dark canvas. Keep live dot (simpler, no pulse by default — pulse only on active detection). Drop the striped background entirely. Drop the scanning line.
 - **Why**: operators need to focus on the frame, not the chrome.
@@ -516,7 +516,7 @@ Tasks are grouped. Each group header notes whether tasks in it are **quick wins*
 - **Priority**: Medium.
 - **Files**: `styles.css`, `index.html`.
 
-#### P4. Lists sidebar header
+#### [x] P4. Lists sidebar header
 - **Problem**: "СПИСКИ НОМЕРОВ" uppercase header with + / − tiny buttons crammed inside.
 - **Change**: Sentence-case title, + button to the right as a full icon button, rename − to a proper delete icon and make it conditional (only visible when a list is selected).
 - **Priority**: Medium.
