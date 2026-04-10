@@ -226,11 +226,5 @@ export function applySidebarLocked(locked) {
 
 export function initSidebarHover() {
   const rail = document.getElementById("leftRail");
-  rail.addEventListener("mouseenter", () => {
-    if (sidebarLocked) return;
-    rail.classList.add("rail-expanded");
-  });
-  rail.addEventListener("mouseleave", () => {
-    rail.classList.remove("rail-expanded");
-  });
+  rail.classList.remove("rail-expanded");
 }
