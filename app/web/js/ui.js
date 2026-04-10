@@ -226,5 +226,14 @@ export function applySidebarLocked(locked) {
 
 export function initSidebarHover() {
   const rail = document.getElementById("leftRail");
+  const isDesktopLayout = window.matchMedia("(min-width: 1025px)").matches;
   rail.classList.remove("rail-expanded");
+  if (!isDesktopLayout) return;
+  rail.addEventListener("mouseenter", () => {
+    if (sidebarLocked) return;
+    rail.classList.add("rail-expanded");
+  });
+  rail.addEventListener("mouseleave", () => {
+    rail.classList.remove("rail-expanded");
+  });
 }
