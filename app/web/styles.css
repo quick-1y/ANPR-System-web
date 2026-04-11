@@ -824,8 +824,8 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
 .modal-head {
   min-height: 44px; padding: 0 14px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
-  font-family: var(--mono); font-size: 10px;
-  letter-spacing: 0.1em; color: var(--text2); text-transform: uppercase;
+  font-family: var(--sans); font-size: 15px; font-weight: 600;
+  letter-spacing: 0; color: var(--text1); text-transform: none;
   background: rgba(255,255,255,0.01); flex-shrink: 0;
 }
 .modal-body {
