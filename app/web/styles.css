@@ -1170,11 +1170,8 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
 .auth-pass-eye-off {
   width: 16px;
   height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  display: block;
+  opacity: 0.9;
 }
 .auth-pass-eye-off { display: none; }
 .auth-pass-toggle.is-visible .auth-pass-eye { display: none; }
