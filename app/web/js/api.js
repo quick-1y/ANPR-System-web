@@ -106,8 +106,9 @@ export function showLoginOverlay(onSuccess) {
     if (!passInp || !passToggle) return;
     const isHidden = passInp.type === "password";
     passInp.type = isHidden ? "text" : "password";
-    passToggle.textContent = isHidden ? "Скрыть" : "Показать";
+    passToggle.classList.toggle("is-visible", isHidden);
     passToggle.setAttribute("aria-label", isHidden ? "Скрыть пароль" : "Показать пароль");
+    passToggle.setAttribute("title", isHidden ? "Скрыть пароль" : "Показать пароль");
     passInp.focus();
   };
 
@@ -118,8 +119,9 @@ export function showLoginOverlay(onSuccess) {
     passInp.type = "password";
   }
   if (passToggle) {
-    passToggle.textContent = "Показать";
+    passToggle.classList.remove("is-visible");
     passToggle.setAttribute("aria-label", "Показать пароль");
+    passToggle.setAttribute("title", "Показать пароль");
   }
   setCapsHint(false);
   setLoading(false);

@@ -1143,28 +1143,42 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
   right: 8px;
   top: 50%;
   transform: translateY(-50%);
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 6px;
-  border: 1px solid var(--border2);
-  background: rgba(255,255,255,0.03);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--text2);
-  font-size: 10px;
-  font-family: var(--mono);
-  letter-spacing: 0.04em;
   cursor: pointer;
-  transition: var(--t);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--t), color var(--t), background var(--t);
 }
 .auth-pass-toggle:hover {
   color: var(--text1);
-  border-color: var(--accent-border);
-  background: var(--accent-glow);
+  border-color: var(--border2);
+  background: rgba(255,255,255,0.03);
 }
 .auth-pass-toggle:focus-visible {
   outline: none;
   border-color: rgba(232,168,56,0.65);
   box-shadow: 0 0 0 3px rgba(232,168,56,0.13);
 }
+.auth-pass-eye,
+.auth-pass-eye-off {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.auth-pass-eye-off { display: none; }
+.auth-pass-toggle.is-visible .auth-pass-eye { display: none; }
+.auth-pass-toggle.is-visible .auth-pass-eye-off { display: block; }
 .auth-caps-hint {
   min-height: 1.2em;
   color: var(--warning);
