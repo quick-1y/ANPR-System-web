@@ -1098,14 +1098,14 @@
       </div>
     </div>
 
-    <div class="event-modal" id="eventModal">
-      <div class="event-modal-card">
-        <div class="event-modal-head">
+    <div class="modal" id="eventModal">
+      <div class="modal-card modal-card--xl">
+        <div class="modal-head">
           <span>Детальный просмотр события</span>
           <div style="flex: 1"></div>
           <button class="btn btn-ghost" id="eventModalClose">Закрыть</button>
         </div>
-        <div class="event-modal-body">
+        <div class="modal-body modal-body--event">
           <div>
             <div class="event-section-title">
               <img class="ui-icon ui-icon-sm" src="/web/assets/icons/event.svg" alt="" />
@@ -1129,19 +1129,19 @@
     </div>
 
     <!-- Create List Modal -->
-    <div class="app-modal" id="createListModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="createListModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Новый список</span>
           <button class="btn btn-ghost btn-sm" id="createListModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название списка</label>
             <input class="input input--md s-input" style="width:100%" id="newListName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="createListCancel">Отменить</button>
           <button class="btn btn-primary" id="createListConfirm">Создать</button>
         </div>
@@ -1149,13 +1149,13 @@
     </div>
 
     <!-- Add / Edit Entry Modal -->
-    <div class="app-modal" id="addEntryModal">
-      <div class="app-modal-card">
-        <div class="app-modal-head">
+    <div class="modal" id="addEntryModal">
+      <div class="modal-card">
+        <div class="modal-head">
           <span id="addEntryModalTitle">Добавить запись</span>
           <button class="btn btn-ghost btn-sm" id="addEntryModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Фамилия</label>
             <input class="input input--md s-input" style="width:100%" id="entryLastName" autocomplete="off" />
@@ -1186,7 +1186,7 @@
           </div>
           <div class="modal-error" id="addEntryError"></div>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="addEntryCancel">Отменить</button>
           <button class="btn btn-primary" id="addEntryConfirm">Сохранить</button>
         </div>
@@ -1194,13 +1194,13 @@
     </div>
 
     <!-- List Settings Modal -->
-    <div class="app-modal" id="listSettingsModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="listSettingsModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Настройки списка</span>
           <button class="btn btn-ghost btn-sm" id="listSettingsModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название списка</label>
             <input class="input input--md s-input" style="width:100%" id="settingsListName" autocomplete="off" />
@@ -1214,7 +1214,7 @@
             </select>
           </div>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="listSettingsCancel">Отменить</button>
           <button class="btn btn-primary" id="listSettingsConfirm">Сохранить</button>
         </div>
@@ -1222,15 +1222,15 @@
     </div>
 
     <!-- Delete List Confirmation Modal -->
-    <div class="app-modal" id="deleteListModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="deleteListModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Удалить список</span>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <p class="modal-confirm-text">Вы уверены, что хотите удалить список <strong id="deleteListNameLabel"></strong>? Это действие необратимо.</p>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="deleteListCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteListConfirm">Удалить</button>
         </div>
@@ -1238,15 +1238,15 @@
     </div>
 
     <!-- Delete Entry Confirmation Modal -->
-    <div class="app-modal" id="deleteEntryModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="deleteEntryModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Удалить запись</span>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <p class="modal-confirm-text">Вы уверены, что хотите удалить запись <strong id="deleteEntryPlateLabel"></strong>?</p>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="deleteEntryCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteEntryConfirm">Удалить</button>
         </div>
@@ -1254,19 +1254,19 @@
     </div>
 
     <!-- Create Channel Modal -->
-    <div class="app-modal" id="createChannelModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="createChannelModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Новый канал</span>
           <button class="btn btn-ghost btn-sm" id="createChannelModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название канала</label>
             <input class="input input--md s-input" style="width:100%" id="newChannelName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="createChannelCancel">Отменить</button>
           <button class="btn btn-primary" id="createChannelConfirm">Создать</button>
         </div>
@@ -1274,15 +1274,15 @@
     </div>
 
     <!-- Delete Channel Modal -->
-    <div class="app-modal" id="deleteChannelModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="deleteChannelModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Удалить канал</span>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <p class="modal-confirm-text">Вы уверены, что хотите удалить канал <strong id="deleteChannelNameLabel"></strong>? Это действие необратимо.</p>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="deleteChannelCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteChannelConfirm">Удалить</button>
         </div>
@@ -1290,19 +1290,19 @@
     </div>
 
     <!-- Create Controller Modal -->
-    <div class="app-modal" id="createControllerModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="createControllerModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Новый контроллер</span>
           <button class="btn btn-ghost btn-sm" id="createControllerModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название контроллера</label>
             <input class="input input--md s-input" style="width:100%" id="newControllerName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="createControllerCancel">Отменить</button>
           <button class="btn btn-primary" id="createControllerConfirm">Создать</button>
         </div>
@@ -1310,15 +1310,15 @@
     </div>
 
     <!-- Delete Controller Modal -->
-    <div class="app-modal" id="deleteControllerModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="deleteControllerModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Удалить контроллер</span>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <p class="modal-confirm-text">Вы уверены, что хотите удалить контроллер <strong id="deleteControllerNameLabel"></strong>? Это действие необратимо.</p>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="deleteControllerCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteControllerConfirm">Удалить</button>
         </div>
@@ -1326,13 +1326,13 @@
     </div>
 
     <!-- DB Restore Confirmation Modal -->
-    <div class="app-modal" id="dbRestoreModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="dbRestoreModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Восстановление базы данных</span>
           <button class="btn btn-ghost btn-sm" id="dbRestoreModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <p class="modal-confirm-text">
             Вы собираетесь восстановить базу данных из файла <strong id="dbRestoreFileName"></strong>.
           </p>
@@ -1346,7 +1346,7 @@
             ⚠ После успешного восстановления приложение будет <strong>перезапущено</strong>.
           </p>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="dbRestoreCancel">Отменить</button>
           <button class="btn btn-danger" id="dbRestoreConfirm">Восстановить</button>
         </div>
@@ -1354,13 +1354,13 @@
     </div>
 
     <!-- Settings Restore Confirmation Modal -->
-    <div class="app-modal" id="settingsRestoreModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="settingsRestoreModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Восстановление настроек</span>
           <button class="btn btn-ghost btn-sm" id="settingsRestoreModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <p class="modal-confirm-text">
             Вы собираетесь восстановить настройки из файла <strong id="settingsRestoreFileName"></strong>.
           </p>
@@ -1371,7 +1371,7 @@
             ⚠ После восстановления конфигурация приложения будет <strong>полностью перезагружена</strong>. Возможен кратковременный перезапуск обработки каналов.
           </p>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="settingsRestoreCancel">Отменить</button>
           <button class="btn btn-danger" id="settingsRestoreConfirm">Восстановить</button>
         </div>
@@ -1379,13 +1379,13 @@
     </div>
 
     <!-- User Password Change Modal -->
-    <div class="app-modal" id="userPasswordModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="userPasswordModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Смена пароля</span>
           <button class="btn btn-ghost btn-sm" id="userPasswordModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Новый пароль</label>
             <input class="input input--md s-input" style="width:100%" type="password" id="userNewPassword" autocomplete="new-password" />
@@ -1396,7 +1396,7 @@
           </div>
           <div id="userPasswordError" class="modal-error"></div>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="userPasswordCancel">Отмена</button>
           <button class="btn btn-primary" id="userPasswordConfirm">Сохранить</button>
         </div>
