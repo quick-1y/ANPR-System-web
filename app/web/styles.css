@@ -873,12 +873,6 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
   color: var(--accent2);
 }
 
-/* ─── Settings: consistent left accent on all section cards ── */
-.s-card-header {
-  border-left: 3px solid rgba(232, 168, 56, 0.22);
-  padding-left: 11px;
-}
-
 /* ─── Settings rows: hover highlight ───────────────── */
 .s-row {
   border-radius: 5px;
