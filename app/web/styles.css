@@ -495,14 +495,20 @@ select.s-input {
 
 /* ─── Debug Panel ──────────────────────────────────── */
 .obs-debug-panel {
-  border: 1px solid var(--border); border-radius: var(--radius);
-  background: rgba(8,10,15,0.7); display: flex; flex-direction: column;
+  border: 1px solid var(--border2); border-radius: var(--radius);
+  background: var(--surface); display: flex; flex-direction: column;
   flex: 0 0 clamp(150px, 28%, 230px); min-height: 150px; max-height: 42%;
   overflow: hidden;
 }
 .obs-debug-panel[data-collapsed="1"] { flex: 0 0 auto; min-height: 0; }
 .obs-debug-panel[data-collapsed="1"] .obs-log-output { display: none; }
 .obs-log-output { height: auto; flex: 1; min-height: 90px; }
+.obs-debug-panel .panel-header {
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+}
 .log-meta { color: var(--text3); margin-right: 5px; font-size: 10px; }
 
 /* ─── Obs Right ────────────────────────────────────── */
@@ -772,17 +778,17 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
 }
 .log-output {
   height: 250px; overflow-y: auto; border-radius: 8px;
-  background: var(--field); border: 1px solid var(--border);
-  padding: 10px; font-family: var(--mono); font-size: 11px;
-  color: var(--text2); line-height: 1.5;
+  background: var(--surface); border: 1px solid var(--border2);
+  padding: 12px; font-family: var(--mono); font-size: 12px;
+  color: var(--text1); line-height: 1.45;
 }
-.log-line { padding: 1px 0; }
+.log-line { padding: 2px 0; }
 .log-line.ok { color: var(--success); }
 .log-line.warn { color: var(--warning); }
 .log-line.err { color: var(--danger); }
 .log-line.crit { color: #ff5e9e; font-weight: 600; }
 .log-line.dbg { color: var(--text3); }
-.log-ts { color: var(--text3); margin-right: 4px; }
+.log-ts { color: var(--text3); margin-right: 6px; }
 .live-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--success);
@@ -992,8 +998,7 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
 }
 
 /* ─── Debug log: syntax color for brackets ──────────── */
-.log-line { transition: opacity 0.1s ease; }
-.log-line:hover { opacity: 0.85; }
+.log-line { transition: color 0.1s ease; }
 
 /* ─── Channel list sidebar: channel status dot pulse ── */
 .ch-item-dot:not(.off) {
