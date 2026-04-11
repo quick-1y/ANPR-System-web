@@ -161,7 +161,7 @@ export async function loadEventFeedHistory() {
 
 // --- Event details modal ---
 export function closeEventModal() {
-  document.getElementById("eventModal").classList.remove("active");
+  closeModal("eventModal");
 }
 
 function setModalImage(id, url) {
@@ -230,5 +230,5 @@ export async function openEventDetails(ev) {
     setModalImage("eventFrameImg", null);
     setModalImage("eventPlateImg", null);
   }
-  document.getElementById("eventModal").classList.add("active");
+  openModal("eventModal");
 }
