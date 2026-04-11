@@ -369,10 +369,18 @@ select.s-input {
   border-radius: var(--radius); background: var(--card);
   display: flex; align-items: center; gap: 10px; flex-shrink: 0;
 }
-.obs-label, .panel-header, .filter-label, .s-card-header, .snav-label {
+.obs-label, .filter-label, .snav-label {
   font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.12em;
 }
 .obs-label { font-size: 10px; color: var(--text2); }
+.panel-header,
+.s-card-header {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
 
 /* ─── Video Grid ───────────────────────────────────── */
 .video-grid {
@@ -504,10 +512,10 @@ select.s-input {
   overflow: hidden; flex-shrink: 0;
 }
 .panel-header {
-  font-size: 10px; color: var(--text2); padding: 10px 12px;
+  color: var(--text1); padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
-  flex-shrink: 0; letter-spacing: 0.12em;
+  flex-shrink: 0;
 }
 
 /* ─── Event Feed ───────────────────────────────────── */
@@ -690,7 +698,7 @@ select.s-input {
 .settings-pane.active { display: block; }
 .s-card { margin-bottom: 10px; overflow: hidden; }
 .s-card-header {
-  font-size: 10px; color: var(--text1); padding: 10px 14px;
+  color: var(--text1); padding: 10px 14px;
   border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.012);
 }
 .s-card-body { padding: 6px 14px 10px; }
