@@ -1132,6 +1132,50 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
   letter-spacing: 0.14em; text-transform: uppercase; color: var(--text1);
 }
 .auth-input { width: 100%; font-size: 13px; --input-padding-x: 12px; }
+.auth-password-wrap {
+  position: relative;
+}
+.auth-password-wrap .auth-input {
+  padding-right: 90px;
+}
+.auth-pass-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: rgba(255,255,255,0.03);
+  color: var(--text2);
+  font-size: 10px;
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: var(--t);
+}
+.auth-pass-toggle:hover {
+  color: var(--text1);
+  border-color: var(--accent-border);
+  background: var(--accent-glow);
+}
+.auth-pass-toggle:focus-visible {
+  outline: none;
+  border-color: rgba(232,168,56,0.65);
+  box-shadow: 0 0 0 3px rgba(232,168,56,0.13);
+}
+.auth-caps-hint {
+  min-height: 1.2em;
+  color: var(--warning);
+  font-size: 11px;
+  font-family: var(--mono);
+  opacity: 0;
+  transition: opacity var(--t);
+}
+.auth-caps-hint.active {
+  opacity: 1;
+}
 .auth-error { color: var(--danger); font-size: 11px; min-height: 1.2em; font-family: var(--mono); }
 .auth-btn {
   height: 36px; padding: 0 20px; border-radius: var(--radius-sm);
@@ -1141,10 +1185,30 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
   cursor: pointer; font-family: var(--sans);
   box-shadow: 0 2px 10px rgba(232,168,56,0.18);
   transition: var(--t);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 .auth-btn:hover { box-shadow: 0 3px 16px rgba(232,168,56,0.32); transform: translateY(-1px); }
 .auth-btn:active { transform: translateY(0); }
 .auth-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.auth-btn-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(30,16,0,0.25);
+  border-top-color: #1e1000;
+  animation: auth-spin 0.75s linear infinite;
+  display: none;
+}
+.auth-btn.is-loading .auth-btn-spinner {
+  display: inline-block;
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
 
 /* ─── Rail user / logout ───────────────────────────── */
 /* Uses .ttab / .ttab-icon-wrap / .ttab-label — no extra rules needed. */

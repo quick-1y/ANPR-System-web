@@ -304,11 +304,19 @@ initBackupBindings();
   try { applyTheme(localStorage.getItem("anpr_theme") || "dark"); }
   catch (_e) { applyTheme("dark"); }
 
+  const startLoginFlow = () => {
+    showLoginOverlay((user) => {
+      setCurrentUser(user);
+      _applyUserUI(user);
+      location.reload();
+    });
+  };
+
   // --- Auth check ---
   const token = getToken();
   if (!token || isTokenExpired()) {
     setToken(null);
-    showLoginOverlay((user) => { setCurrentUser(user); _applyUserUI(user); location.reload(); });
+    startLoginFlow();
     return;
   }
   let currentUser;
@@ -318,7 +326,7 @@ initBackupBindings();
   } catch (_e) {
     // Token expired or invalid — clear it and re-authenticate
     setToken(null);
-    showLoginOverlay((user) => { setCurrentUser(user); _applyUserUI(user); location.reload(); });
+    startLoginFlow();
     return;
   }
   _applyUserUI(currentUser);

@@ -1408,9 +1408,16 @@
       <div class="auth-card">
         <div class="auth-title">Вход в систему</div>
         <input id="login-input" type="text" class="input input--lg auth-input" placeholder="Логин" autocomplete="username" />
-        <input id="login-password" type="password" class="input input--lg auth-input login-password-input" placeholder="Пароль" autocomplete="current-password" />
+        <div class="auth-password-wrap">
+          <input id="login-password" type="password" class="input input--lg auth-input login-password-input" placeholder="Пароль" autocomplete="current-password" />
+          <button id="login-password-toggle" class="auth-pass-toggle" type="button" aria-label="Показать пароль">Показать</button>
+        </div>
+        <div id="login-caps-hint" class="auth-caps-hint" aria-live="polite">Caps Lock включён</div>
         <div id="login-error" class="auth-error"></div>
-        <button id="login-submit" class="auth-btn">Войти</button>
+        <button id="login-submit" class="auth-btn">
+          <span id="login-submit-spinner" class="auth-btn-spinner" aria-hidden="true"></span>
+          <span id="login-submit-label">Войти</span>
+        </button>
       </div>
     </div>
     <script type="module" src="/web/js/app.js"></script>
