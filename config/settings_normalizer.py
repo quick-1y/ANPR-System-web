@@ -5,27 +5,22 @@
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from common.logging import get_logger
 from config.settings_migrations import run_settings_migrations
 from config.settings_schema import (
     SETTINGS_VERSION,
-    SUPPORTED_CONTROLLER_TYPES,
-    channel_defaults,
     debug_defaults,
     detector_defaults,
     direction_defaults,
     inference_defaults,
     logging_defaults,
     model_defaults,
-    normalize_hotkey,
     normalize_log_level,
-    normalize_region_config,
     ocr_defaults,
     plate_defaults,
     reconnect_defaults,
-    relay_defaults,
     storage_defaults,
     time_defaults,
 )
@@ -34,122 +29,6 @@ logger = get_logger(__name__)
 
 
 class SettingsNormalizer:
-    def _normalize_relay(self, relay: Dict[str, Any]) -> Dict[str, Any]:
-        defaults = relay_defaults()
-        normalized = dict(defaults)
-        normalized.update(relay or {})
-        mode = str(normalized.get("mode", "pulse") or "pulse")
-        if mode not in ("pulse", "pulse_timer"):
-            mode = "pulse"
-        normalized["mode"] = mode
-        try:
-            timer = int(normalized.get("timer_seconds", 1) or 1)
-        except (TypeError, ValueError):
-            timer = 1
-        if mode == "pulse":
-            timer = 1
-        normalized["timer_seconds"] = max(1, timer)
-        normalized["hotkey"] = normalize_hotkey(normalized.get("hotkey", ""), strict=False)
-        return normalized
-
-    @staticmethod
-    def _validate_controller_type(controller: Dict[str, Any]) -> None:
-        controller_type = str(controller.get("type") or "").strip()
-        if not controller_type:
-            controller["type"] = "DTWONDER2CH"
-            return
-        if controller_type not in SUPPORTED_CONTROLLER_TYPES:
-            supported = ", ".join(SUPPORTED_CONTROLLER_TYPES)
-            raise ValueError(
-                f"Неподдерживаемый тип контроллера '{controller_type}'. Поддерживаемые типы: {supported}"
-            )
-
-    def _fill_channel_defaults(self, channel: Dict[str, Any], tracking_defaults: Dict[str, Any]) -> bool:
-        defaults = channel_defaults(tracking_defaults)
-        changed = False
-        for key, value in defaults.items():
-            if key not in channel:
-                channel[key] = value
-                changed = True
-        if "debug" in channel:
-            channel.pop("debug", None)
-            changed = True
-
-        dir_defaults = defaults.get("direction", direction_defaults())
-        channel_direction = channel.get("direction")
-        if channel_direction is None:
-            channel["direction"] = dict(dir_defaults)
-            changed = True
-        else:
-            for key, value in dir_defaults.items():
-                if key not in channel_direction:
-                    channel_direction[key] = value
-                    changed = True
-
-        upgraded_region = normalize_region_config(channel.get("region"))
-        if channel.get("region") != upgraded_region:
-            channel["region"] = upgraded_region
-            changed = True
-
-        controller_id = channel.get("controller_id")
-        if controller_id in ("", 0, "0"):
-            controller_id = None
-        elif controller_id is not None:
-            try:
-                controller_id = int(controller_id)
-            except (TypeError, ValueError):
-                controller_id = None
-        if channel.get("controller_id") != controller_id:
-            channel["controller_id"] = controller_id
-            changed = True
-        if channel.get("controller_id") is None and channel.get("controller_relay") != 0:
-            channel["controller_relay"] = 0
-            changed = True
-
-        if "controller_action" in channel:
-            channel.pop("controller_action", None)
-            changed = True
-
-        try:
-            controller_relay = int(channel.get("controller_relay", 0) or 0)
-        except (TypeError, ValueError):
-            controller_relay = 0
-        if controller_relay not in (0, 1):
-            controller_relay = 0
-        if channel.get("controller_relay") != controller_relay:
-            channel["controller_relay"] = controller_relay
-            changed = True
-
-        direction_filter = str(channel.get("controller_direction_filter") or "both").strip().lower()
-        if direction_filter not in {"approaching", "receding", "both"}:
-            direction_filter = "both"
-        if channel.get("controller_direction_filter") != direction_filter:
-            channel["controller_direction_filter"] = direction_filter
-            changed = True
-
-        mode = str(channel.get("list_filter_mode") or "all").strip().lower()
-        if mode not in {"all", "whitelist", "custom"}:
-            mode = "all"
-        if channel.get("list_filter_mode") != mode:
-            channel["list_filter_mode"] = mode
-            changed = True
-
-        raw_ids = channel.get("list_filter_list_ids")
-        if not isinstance(raw_ids, list):
-            raw_ids = []
-        normalized_ids = []
-        for item in raw_ids:
-            try:
-                value = int(item)
-            except (TypeError, ValueError):
-                continue
-            if value > 0 and value not in normalized_ids:
-                normalized_ids.append(value)
-        if channel.get("list_filter_list_ids") != normalized_ids:
-            channel["list_filter_list_ids"] = normalized_ids
-            changed = True
-        return changed
-
     def _fill_reconnect_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
         if "reconnect" not in data:
             data["reconnect"] = defaults
@@ -181,60 +60,6 @@ class SettingsNormalizer:
                 debug_section[key] = value
                 changed = True
         data["debug"] = debug_section
-        return changed
-
-    def _fill_controller_defaults(self, data: Dict[str, Any]) -> bool:
-        if "controllers" not in data:
-            data["controllers"] = []
-            return True
-        controllers = data.get("controllers", [])
-        changed = False
-        max_id = 0
-        for controller in controllers:
-            try:
-                controller_id = int(controller.get("id", 0))
-            except (TypeError, ValueError):
-                controller_id = 0
-            max_id = max(max_id, controller_id)
-
-        for controller in controllers:
-            try:
-                controller_id = int(controller.get("id", 0))
-            except (TypeError, ValueError):
-                controller_id = 0
-            if controller_id <= 0:
-                max_id += 1
-                controller["id"] = max_id
-                changed = True
-            prev_type = controller.get("type")
-            self._validate_controller_type(controller)
-            if controller.get("type") != prev_type:
-                changed = True
-            if "name" not in controller:
-                controller["name"] = f"Контроллер {controller_id or max_id}"
-                changed = True
-            if "address" not in controller:
-                controller["address"] = ""
-                changed = True
-            if "password" not in controller:
-                controller["password"] = "0"
-                changed = True
-            relays = controller.get("relays")
-            if not isinstance(relays, list) or len(relays) != 2:
-                controller["relays"] = [relay_defaults(), relay_defaults()]
-                changed = True
-                relays = controller["relays"]
-            normalized_relays = [self._normalize_relay(relay) for relay in relays[:2]]
-            if controller.get("relays") != normalized_relays:
-                controller["relays"] = normalized_relays
-                changed = True
-            hotkeys = [relay.get("hotkey", "") for relay in normalized_relays if relay.get("hotkey")]
-            if len(hotkeys) != len(set(hotkeys)):
-                logger.warning(
-                    "Контроллер %s содержит дубли hotkey в settings; значения сохранены без скрытой модификации",
-                    controller.get("name") or controller.get("id") or "unknown",
-                )
-        data["controllers"] = controllers
         return changed
 
     def _fill_storage_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
@@ -392,10 +217,6 @@ class SettingsNormalizer:
                     direction_settings[key] = value
                     changed = True
 
-        for channel in normalized.get("channels", []):
-            if self._fill_channel_defaults(channel, tracking_defaults):
-                changed = True
-
         if self._fill_reconnect_defaults(normalized, reconnect_defaults()):
             changed = True
         if self._fill_model_defaults(normalized, model_defaults()):
@@ -415,8 +236,6 @@ class SettingsNormalizer:
         if self._fill_logging_defaults(normalized, logging_defaults()):
             changed = True
         if self._fill_debug_defaults(normalized, debug_defaults()):
-            changed = True
-        if self._fill_controller_defaults(normalized):
             changed = True
 
         return normalized, changed

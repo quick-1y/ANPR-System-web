@@ -2,7 +2,7 @@
 #/config/settings_manager.py
 import copy
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from config.settings_normalizer import SettingsNormalizer
 from config.settings_repository import SettingsRepository
@@ -39,56 +39,6 @@ class SettingsManager:
 
     def _default(self) -> Dict[str, Any]:
         return build_default_settings()
-
-    def get_channels(self) -> List[Dict[str, Any]]:
-        with self._file_lock:
-            channels = self.settings.get("channels", [])
-            tracking_defaults = self.settings.get("tracking", {})
-        changed = False
-        max_id = 0
-        for channel in channels:
-            try:
-                channel_id = int(channel.get("id", 0))
-            except (TypeError, ValueError):
-                channel_id = 0
-            max_id = max(max_id, channel_id)
-
-        for channel in channels:
-            try:
-                channel_id = int(channel.get("id", 0))
-            except (TypeError, ValueError):
-                channel_id = 0
-            if channel_id <= 0:
-                max_id += 1
-                channel["id"] = max_id
-                changed = True
-            if self._normalizer._fill_channel_defaults(channel, tracking_defaults):
-                changed = True
-
-        if changed:
-            self.save_channels(channels)
-        return copy.deepcopy(channels)
-
-    def save_channels(self, channels: List[Dict[str, Any]]) -> None:
-        with self._file_lock:
-            self.settings["channels"] = copy.deepcopy(channels)
-            settings_snapshot = copy.deepcopy(self.settings)
-        self._repo.save(settings_snapshot)
-
-    def get_controllers(self) -> List[Dict[str, Any]]:
-        with self._file_lock:
-            wrapper = {"controllers": self.settings.get("controllers", [])}
-        changed = self._normalizer._fill_controller_defaults(wrapper)
-        controllers = wrapper["controllers"]
-        if changed:
-            self.save_controllers(controllers)
-        return copy.deepcopy(controllers)
-
-    def save_controllers(self, controllers: List[Dict[str, Any]]) -> None:
-        with self._file_lock:
-            self.settings["controllers"] = copy.deepcopy(controllers)
-            settings_snapshot = copy.deepcopy(self.settings)
-        self._repo.save(settings_snapshot)
 
     def get_grid(self) -> str:
         with self._file_lock:
@@ -274,15 +224,5 @@ class SettingsManager:
     def refresh(self) -> None:
         raw_settings = self._repo.load()
         self.settings = self._normalize_and_persist_if_changed(raw_settings)
-
-    def update_channel(self, channel_id: int, data: Dict[str, Any]) -> None:
-        channels = self.get_channels()
-        for idx, channel in enumerate(channels):
-            if channel.get("id") == channel_id:
-                channels[idx].update(data)
-                break
-        else:
-            channels.append(data)
-        self.save_channels(channels)
 
 

@@ -25,7 +25,7 @@
 |---|---|
 | Python 3.13 | Backend, API, runtime каналов, ML inference |
 | HTML / CSS / JavaScript | Статический web frontend |
-| YAML | Основная runtime-конфигурация (`config/settings.yaml`) |
+| YAML | Глобальные runtime-настройки (`config/settings.yaml`); каналы и контроллеры хранятся в PostgreSQL |
 | SQL | Схема PostgreSQL и запросы репозиториев |
 | Mermaid | Архитектурные и процессные диаграммы в документации |
 

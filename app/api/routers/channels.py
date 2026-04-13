@@ -18,7 +18,7 @@ router = APIRouter()
 
 @router.get("/api/channels")
 def list_channels(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> List[Dict[str, Any]]:
-    channels = container.settings.get_channels()
+    channels = container.channel_db.list_channels()
     metrics = container.processor.list_states()
     debug_states = container.processor.list_debug_states()
     for channel in channels:
@@ -32,7 +32,7 @@ def list_channels(container: AppContainer = Depends(get_container), _user: Dict[
 
 @router.get("/api/channels/last-plates")
 def channels_last_plates(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[int, Dict[str, Any]]:
-    channel_ids = [int(item.get("id", 0)) for item in container.settings.get_channels() if int(item.get("id", 0)) > 0]
+    channel_ids = [int(item["id"]) for item in container.channel_db.list_channels()]
     try:
         return container.events_db.fetch_last_plates_by_channel_ids(channel_ids)
     except StorageUnavailableError as exc:
@@ -41,11 +41,9 @@ def channels_last_plates(container: AppContainer = Depends(get_container), _user
 
 @router.get("/api/channels/{channel_id}/snapshot.jpg")
 def channel_snapshot(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Response:
-    channels = {int(item["id"]): item for item in container.settings.get_channels()}
-    if channel_id not in channels:
+    if not container.channel_db.get_channel(channel_id):
         raise HTTPException(status_code=404, detail="Канал не найден")
 
-    # Temporarily register as consumer so the channel thread encodes a frame
     container.processor.add_preview_consumer(channel_id)
     try:
         frame, _ = container.processor.get_preview_frame(channel_id)
@@ -62,8 +60,7 @@ def channel_snapshot(channel_id: int, container: AppContainer = Depends(get_cont
 
 @router.get("/api/channels/{channel_id}/preview/status")
 def channel_preview_status(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-    channels = {int(item["id"]): item for item in container.settings.get_channels()}
-    if channel_id not in channels:
+    if not container.channel_db.get_channel(channel_id):
         raise HTTPException(status_code=404, detail="Канал не найден")
 
     metrics = container.processor.list_states().get(channel_id)
@@ -80,8 +77,7 @@ def channel_preview_status(channel_id: int, container: AppContainer = Depends(ge
 
 @router.get("/api/channels/{channel_id}/preview.mjpg")
 async def channel_preview_stream(channel_id: int, request: Request, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> StreamingResponse:
-    channels = {int(item["id"]): item for item in container.settings.get_channels()}
-    if channel_id not in channels:
+    if not container.channel_db.get_channel(channel_id):
         raise HTTPException(status_code=404, detail="Канал не найден")
 
     if container.debug_registry.get_settings().disable_video_output:
@@ -120,68 +116,53 @@ async def channel_preview_stream(channel_id: int, request: Request, container: A
 
 @router.get("/api/channels/{channel_id}/health")
 def channel_health(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-    channels = {int(item["id"]): item for item in container.settings.get_channels()}
-    if channel_id not in channels:
+    channel = container.channel_db.get_channel(channel_id)
+    if not channel:
         raise HTTPException(status_code=404, detail="Канал не найден")
     metrics = container.processor.list_states().get(channel_id)
     return {
-        "channel": channels[channel_id],
+        "channel": channel,
         "metrics": metrics.__dict__ if metrics else {"state": "unknown"},
     }
 
 
 @router.post("/api/channels")
 def create_channel(payload: ChannelPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-    channels = container.settings.get_channels()
-    next_id = max([int(item.get("id", 0)) for item in channels] + [0]) + 1
-    channel = {
-        "id": next_id,
+    channel_data = {
         "name": payload.name,
         "source": payload.source,
         "enabled": payload.enabled,
         "roi_enabled": payload.roi_enabled,
         "region": payload.region or {"unit": "percent", "points": []},
     }
-    channels.append(channel)
-    container.settings.save_channels(channels)
-
-    saved_channel = next(
-        (item for item in container.settings.get_channels() if int(item.get("id", 0)) == next_id),
-        None,
-    )
-    if saved_channel is None:
-        raise HTTPException(status_code=500, detail="Не удалось сохранить канал")
-
+    saved_channel = container.channel_db.create_channel(channel_data)
     container.processor.ensure_channel(saved_channel)
-    container.processor.stop(next_id)
+    container.processor.stop(int(saved_channel["id"]))
     return saved_channel
 
 
 @router.put("/api/channels/{channel_id}")
 def update_channel(channel_id: int, payload: Dict[str, Any], container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-    channels = container.settings.get_channels()
-    for idx, channel in enumerate(channels):
-        if int(channel["id"]) == channel_id:
-            channels[idx].update(payload)
-            container.settings.save_channels(channels)
-            container.processor.ensure_channel(channels[idx])
-            enabled = bool(channels[idx].get("enabled", True))
-            threading.Thread(
-                target=container.sync_channel_runtime,
-                args=(channel_id, enabled),
-                daemon=True,
-                name=f"channel-sync-{channel_id}",
-            ).start()
-            return channels[idx]
-    raise HTTPException(status_code=404, detail="Канал не найден")
+    updated = container.channel_db.update_channel(channel_id, payload)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Канал не найден")
+    container.processor.ensure_channel(updated)
+    enabled = bool(updated.get("enabled", True))
+    threading.Thread(
+        target=container.sync_channel_runtime,
+        args=(channel_id, enabled),
+        daemon=True,
+        name=f"channel-sync-{channel_id}",
+    ).start()
+    return updated
 
 
 @router.get("/api/channels/{channel_id}/config")
 def get_channel_config(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-    for channel in container.settings.get_channels():
-        if int(channel.get("id", 0)) == channel_id:
-            return channel
-    raise HTTPException(status_code=404, detail="Канал не найден")
+    channel = container.channel_db.get_channel(channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Канал не найден")
+    return channel
 
 
 @router.put("/api/channels/{channel_id}/config")
@@ -209,8 +190,8 @@ def update_channel_filter(channel_id: int, payload: ChannelFilterPayload, contai
 
 @router.delete("/api/channels/{channel_id}")
 def delete_channel(channel_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, str]:
-    channels = [item for item in container.settings.get_channels() if int(item["id"]) != channel_id]
-    container.settings.save_channels(channels)
+    if not container.channel_db.delete_channel(channel_id):
+        raise HTTPException(status_code=404, detail="Канал не найден")
     container.processor.remove_channel(channel_id)
     return {"status": "deleted"}
 

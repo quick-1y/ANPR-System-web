@@ -8,6 +8,8 @@ from typing import Any, Dict, List
 from fastapi import HTTPException
 
 from database.base import close_shared_pool
+from database.channel_repository import ChannelDatabase
+from database.controller_repository import ControllerDatabase
 from database.lists_repository import ListDatabase
 from database.user_repository import UserDatabase
 from config.settings_manager import SettingsManager
@@ -30,6 +32,8 @@ class AppContainer:
     events_db: PostgresEventDatabase
     lists_db: ListDatabase
     user_db: UserDatabase
+    channel_db: ChannelDatabase
+    controller_db: ControllerDatabase
     controller_service: ControllerService
     controller_automation: ControllerAutomationService
     event_bus: EventBus
@@ -52,6 +56,8 @@ class AppContainer:
         events_db = PostgresEventDatabase(dsn)
         lists_db = ListDatabase(dsn)
         user_db = UserDatabase(dsn)
+        channel_db = ChannelDatabase(dsn)
+        controller_db = ControllerDatabase(dsn)
         controller_service = ControllerService()
         event_bus = EventBus()
         debug_registry = DebugRegistry(settings.get_debug_settings())
@@ -62,6 +68,8 @@ class AppContainer:
             events_db=events_db,
             lists_db=lists_db,
             user_db=user_db,
+            channel_db=channel_db,
+            controller_db=controller_db,
             controller_service=controller_service,
             controller_automation=None,  # type: ignore[arg-type]
             event_bus=event_bus,
@@ -74,8 +82,8 @@ class AppContainer:
         )
         container.controller_automation = ControllerAutomationService(
             controller_service,
-            get_channels=settings.get_channels,
-            get_controllers=settings.get_controllers,
+            get_channels=channel_db.list_channels,
+            get_controllers=controller_db.list_controllers,
             plate_in_list_type=lists_db.plate_in_list_type,
             plate_in_lists=lists_db.plate_in_lists,
         )
@@ -113,15 +121,15 @@ class AppContainer:
     async def startup(self) -> None:
         self.main_loop = asyncio.get_running_loop()
         self.stream_shutdown.clear()
-        for channel in self.settings.get_channels():
+        for channel in self.channel_db.list_channels():
             self.processor.ensure_channel(channel)
             if channel.get("enabled", True):
                 self.processor.start(int(channel["id"]))
 
     def shutdown(self) -> None:
         self.stream_shutdown.set()
-        for channel in self.settings.get_channels():
-            self.processor.stop(int(channel["id"]))
+        for channel_id in list(self.processor.list_states().keys()):
+            self.processor.stop(channel_id)
 
     def storage_503(self, exc: Exception) -> HTTPException:
         return HTTPException(status_code=503, detail=f"PostgreSQL недоступен: {exc}")
@@ -139,7 +147,7 @@ class AppContainer:
         self.controller_automation.dispatch_event(event)
 
     def restart_processor_for_settings(self) -> None:
-        channels = self.settings.get_channels()
+        channels = self.channel_db.list_channels()
         enabled_ids = [int(item["id"]) for item in channels if item.get("enabled", True)]
         for channel in channels:
             try:
@@ -164,7 +172,7 @@ class AppContainer:
             self.processor.start(channel_id)
 
     def controller_exists(self, controller_id: int) -> bool:
-        return any(int(item.get("id", 0)) == controller_id for item in self.settings.get_controllers())
+        return self.controller_db.get_controller(controller_id) is not None
 
     def validate_channel_controller_binding(self, payload: Dict[str, Any]) -> None:
         controller_id = payload.get("controller_id")
@@ -201,10 +209,12 @@ class AppContainer:
         self.lifecycle = self._build_lifecycle()
         self.lists_db = ListDatabase(dsn)
         self.user_db = UserDatabase(dsn)
+        self.channel_db = ChannelDatabase(dsn)
+        self.controller_db = ControllerDatabase(dsn)
         self.controller_automation = ControllerAutomationService(
             self.controller_service,
-            get_channels=self.settings.get_channels,
-            get_controllers=self.settings.get_controllers,
+            get_channels=self.channel_db.list_channels,
+            get_controllers=self.controller_db.list_controllers,
             plate_in_list_type=self.lists_db.plate_in_list_type,
             plate_in_lists=self.lists_db.plate_in_lists,
         )

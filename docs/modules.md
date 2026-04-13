@@ -73,14 +73,16 @@
 | `database/postgres_event_repository.py` | `PostgresEventDatabase`: insert, pagination, fetch, delete, export |
 | `database/lists_repository.py` | `ListDatabase`: CRUD для списков и клиентов, проверка вхождения номера |
 | `database/user_repository.py` | `UserDatabase`: CRUD пользователей, seed admin по умолчанию |
-| `database/postgres/schema.sql` | SQL-схема инициализации PostgreSQL (events, users) |
+| `database/channel_repository.py` | `ChannelDatabase`: CRUD каналов и всех их настроек; нормализация данных (region, direction, controller_id, фильтры) |
+| `database/controller_repository.py` | `ControllerDatabase`: CRUD аппаратных контроллеров (name, type, address, password, relays) |
+| `database/postgres/schema.sql` | SQL-схема инициализации PostgreSQL (events, users); каналы и контроллеры бутстрапятся в своих репозиториях |
 | `database/errors.py` | Ошибки слоя хранения, включая `StorageUnavailableError` |
 
 ## `config/` — конфигурация
 
 | Файл / директория | Ответственность |
 |---|---|
-| `config/settings_manager.py` | `SettingsManager`: оркестрация настроек и API доступа ко всем секциям |
+| `config/settings_manager.py` | `SettingsManager`: оркестрация глобальных настроек (тема, grid, reconnect, storage, logging и др.); каналы и контроллеры хранятся в БД |
 | `config/settings_repository.py` | Чтение и запись `settings.yaml` с file lock |
 | `config/settings_normalizer.py` | Нормализация, дефолты, upgrade legacy-конфигов |
 | `config/settings_schema.py` | Схема и дефолты всех секций |
