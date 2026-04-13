@@ -93,6 +93,19 @@
 | `DELETE` | `/api/controllers/{controller_id}` | Удалить контроллер (блокируется, если используется каналом) |
 | `POST` | `/api/controllers/{controller_id}/test` | Отправить тестовую команду реле |
 
+### Clients
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/clients` | Список всех клиентов (включая неприкреплённых к спискам) |
+| `POST` | `/api/clients` | Создать клиента (без привязки к списку) |
+| `GET` | `/api/clients/search?q=` | Поиск клиентов по ФИО и номеру (ILIKE) |
+| `GET` | `/api/clients/{client_id}` | Получить клиента по ID |
+| `PUT` | `/api/clients/{client_id}` | Обновить поля клиента |
+| `DELETE` | `/api/clients/{client_id}` | Мягкое удаление клиента |
+| `POST` | `/api/clients/{client_id}/attach` | Прикрепить клиента к списку (`{list_id: int}`) |
+| `DELETE` | `/api/clients/{client_id}/attach` | Открепить клиента от списка (list_id → NULL) |
+
 ### Plate Lists
 
 | Метод | Путь | Описание |
@@ -100,13 +113,10 @@
 | `GET` | `/api/lists` | Список всех plate lists |
 | `POST` | `/api/lists` | Создать список |
 | `PUT` | `/api/lists/{list_id}` | Обновить метаданные списка |
-| `DELETE` | `/api/lists/{list_id}` | Удалить список |
-| `GET` | `/api/lists/{list_id}/entries` | Записи в списке |
-| `POST` | `/api/lists/{list_id}/entries` | Добавить запись |
-| `PUT` | `/api/lists/{list_id}/entries/{entry_id}` | Обновить запись |
-| `DELETE` | `/api/lists/{list_id}/entries/{entry_id}` | Удалить запись |
-| `GET` | `/api/lists/entry-by-plate` | Найти запись по номеру |
-| `GET` | `/api/lists/plates` | Все номера с типами списков |
+| `DELETE` | `/api/lists/{list_id}` | Удалить список (клиенты сохраняются, list_id → NULL) |
+| `GET` | `/api/lists/{list_id}/clients` | Клиенты, прикреплённые к этому списку |
+| `GET` | `/api/lists/entry-by-plate` | Найти клиента по номеру (используется обогащением событий) |
+| `GET` | `/api/lists/plates` | Все номера с типами списков (используется фильтрацией каналов) |
 
 ### Settings *(только Admin)*
 

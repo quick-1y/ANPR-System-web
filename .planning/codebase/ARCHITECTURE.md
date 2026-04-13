@@ -27,7 +27,8 @@
   - `channels.py`: `GET|POST /api/channels`, `GET|PUT|DELETE /api/channels/{id}`, `GET /api/channels/{id}/snapshot.jpg`, `GET /api/channels/{id}/preview.mjpg`, `POST /api/channels/{id}/start|stop|restart`, `PUT /api/channels/{id}/config`, `PUT /api/channels/{id}/ocr`, `PUT /api/channels/{id}/filter`, `GET /api/channels/{id}/health`, `GET /api/channels/{id}/preview/status`, `GET /api/channels/last-plates`
   - `events.py`: `GET /api/events`, `GET /api/events/item/{id}`, `GET /api/events/item/{id}/media/{kind}`, `GET /api/events/stream` (SSE)
   - `controllers.py`: `GET|POST /api/controllers`, `PUT|DELETE /api/controllers/{id}`, `POST /api/controllers/{id}/test`
-  - `lists.py`: `GET|POST /api/lists`, `DELETE|PUT /api/lists/{id}`, `GET|POST /api/lists/{id}/entries`, `PUT|DELETE /api/lists/{id}/entries/{id}`, `GET /api/lists/entry-by-plate`, `GET /api/lists/plates`
+  - `clients.py`: `GET /api/clients`, `POST /api/clients`, `GET /api/clients/search`, `GET|PUT|DELETE /api/clients/{id}`, `POST|DELETE /api/clients/{id}/attach`
+  - `lists.py`: `GET|POST /api/lists`, `DELETE|PUT /api/lists/{id}`, `GET /api/lists/{id}/clients`, `GET /api/lists/entry-by-plate`, `GET /api/lists/plates`
   - `settings.py`: `GET|PUT /api/settings`
   - `data.py`: `GET|PUT /api/data/policy`, `POST /api/data/retention/run`, `GET /api/data/export/events.csv`, `POST /api/data/export/bundle`
   - `debug.py`: `GET|PUT /api/debug/settings`, `GET /api/debug/channels`, `GET /api/debug/state`, `GET /api/debug/logs`, `GET /api/debug/logs/stream` (SSE)
@@ -37,7 +38,7 @@
 **Application Services (Container):**
 - Purpose: Dependency wiring, lifecycle management, cross-layer coordination
 - Location: `app/api/container.py` (API), `app/worker/main.py` (worker)
-- `AppContainer` (dataclass): holds `SettingsManager`, `PostgresEventDatabase`, `ListDatabase`, `ControllerService`, `ControllerAutomationService`, `EventBus`, `DebugRegistry`, `DebugLogBus`, `ChannelProcessor`, `DataLifecycleService`
+- `AppContainer` (dataclass): holds `SettingsManager`, `PostgresEventDatabase`, `ListDatabase`, `ClientDatabase`, `ControllerService`, `ControllerAutomationService`, `EventBus`, `DebugRegistry`, `DebugLogBus`, `ChannelProcessor`, `DataLifecycleService`
 - `WorkerContainer` (dataclass): holds `SettingsManager`, `DataLifecycleService`, `RetentionScheduler`
 - `AppContainer.build()`: constructs all services, wires callbacks
 - `AppContainer.startup()`: starts all enabled channels via `processor.ensure_channel()` + `processor.start()`
@@ -94,7 +95,8 @@
 - Purpose: Event persistence, plate list management, schema bootstrap
 - Location: `database/`
 - `PostgresEventDatabase` (`database/postgres_event_repository.py`): PostgreSQL event CRUD with lazy schema bootstrap from `database/postgres/schema.sql`; uses `psycopg_pool` connection pooling
-- `ListDatabase` (`database/lists_repository.py`): list/client CRUD for whitelist/blacklist functionality
+- `ListDatabase` (`database/lists_repository.py`): list CRUD + plate-matching helpers (`plate_in_list_type`, `plate_in_lists`, `find_client_by_plate`) for channel automation and event enrichment
+- `ClientDatabase` (`database/clients_repository.py`): client CRUD, search, attach/detach to lists; schema owned by `ListDatabase`
 - `EventSink` (`runtime/event_sink.py`): thin write-only wrapper around `PostgresEventDatabase` used by channel threads
 - `StorageUnavailableError` (`database/errors.py`): custom exception for DB connectivity issues
 - Schema: `database/postgres/schema.sql` -- verified at startup

@@ -31,6 +31,7 @@ pytest -v                      # Verbose output
 - `tests/test_plate_validator.py` — tests for `PlatePostProcessor` from `anpr/postprocessing/validator.py`
 - `tests/test_motion_detector.py` — tests for `MotionDetector` from `anpr/detection/motion_detector.py`
 - `tests/test_direction_estimator.py` — tests for `TrackDirectionEstimator` from `anpr/pipeline/anpr_pipeline.py`
+- `tests/test_lists_repository.py` — tests for `ListDatabase` and `ClientDatabase` from `database/lists_repository.py` and `database/clients_repository.py`; covers plate normalization, list CRUD, client CRUD, attach/detach, search, channel automation methods (`plate_in_list_type`, `plate_in_lists`)
 
 **Naming:**
 - Files: `test_{component_name}.py`
@@ -42,6 +43,7 @@ pytest -v                      # Verbose output
 tests/
 ├── __init__.py
 ├── test_direction_estimator.py
+├── test_lists_repository.py
 ├── test_motion_detector.py
 ├── test_plate_validator.py
 └── test_track_aggregator.py

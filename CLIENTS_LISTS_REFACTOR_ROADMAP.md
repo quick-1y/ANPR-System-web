@@ -303,14 +303,14 @@ app/api/routers/
 [x] 2.1  Create routers/clients.py with all /api/clients/* endpoints
 [x] 2.2  Update routers/lists.py (remove entry endpoints, add /api/lists/{id}/clients)
 [x] 2.4  Register clients_router in main.py
-[ ] 5.2  Rename find_entry_by_plate → find_client_by_plate at all call sites
+[x] 5.2  Rename find_entry_by_plate → find_client_by_plate at all call sites
 [x] 3.1  HTML: rename tab, add sub-tabs, add new modals
 [x] 4.1  Create clients.js module
 [x] 4.2  Refactor lists.js (remove entry logic, add list member + client picker logic)
 [x] 4.3  Update app.js (import clients.js, wire sub-tab switching)
 [x] 4.4  Add confirmation dialogs to all operations
-[ ] 5.1  Verify container wiring (lists_db channel functions still injected correctly)
-[ ] 5.3  Update test_lists_repository.py
+[x] 5.1  Verify container wiring (lists_db channel functions still injected correctly)
+[x] 5.3  Update test_lists_repository.py
 [ ] --   Manual check: channel filter still works (plate_in_lists, plate_in_list_type)
 [ ] --   Manual check: all_plates_with_type excludes unattached clients
 [ ] --   Manual check: event enrichment (find_client_by_plate) still works

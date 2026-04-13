@@ -196,8 +196,8 @@ class ListDatabase(PooledDatabase):
                 )
                 return cursor.fetchone() is not None
 
-    def find_entry_by_plate(self, plate: str) -> Optional[Dict[str, Any]]:
-        """Return the first list entry matching the given plate, or None."""
+    def find_client_by_plate(self, plate: str) -> Optional[Dict[str, Any]]:
+        """Return the first client record matching the given plate that belongs to a list, or None."""
         self._ensure_schema()
         normalized = normalize_plate(plate)
         if not normalized:

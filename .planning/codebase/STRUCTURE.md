@@ -53,7 +53,8 @@ ANPR-System-v0.8_web/
 │   ├── postgres/               # PostgreSQL-specific files
 │   │   └── schema.sql          # Database schema (verified at startup)
 │   ├── errors.py               # StorageUnavailableError
-│   ├── lists_repository.py        # Lists and clients CRUD
+│   ├── clients_repository.py   # ClientDatabase — client CRUD, search, attach/detach
+│   ├── lists_repository.py     # ListDatabase — list CRUD + plate matching (channel automation)
 │   └── postgres_event_repository.py  # Event CRUD with psycopg_pool
 ├── runtime/                    # Channel processing runtime
 │   ├── channel_runtime.py      # ChannelProcessor, ChannelContext, ChannelMetrics
@@ -100,7 +101,7 @@ ANPR-System-v0.8_web/
 
 **`app/api/routers/`:**
 - Purpose: API route handlers organized by domain
-- Contains: 8 router modules (channels, controllers, data, debug, events, lists, settings, system)
+- Contains: 9 router modules (channels, clients, controllers, data, debug, events, lists, settings, system)
 
 **`app/shared/`:**
 - Purpose: Services shared between API and worker
@@ -141,7 +142,7 @@ ANPR-System-v0.8_web/
 
 **`tests/`:**
 - Purpose: Unit tests
-- Contains: 4 test files covering direction estimator, motion detector, plate validator, track aggregator
+- Contains: test files covering direction estimator, motion detector, plate validator, track aggregator, lists/clients repository (ListDatabase + ClientDatabase)
 
 ## Key File Locations
 
@@ -171,7 +172,8 @@ ANPR-System-v0.8_web/
 
 **Database:**
 - `database/postgres_event_repository.py`: PostgresEventDatabase
-- `database/lists_repository.py`: ListDatabase
+- `database/lists_repository.py`: ListDatabase (list CRUD + channel automation plate matching)
+- `database/clients_repository.py`: ClientDatabase (client CRUD, search, attach/detach)
 - `database/postgres/schema.sql`: PostgreSQL schema DDL
 - `database/errors.py`: StorageUnavailableError
 

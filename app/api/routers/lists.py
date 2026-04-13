@@ -32,7 +32,7 @@ def create_plate_list(payload: ListPayload, container: AppContainer = Depends(ge
 @router.get("/api/lists/entry-by-plate")
 def entry_by_plate(plate: str = Query(..., min_length=1), container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     try:
-        result = container.lists_db.find_entry_by_plate(plate)
+        result = container.lists_db.find_client_by_plate(plate)
         if result is None:
             raise HTTPException(status_code=404, detail="Запись не найдена")
         return result

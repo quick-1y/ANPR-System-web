@@ -16,7 +16,8 @@
 | `app/api/routers/channels.py` | CRUD каналов, start/stop/restart, snapshot, MJPEG, health — авторизованный |
 | `app/api/routers/events.py` | Журнал событий, детали, медиа, SSE-поток — авторизованный |
 | `app/api/routers/controllers.py` | CRUD аппаратных контроллеров, тест реле — **только Admin** |
-| `app/api/routers/lists.py` | Управление списками и клиентами — авторизованный |
+| `app/api/routers/clients.py` | CRUD клиентов, поиск, прикрепление к спискам / открепление — авторизованный |
+| `app/api/routers/lists.py` | CRUD списков (plate lists), получение участников списка, поиск по номеру, все номера с типами — авторизованный |
 | `app/api/routers/settings.py` | Глобальные настройки и логика перезапуска pipeline — **только Admin** |
 | `app/api/routers/data.py` | Retention policy, экспорт, backup / restore — **только Admin** |
 | `app/api/routers/system.py` | Health check, CPU/RAM, статус БД, Web UI |
@@ -26,7 +27,8 @@
 | `app/shared/data_lifecycle.py` | `DataLifecycleService`: cleanup событий/медиа, контроль размера, CSV/ZIP export |
 | `app/web/index.html` | Единственная HTML-страница SPA; включает `#login-overlay` для аутентификации и кнопку «Выход» в topbar |
 | `app/web/js/api.js` | HTTP-слой: `getToken/setToken` (JWT в `localStorage`), `jfetch()` (Bearer), `apiUrl()` (?token=), `loginRequest()`, `getCurrentUser()`, `showLoginOverlay()` |
-| `app/web/js/state.js` | Глобальное состояние SPA; `state.currentUser`, `setCurrentUser()`, `isAdmin()`, `hasPermission(key)` — используется `app.js` для передачи данных в `applyTabVisibility()` |
+| `app/web/js/state.js` | Глобальное состояние SPA; `state.currentUser`, `state.allClients`, `state.listMembers`, `state.lists`, `state.plateLookup` и др.; `setCurrentUser()`, `isAdmin()`, `hasPermission(key)` |
+| `app/web/js/clients.js` | Модуль клиентов: таблица всех клиентов, карточка клиента (просмотр/редактирование/удаление), прикрепление к списку, отвязка, поиск с дебаунсом |
 | `app/web/js/app.js` | Точка входа: проверка JWT при старте, показ login overlay, инициализация после аутентификации, `applyTabVisibility()` после получения пользователя, logout; вызывает `initUsersPane()` для admin |
 | `app/web/js/users.js` | Управление пользователями (Settings → Пользователи, admin-only): список, создание, редактирование, смена пароля, деактивация |
 | `app/web/js/backup.js` | Backup/restore с JWT Bearer-заголовками |
@@ -71,7 +73,8 @@
 | Файл / директория | Ответственность |
 |---|---|
 | `database/postgres_event_repository.py` | `PostgresEventDatabase`: insert, pagination, fetch, delete, export |
-| `database/lists_repository.py` | `ListDatabase`: CRUD для списков и клиентов, проверка вхождения номера |
+| `database/clients_repository.py` | `ClientDatabase`: CRUD клиентов, поиск, прикрепление/открепление от списка |
+| `database/lists_repository.py` | `ListDatabase`: CRUD списков, проверка вхождения номера (`plate_in_list_type`, `plate_in_lists`), обогащение событий (`find_client_by_plate`) |
 | `database/user_repository.py` | `UserDatabase`: CRUD пользователей, seed admin по умолчанию |
 | `database/channel_repository.py` | `ChannelDatabase`: CRUD каналов и всех их настроек; нормализация данных (region, direction, controller_id, фильтры) |
 | `database/controller_repository.py` | `ControllerDatabase`: CRUD аппаратных контроллеров (name, type, address, password, relays) |
@@ -99,7 +102,7 @@
 
 | Директория / файл | Назначение |
 |---|---|
-| `tests/` | Тесты ключевых компонентов: validator, motion detector, direction estimator, track aggregator, user repository, JWT utils, auth deps, auth router (включая Phase 3 contract-тесты), permission guards (Phase 4) |
+| `tests/` | Тесты ключевых компонентов: validator, motion detector, direction estimator, track aggregator, user repository, JWT utils, auth deps, auth router, permission guards; `test_lists_repository.py` — тесты `ListDatabase` и `ClientDatabase` (нормализация номеров, CRUD, прикрепление/открепление, channel automation methods) |
 | `nginx/` | Конфигурация reverse proxy |
 | `.planning/codebase/` | Аналитические markdown-файлы по архитектуре, стеку, структуре, соглашениям и интеграциям |
 | `Dockerfile` | Сборка приложения |
