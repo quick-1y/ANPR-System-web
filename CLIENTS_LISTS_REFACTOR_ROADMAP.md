@@ -315,3 +315,48 @@ app/api/routers/
 [ ] --   Manual check: all_plates_with_type excludes unattached clients
 [ ] --   Manual check: event enrichment (find_client_by_plate) still works
 ```
+
+---
+
+## 8. Changed Files
+
+### Backend
+
+| Файл | Что изменилось |
+|---|---|
+| `database/lists_repository.py` | `list_id` → nullable; удалены `add_entry`, `update_entry`, `delete_entry`; `list_entries` → `list_clients_in_list`; `find_entry_by_plate` → `find_client_by_plate`; `delete_list` теперь detach клиентов вместо cascade; `clients_count` вместо `entries_count` |
+| `database/clients_repository.py` | **Новый файл.** `ClientDatabase`: `list_all_clients`, `get_client`, `search_clients`, `create_client`, `update_client`, `delete_client`, `attach_to_list`, `detach_from_list` |
+| `app/api/container.py` | Добавлен `ClientDatabase`; инициализация `clients_db` в `build()` и `refresh_storage_clients()` |
+| `app/api/schemas.py` | Удалён `EntryPayload`; добавлены `ClientPayload`, `AttachClientPayload` |
+| `app/api/routers/clients.py` | **Новый файл.** Все `/api/clients/*` эндпоинты |
+| `app/api/routers/lists.py` | Удалены entry-эндпоинты; добавлен `GET /api/lists/{id}/clients`; `find_entry_by_plate` → `find_client_by_plate` |
+| `app/api/main.py` | Зарегистрирован `clients_router` |
+
+### Frontend
+
+| Файл | Что изменилось |
+|---|---|
+| `app/web/index.html` | Вкладка «Списки» → «Клиенты»; добавлены sub-tabs Clients / Lists; новые модалки: `clientCardModal`, `deleteClientModal`, `listPickerModal`, `clientPickerModal` |
+| `app/web/styles.css` | Добавлены стили для sub-tab nav, `.clients-main`, карточки клиента, picker-модалок |
+| `app/web/js/state.js` | Добавлены `allClients`, `selectedClientId`; `currentEntries` → `listMembers` |
+| `app/web/js/clients.js` | **Новый файл.** Таблица клиентов, карточка клиента, создание/редактирование/удаление, picker списка, открепление, поиск с дебаунсом |
+| `app/web/js/lists.js` | Удалена логика entries; добавлены `loadListClients`, `renderListClientsTable`, `openClientPickerModal`; CSV import переведён на новый API |
+| `app/web/js/app.js` | Импорт `clients.js`; логика sub-tab переключения; новые обработчики событий; `loadAllClients()` в init |
+| `app/web/js/ui.js` | `lists: "Списки"` → `clients: "Клиенты"` в topbar title map |
+
+### Тесты
+
+| Файл | Что изменилось |
+|---|---|
+| `tests/test_lists_repository.py` | Полная перезапись: добавлены тесты `ClientDatabase` (create, update, delete, get, list_all, search, attach/detach); обновлены тесты `ListDatabase` под новые имена методов |
+
+### Документация
+
+| Файл | Что изменилось |
+|---|---|
+| `README.md` | Описание возможностей, поля таблицы `clients`, описание индексов |
+| `docs/endpoints.md` | Новая секция Clients (8 эндпоинтов); обновлена секция Plate Lists |
+| `docs/modules.md` | Добавлены `routers/clients.py`, `clients_repository.py`, `clients.js`; обновлены описания смежных модулей |
+| `.planning/codebase/ARCHITECTURE.md` | Роутеры, `AppContainer`, Storage-секция |
+| `.planning/codebase/STRUCTURE.md` | Дерево `database/`, список роутеров, тесты |
+| `.planning/codebase/TESTING.md` | Добавлен `test_lists_repository.py` в список и структуру |
