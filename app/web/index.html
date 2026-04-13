@@ -1339,8 +1339,7 @@
           <div class="client-card-list-row">
             <span class="modal-label">Список:</span>
             <span class="client-card-list-name" id="clientCardListName">—</span>
-            <button class="btn btn-ghost btn-sm" id="clientCardAttachBtn">Прикрепить к списку</button>
-            <button class="btn btn-ghost btn-sm" id="clientCardDetachBtn">Открепить</button>
+            <button class="btn btn-ghost btn-sm" id="clientCardListBtn">Прикрепить к списку</button>
           </div>
           <div class="modal-error" id="clientCardError"></div>
         </div>
@@ -1364,6 +1363,22 @@
         <div class="modal-footer">
           <button class="btn btn-ghost" id="deleteClientCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteClientConfirm">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detach Client Confirmation Modal -->
+    <div class="modal" id="detachClientModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+          <span>Открепить клиента</span>
+        </div>
+        <div class="modal-body">
+          <p class="modal-confirm-text">Открепить клиента <strong id="detachClientPlateLabel"></strong> от текущего списка?</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="detachClientCancel">Отменить</button>
+          <button class="btn btn-danger" id="detachClientConfirm">Открепить</button>
         </div>
       </div>
     </div>

@@ -78,7 +78,13 @@ function _populateClientCard(client) {
     ? (state.lists.find((l) => l.id === client.list_id)?.name ?? `#${client.list_id}`)
     : '—';
   document.getElementById('clientCardListName').textContent = listName;
-  document.getElementById('clientCardDetachBtn').style.display = client?.list_id ? '' : 'none';
+  const listBtn = document.getElementById('clientCardListBtn');
+  if (isNew) {
+    listBtn.style.display = 'none';
+  } else {
+    listBtn.style.display = '';
+    listBtn.textContent = client.list_id ? 'Открепить от списка' : 'Прикрепить к списку';
+  }
   document.getElementById('clientCardDeleteBtn').style.display = isNew ? 'none' : '';
 }
 
@@ -181,9 +187,15 @@ async function _attachAndRefresh(clientId, listId) {
   if (_editingClientId === clientId) await openClientCard(clientId);
 }
 
-export async function detachClientFromList() {
+export function detachClientFromList() {
   if (_editingClientId === null) return;
-  if (!confirm('Открепить клиента от текущего списка?')) return;
+  const plate = document.getElementById('clientCardPlate').value.trim() || '?';
+  document.getElementById('detachClientPlateLabel').textContent = plate;
+  openModal('detachClientModal');
+}
+
+export async function confirmDetachClient() {
+  if (_editingClientId === null) return;
   const clientId = _editingClientId;
   try {
     await jfetch(api(`/api/clients/${clientId}/attach`), 'DELETE');
@@ -191,6 +203,7 @@ export async function detachClientFromList() {
     showToast('Не удалось открепить клиента', 3000);
     return;
   }
+  closeModal('detachClientModal');
   showToast('Клиент откреплён от списка');
   await _refreshAll();
   await openClientCard(clientId);

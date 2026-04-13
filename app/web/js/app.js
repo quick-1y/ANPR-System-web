@@ -6,7 +6,7 @@ import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGr
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
 import { loadJournal, initJournalScroll, initJournalBindings } from './journal.js';
 import { loadLists, refreshPlateLookup, exportCurrentListCSV, importCurrentListCSV, openClientPickerModal } from './lists.js';
-import { loadAllClients, openAddClientModal, searchClients, saveClientChanges, openDeleteClientConfirm, confirmDeleteClient, openListPickerModal, detachClientFromList } from './clients.js';
+import { loadAllClients, openAddClientModal, searchClients, saveClientChanges, openDeleteClientConfirm, confirmDeleteClient, openListPickerModal, detachClientFromList, confirmDetachClient } from './clients.js';
 import { loadGlobalSettings, saveGeneral } from './settings.js';
 import { loadControllers, createController, _doCreateController, deleteController, _doDeleteController, saveController, testController } from './controllers.js';
 import { applyDebugPanelVisibility, loadDebugLogHistory, setupDebugLogStream, setupStream } from './debug.js';
@@ -67,13 +67,24 @@ document.getElementById('clientCardCancel').onclick = () => closeModal('clientCa
 document.getElementById('clientCardModal').onclick = (e) => { if (e.target.id === 'clientCardModal') closeModal('clientCardModal'); };
 document.getElementById('clientCardSaveBtn').onclick = saveClientChanges;
 document.getElementById('clientCardDeleteBtn').onclick = openDeleteClientConfirm;
-document.getElementById('clientCardAttachBtn').onclick = openListPickerModal;
-document.getElementById('clientCardDetachBtn').onclick = detachClientFromList;
+document.getElementById('clientCardListBtn').onclick = () => {
+  const btn = document.getElementById('clientCardListBtn');
+  if (btn.textContent.trim() === 'Открепить от списка') {
+    detachClientFromList();
+  } else {
+    openListPickerModal();
+  }
+};
 
 // --- Delete client confirmation ---
 document.getElementById('deleteClientCancel').onclick = () => closeModal('deleteClientModal');
 document.getElementById('deleteClientConfirm').onclick = confirmDeleteClient;
 document.getElementById('deleteClientModal').onclick = (e) => { if (e.target.id === 'deleteClientModal') closeModal('deleteClientModal'); };
+
+// --- Detach client confirmation ---
+document.getElementById('detachClientCancel').onclick = () => closeModal('detachClientModal');
+document.getElementById('detachClientConfirm').onclick = confirmDetachClient;
+document.getElementById('detachClientModal').onclick = (e) => { if (e.target.id === 'detachClientModal') closeModal('detachClientModal'); };
 
 // --- List picker (attach client → list) ---
 document.getElementById('listPickerClose').onclick = () => closeModal('listPickerModal');
