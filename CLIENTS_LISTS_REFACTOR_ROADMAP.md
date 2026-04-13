@@ -295,20 +295,20 @@ app/api/routers/
 ## 7. Final Recommended Execution Order
 
 ```
-[ ] 1.1  Schema: make clients.list_id nullable, remove NOT NULL and CASCADE
-[ ] 1.2  Create clients_repository.py with ClientDatabase class
-[ ] 1.3  Trim lists_repository.py (remove entry CRUD methods, keep channel-critical ones)
-[ ] 1.4  Wire ClientDatabase into container.py
-[ ] 2.3  Add ClientPayload and AttachClientPayload schemas
-[ ] 2.1  Create routers/clients.py with all /api/clients/* endpoints
-[ ] 2.2  Update routers/lists.py (remove entry endpoints, add /api/lists/{id}/clients)
-[ ] 2.4  Register clients_router in main.py
+[x] 1.1  Schema: make clients.list_id nullable, remove NOT NULL and CASCADE
+[x] 1.2  Create clients_repository.py with ClientDatabase class
+[x] 1.3  Trim lists_repository.py (remove entry CRUD methods, keep channel-critical ones)
+[x] 1.4  Wire ClientDatabase into container.py
+[x] 2.3  Add ClientPayload and AttachClientPayload schemas
+[x] 2.1  Create routers/clients.py with all /api/clients/* endpoints
+[x] 2.2  Update routers/lists.py (remove entry endpoints, add /api/lists/{id}/clients)
+[x] 2.4  Register clients_router in main.py
 [ ] 5.2  Rename find_entry_by_plate → find_client_by_plate at all call sites
-[ ] 3.1  HTML: rename tab, add sub-tabs, add new modals
-[ ] 4.1  Create clients.js module
-[ ] 4.2  Refactor lists.js (remove entry logic, add list member + client picker logic)
-[ ] 4.3  Update app.js (import clients.js, wire sub-tab switching)
-[ ] 4.4  Add confirmation dialogs to all operations
+[x] 3.1  HTML: rename tab, add sub-tabs, add new modals
+[x] 4.1  Create clients.js module
+[x] 4.2  Refactor lists.js (remove entry logic, add list member + client picker logic)
+[x] 4.3  Update app.js (import clients.js, wire sub-tab switching)
+[x] 4.4  Add confirmation dialogs to all operations
 [ ] 5.1  Verify container wiring (lists_db channel functions still injected correctly)
 [ ] 5.3  Update test_lists_repository.py
 [ ] --   Manual check: channel filter still works (plate_in_lists, plate_in_list_type)

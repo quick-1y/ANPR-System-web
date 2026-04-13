@@ -3,10 +3,12 @@ export const state = {
   channels: [],
   lists: [],
   selectedListId: null,
+  allClients: [],
+  selectedClientId: null,
   allEvents: [],
   lastPlatesByChannelId: {},
   plateLookup: {},
-  currentEntries: [],
+  listMembers: [],
   currentUser: null,  // { id, login, role, permissions: [...] }
 };
 

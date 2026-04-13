@@ -5,7 +5,8 @@ import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, app
 import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVideoGridDragDrop, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate, clearExpandMode } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
 import { loadJournal, initJournalScroll, initJournalBindings } from './journal.js';
-import { loadLists, loadEntries, refreshPlateLookup, exportCurrentListCSV, importCurrentListCSV, getEditingEntryId, setEditingEntryId, getDeletingEntryId, setDeletingEntryId } from './lists.js';
+import { loadLists, refreshPlateLookup, exportCurrentListCSV, importCurrentListCSV, openClientPickerModal } from './lists.js';
+import { loadAllClients, openAddClientModal, searchClients, saveClientChanges, openDeleteClientConfirm, confirmDeleteClient, openListPickerModal, detachClientFromList } from './clients.js';
 import { loadGlobalSettings, saveGeneral } from './settings.js';
 import { loadControllers, createController, _doCreateController, deleteController, _doDeleteController, saveController, testController } from './controllers.js';
 import { applyDebugPanelVisibility, loadDebugLogHistory, setupDebugLogStream, setupStream } from './debug.js';
@@ -45,62 +46,45 @@ document.getElementById("createListConfirm").onclick = async () => {
 document.getElementById("createListModal").onclick = (e) => { if (e.target.id === "createListModal") closeModal("createListModal"); };
 document.getElementById("newListName").onkeydown = (e) => { if (e.key === "Enter") document.getElementById("createListConfirm").click(); };
 
-// --- Entry modals ---
-document.getElementById("addEntryBtn").onclick = () => {
-  if (!state.selectedListId) return;
-  setEditingEntryId(null);
-  document.getElementById("addEntryModalTitle").textContent = "Добавить запись";
-  ["entryLastName","entryFirstName","entryMiddleName","entryPhone","entryCar","entryPlate","entryComment"].forEach(id => document.getElementById(id).value = "");
-  document.getElementById("addEntryError").textContent = "";
-  openModal("addEntryModal");
-  setTimeout(() => document.getElementById("entryLastName").focus(), 50);
-};
-document.getElementById("addEntryModalClose").onclick = () => closeModal("addEntryModal");
-document.getElementById("addEntryCancel").onclick = () => closeModal("addEntryModal");
-document.getElementById("addEntryConfirm").onclick = async () => {
-  const firstName = document.getElementById("entryFirstName").value.trim();
-  const plate = document.getElementById("entryPlate").value.trim();
-  const errEl = document.getElementById("addEntryError");
-  if (!firstName || !plate) { errEl.textContent = "Поля «Имя» и «Гос. номер автомобиля» обязательны."; return; }
-  errEl.textContent = "";
-  const payload = {
-    plate,
-    last_name: document.getElementById("entryLastName").value.trim(),
-    first_name: firstName,
-    middle_name: document.getElementById("entryMiddleName").value.trim(),
-    phone: document.getElementById("entryPhone").value.trim(),
-    car: document.getElementById("entryCar").value.trim(),
-    comment: document.getElementById("entryComment").value.trim(),
+// --- Clients sub-tab switching ---
+document.querySelectorAll('.clients-subtab-btn').forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll('.clients-subtab-btn').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('.subtab-pane').forEach((p) => p.classList.remove('active'));
+    btn.classList.add('active');
+    const pane = document.getElementById(`subtab-${btn.dataset.subtab}`);
+    if (pane) pane.classList.add('active');
   };
-  const { jfetch } = await import('./api.js');
-  const editingEntryId = getEditingEntryId();
-  try {
-    if (editingEntryId !== null) await jfetch(api(`/api/lists/${state.selectedListId}/entries/${editingEntryId}`), "PUT", payload);
-    else await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", payload);
-  } catch (_e) {
-    errEl.textContent = editingEntryId !== null ? "Не удалось обновить: возможно, номер уже существует." : "Не удалось сохранить: возможно, номер уже существует.";
-    return;
-  }
-  setEditingEntryId(null);
-  closeModal("addEntryModal");
-  await loadEntries(state.selectedListId);
-  await refreshPlateLookup();
-  renderEventFeed(true);
-};
-document.getElementById("addEntryModal").onclick = (e) => { if (e.target.id === "addEntryModal") { setEditingEntryId(null); closeModal("addEntryModal"); } };
+});
 
-// --- Delete entry ---
-document.getElementById("deleteEntryCancel").onclick = () => { setDeletingEntryId(null); closeModal("deleteEntryModal"); };
-document.getElementById("deleteEntryConfirm").onclick = async () => {
-  const entryId = getDeletingEntryId();
-  if (!entryId || !state.selectedListId) return;
-  const { jfetch } = await import('./api.js');
-  await jfetch(api(`/api/lists/${state.selectedListId}/entries/${entryId}`), "DELETE");
-  setDeletingEntryId(null);
-  closeModal("deleteEntryModal");
-  await loadLists();
-};
-document.getElementById("deleteEntryModal").onclick = (e) => { if (e.target.id === "deleteEntryModal") { setDeletingEntryId(null); closeModal("deleteEntryModal"); } };
+// --- All clients table ---
+document.getElementById('addClientBtn').onclick = openAddClientModal;
+document.getElementById('clientsSearchInput').oninput = (e) => searchClients(e.target.value);
+
+// --- Client card modal ---
+document.getElementById('clientCardClose').onclick = () => closeModal('clientCardModal');
+document.getElementById('clientCardCancel').onclick = () => closeModal('clientCardModal');
+document.getElementById('clientCardModal').onclick = (e) => { if (e.target.id === 'clientCardModal') closeModal('clientCardModal'); };
+document.getElementById('clientCardSaveBtn').onclick = saveClientChanges;
+document.getElementById('clientCardDeleteBtn').onclick = openDeleteClientConfirm;
+document.getElementById('clientCardAttachBtn').onclick = openListPickerModal;
+document.getElementById('clientCardDetachBtn').onclick = detachClientFromList;
+
+// --- Delete client confirmation ---
+document.getElementById('deleteClientCancel').onclick = () => closeModal('deleteClientModal');
+document.getElementById('deleteClientConfirm').onclick = confirmDeleteClient;
+document.getElementById('deleteClientModal').onclick = (e) => { if (e.target.id === 'deleteClientModal') closeModal('deleteClientModal'); };
+
+// --- List picker (attach client → list) ---
+document.getElementById('listPickerClose').onclick = () => closeModal('listPickerModal');
+document.getElementById('listPickerCancel').onclick = () => closeModal('listPickerModal');
+document.getElementById('listPickerModal').onclick = (e) => { if (e.target.id === 'listPickerModal') closeModal('listPickerModal'); };
+
+// --- Client picker (attach client to list from the Lists subtab) ---
+document.getElementById('attachClientToListBtn').onclick = () => { if (!state.selectedListId) return; openClientPickerModal(state.selectedListId); };
+document.getElementById('clientPickerClose').onclick = () => closeModal('clientPickerModal');
+document.getElementById('clientPickerCancel').onclick = () => closeModal('clientPickerModal');
+document.getElementById('clientPickerModal').onclick = (e) => { if (e.target.id === 'clientPickerModal') closeModal('clientPickerModal'); };
 
 // --- Export/Import ---
 document.getElementById("exportListBtn").onclick = exportCurrentListCSV;
@@ -144,10 +128,13 @@ document.getElementById("deleteListConfirm").onclick = async () => {
   const { jfetch } = await import('./api.js');
   await jfetch(api(`/api/lists/${state.selectedListId}`), "DELETE");
   closeModal("deleteListModal");
-  state.selectedListId = null; state.currentEntries = [];
-  document.getElementById("listTitle").textContent = "—";
-  document.getElementById("entriesBody").innerHTML = "";
+  state.selectedListId = null; state.listMembers = [];
+  const listTitleEl = document.getElementById("listTitle");
+  if (listTitleEl) listTitleEl.textContent = "—";
+  const listMembersBodyEl = document.getElementById("listMembersBody");
+  if (listMembersBodyEl) listMembersBodyEl.innerHTML = "";
   await loadLists();
+  await loadAllClients();
 };
 document.getElementById("deleteListModal").onclick = (e) => { if (e.target.id === "deleteListModal") closeModal("deleteListModal"); };
 
@@ -314,6 +301,7 @@ initBackupBindings();
   initJournalScroll();
   await loadEventFeedHistory();
   await loadLists();
+  await loadAllClients();
   await loadJournal();
   await loadGlobalSettings();
   await refreshOverlayStates();

@@ -217,7 +217,7 @@ class ListPayload(BaseModel):
     type: str = "white"
 
 
-class EntryPayload(BaseModel):
+class ClientPayload(BaseModel):
     plate: str
     last_name: str = ""
     first_name: str = ""
@@ -225,6 +225,10 @@ class EntryPayload(BaseModel):
     phone: str = ""
     car: str = ""
     comment: str = ""
+
+
+class AttachClientPayload(BaseModel):
+    list_id: int
 
 
 class UpdateListPayload(BaseModel):

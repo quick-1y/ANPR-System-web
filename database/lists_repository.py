@@ -4,7 +4,6 @@ from collections import OrderedDict
 from typing import Any, Dict, Iterable, Optional
 
 from database.base import PooledDatabase
-from database.errors import StorageUnavailableError
 
 LIST_TYPES = OrderedDict([
     ("white", "Белый список"),
@@ -50,7 +49,7 @@ class ListDatabase(PooledDatabase):
         );
         CREATE TABLE IF NOT EXISTS clients (
             id BIGSERIAL PRIMARY KEY,
-            list_id BIGINT NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+            list_id BIGINT REFERENCES lists(id) ON DELETE SET NULL,
             plate TEXT NOT NULL,
             plate_normalized TEXT NOT NULL,
             last_name TEXT NOT NULL DEFAULT '',
@@ -81,7 +80,7 @@ class ListDatabase(PooledDatabase):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT l.id, l.name, l.type, COUNT(e.id) AS entries_count
+                    SELECT l.id, l.name, l.type, COUNT(e.id) AS clients_count
                     FROM lists l
                     LEFT JOIN clients e ON e.list_id = l.id AND e.is_deleted = FALSE
                     WHERE l.is_deleted = FALSE
@@ -90,7 +89,7 @@ class ListDatabase(PooledDatabase):
                     """
                 )
                 return [
-                    {"id": row[0], "name": row[1], "type": row[2], "entries_count": row[3]}
+                    {"id": row[0], "name": row[1], "type": row[2], "clients_count": row[3]}
                     for row in cursor.fetchall()
                 ]
 
@@ -105,7 +104,7 @@ class ListDatabase(PooledDatabase):
             conn.commit()
         return int(row[0]) if row else 0
 
-    def list_entries(self, list_id: int) -> list[Dict[str, Any]]:
+    def list_clients_in_list(self, list_id: int) -> list[Dict[str, Any]]:
         self._ensure_schema()
         with self._connect() as conn:
             with conn.cursor() as cursor:
@@ -132,109 +131,13 @@ class ListDatabase(PooledDatabase):
                     for row in cursor.fetchall()
                 ]
 
-    def add_entry(
-        self,
-        list_id: int,
-        plate: str,
-        last_name: str = "",
-        first_name: str = "",
-        middle_name: str = "",
-        phone: str = "",
-        car: str = "",
-        comment: str = "",
-    ) -> Optional[int]:
-        self._ensure_schema()
-        normalized = normalize_plate(plate)
-        if not normalized:
-            return None
-        with self._connect() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO clients
-                        (list_id, plate, plate_normalized, last_name, first_name, middle_name, phone, car, comment)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (list_id, plate_normalized) WHERE is_deleted = FALSE DO NOTHING
-                    RETURNING id
-                    """,
-                    (
-                        int(list_id),
-                        plate.strip(),
-                        normalized,
-                        (last_name or "").strip(),
-                        (first_name or "").strip(),
-                        (middle_name or "").strip(),
-                        (phone or "").strip(),
-                        (car or "").strip(),
-                        (comment or "").strip(),
-                    ),
-                )
-                row = cursor.fetchone()
-            conn.commit()
-        return int(row[0]) if row else None
-
-    def update_entry(
-        self,
-        entry_id: int,
-        plate: str,
-        last_name: str = "",
-        first_name: str = "",
-        middle_name: str = "",
-        phone: str = "",
-        car: str = "",
-        comment: str = "",
-    ) -> bool:
-        self._ensure_schema()
-        normalized = normalize_plate(plate)
-        if not normalized:
-            return False
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        UPDATE clients
-                        SET plate = %s, plate_normalized = %s,
-                            last_name = %s, first_name = %s, middle_name = %s,
-                            phone = %s, car = %s, comment = %s
-                        WHERE id = %s AND is_deleted = FALSE
-                        """,
-                        (
-                            plate.strip(),
-                            normalized,
-                            (last_name or "").strip(),
-                            (first_name or "").strip(),
-                            (middle_name or "").strip(),
-                            (phone or "").strip(),
-                            (car or "").strip(),
-                            (comment or "").strip(),
-                            int(entry_id),
-                        ),
-                    )
-                    updated = cursor.rowcount > 0
-                conn.commit()
-            return updated
-        except Exception as exc:  # noqa: BLE001
-            raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
-
-    def delete_entry(self, entry_id: int) -> bool:
-        self._ensure_schema()
-        with self._connect() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "UPDATE clients SET is_deleted = TRUE WHERE id = %s AND is_deleted = FALSE",
-                    (int(entry_id),),
-                )
-                deleted = cursor.rowcount > 0
-            conn.commit()
-        return deleted
-
     def delete_list(self, list_id: int) -> bool:
         self._ensure_schema()
         with self._connect() as conn:
             with conn.cursor() as cursor:
+                # Detach clients from the list before deleting it so they survive as standalone clients.
                 cursor.execute(
-                    "UPDATE clients SET is_deleted = TRUE WHERE list_id = %s AND is_deleted = FALSE",
+                    "UPDATE clients SET list_id = NULL WHERE list_id = %s AND is_deleted = FALSE",
                     (int(list_id),),
                 )
                 cursor.execute(

@@ -9,6 +9,7 @@ from fastapi import HTTPException
 
 from database.base import close_shared_pool
 from database.channel_repository import ChannelDatabase
+from database.clients_repository import ClientDatabase
 from database.controller_repository import ControllerDatabase
 from database.lists_repository import ListDatabase
 from database.user_repository import UserDatabase
@@ -31,6 +32,7 @@ class AppContainer:
     settings: SettingsManager
     events_db: PostgresEventDatabase
     lists_db: ListDatabase
+    clients_db: ClientDatabase
     user_db: UserDatabase
     channel_db: ChannelDatabase
     controller_db: ControllerDatabase
@@ -55,6 +57,7 @@ class AppContainer:
         dsn = str(settings.get_storage_settings().get("postgres_dsn", "")).strip()
         events_db = PostgresEventDatabase(dsn)
         lists_db = ListDatabase(dsn)
+        clients_db = ClientDatabase(dsn)
         user_db = UserDatabase(dsn)
         channel_db = ChannelDatabase(dsn)
         controller_db = ControllerDatabase(dsn)
@@ -67,6 +70,7 @@ class AppContainer:
             settings=settings,
             events_db=events_db,
             lists_db=lists_db,
+            clients_db=clients_db,
             user_db=user_db,
             channel_db=channel_db,
             controller_db=controller_db,
@@ -208,6 +212,7 @@ class AppContainer:
         self.events_db = PostgresEventDatabase(dsn)
         self.lifecycle = self._build_lifecycle()
         self.lists_db = ListDatabase(dsn)
+        self.clients_db = ClientDatabase(dsn)
         self.user_db = UserDatabase(dsn)
         self.channel_db = ChannelDatabase(dsn)
         self.controller_db = ControllerDatabase(dsn)
