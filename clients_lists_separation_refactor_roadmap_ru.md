@@ -20,7 +20,7 @@
 **Рискованные области для фильтрации каналов:**
 
 - `ControllerAutomationService` в `controllers/service.py` напрямую вызывает `lists_db.plate_in_list_type(plate, type)` и `lists_db.plate_in_lists(plate, list_ids)` — это ключевые функции фильтрации для каналов. Любое переименование или изменение сигнатуры сломает автоматизацию реле.
-- `lists_db.find_entry_by_plate(plate)` используется для обогащения событий (подстановка имени клиента в события) — эта логика должна остаться рабочей.
+- ?????? `lists_db.find_entry_by_plate(plate)` используется для обогащения событий (подстановка имени клиента в события) — эта логика должна остаться рабочей.
 - `channels.list_filter_mode` и `channels.list_filter_list_ids` должны остаться семантически неизменными в БД.
 
 ---
