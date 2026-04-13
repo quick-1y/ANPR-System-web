@@ -110,6 +110,7 @@ class ChannelConfigPayload(BaseModel):
     enabled: Optional[bool] = None
     controller_id: Optional[int] = None
     controller_relay: int = Field(default=0, ge=0, le=1)
+    controller_direction_filter: str = Field(default="both", pattern="^(approaching|receding|both)$")
     list_filter_mode: str = Field(default="all", pattern="^(all|whitelist|custom)$")
     list_filter_list_ids: List[int] = Field(default_factory=list)
     detection_mode: str = Field(default="motion", pattern="^(always|motion)$")

@@ -176,6 +176,19 @@ class ControllerAutomationService:
                 logger.info("channel %s relay skip: %s (plate=%s)", channel_id, reason, plate)
                 return
 
+            direction_filter = str(channel.get("controller_direction_filter") or "both").strip().lower()
+            if direction_filter != "both":
+                event_direction = str(event.get("direction") or "UNKNOWN").strip().upper()
+                if event_direction != direction_filter.upper():
+                    logger.info(
+                        "channel %s relay skip: direction filter (%s != %s) plate=%s",
+                        channel_id,
+                        event_direction,
+                        direction_filter.upper(),
+                        plate,
+                    )
+                    return
+
             controller = next((item for item in self._get_controllers() if int(item.get("id", 0)) == int(controller_id)), None)
             if not controller:
                 logger.info("channel %s relay skip: controller not found (controller_id=%s)", channel_id, controller_id)

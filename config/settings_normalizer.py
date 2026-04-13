@@ -120,6 +120,13 @@ class SettingsNormalizer:
             channel["controller_relay"] = controller_relay
             changed = True
 
+        direction_filter = str(channel.get("controller_direction_filter") or "both").strip().lower()
+        if direction_filter not in {"approaching", "receding", "both"}:
+            direction_filter = "both"
+        if channel.get("controller_direction_filter") != direction_filter:
+            channel["controller_direction_filter"] = direction_filter
+            changed = True
+
         mode = str(channel.get("list_filter_mode") or "all").strip().lower()
         if mode not in {"all", "whitelist", "custom"}:
             mode = "all"

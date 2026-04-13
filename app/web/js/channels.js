@@ -497,6 +497,7 @@ export async function selectChannel(id) {
   renderChannelControllerOptions(c.controller_id ?? "");
   setVal("c_controller_relay", c.controller_relay ?? 0);
   updateChannelControllerBindingState();
+  setVal("c_controller_direction_filter", c.controller_direction_filter || "both");
   setVal("c_list_filter_mode", c.list_filter_mode || "all");
   currentChannelCustomListIds = (c.list_filter_list_ids || []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0);
   renderCustomListOptions(currentChannelCustomListIds);
@@ -553,6 +554,7 @@ export async function saveChannel() {
     source: val("c_source"),
     controller_id: val("c_controller_id") ? Number(val("c_controller_id")) : null,
     controller_relay: val("c_controller_id") ? Number(val("c_controller_relay")) : 0,
+    controller_direction_filter: val("c_controller_direction_filter"),
     list_filter_mode: val("c_list_filter_mode"),
     list_filter_list_ids: val("c_list_filter_mode") === "custom" ? selectedCustomListIds : [],
     detection_mode: val("c_detection_mode"),
