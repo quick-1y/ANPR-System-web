@@ -111,7 +111,9 @@
       "Bash(ls venv/Scripts/pytest*)",
       "Bash(pip list:*)",
       "Bash(python -c \"from config.settings_normalizer import SettingsNormalizer; print\\('Import OK'\\)\")",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(curl:*)"
     ]
   }
 }

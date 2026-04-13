@@ -95,6 +95,30 @@ function updateJournalSentinel() {
   sentinel.style.display = journalState.hasMore ? "block" : "none";
 }
 
+export function initJournalBindings() {
+  document.getElementById("btnFind").onclick = loadJournal;
+  document.getElementById("btnReset").onclick = () => {
+    document.getElementById("fltPlate").value = "";
+    document.getElementById("fltChannel").value = "";
+    document.getElementById("fltDateFrom").value = "";
+    document.getElementById("fltDateTo").value = "";
+    loadJournal();
+  };
+  document.getElementById("btnExport").onclick = () => {
+    const params = new URLSearchParams();
+    const plate = (document.getElementById("fltPlate").value || "").trim();
+    const channelId = document.getElementById("fltChannel").value;
+    const dateFrom = document.getElementById("fltDateFrom").value;
+    const dateTo = document.getElementById("fltDateTo").value;
+    if (plate) params.set("plate", plate);
+    if (channelId) params.set("channel_id", channelId);
+    if (dateFrom) params.set("start", new Date(dateFrom).toISOString());
+    if (dateTo) params.set("end", new Date(dateTo).toISOString());
+    const qs = params.toString();
+    window.open(api(`/api/data/export/events.csv${qs ? "?" + qs : ""}`), "_blank");
+  };
+}
+
 export function initJournalScroll() {
   const sentinel = document.getElementById("journalSentinel");
   if (!sentinel) return;

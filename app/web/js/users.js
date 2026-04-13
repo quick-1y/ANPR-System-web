@@ -14,7 +14,7 @@ export function initUsersPane() {
 
     const navItem = document.getElementById("snav-users");
     if (navItem) {
-        navItem.style.removeProperty("display");
+        navItem.classList.remove("hidden");
         navItem.onclick = () => { switchSettings("users"); loadUsers(); };
     }
 
@@ -127,9 +127,9 @@ function _showCreateForm() {
     document.getElementById("newUserRole").value = "operator";
     document.getElementById("createUserError").textContent = "";
     _renderPermCheckboxes("newUserPermissions", [], "operator");
-    document.getElementById("userCreatePane").style.display = "";
-    document.getElementById("userEditPane").style.display = "none";
-    document.getElementById("userConfigEmpty").style.display = "none";
+    document.getElementById("userCreatePane").classList.remove("hidden");
+    document.getElementById("userEditPane").classList.add("hidden");
+    document.getElementById("userConfigEmpty").classList.add("hidden");
     setTimeout(() => document.getElementById("newUserLogin").focus(), 50);
 }
 
@@ -165,9 +165,9 @@ function _showEditForm(user) {
     document.getElementById("editUserActive").checked = user.is_active;
     document.getElementById("editUserError").textContent = "";
     _renderPermCheckboxes("editUserPermissions", user.permissions || [], user.role);
-    document.getElementById("userCreatePane").style.display = "none";
-    document.getElementById("userEditPane").style.display = "";
-    document.getElementById("userConfigEmpty").style.display = "none";
+    document.getElementById("userCreatePane").classList.add("hidden");
+    document.getElementById("userEditPane").classList.remove("hidden");
+    document.getElementById("userConfigEmpty").classList.add("hidden");
 }
 
 async function _doSaveUser() {
@@ -222,9 +222,9 @@ async function _doChangePassword() {
 function _showEmpty() {
     _selectedUserId = null;
     _renderUserList();
-    document.getElementById("userCreatePane").style.display = "none";
-    document.getElementById("userEditPane").style.display = "none";
-    document.getElementById("userConfigEmpty").style.display = "";
+    document.getElementById("userCreatePane").classList.add("hidden");
+    document.getElementById("userEditPane").classList.add("hidden");
+    document.getElementById("userConfigEmpty").classList.remove("hidden");
 }
 
 function _renderPermCheckboxes(containerId, currentPerms, role) {

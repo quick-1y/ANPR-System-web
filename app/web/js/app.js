@@ -1,10 +1,10 @@
 // Application entry point — initialization, DOM bindings, timers
 import { eventSource, debugLogSource, overlayRefreshTimer, eventFeedRenderFrame, eventFeedRenderScheduled, setEventFeedRenderScheduled, setEventFeedRenderFrame } from './state.js';
 import { api, getToken, setToken, isTokenExpired, getCurrentUser, showLoginOverlay, logoutRequest } from './api.js';
-import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, loadBarColor, applyTabVisibility, showToast } from './ui.js';
+import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, applyTabVisibility, showToast } from './ui.js';
 import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVideoGridDragDrop, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate, clearExpandMode } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
-import { loadJournal, initJournalScroll } from './journal.js';
+import { loadJournal, initJournalScroll, initJournalBindings } from './journal.js';
 import { loadLists, loadEntries, refreshPlateLookup, exportCurrentListCSV, importCurrentListCSV, getEditingEntryId, setEditingEntryId, getDeletingEntryId, setDeletingEntryId } from './lists.js';
 import { loadGlobalSettings, saveGeneral } from './settings.js';
 import { loadControllers, createController, _doCreateController, deleteController, _doDeleteController, saveController, testController } from './controllers.js';
@@ -13,36 +13,7 @@ import { initHelpSystem } from './help.js';
 import { initBackupBindings } from './backup.js';
 import { state, setCurrentUser } from './state.js';
 import { initUsersPane } from './users.js';
-
-// --- System monitoring ---
-async function refreshSystemResources() {
-  if (document.hidden) return;
-  try {
-    const resources = await (await fetch(api("/api/system/resources"), { headers: (() => { const h = { "Content-Type": "application/json" }; const t = getToken(); if (t) h["Authorization"] = `Bearer ${t}`; return h; })() })).json();
-    const cpu = Math.round(Number(resources.cpu_percent) || 0);
-    const ram = Math.round(Number(resources.ram_percent) || 0);
-    const cpuStat = document.getElementById("cpuStat");
-    const ramStat = document.getElementById("ramStat");
-    const cpuBar = document.getElementById("cpuBar");
-    const ramBar = document.getElementById("ramBar");
-    if (cpuStat) cpuStat.textContent = `${cpu}%`;
-    if (ramStat) ramStat.textContent = `${ram}%`;
-    if (cpuBar) { cpuBar.style.width = `${cpu}%`; cpuBar.style.background = loadBarColor(cpu); }
-    if (ramBar) { ramBar.style.width = `${ram}%`; ramBar.style.background = loadBarColor(ram); }
-  } catch (_e) {}
-}
-
-async function checkServerHealth() {
-  if (document.hidden) return;
-  const dot = document.getElementById("serverDot");
-  if (!dot) return;
-  try {
-    const t = getToken();
-    const headers = t ? { "Authorization": `Bearer ${t}` } : {};
-    const r = await fetch(api("/api/health"), { method: "GET", headers, signal: AbortSignal.timeout(4000) });
-    dot.className = r.ok ? "server-dot live" : "server-dot off";
-  } catch (_e) { dot.className = "server-dot off"; }
-}
+import { initSystemPolling, refreshSystemResources, checkServerHealth } from './system.js';
 
 // --- Tab navigation bindings ---
 document.querySelectorAll(".ttab").forEach((el) => (el.onclick = () => {
@@ -53,28 +24,7 @@ document.querySelectorAll(".snav-item").forEach((el) => (el.onclick = () => swit
 document.querySelectorAll(".ch-tab").forEach((el) => (el.onclick = () => switchChannelSettingsTab(el.dataset.chTab)));
 document.getElementById("gridSelect").onchange = () => { clearExpandMode(); scheduleVideoGridLayout(true); };
 
-// --- Journal bindings ---
-document.getElementById("btnFind").onclick = loadJournal;
-document.getElementById("btnReset").onclick = () => {
-  document.getElementById("fltPlate").value = "";
-  document.getElementById("fltChannel").value = "";
-  document.getElementById("fltDateFrom").value = "";
-  document.getElementById("fltDateTo").value = "";
-  loadJournal();
-};
-document.getElementById("btnExport").onclick = () => {
-  const params = new URLSearchParams();
-  const plate = (document.getElementById("fltPlate").value || "").trim();
-  const channelId = document.getElementById("fltChannel").value;
-  const dateFrom = document.getElementById("fltDateFrom").value;
-  const dateTo = document.getElementById("fltDateTo").value;
-  if (plate) params.set("plate", plate);
-  if (channelId) params.set("channel_id", channelId);
-  if (dateFrom) params.set("start", new Date(dateFrom).toISOString());
-  if (dateTo) params.set("end", new Date(dateTo).toISOString());
-  const qs = params.toString();
-  window.open(api(`/api/data/export/events.csv${qs ? "?" + qs : ""}`), "_blank");
-};
+initJournalBindings();
 
 // --- List modals ---
 document.getElementById("addListBtn").onclick = () => {
@@ -274,10 +224,7 @@ document.addEventListener("keydown", (event) => {
 // --- Timers ---
 updateTopbarDateTime();
 setInterval(updateTopbarDateTime, 1000);
-refreshSystemResources();
-setInterval(refreshSystemResources, 10000);
-checkServerHealth();
-setInterval(checkServerHealth, 10000);
+initSystemPolling();
 
 // --- Cleanup ---
 function cleanupStreamsAndTimers() {
@@ -337,8 +284,8 @@ initBackupBindings();
   if (currentUser.role === "superadmin") {
     const devLabel = document.getElementById("snav-label-dev");
     const debugItem = document.getElementById("snav-debug");
-    if (devLabel) devLabel.style.removeProperty("display");
-    if (debugItem) debugItem.style.removeProperty("display");
+    if (devLabel) devLabel.classList.remove("hidden");
+    if (debugItem) debugItem.classList.remove("hidden");
   }
 
   // --- Logout button ---

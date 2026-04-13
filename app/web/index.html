@@ -4,10 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ANPR Web</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
-      rel="stylesheet"
-    />
     <link rel="stylesheet" href="/web/styles.css" />
     <link rel="icon" type="image/x-icon" href="/web/favicon/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/web/favicon/logo-32.png" />
@@ -194,7 +190,7 @@
               <img class="btn-icon ui-icon-sm" src="/web/assets/icons/import.svg" alt="" />
               <span>Импорт списка</span>
             </button>
-            <input type="file" id="importListFileInput" accept=".csv" style="display:none" />
+            <input type="file" id="importListFileInput" accept=".csv" class="hidden" />
             <button class="btn btn-ghost btn-sm" id="listSettingsBtn">Настройки</button>
           </div>
           <div class="lists-empty-state" id="listsEmptyState">
@@ -238,7 +234,7 @@
             Контроллеры
           </div>
 
-          <div class="snav-item" id="snav-users" data-sp="users" style="display:none">
+          <div class="snav-item hidden" id="snav-users" data-sp="users">
             <img class="ui-icon ui-icon-sm" src="/web/assets/icons/users.svg" alt="" />
             Пользователи
           </div>
@@ -248,9 +244,9 @@
             Системные данные
           </div>
 
-          <div class="snav-label" id="snav-label-dev" style="display:none">Разработка</div>
+          <div class="snav-label hidden" id="snav-label-dev">Разработка</div>
 
-          <div class="snav-item" id="snav-debug" data-sp="debug" style="display:none">
+          <div class="snav-item hidden" id="snav-debug" data-sp="debug">
             <img class="ui-icon ui-icon-sm" src="/web/assets/icons/debug.svg" alt="" />
             Отладка
           </div>
@@ -957,7 +953,7 @@
                     <img class="backup-icon" src="/web/assets/icons/import.svg" alt="" width="16" height="16" />
                     Импорт БД
                   </button>
-                  <input type="file" id="dbRestoreFileInput" accept=".zip" style="display:none" />
+                  <input type="file" id="dbRestoreFileInput" accept=".zip" class="hidden" />
                 </div>
               </div>
             </div>
@@ -973,7 +969,7 @@
                     <img class="backup-icon" src="/web/assets/icons/import.svg" alt="" width="16" height="16" />
                     Импорт настроек
                   </button>
-                  <input type="file" id="settingsRestoreFileInput" accept=".yaml,.yml" style="display:none" />
+                  <input type="file" id="settingsRestoreFileInput" accept=".yaml,.yml" class="hidden" />
                 </div>
               </div>
             </div>
@@ -989,7 +985,7 @@
               </div>
 
               <!-- Create user form -->
-              <div class="ch-config-pane" id="userCreatePane" style="display:none">
+              <div class="ch-config-pane hidden" id="userCreatePane">
                 <div class="s-card">
                   <div class="s-card-header">Новый пользователь</div>
                   <div class="s-card-body">
@@ -1026,7 +1022,7 @@
               </div>
 
               <!-- Edit user form -->
-              <div class="ch-config-pane" id="userEditPane" style="display:none">
+              <div class="ch-config-pane hidden" id="userEditPane">
                 <div class="s-card">
                   <div class="s-card-header">Параметры пользователя</div>
                   <div class="s-card-body">
@@ -1138,7 +1134,7 @@
         <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название списка</label>
-            <input class="input input--md s-input" style="width:100%" id="newListName" placeholder="Введите название" autocomplete="off" />
+            <input class="input input--md s-input" id="newListName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
         <div class="modal-footer">
@@ -1158,31 +1154,31 @@
         <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Фамилия</label>
-            <input class="input input--md s-input" style="width:100%" id="entryLastName" autocomplete="off" />
+            <input class="input input--md s-input" id="entryLastName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Имя <span class="modal-required">*</span></label>
-            <input class="input input--md s-input" style="width:100%" id="entryFirstName" autocomplete="off" />
+            <input class="input input--md s-input" id="entryFirstName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Отчество</label>
-            <input class="input input--md s-input" style="width:100%" id="entryMiddleName" autocomplete="off" />
+            <input class="input input--md s-input" id="entryMiddleName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Телефон</label>
-            <input class="input input--md s-input" style="width:100%" id="entryPhone" autocomplete="off" />
+            <input class="input input--md s-input" id="entryPhone" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Марка автомобиля</label>
-            <input class="input input--md s-input" style="width:100%" id="entryCar" autocomplete="off" />
+            <input class="input input--md s-input" id="entryCar" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Гос. номер автомобиля <span class="modal-required">*</span></label>
-            <input class="input input--md s-input" style="width:100%" id="entryPlate" autocomplete="off" />
+            <input class="input input--md s-input" id="entryPlate" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Комментарий</label>
-            <input class="input input--md s-input" style="width:100%" id="entryComment" autocomplete="off" />
+            <input class="input input--md s-input" id="entryComment" autocomplete="off" />
           </div>
           <div class="modal-error" id="addEntryError"></div>
         </div>
@@ -1203,11 +1199,11 @@
         <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название списка</label>
-            <input class="input input--md s-input" style="width:100%" id="settingsListName" autocomplete="off" />
+            <input class="input input--md s-input" id="settingsListName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Тип списка</label>
-            <select class="input input--md s-input input--select" style="width:100%" id="settingsListType">
+            <select class="input input--md s-input input--select" id="settingsListType">
               <option value="white">Белый список</option>
               <option value="info">Информационный список</option>
               <option value="black">Черный список</option>
@@ -1263,7 +1259,7 @@
         <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название канала</label>
-            <input class="input input--md s-input" style="width:100%" id="newChannelName" placeholder="Введите название" autocomplete="off" />
+            <input class="input input--md s-input" id="newChannelName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
         <div class="modal-footer">
@@ -1299,7 +1295,7 @@
         <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название контроллера</label>
-            <input class="input input--md s-input" style="width:100%" id="newControllerName" placeholder="Введите название" autocomplete="off" />
+            <input class="input input--md s-input" id="newControllerName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
         <div class="modal-footer">
@@ -1388,11 +1384,11 @@
         <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Новый пароль</label>
-            <input class="input input--md s-input" style="width:100%" type="password" id="userNewPassword" autocomplete="new-password" />
+            <input class="input input--md s-input" type="password" id="userNewPassword" autocomplete="new-password" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Подтверждение пароля</label>
-            <input class="input input--md s-input" style="width:100%" type="password" id="userConfirmPassword" autocomplete="new-password" />
+            <input class="input input--md s-input" type="password" id="userConfirmPassword" autocomplete="new-password" />
           </div>
           <div id="userPasswordError" class="modal-error"></div>
         </div>
