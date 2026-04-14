@@ -36,7 +36,8 @@
 - live-события через SSE без опроса (long-lived stream с keepalive);
 - управление каналами через API: создать, изменить, запустить, остановить, перезапустить;
 - настройка ROI, размера номерного знака, OCR порогов, cooldown, motion gate;
-- white / black / custom plate lists с фильтрацией событий для автоматической сработки реле;
+- управление клиентами (ФИО, номер, телефон, автомобиль, комментарий) независимо от списков;
+- white / black / custom plate lists с фильтрацией событий для автоматической сработки реле; клиенты могут быть прикреплены к списку или существовать без него;
 - управление аппаратными контроллерами через API (тип DTWONDER2CH);
 - retention / cleanup / CSV / ZIP export через отдельный worker-сервис;
 - backup / restore: полный бэкап PostgreSQL и settings.yaml с валидацией и восстановлением через UI;
@@ -295,11 +296,11 @@ API и retention_worker используют один и тот же `SETTINGS_P
 | Таблица | Поля |
 |---|---|
 | `events` | `id`, `timestamp`, `channel_id`, `channel`, `plate`, `plate_display`, `country`, `confidence`, `source`, `frame_path`, `plate_path`, `direction` |
-| `lists` | `id`, `name`, `type` |
-| `clients` | `id`, `list_id`, `plate`, `plate_normalized`, `comment` |
+| `lists` | `id`, `name`, `type`, `is_deleted` |
+| `clients` | `id`, `list_id` *(nullable — клиент может существовать без списка)*, `plate`, `plate_normalized`, `last_name`, `first_name`, `middle_name`, `phone`, `car`, `comment`, `is_deleted` |
 | `users` | `id`, `login`, `password` (bcrypt), `role`, `permissions` (JSONB), `is_active`, `created_at`, `updated_at` |
 
-**Индексы:** `(timestamp DESC, id DESC)` по событиям; `plate_normalized` и `(list_id, plate_normalized) UNIQUE` по клиентам.
+**Индексы:** `(timestamp DESC, id DESC)` по событиям; `plate_normalized` и `(list_id, plate_normalized) UNIQUE WHERE is_deleted = FALSE` по клиентам (partial unique — несколько неприкреплённых клиентов с одинаковым номером не конфликтуют).
 
 ### Медиа и экспорт
 

@@ -22,7 +22,7 @@ def health(container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
     metrics = container.processor.list_states()
     return {
         "status": "ok",
-        "channels_total": len(container.settings.get_channels()),
+        "channels_total": len(container.channel_db.list_channels()),
         "channels_running": sum(1 for item in metrics.values() if item.state == "running"),
     }
 
@@ -43,7 +43,7 @@ def storage_status(container: AppContainer = Depends(get_container), _user: Dict
 
 @router.get("/api/telemetry/channels")
 def channels_telemetry(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> List[Dict[str, Any]]:
-    channels = {int(item["id"]): item for item in container.settings.get_channels()}
+    channels = {int(item["id"]): item for item in container.channel_db.list_channels()}
     metrics = container.processor.list_states()
     items: List[Dict[str, Any]] = []
     for channel_id, metric in metrics.items():

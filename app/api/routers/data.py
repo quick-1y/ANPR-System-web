@@ -152,7 +152,7 @@ async def restore_database(
         try:
             container.refresh_storage_clients()
             container.processor = container._create_processor()
-            for channel in container.settings.get_channels():
+            for channel in container.channel_db.list_channels():
                 container.processor.ensure_channel(channel)
                 if channel.get("enabled", True):
                     container.processor.start(int(channel["id"]))

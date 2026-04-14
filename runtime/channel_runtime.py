@@ -14,7 +14,6 @@ import numpy as np
 
 from common.logging import get_logger
 from runtime.debug import DebugRegistry
-from database.postgres_event_repository import PostgresEventDatabase
 
 if TYPE_CHECKING:
     from anpr.model_config import AnprModelConfig
@@ -76,14 +75,16 @@ class ChannelProcessor:
         debug_registry: DebugRegistry | None = None,
         model_config: "AnprModelConfig | None" = None,
         events_db=None,
+        lists_db=None,
     ) -> None:
         self._event_callback = event_callback
         self._contexts: Dict[int, ChannelContext] = {}
         self._lock = threading.RLock()
         self._storage_settings = storage_settings or {}
-        self._events_db = events_db if events_db is not None else PostgresEventDatabase(
-            str(self._storage_settings.get("postgres_dsn", ""))
-        )
+        if events_db is None:
+            raise ValueError("events_db is required for ChannelProcessor")
+        self._events_db = events_db
+        self._lists_db = lists_db
         self._plate_settings = plate_settings or {}
         self._reconnect_config = self._build_reconnect_config(reconnect_settings or {})
         self._reconnect_config_cache_ts = 0.0
@@ -249,6 +250,9 @@ class ChannelProcessor:
     def restart(self, channel_id: int) -> None:
         self.stop(channel_id)
         self.start(channel_id)
+
+    def shutdown_io_pool(self) -> None:
+        self._io_pool.shutdown(wait=True, cancel_futures=False)
 
     @staticmethod
     def _sanitize_for_filename(value: str) -> str:
@@ -543,11 +547,7 @@ class ChannelProcessor:
                     # (unfinalized) tracks exist — saves YOLO calls during idle.
                     effective_stride = detector_frame_stride
                     if adaptive_stride_enabled:
-                        active_tracks = sum(
-                            1 for s in pipeline.aggregator._track_states.values()
-                            if not s.finalized
-                        )
-                        if active_tracks == 0:
+                        if not pipeline.aggregator.has_active_tracks():
                             effective_stride = detector_frame_stride * 3
                     if detector_input_frames % effective_stride != 0:
                         metrics.detector_skipped_frames += 1
@@ -587,6 +587,8 @@ class ChannelProcessor:
                         self._io_pool.submit(self._save_jpeg, frame_file, frame)
                         if plate_crop is not None:
                             self._io_pool.submit(self._save_jpeg, plate_file, plate_crop)
+                        client_info = self._lists_db.find_client_by_plate(plate) if self._lists_db else None
+                        client_id = client_info["id"] if client_info else None
                         event = {
                             "timestamp": event_ts.isoformat(),
                             "channel": channel.get("name", f"Канал {channel_id}"),
@@ -599,6 +601,7 @@ class ChannelProcessor:
                             "frame_path": frame_path,
                             "plate_path": plate_path,
                             "direction": detection.get("direction", "UNKNOWN"),
+                            "client_id": client_id,
                         }
                         event_id = self._events_db.insert_event(**{
                             k: event[k]
@@ -614,6 +617,7 @@ class ChannelProcessor:
                                 "frame_path",
                                 "plate_path",
                                 "direction",
+                                "client_id",
                             )
                         })
                         if int(event_id or 0) > 0:

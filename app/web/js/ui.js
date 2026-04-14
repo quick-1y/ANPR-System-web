@@ -32,7 +32,7 @@ export function updateTopbarTitle() {
   const tabLabels = {
     obs: "Наблюдение",
     journal: "Журнал",
-    lists: "Списки",
+    clients: "Клиенты",
     settings: "Настройки",
   };
   const settingsLabels = {
@@ -233,4 +233,8 @@ export function initSidebarHover() {
   rail.addEventListener("mouseleave", () => {
     rail.classList.remove("rail-expanded");
   });
+}
+
+export function esc(str) {
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

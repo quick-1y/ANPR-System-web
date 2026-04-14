@@ -113,7 +113,15 @@
       "Bash(python -c \"from config.settings_normalizer import SettingsNormalizer; print\\('Import OK'\\)\")",
       "Bash(ls:*)",
       "Bash(wc:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(python -m pytest --version)",
+      "Bash(poetry env:*)",
+      "Bash(\"C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\pypoetry\\\\Cache\\\\virtualenvs\\\\anpr-system-wAD8mgqr-py3.14\\\\Scripts\\\\python.exe\" -m pytest tests/ -v)",
+      "Bash(poetry install:*)",
+      "Bash(\"C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\pypoetry\\\\Cache\\\\virtualenvs\\\\anpr-system-wAD8mgqr-py3.14\\\\Scripts\\\\python.exe\" -m pytest tests/test_lists_repository.py -v)",
+      "Bash(\"C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\pypoetry\\\\Cache\\\\virtualenvs\\\\anpr-system-wAD8mgqr-py3.14\\\\Scripts\\\\python.exe\" -m pytest tests/ --ignore=tests/test_lists_repository.py -v)",
+      "Bash(cat docker-compose.yml)",
+      "Bash(cat docker-compose.yaml)"
     ]
   }
 }

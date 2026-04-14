@@ -4,7 +4,6 @@ from collections import OrderedDict
 from typing import Any, Dict, Iterable, Optional
 
 from database.base import PooledDatabase
-from database.errors import StorageUnavailableError
 
 LIST_TYPES = OrderedDict([
     ("white", "Белый список"),
@@ -46,11 +45,12 @@ class ListDatabase(PooledDatabase):
         CREATE TABLE IF NOT EXISTS lists (
             id BIGSERIAL PRIMARY KEY,
             name TEXT NOT NULL,
-            type TEXT NOT NULL
+            type TEXT NOT NULL,
+            is_deleted BOOLEAN NOT NULL DEFAULT FALSE
         );
         CREATE TABLE IF NOT EXISTS clients (
             id BIGSERIAL PRIMARY KEY,
-            list_id BIGINT NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+            list_id BIGINT REFERENCES lists(id) ON DELETE SET NULL,
             plate TEXT NOT NULL,
             plate_normalized TEXT NOT NULL,
             last_name TEXT NOT NULL DEFAULT '',
@@ -58,20 +58,12 @@ class ListDatabase(PooledDatabase):
             middle_name TEXT NOT NULL DEFAULT '',
             phone TEXT NOT NULL DEFAULT '',
             car TEXT NOT NULL DEFAULT '',
-            comment TEXT NOT NULL DEFAULT ''
+            comment TEXT NOT NULL DEFAULT '',
+            is_deleted BOOLEAN NOT NULL DEFAULT FALSE
         );
-        ALTER TABLE lists ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT '';
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT '';
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS middle_name TEXT NOT NULL DEFAULT '';
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS car TEXT NOT NULL DEFAULT '';
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS comment TEXT NOT NULL DEFAULT '';
         CREATE INDEX IF NOT EXISTS idx_lists_type ON lists(type);
         CREATE INDEX IF NOT EXISTS idx_clients_plate ON clients(plate_normalized);
         CREATE INDEX IF NOT EXISTS idx_clients_list ON clients(list_id);
-        DROP INDEX IF EXISTS uq_clients_list_plate;
         CREATE UNIQUE INDEX IF NOT EXISTS uq_clients_list_plate ON clients(list_id, plate_normalized) WHERE is_deleted = FALSE;
         """
 
@@ -81,16 +73,16 @@ class ListDatabase(PooledDatabase):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT l.id, l.name, l.type, COUNT(e.id) AS entries_count
+                    SELECT l.id, l.name, l.type, COUNT(c.id) AS clients_count
                     FROM lists l
-                    LEFT JOIN clients e ON e.list_id = l.id AND e.is_deleted = FALSE
+                    LEFT JOIN clients c ON c.list_id = l.id AND c.is_deleted = FALSE
                     WHERE l.is_deleted = FALSE
                     GROUP BY l.id
                     ORDER BY l.name
                     """
                 )
                 return [
-                    {"id": row[0], "name": row[1], "type": row[2], "entries_count": row[3]}
+                    {"id": row[0], "name": row[1], "type": row[2], "clients_count": row[3]}
                     for row in cursor.fetchall()
                 ]
 
@@ -105,7 +97,7 @@ class ListDatabase(PooledDatabase):
             conn.commit()
         return int(row[0]) if row else 0
 
-    def list_entries(self, list_id: int) -> list[Dict[str, Any]]:
+    def list_clients_in_list(self, list_id: int) -> list[Dict[str, Any]]:
         self._ensure_schema()
         with self._connect() as conn:
             with conn.cursor() as cursor:
@@ -132,109 +124,13 @@ class ListDatabase(PooledDatabase):
                     for row in cursor.fetchall()
                 ]
 
-    def add_entry(
-        self,
-        list_id: int,
-        plate: str,
-        last_name: str = "",
-        first_name: str = "",
-        middle_name: str = "",
-        phone: str = "",
-        car: str = "",
-        comment: str = "",
-    ) -> Optional[int]:
-        self._ensure_schema()
-        normalized = normalize_plate(plate)
-        if not normalized:
-            return None
-        with self._connect() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO clients
-                        (list_id, plate, plate_normalized, last_name, first_name, middle_name, phone, car, comment)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (list_id, plate_normalized) WHERE is_deleted = FALSE DO NOTHING
-                    RETURNING id
-                    """,
-                    (
-                        int(list_id),
-                        plate.strip(),
-                        normalized,
-                        (last_name or "").strip(),
-                        (first_name or "").strip(),
-                        (middle_name or "").strip(),
-                        (phone or "").strip(),
-                        (car or "").strip(),
-                        (comment or "").strip(),
-                    ),
-                )
-                row = cursor.fetchone()
-            conn.commit()
-        return int(row[0]) if row else None
-
-    def update_entry(
-        self,
-        entry_id: int,
-        plate: str,
-        last_name: str = "",
-        first_name: str = "",
-        middle_name: str = "",
-        phone: str = "",
-        car: str = "",
-        comment: str = "",
-    ) -> bool:
-        self._ensure_schema()
-        normalized = normalize_plate(plate)
-        if not normalized:
-            return False
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        UPDATE clients
-                        SET plate = %s, plate_normalized = %s,
-                            last_name = %s, first_name = %s, middle_name = %s,
-                            phone = %s, car = %s, comment = %s
-                        WHERE id = %s AND is_deleted = FALSE
-                        """,
-                        (
-                            plate.strip(),
-                            normalized,
-                            (last_name or "").strip(),
-                            (first_name or "").strip(),
-                            (middle_name or "").strip(),
-                            (phone or "").strip(),
-                            (car or "").strip(),
-                            (comment or "").strip(),
-                            int(entry_id),
-                        ),
-                    )
-                    updated = cursor.rowcount > 0
-                conn.commit()
-            return updated
-        except Exception as exc:  # noqa: BLE001
-            raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
-
-    def delete_entry(self, entry_id: int) -> bool:
-        self._ensure_schema()
-        with self._connect() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "UPDATE clients SET is_deleted = TRUE WHERE id = %s AND is_deleted = FALSE",
-                    (int(entry_id),),
-                )
-                deleted = cursor.rowcount > 0
-            conn.commit()
-        return deleted
-
     def delete_list(self, list_id: int) -> bool:
         self._ensure_schema()
         with self._connect() as conn:
             with conn.cursor() as cursor:
+                # Detach clients from the list before deleting it so they survive as standalone clients.
                 cursor.execute(
-                    "UPDATE clients SET is_deleted = TRUE WHERE list_id = %s AND is_deleted = FALSE",
+                    "UPDATE clients SET list_id = NULL WHERE list_id = %s AND is_deleted = FALSE",
                     (int(list_id),),
                 )
                 cursor.execute(
@@ -265,10 +161,10 @@ class ListDatabase(PooledDatabase):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT e.plate_normalized, l.type
-                    FROM clients e
-                    JOIN lists l ON l.id = e.list_id
-                    WHERE e.is_deleted = FALSE AND l.is_deleted = FALSE
+                    SELECT c.plate_normalized, l.type
+                    FROM clients c
+                    JOIN lists l ON l.id = c.list_id
+                    WHERE c.is_deleted = FALSE AND l.is_deleted = FALSE
                     """
                 )
                 return [{"plate": row[0], "list_type": row[1]} for row in cursor.fetchall()]
@@ -283,18 +179,18 @@ class ListDatabase(PooledDatabase):
                 cursor.execute(
                     """
                     SELECT 1
-                    FROM clients e
-                    JOIN lists l ON l.id = e.list_id
-                    WHERE e.plate_normalized = %s AND l.type = %s
-                      AND e.is_deleted = FALSE AND l.is_deleted = FALSE
+                    FROM clients c
+                    JOIN lists l ON l.id = c.list_id
+                    WHERE c.plate_normalized = %s AND l.type = %s
+                      AND c.is_deleted = FALSE AND l.is_deleted = FALSE
                     LIMIT 1
                     """,
                     (normalized, list_type),
                 )
                 return cursor.fetchone() is not None
 
-    def find_entry_by_plate(self, plate: str) -> Optional[Dict[str, Any]]:
-        """Return the first list entry matching the given plate, or None."""
+    def find_client_by_plate(self, plate: str) -> Optional[Dict[str, Any]]:
+        """Return the first client record matching the given plate that belongs to a list, or None."""
         self._ensure_schema()
         normalized = normalize_plate(plate)
         if not normalized:
@@ -303,12 +199,12 @@ class ListDatabase(PooledDatabase):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT e.plate, e.last_name, e.first_name, e.middle_name,
-                           e.phone, e.car, e.comment, l.type, l.name
-                    FROM clients e
-                    JOIN lists l ON l.id = e.list_id
-                    WHERE e.plate_normalized = %s
-                      AND e.is_deleted = FALSE AND l.is_deleted = FALSE
+                    SELECT c.id, c.plate, c.last_name, c.first_name, c.middle_name,
+                           c.phone, c.car, c.comment, l.type, l.name
+                    FROM clients c
+                    JOIN lists l ON l.id = c.list_id
+                    WHERE c.plate_normalized = %s
+                      AND c.is_deleted = FALSE AND l.is_deleted = FALSE
                     LIMIT 1
                     """,
                     (normalized,),
@@ -317,15 +213,16 @@ class ListDatabase(PooledDatabase):
         if not row:
             return None
         return {
-            "plate": row[0],
-            "last_name": row[1],
-            "first_name": row[2],
-            "middle_name": row[3],
-            "phone": row[4],
-            "car": row[5],
-            "comment": row[6],
-            "list_type": row[7],
-            "list_name": row[8],
+            "id": row[0],
+            "plate": row[1],
+            "last_name": row[2],
+            "first_name": row[3],
+            "middle_name": row[4],
+            "phone": row[5],
+            "car": row[6],
+            "comment": row[7],
+            "list_type": row[8],
+            "list_name": row[9],
         }
 
     def plate_in_lists(self, plate: str, list_ids: Iterable[int]) -> bool:
@@ -336,10 +233,10 @@ class ListDatabase(PooledDatabase):
             return False
         placeholders = ",".join(["%s"] * len(ids))
         query = (
-            f"SELECT 1 FROM clients e "
-            f"JOIN lists l ON l.id = e.list_id "
-            f"WHERE e.plate_normalized = %s AND e.list_id IN ({placeholders}) "
-            f"AND e.is_deleted = FALSE AND l.is_deleted = FALSE "
+            f"SELECT 1 FROM clients c "
+            f"JOIN lists l ON l.id = c.list_id "
+            f"WHERE c.plate_normalized = %s AND c.list_id IN ({placeholders}) "
+            f"AND c.is_deleted = FALSE AND l.is_deleted = FALSE "
             f"LIMIT 1"
         )
         with self._connect() as conn:

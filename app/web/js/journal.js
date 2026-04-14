@@ -1,7 +1,7 @@
 // Event journal with pagination
 import { state } from './state.js';
 import { api, jfetch } from './api.js';
-import { formatDirection, flagHtml, normalizePlate } from './ui.js';
+import { formatDirection, flagHtml, normalizePlate, esc } from './ui.js';
 import { openEventDetails } from './events.js';
 
 export const journalState = {
@@ -74,12 +74,12 @@ export function makeJournalRow(ev) {
   else if (listType === "info") tr.classList.add("list-info");
   const srcText = ev.source || "";
   tr.innerHTML = `<td class="col-time">${timeStr}</td>` +
-    `<td class="col-channel">${ev.channel || `CAM-${ev.channel_id || ""}`}</td>` +
-    `<td class="col-country">${flagHtml(ev.country)} ${ev.country || ""}</td>` +
+    `<td class="col-channel">${esc(ev.channel || `CAM-${ev.channel_id || ""}`)}</td>` +
+    `<td class="col-country">${flagHtml(ev.country)} ${esc(ev.country || "")}</td>` +
     `<td class="col-dir"><span class="badge ${direction.badgeClass}">${direction.label}</span></td>` +
-    `<td class="col-plate plate-cell">${ev.plate_display || ev.plate || ""}</td>` +
+    `<td class="col-plate plate-cell">${esc(ev.plate_display || ev.plate || "")}</td>` +
     `<td class="col-conf conf-cell" style="color:${conf < 0.85 ? "var(--warning)" : "var(--success)"}">${conf.toFixed(2)}</td>` +
-    `<td class="col-source" title="${srcText.replace(/"/g, "&quot;")}">${srcText}</td>`;
+    `<td class="col-source" title="${esc(srcText)}">${esc(srcText)}</td>`;
   tr.onclick = () => openEventDetails(ev);
   return tr;
 }

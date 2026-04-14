@@ -1,6 +1,6 @@
 # External Integrations
 
-**Analysis Date:** 2026-03-25
+**Analysis Date:** 2026-04-14
 
 ## APIs & External Services
 
@@ -23,59 +23,80 @@
 - Adapter system is pluggable via `controllers/adapters/` directory
 
 **SSE (Server-Sent Events):**
-- `/api/events/stream` - Live ANPR event stream to web clients
-- `/api/debug/logs/stream` - Live log stream to web clients
+- `/api/events/stream` — Live ANPR event stream to web clients
+- `/api/debug/logs/stream` — Live log stream to web clients
 - Nginx configured with `proxy_buffering off`, `proxy_cache off`, 1h `proxy_read_timeout` for SSE paths
 
 **MJPEG / Snapshot Streaming:**
-- `/api/channels/{id}/preview.mjpg` - Live camera preview (MJPEG)
-- `/api/channels/{id}/snapshot.jpg` - Single frame capture
+- `/api/channels/{id}/preview.mjpg` — Live camera preview (MJPEG)
+- `/api/channels/{id}/snapshot.jpg` — Single frame capture
 
 ## Data Storage
 
 **PostgreSQL 16:**
 - Connection: `POSTGRES_DSN` env var (default: `postgresql://anpr:anpr@postgres:5432/anpr`)
 - Driver: `psycopg[binary]` (psycopg3 with C extensions)
-- Connection pooling: `psycopg_pool.ConnectionPool`
+- Connection pooling: **shared pool per DSN** via `database/base.py` (`get_shared_pool`)
   - Pool config: `min_size=2, max_size=10, open=True`
-  - `database/postgres_event_repository.py` (`PostgresEventDatabase._get_pool()`) - lazy init, one pool per instance
-  - `database/lists_repository.py` (`ListDatabase._get_pool()`) - lazy init, one pool per instance
-  - Two separate pools per process (events + lists)
-- Schema bootstrap:
-  - Events: `database/postgres/schema.sql` applied via `_ensure_schema()` on first access, validated at startup (`_SCHEMA_SQL_PATH.is_file()`)
-  - Lists: inline DDL in `database/lists_repository.py` (`CREATE TABLE IF NOT EXISTS`)
-- Docker init: `schema.sql` also mounted to `/docker-entrypoint-initdb.d/01-schema.sql` for fresh databases
+  - Single pool shared across all repository instances with the same DSN
+  - All `PooledDatabase` subclasses call `get_shared_pool(dsn)` which creates or returns the singleton
+  - `close_shared_pool(dsn)` called on DSN change in `AppContainer.refresh_storage_clients()`
+- Schema bootstrap: lazy via `_ensure_schema()` on first access per repository; initial schema also mounted at `/docker-entrypoint-initdb.d/01-schema.sql`
 
-**Tables:**
-- `events` - ANPR detection events (id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction)
-- `lists` - Named lists with types (`white`, `info`, `black`)
-- `clients` - Individual plate entries linked to lists (with unique constraint on `list_id, plate_normalized`)
+**Tables (from `database/postgres/schema.sql` and inline DDL):**
+- `events` — ANPR detection events (id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction)
+- `lists` — Named lists with types (`white`, `info`, `black`)
+- `clients` — Individual plate entries linked to lists (unique constraint on `list_id, plate_normalized`)
+- `users` — User accounts (id, login, password_hash, role, permissions, is_active, timestamps)
+
+**Repositories:**
+- `PostgresEventDatabase` (`database/postgres_event_repository.py`) — event CRUD, journal pagination, export
+- `ListDatabase` (`database/lists_repository.py`) — list CRUD + plate-matching helpers for channel automation
+- `ClientDatabase` (`database/clients_repository.py`) — client CRUD, search, attach/detach
+- `UserDatabase` (`database/user_repository.py`) — user CRUD, login lookup, password management
+- `ChannelDatabase` (`database/channel_repository.py`) — channel config persistence
+- `ControllerDatabase` (`database/controller_repository.py`) — controller config persistence
 
 **File Storage (local filesystem via Docker volumes):**
-- Screenshots: `data/screenshots/` (Docker volume `media_data` mounted at `/app/data`)
+- Screenshots: `data/screenshots/` (Docker volume `media_data` at `/app/data`)
 - Exports: `data/exports/` (same volume)
-- Logs: `logs/` (Docker volume `logs_data` mounted at `/app/logs`)
-- Hourly log rotation: `common/logging.py` (`HourlyFileHandler`) with naming pattern `{service}_{YYYY-MM-DD_HH-00}.log`
+- Logs: `logs/` (Docker volume `logs_data` at `/app/logs`)
+- Hourly log rotation: `common/logging.py` (`HourlyFileHandler`), pattern: `{service}_{YYYY-MM-DD_HH-00}.log`
 
 **Caching:**
 - None (no Redis or external cache)
-- In-memory `EventBus` for live pub/sub (`runtime/event_bus.py`) - asyncio queue-based, max 512 per subscriber
-- In-memory `DebugLogBus` for live log streaming (`runtime/debug.py`, capacity=2000)
+- In-memory `EventBus` for live pub/sub (`runtime/event_bus.py`) — asyncio queue-based, max 512 per subscriber
+- In-memory `DebugLogBus` for live log streaming (`runtime/debug_log_bus.py`, capacity=2000)
 
 ## Authentication & Identity
 
-**API Key Middleware (`app/api/auth.py`):**
-- Class: `APIKeyMiddleware` (extends `BaseHTTPMiddleware`)
-- Enabled only when `API_KEY` env var is non-empty (`app/api/main.py` lines 39-41)
-- Timing-safe comparison: `secrets.compare_digest()` (resistant to timing attacks)
-- Key delivery methods (checked in order):
-  1. `X-Api-Key` header (preferred)
-  2. `Authorization: Bearer <key>` header
-  3. `?api_key=<key>` query parameter (for SSE/MJPEG streams that cannot send headers)
-- Exempt paths: `/api/health` (Docker healthcheck), all non-`/api/` paths
-- Streaming paths accepting query param: `/api/events/stream`, `/api/debug/logs/stream`, `/api/channels/`
+**JWT-based multi-user auth:**
+- Location: `app/api/auth_utils.py`, `app/api/deps.py`, `app/api/routers/auth.py`
+- Algorithm: HS256
+- Secret: `JWT_SECRET_KEY` env var (default: `anpr-default-secret-change-me` — insecure, must change in production)
+- Expiry: `JWT_EXPIRATION_MINUTES` env var (default: `480` = 8 hours)
+- Token delivery (checked in order by `get_current_user`):
+  1. `Authorization: Bearer <token>` header (standard)
+  2. `?token=<jwt>` query parameter (for SSE / MJPEG streams that cannot set headers)
+- Password hashing: bcrypt (`bcrypt.hashpw` / `bcrypt.checkpw`)
+- `app/api/deps.py` provides:
+  - `get_current_user()` — validates JWT, fetches user, checks `is_active`
+  - `require_role(role)` — dependency checking user role
+  - `require_permission(perm)` — dependency checking permission key
 
-**No user management** - single shared API key model for trusted LAN deployments.
+**Brute-force protection (`app/api/routers/auth.py`):**
+- In-memory per-IP rate limiter: 5 failed attempts per 60-second rolling window
+- HTTP 429 returned on threshold breach; counter resets on successful login
+- `_failed_attempts: dict[str, list[float]]` protected by `threading.Lock`
+
+**User roles:**
+- `superadmin` — full access; required for most mutation endpoints
+- Custom permission keys: `tab:obs`, `tab:journal`, `tab:lists`, `tab:settings`
+
+**Endpoints:**
+- `POST /api/auth/login` — authenticate, receive JWT
+- `POST /api/auth/logout` — client-side token invalidation (no server-side revocation)
+- `GET /api/auth/me` — current user profile
 
 ## Monitoring & Observability
 
@@ -83,7 +104,7 @@
 
 | Service | Endpoint | Interval | Timeout | Retries | Probe |
 |---------|----------|----------|---------|---------|-------|
-| postgres | - | 5s | 5s | 12 | `pg_isready -U anpr -d anpr` |
+| postgres | — | 5s | 5s | 12 | `pg_isready -U anpr -d anpr` |
 | api | `/api/health` | 10s | 5s | 6 | Python `urllib.request.urlopen` with 3s timeout |
 | retention_worker | `/worker/health` | 15s | 5s | 6 | Python `urllib.request.urlopen` with 3s timeout |
 | nginx | `/` | 10s | 5s | 6 | `wget -q -O /dev/null` |
@@ -91,7 +112,7 @@
 **Logging (`common/logging.py`):**
 - Async queue-based: `QueueHandler` + `QueueListener` (avoids blocking application threads)
 - Format: `%(asctime)s [%(levelname)s] [%(service)s] %(name)s: %(message)s`
-- File handler: `HourlyFileHandler` - rotates log files every hour
+- File handler: `HourlyFileHandler` — rotates log files every hour
 - Console handler: `StreamHandler` to stdout
 - Live debug handler: `LiveDebugHandler` publishes to `DebugLogBus` for SSE streaming
 - Service name filter: auto-tags all log records with service identifier
@@ -112,7 +133,7 @@
 - Self-hosted Docker Compose deployment (no cloud provider)
 
 **CI Pipeline:**
-- Not detected - no `.github/workflows/`, `Jenkinsfile`, or `.gitlab-ci.yml`
+- Not detected — no `.github/workflows/`, `Jenkinsfile`, or `.gitlab-ci.yml`
 
 **Deployment:**
 - `docker-compose up --build`
@@ -129,20 +150,21 @@
 ## Environment Configuration
 
 **Required env vars:**
-- `POSTGRES_DSN` - PostgreSQL connection string (critical for both api and retention_worker)
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` - Used by postgres container initialization
+- `POSTGRES_DSN` — PostgreSQL connection string (critical for both api and retention_worker)
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` — Used by postgres container initialization
+- `JWT_SECRET_KEY` — **Must be changed from default before any production use**
 
 **Optional env vars:**
-- `API_KEY` - Empty = no auth (default)
-- `APP_ENV` - Environment identifier (default: `docker`)
-- `DEBUG` - Debug flag (default: `false`)
-- `LOG_LEVEL` - Log verbosity (default: `INFO`)
-- `SETTINGS_PATH` - YAML config path (default: `/app/config/settings.yaml`)
-- `HTTP_PORT` - External HTTP port (default: `8080`)
+- `APP_ENV` — Environment identifier (default: `docker`)
+- `DEBUG` — Debug flag (default: `false`)
+- `LOG_LEVEL` — Log verbosity (default: `INFO`)
+- `SETTINGS_PATH` — YAML config path (default: `/app/config/settings.yaml`)
+- `HTTP_PORT` — External HTTP port (default: `8080`)
+- `JWT_EXPIRATION_MINUTES` — Token TTL (default: `480`)
+- `OMP_NUM_THREADS` / `MKL_NUM_THREADS` / `OPENBLAS_NUM_THREADS` — Thread limits (default: `2`)
 
 **Secrets location:**
 - `.env` file in project root (gitignored)
-- `.env.example` provides template with safe defaults
 - RTSP credentials embedded in stream URLs (plaintext in `config/settings.yaml`)
 - Controller passwords in `config/settings.yaml` (relay config sections)
 
@@ -170,4 +192,4 @@
 
 ---
 
-*Integration audit: 2026-03-25*
+*Integration audit: 2026-04-14*

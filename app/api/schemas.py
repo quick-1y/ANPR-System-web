@@ -217,7 +217,7 @@ class ListPayload(BaseModel):
     type: str = "white"
 
 
-class EntryPayload(BaseModel):
+class ClientPayload(BaseModel):
     plate: str
     last_name: str = ""
     first_name: str = ""
@@ -227,9 +227,17 @@ class EntryPayload(BaseModel):
     comment: str = ""
 
 
+class AttachClientPayload(BaseModel):
+    list_id: int
+
+
 class UpdateListPayload(BaseModel):
     name: str
     type: str = "white"
+
+
+class BulkImportPayload(BaseModel):
+    clients: List[ClientPayload]
 
 
 class RetentionPolicyPayload(BaseModel):

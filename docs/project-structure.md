@@ -70,6 +70,9 @@ ANPR-System-v0.8_web/
 ├── database/                      # Репозитории и схема БД
 │   ├── postgres/
 │   │   └── schema.sql
+│   ├── base.py
+│   ├── channel_repository.py
+│   ├── controller_repository.py
 │   ├── errors.py
 │   ├── lists_repository.py
 │   ├── postgres_event_repository.py
@@ -120,7 +123,7 @@ ANPR-System-v0.8_web/
 Центральная точка управления настройками, их нормализацией, миграцией и сохранением.
 
 ### `database/`
-Слой доступа к данным: события, списки и клиенты (номера), SQL-схема PostgreSQL.
+Слой доступа к данным: события, каналы, контроллеры, списки и клиенты (номера), SQL-схема PostgreSQL. Каждый репозиторий наследует `PooledDatabase` и выполняет lazy bootstrap своей схемы.
 
 ### `controllers/`
 Интеграция с внешними аппаратными контроллерами реле и шлагбаумов.

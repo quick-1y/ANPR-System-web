@@ -28,11 +28,11 @@
             <span class="ttab-label">Журнал</span>
           </div>
       
-          <div class="ttab" data-tab="lists" title="Списки">
+          <div class="ttab" data-tab="clients" title="Клиенты">
             <span class="ttab-icon-wrap">
               <img class="ttab-icon ui-icon" src="/web/assets/icons/lists.svg" alt="" />
             </span>
-            <span class="ttab-label">Списки</span>
+            <span class="ttab-label">Клиенты</span>
           </div>
       
           <div class="ttab" data-tab="settings" title="Настройки">
@@ -167,52 +167,89 @@
               </div>
             </div>
           </div>
-      <div class="tab-pane" id="tab-lists">
-        <div class="lists-sidebar">
-          <div class="panel-header">
-            <span>Списки номеров</span>
-            <div style="display:flex;gap:4px">
-              <button class="icon-btn-sm" id="addListBtn" title="Создать список">+</button>
-              <button class="icon-btn-sm" id="deleteListBtn" title="Удалить список">−</button>
+      <div class="tab-pane" id="tab-clients">
+        <!-- Sub-tab navigation -->
+        <div class="clients-subtab-nav">
+          <button class="clients-subtab-btn active" data-subtab="clients">Клиенты</button>
+          <button class="clients-subtab-btn" data-subtab="lists">Списки</button>
+        </div>
+        <div class="clients-subtab-body">
+
+          <!-- ── Clients subtab ─────────────────────────────── -->
+          <div class="subtab-pane active" id="subtab-clients">
+            <div class="clients-main">
+              <div class="clients-main-header" id="clientsMainHeader">
+                <button class="btn btn-primary btn-sm" id="addClientBtn">Добавить клиента</button>
+                <div class="clients-search-wrap">
+                  <input class="input input--md s-input" id="clientsSearchInput" placeholder="Поиск…" autocomplete="off" />
+                </div>
+              </div>
+              <div class="data-table-wrap clients-data-wrap" id="clientsDataWrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="col-plate">Гос. номер</th>
+                      <th>Фамилия</th>
+                      <th>Имя</th>
+                      <th>Телефон</th>
+                      <th>Марка авто</th>
+                      <th>Список</th>
+                    </tr>
+                  </thead>
+                  <tbody id="clientsBody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
-          <div class="list-items" id="listItems"></div>
-        </div>
-        <div class="lists-main">
-          <div class="lists-main-header" id="listsMainHeader">
-            <div class="lists-main-title" id="listTitle">—</div>
-            <button class="btn btn-ghost btn-sm" id="addEntryBtn">Добавить запись</button>
-            <button class="btn btn-ghost btn-sm" id="exportListBtn">
-              <img class="btn-icon ui-icon-sm" src="/web/assets/icons/export.svg" alt="" />
-              <span>Экспорт списка</span>
-            </button>
-            <button class="btn btn-ghost btn-sm" id="importListBtn">
-              <img class="btn-icon ui-icon-sm" src="/web/assets/icons/import.svg" alt="" />
-              <span>Импорт списка</span>
-            </button>
-            <input type="file" id="importListFileInput" accept=".csv" class="hidden" />
-            <button class="btn btn-ghost btn-sm" id="listSettingsBtn">Настройки</button>
+
+          <!-- ── Lists subtab ───────────────────────────────── -->
+          <div class="subtab-pane" id="subtab-lists">
+            <div class="lists-sidebar">
+              <div class="panel-header">
+                <span>Списки номеров</span>
+                <div style="display:flex;gap:4px">
+                  <button class="icon-btn-sm" id="addListBtn" title="Создать список">+</button>
+                  <button class="icon-btn-sm" id="deleteListBtn" title="Удалить список">−</button>
+                </div>
+              </div>
+              <div class="list-items" id="listItems"></div>
+            </div>
+            <div class="lists-main">
+              <div class="lists-main-header" id="listsMainHeader">
+                <button class="btn btn-ghost btn-sm" id="attachClientToListBtn">Прикрепить клиента</button>
+                <button class="btn btn-ghost btn-sm" id="exportListBtn">
+                  <img class="btn-icon ui-icon-sm" src="/web/assets/icons/export.svg" alt="" />
+                  <span>Экспорт списка</span>
+                </button>
+                <button class="btn btn-ghost btn-sm" id="importListBtn">
+                  <img class="btn-icon ui-icon-sm" src="/web/assets/icons/import.svg" alt="" />
+                  <span>Импорт списка</span>
+                </button>
+                <input type="file" id="importListFileInput" accept=".csv" class="hidden" />
+                <button class="btn btn-ghost btn-sm" id="listSettingsBtn">Настройки</button>
+                <div class="lists-main-title" id="listTitle" style="margin-left:auto;text-align:right;">—</div>
+              </div>
+              <div class="lists-empty-state" id="listsEmptyState">
+                <span>Выберите список или создайте новый</span>
+              </div>
+              <div class="data-table-wrap lists-data-wrap" id="listsDataWrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="col-plate">Гос. номер</th>
+                      <th>Фамилия</th>
+                      <th>Имя</th>
+                      <th>Телефон</th>
+                      <th>Марка авто</th>
+                      <th>Комментарий</th>
+                    </tr>
+                  </thead>
+                  <tbody id="listMembersBody"></tbody>
+                </table>
+              </div>
+            </div>
           </div>
-          <div class="lists-empty-state" id="listsEmptyState">
-            <span>Выберите список или создайте новый</span>
-          </div>
-          <div class="data-table-wrap lists-data-wrap" id="listsDataWrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Гос. номер</th>
-                  <th>Имя</th>
-                  <th>Фамилия</th>
-                  <th>Отчество</th>
-                  <th>Телефон</th>
-                  <th>Марка авто</th>
-                  <th>Комментарий</th>
-                  <th class="col-actions"></th>
-                </tr>
-              </thead>
-              <tbody id="entriesBody"></tbody>
-            </table>
-          </div>
+
         </div>
       </div>
       <div class="tab-pane" id="tab-settings">
@@ -1256,6 +1293,128 @@
         <div class="modal-footer">
           <button class="btn btn-ghost" id="deleteEntryCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteEntryConfirm">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Client Card Modal (view / edit / delete + list attachment) -->
+    <div class="modal" id="clientCardModal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <span id="clientCardTitle">Клиент</span>
+          <button class="btn btn-ghost btn-sm" id="clientCardClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <label class="modal-label">Фамилия</label>
+            <input class="input input--md s-input" id="clientCardLastName" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Имя <span class="modal-required">*</span></label>
+            <input class="input input--md s-input" id="clientCardFirstName" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Отчество</label>
+            <input class="input input--md s-input" id="clientCardMiddleName" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Телефон</label>
+            <input class="input input--md s-input" id="clientCardPhone" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Марка автомобиля</label>
+            <input class="input input--md s-input" id="clientCardCar" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Гос. номер автомобиля <span class="modal-required">*</span></label>
+            <input class="input input--md s-input" id="clientCardPlate" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Комментарий</label>
+            <input class="input input--md s-input" id="clientCardComment" autocomplete="off" />
+          </div>
+          <div class="client-card-list-row">
+            <span class="modal-label">Список:</span>
+            <span class="client-card-list-name" id="clientCardListName">—</span>
+            <button class="btn btn-ghost btn-sm" id="clientCardListBtn">Прикрепить к списку</button>
+          </div>
+          <div class="modal-error" id="clientCardError"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-danger" id="clientCardDeleteBtn">Удалить</button>
+          <button class="btn btn-ghost" id="clientCardCancel">Отменить</button>
+          <button class="btn btn-primary" id="clientCardSaveBtn">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Client Confirmation Modal -->
+    <div class="modal" id="deleteClientModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+          <span>Удалить клиента</span>
+        </div>
+        <div class="modal-body">
+          <p class="modal-confirm-text">Вы уверены, что хотите удалить клиента <strong id="deleteClientPlateLabel"></strong>?</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="deleteClientCancel">Отменить</button>
+          <button class="btn btn-danger" id="deleteClientConfirm">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detach Client Confirmation Modal -->
+    <div class="modal" id="detachClientModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+          <span>Открепить клиента</span>
+        </div>
+        <div class="modal-body">
+          <p class="modal-confirm-text">Открепить клиента <strong id="detachClientPlateLabel"></strong> от текущего списка?</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="detachClientCancel">Отменить</button>
+          <button class="btn btn-danger" id="detachClientConfirm">Открепить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- List Picker Modal (attach client to a list) -->
+    <div class="modal" id="listPickerModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+          <span>Прикрепить к списку</span>
+          <button class="btn btn-ghost btn-sm" id="listPickerClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="list-picker-items" id="listPickerItems">
+            <!-- Populated by JS: one row per list with an Attach button -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="listPickerCancel">Отменить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Client Picker Modal (attach an existing client to the current list) -->
+    <div class="modal" id="clientPickerModal">
+      <div class="modal-card modal-card--md">
+        <div class="modal-head">
+          <span>Прикрепить клиента к списку</span>
+          <button class="btn btn-ghost btn-sm" id="clientPickerClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <input class="input input--md s-input" id="clientPickerSearch" placeholder="Поиск по имени или номеру…" autocomplete="off" />
+          </div>
+          <div class="client-picker-items" id="clientPickerItems">
+            <!-- Populated by JS: one row per client with an Attach button -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="clientPickerCancel">Отменить</button>
         </div>
       </div>
     </div>

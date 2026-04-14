@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.container import AppContainer, WEB_DIR
 from app.api.routers.auth import router as auth_router
 from app.api.routers.channels import router as channels_router
+from app.api.routers.clients import router as clients_router
 from app.api.routers.controllers import router as controllers_router
 from app.api.routers.data import router as data_router
 from app.api.routers.debug import router as debug_router
@@ -61,5 +62,6 @@ app.include_router(events_router)
 app.include_router(debug_router)
 app.include_router(controllers_router)
 app.include_router(lists_router)
+app.include_router(clients_router)
 app.include_router(settings_router)
 app.include_router(data_router)
