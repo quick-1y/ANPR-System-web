@@ -8,7 +8,7 @@ Each task is self-contained. Tasks do not depend on each other unless explicitly
 
 ---
 
-## TASK-01: Remove migration DO $$ blocks from schema.sql
+## TASK-01: Remove migration DO $$ blocks from schema.sql ✅ COMPLETED
 
 **Problem:**  
 `database/postgres/schema.sql` contains two `DO $$` migration guards (lines 17-26 and 49-58) that check `information_schema.columns` before adding columns. Both columns (`plate_display`, `password_changed_at`) are already declared in the `CREATE TABLE` statements above them. On a fresh DB these blocks run two unnecessary `information_schema` queries at every cold start.
@@ -26,7 +26,7 @@ Schema file is shorter and expresses only intent (not migration history). Cold-s
 
 ---
 
-## TASK-02: Remove ALTER TABLE backward-compat lines from ListDatabase._schema_sql()
+## TASK-02: Remove ALTER TABLE backward-compat lines from ListDatabase._schema_sql() ✅ COMPLETED
 
 **Problem:**  
 `database/lists_repository.py` lines 62-74 contain 7 `ALTER TABLE … ADD COLUMN IF NOT EXISTS` statements and one `DROP INDEX IF EXISTS`. All columns are already declared in the `CREATE TABLE clients` statement on lines 51-70. These ALTER TABLE lines exist only for old databases that predate those columns.
@@ -44,7 +44,7 @@ In `database/lists_repository.py`, inside `_schema_sql()`, remove lines 62-73 (t
 
 ---
 
-## TASK-03: Remove legacy field cleanup from SettingsNormalizer
+## TASK-03: Remove legacy field cleanup from SettingsNormalizer ✅ COMPLETED
 
 **Problem:**  
 `config/settings_normalizer.py` silently removes two fields from settings configs that existed in old schema versions:
@@ -67,7 +67,7 @@ Normalizer only adds missing keys — it no longer silently removes old keys. Ex
 
 ---
 
-## TASK-04: Remove redundant database indexes
+## TASK-04: Remove redundant database indexes ✅ COMPLETED
 
 **Problem:**  
 `database/postgres/schema.sql` has two pairs of redundant indexes:
@@ -94,7 +94,7 @@ Two fewer indexes. Slightly faster event writes. All existing query patterns con
 
 ---
 
-## TASK-05: Fix XSS — replace innerHTML with DB values in events.js
+## TASK-05: Fix XSS — replace innerHTML with DB values in events.js ✅ COMPLETED
 
 **Problem:**  
 `app/web/js/events.js:96` sets `div.innerHTML` with `displayPlate` (from `event.plate_display`) and `channelName` (from `event.channel`). These are database-sourced values that could contain HTML. A stored XSS attack is possible.
@@ -120,7 +120,7 @@ Event feed and event detail modal no longer injectable via plate numbers or chan
 
 ---
 
-## TASK-06: Fix XSS — replace innerHTML with DB values in clients.js, lists.js, journal.js
+## TASK-06: Fix XSS — replace innerHTML with DB values in clients.js, lists.js, journal.js ✅ COMPLETED
 
 **Problem:**  
 Multiple innerHTML assignments use database-sourced values (plate numbers, client names, list names) without HTML escaping:

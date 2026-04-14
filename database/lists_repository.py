@@ -45,7 +45,8 @@ class ListDatabase(PooledDatabase):
         CREATE TABLE IF NOT EXISTS lists (
             id BIGSERIAL PRIMARY KEY,
             name TEXT NOT NULL,
-            type TEXT NOT NULL
+            type TEXT NOT NULL,
+            is_deleted BOOLEAN NOT NULL DEFAULT FALSE
         );
         CREATE TABLE IF NOT EXISTS clients (
             id BIGSERIAL PRIMARY KEY,
@@ -57,20 +58,12 @@ class ListDatabase(PooledDatabase):
             middle_name TEXT NOT NULL DEFAULT '',
             phone TEXT NOT NULL DEFAULT '',
             car TEXT NOT NULL DEFAULT '',
-            comment TEXT NOT NULL DEFAULT ''
+            comment TEXT NOT NULL DEFAULT '',
+            is_deleted BOOLEAN NOT NULL DEFAULT FALSE
         );
-        ALTER TABLE lists ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT '';
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT '';
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS middle_name TEXT NOT NULL DEFAULT '';
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS car TEXT NOT NULL DEFAULT '';
-        ALTER TABLE clients ADD COLUMN IF NOT EXISTS comment TEXT NOT NULL DEFAULT '';
         CREATE INDEX IF NOT EXISTS idx_lists_type ON lists(type);
         CREATE INDEX IF NOT EXISTS idx_clients_plate ON clients(plate_normalized);
         CREATE INDEX IF NOT EXISTS idx_clients_list ON clients(list_id);
-        DROP INDEX IF EXISTS uq_clients_list_plate;
         CREATE UNIQUE INDEX IF NOT EXISTS uq_clients_list_plate ON clients(list_id, plate_normalized) WHERE is_deleted = FALSE;
         """
 

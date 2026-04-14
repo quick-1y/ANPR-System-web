@@ -93,7 +93,35 @@ export function renderEventFeed(forceRebuild = false) {
     div.setAttribute("role", "button");
     div.setAttribute("tabindex", "0");
     const displayPlate = item.plate_display || item.plate || "—";
-    div.innerHTML = `${flagHtml(item.country)}<div class='ev-row-top'><span class='ev-plate'>${displayPlate}</span><span class='ev-direction badge ${direction.badgeClass}'>${direction.label}</span></div><div class='ev-row-bottom'><span class='ev-meta-channel'>${channelName}</span><span class='ev-meta-time'>${timeStr}</span><span class='ev-conf ${conf < 0.85 ? "warn" : ""}'>${conf.toFixed(2)}</span></div>`;
+    const flagContainer = document.createElement('span');
+    flagContainer.innerHTML = flagHtml(item.country);
+    div.appendChild(flagContainer);
+    const rowTop = document.createElement('div');
+    rowTop.className = 'ev-row-top';
+    const plateSpan = document.createElement('span');
+    plateSpan.className = 'ev-plate';
+    plateSpan.textContent = displayPlate;
+    const dirSpan = document.createElement('span');
+    dirSpan.className = `ev-direction badge ${direction.badgeClass}`;
+    dirSpan.textContent = direction.label;
+    rowTop.appendChild(plateSpan);
+    rowTop.appendChild(dirSpan);
+    const rowBottom = document.createElement('div');
+    rowBottom.className = 'ev-row-bottom';
+    const chanSpan = document.createElement('span');
+    chanSpan.className = 'ev-meta-channel';
+    chanSpan.textContent = channelName;
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'ev-meta-time';
+    timeSpan.textContent = timeStr;
+    const confSpan = document.createElement('span');
+    confSpan.className = `ev-conf${conf < 0.85 ? ' warn' : ''}`;
+    confSpan.textContent = conf.toFixed(2);
+    rowBottom.appendChild(chanSpan);
+    rowBottom.appendChild(timeSpan);
+    rowBottom.appendChild(confSpan);
+    div.appendChild(rowTop);
+    div.appendChild(rowBottom);
     div.onclick = () => openEventDetails(item);
     div.onkeydown = (e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEventDetails(item); }
@@ -174,6 +202,18 @@ function setModalImage(id, url) {
   img.src = url;
 }
 
+function _makeMetaRow(label, value) {
+  const row = document.createElement('div');
+  row.className = 'event-meta-row';
+  const labelEl = document.createElement('span');
+  labelEl.textContent = label;
+  const valueEl = document.createElement('b');
+  valueEl.textContent = value;
+  row.appendChild(labelEl);
+  row.appendChild(valueEl);
+  return row;
+}
+
 export async function openEventDetails(ev) {
   const id = Number(ev.id || 0);
   let payload = ev;
@@ -197,14 +237,21 @@ export async function openEventDetails(ev) {
     ["Источник", payload.source || "—"],
   ];
 
-  let listHtml = "";
+  const meta = document.getElementById("eventMeta");
+  meta.innerHTML = "";
+  rows.forEach(([label, value]) => meta.appendChild(_makeMetaRow(label, value)));
+
   const entry = payload.client_id
     ? await jfetch(api(`/api/clients/${payload.client_id}`)).catch(() => null)
     : null;
   if (entry) {
     const typeLabels = { white: "Белый список", info: "Информационный список", black: "Черный список" };
+    const divider = document.createElement('div');
+    divider.className = 'event-meta-divider';
+    divider.textContent = 'Данные из списка';
+    meta.appendChild(divider);
     const listRows = [
-      ["Список", `${entry.list_name}\u2002·\u2002${typeLabels[entry.list_type] || entry.list_type}`],
+      ["Список", `${entry.list_name || "—"}\u2002·\u2002${typeLabels[entry.list_type] || entry.list_type || "—"}`],
       ["Имя", entry.first_name || "—"],
       ["Фамилия", entry.last_name || "—"],
       ["Отчество", entry.middle_name || "—"],
@@ -212,14 +259,8 @@ export async function openEventDetails(ev) {
       ["Марка авто", entry.car || "—"],
       ["Комментарий", entry.comment || "—"],
     ];
-    listHtml = `<div class="event-meta-divider">Данные из списка</div>` +
-      listRows.map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
+    listRows.forEach(([label, value]) => meta.appendChild(_makeMetaRow(label, value)));
   }
-
-  const meta = document.getElementById("eventMeta");
-  meta.innerHTML = rows
-    .map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`)
-    .join("") + listHtml;
   if (id > 0) {
     setModalImage("eventFrameImg", apiUrl(`/api/events/item/${id}/media/frame`));
     setModalImage("eventPlateImg", apiUrl(`/api/events/item/${id}/media/plate`));

@@ -1,7 +1,7 @@
 // Client management — all-clients view, client card, list attachment
 import { state } from './state.js';
 import { api, jfetch } from './api.js';
-import { openModal, closeModal, showToast } from './ui.js';
+import { openModal, closeModal, showToast, esc } from './ui.js';
 
 // ── Private state ──────────────────────────────────────────────
 let _editingClientId = null;
@@ -24,12 +24,12 @@ export function renderClientsTable() {
       : '—';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="plate-cell">${c.plate}</td>
-      <td>${c.last_name || ''}</td>
-      <td>${c.first_name || ''}</td>
-      <td>${c.phone || ''}</td>
-      <td>${c.car || ''}</td>
-      <td>${listName}</td>`;
+      <td class="plate-cell">${esc(c.plate)}</td>
+      <td>${esc(c.last_name)}</td>
+      <td>${esc(c.first_name)}</td>
+      <td>${esc(c.phone)}</td>
+      <td>${esc(c.car)}</td>
+      <td>${esc(listName)}</td>`;
     tr.onclick = () => openClientCard(c.id);
     body.appendChild(tr);
   });
@@ -160,8 +160,8 @@ export function openListPickerModal() {
       const row = document.createElement('div');
       row.className = 'picker-item';
       row.innerHTML = `
-        <div class="picker-item-label">${l.name}</div>
-        <span class="picker-item-sub">${l.type}</span>
+        <div class="picker-item-label">${esc(l.name)}</div>
+        <span class="picker-item-sub">${esc(l.type)}</span>
         <button class="btn btn-primary btn-sm">Прикрепить</button>`;
       row.querySelector('button').onclick = () => _attachAndRefresh(clientId, l.id);
       items.appendChild(row);

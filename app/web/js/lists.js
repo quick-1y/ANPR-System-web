@@ -1,7 +1,7 @@
 // Plate lists management, list members view, CSV import/export
 import { state } from './state.js';
 import { api, jfetch } from './api.js';
-import { showToast, openModal, closeModal } from './ui.js';
+import { showToast, openModal, closeModal, esc } from './ui.js';
 import { renderCustomListOptions } from './channels.js';
 import { renderEventFeed } from './events.js';
 
@@ -62,7 +62,7 @@ export function renderLists() {
     if (!state.selectedListId && idx === 0) state.selectedListId = l.id;
     const div = document.createElement('div');
     div.className = `list-item type-${l.type}${isActive ? ' active' : ''}`;
-    div.innerHTML = `<div class='list-item-dot ${listTypeDot(l.type)}'></div><div class='list-item-name'>${l.name}</div><div class='list-item-count'>${l.clients_count ?? '…'}</div>`;
+    div.innerHTML = `<div class='list-item-dot ${listTypeDot(l.type)}'></div><div class='list-item-name'>${esc(l.name)}</div><div class='list-item-count'>${esc(String(l.clients_count ?? '…'))}</div>`;
     div.onclick = () => {
       state.selectedListId = l.id;
       renderLists();
@@ -92,12 +92,12 @@ export function renderListClientsTable(clients) {
   (clients || []).forEach((c) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="plate-cell">${c.plate}</td>
-      <td>${c.first_name || ''}</td>
-      <td>${c.last_name || ''}</td>
-      <td>${c.phone || ''}</td>
-      <td>${c.car || ''}</td>
-      <td>${c.comment || ''}</td>`;
+      <td class="plate-cell">${esc(c.plate)}</td>
+      <td>${esc(c.first_name)}</td>
+      <td>${esc(c.last_name)}</td>
+      <td>${esc(c.phone)}</td>
+      <td>${esc(c.car)}</td>
+      <td>${esc(c.comment)}</td>`;
     const openCard = async () => {
       const { openClientCard } = await import('./clients.js');
       openClientCard(c.id);
@@ -127,8 +127,8 @@ export async function openClientPickerModal(listId) {
       const row = document.createElement('div');
       row.className = 'picker-item';
       row.innerHTML = `
-        <div class="picker-item-label">${label}</div>
-        <span class="picker-item-sub">${c.plate}</span>
+        <div class="picker-item-label">${esc(label)}</div>
+        <span class="picker-item-sub">${esc(c.plate)}</span>
         <button class="btn btn-primary btn-sm">Прикрепить</button>`;
       row.querySelector('button').onclick = async () => {
         try {

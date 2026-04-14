@@ -234,3 +234,7 @@ export function initSidebarHover() {
     rail.classList.remove("rail-expanded");
   });
 }
+
+export function esc(str) {
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
