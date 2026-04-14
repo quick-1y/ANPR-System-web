@@ -1,12 +1,12 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-03-25
+**Analysis Date:** 2026-04-14
 
 ## Test Framework
 
 **Runner:**
-- pytest (no config file detected — uses defaults)
-- No `pyproject.toml`, `pytest.ini`, `setup.cfg`, or `conftest.py` at project root
+- pytest (declared in `pyproject.toml` dev dependencies: `pytest>=9.0.2,<10.0.0`)
+- No `pyproject.toml` pytest config section, no `pytest.ini`, no `conftest.py`
 
 **Assertion Library:**
 - Built-in `assert` statements (pytest rewrites)
@@ -14,10 +14,11 @@
 
 **Run Commands:**
 ```bash
-pytest                         # Run all tests
-pytest tests/                  # Run all tests in tests/
-pytest tests/test_track_aggregator.py  # Run single file
-pytest -v                      # Verbose output
+pytest                                     # Run all tests
+pytest tests/                              # Run all tests in tests/
+pytest tests/test_track_aggregator.py      # Run single file
+pytest -v                                  # Verbose output
+pytest -k "TestLogin"                      # Run specific class
 ```
 
 ## Test File Organization
@@ -25,87 +26,79 @@ pytest -v                      # Verbose output
 **Location:**
 - Separate `tests/` directory at project root (not co-located with source)
 
-**Files:**
-- `tests/__init__.py` (empty)
-- `tests/test_track_aggregator.py` — tests for `TrackAggregator` from `anpr/pipeline/anpr_pipeline.py`
-- `tests/test_plate_validator.py` — tests for `PlatePostProcessor` from `anpr/postprocessing/validator.py`
-- `tests/test_motion_detector.py` — tests for `MotionDetector` from `anpr/detection/motion_detector.py`
-- `tests/test_direction_estimator.py` — tests for `TrackDirectionEstimator` from `anpr/pipeline/anpr_pipeline.py`
-- `tests/test_lists_repository.py` — tests for `ListDatabase` and `ClientDatabase` from `database/lists_repository.py` and `database/clients_repository.py`; covers plate normalization, list CRUD, client CRUD, attach/detach, search, channel automation methods (`plate_in_list_type`, `plate_in_lists`)
+**Files (13 test files, ~2762 total lines):**
+
+| File | Lines | Tests For |
+|------|-------|-----------|
+| `tests/test_auth_deps.py` | 193 | `get_current_user`, `require_role`, `require_permission` |
+| `tests/test_auth_router.py` | 341 | Login, logout, me endpoints; rate limiter |
+| `tests/test_auth_utils.py` | 110 | JWT create/verify, bcrypt hash/verify |
+| `tests/test_direction_estimator.py` | 83 | `TrackDirectionEstimator` |
+| `tests/test_lists_repository.py` | 510 | `ListDatabase`, `ClientDatabase` |
+| `tests/test_motion_detector.py` | 92 | `MotionDetector` |
+| `tests/test_permission_guards.py` | 172 | Permission guard dependencies |
+| `tests/test_plate_validator.py` | 274 | `PlatePostProcessor` |
+| `tests/test_settings_storage_cleanup.py` | 122 | Settings + storage lifecycle |
+| `tests/test_track_aggregator.py` | 246 | `TrackAggregator` |
+| `tests/test_user_repository.py` | 360 | `UserDatabase` CRUD |
+| `tests/test_users_router.py` | 259 | Users API router |
 
 **Naming:**
 - Files: `test_{component_name}.py`
-- Classes: `Test{ComponentName}` (e.g., `TestTrackAggregator`, `TestMotionDetector`, `TestRussiaConfig`)
-- Methods: `test_{behavior_description}` using snake_case (e.g., `test_no_emission_below_quorum`, `test_valid_standard_plate`)
-
-**Structure:**
-```
-tests/
-├── __init__.py
-├── test_direction_estimator.py
-├── test_lists_repository.py
-├── test_motion_detector.py
-├── test_plate_validator.py
-└── test_track_aggregator.py
-```
+- Classes: `Test{ComponentName}` (e.g., `TestTrackAggregator`, `TestLogin`, `TestLoginAuth`)
+- Methods: `test_{behavior_description}` in snake_case
 
 ## Test Structure
 
 **Suite Organization:**
 ```python
-"""Tests for TrackAggregator consensus and OCR budget logic in anpr/pipeline/anpr_pipeline.py"""
+"""Tests for app/api/routers/auth.py — login, logout, me endpoints.
+
+Uses mocks to test auth router logic without a live server or DB.
+"""
+from __future__ import annotations
+
 import pytest
-from anpr.pipeline.anpr_pipeline import TrackAggregator
+from unittest.mock import MagicMock, patch
 
-
-class TestTrackAggregator:
-    def test_no_emission_below_quorum(self):
-        """Does not emit until best_shots results are accumulated."""
-        agg = TrackAggregator(best_shots=3)
-        assert agg.add_result(1, "А123ВС77", 0.9) == ""
-        assert agg.add_result(1, "А123ВС77", 0.9) == ""
-
-    def test_emits_on_quorum(self):
-        """Emits consensus text when quorum is reached."""
-        agg = TrackAggregator(best_shots=3)
-        agg.add_result(1, "А123ВС77", 0.9)
-        agg.add_result(1, "А123ВС77", 0.9)
-        result = agg.add_result(1, "А123ВС77", 0.9)
-        assert result == "А123ВС77"
+class TestLogin:
+    def test_valid_credentials_return_token(self):
+        """Returns JWT token for valid user credentials."""
+        ...
 ```
 
 **Patterns:**
 - Module-level docstring describes what is tested and where the source lives
-- Group related tests in classes (multiple classes per file when testing different aspects)
-- Each test method has a one-line English docstring explaining expected behavior
-- No `setUp`/`tearDown` in most tests — fresh objects created per test
-- `setup_method` used when multiple tests share the same object:
+- Group related tests in classes (multiple classes per file for different aspects)
+- Each test method has a one-line English docstring
+- No `setUp`/`tearDown` in most tests — fresh objects per test
+- `setup_method` when multiple tests share the same object:
 ```python
 class TestRussiaConfig:
     def setup_method(self):
         self.proc = _processor_with_ru()
 ```
 
-**Multiple test classes per file for logical grouping:**
-- `test_track_aggregator.py`: `TestTrackAggregator` (consensus) + `TestTrackOCRBudget` (budget management)
-- `test_plate_validator.py`: `TestNormalize`, `TestNoCountries`, `TestRussiaConfig`, `TestDisplayFormat`, `TestYAMLDisplayFormat`
-
 **Section separators between test classes:**
 ```python
 # ---------------------------------------------------------------------------
-# Normalization
+# POST /api/auth/login
 # ---------------------------------------------------------------------------
 
-class TestNormalize:
+class TestLogin:
     ...
 ```
 
 ## Mocking
 
-**Framework:** No mocking library (no unittest.mock, no pytest-mock)
+**Two mocking patterns coexist:**
 
-**Custom test doubles — inline stub classes:**
+**Pattern 1 — Custom stub classes (pure domain tests):**
 ```python
+class _EmptyLoader(CountryConfigLoader):
+    def load(self, enabled_codes=None):
+        return []
+
 def _inline_loader(configs):
     class _InlineLoader(CountryConfigLoader):
         def __init__(self, cfgs):
@@ -114,18 +107,24 @@ def _inline_loader(configs):
             return self._cfgs
     return _InlineLoader(configs)
 ```
+Used for: ANPR pipeline, plate validator, config loaders — any pure logic test.
 
+**Pattern 2 — `unittest.mock` (API router/dependency tests):**
 ```python
-class _EmptyLoader(CountryConfigLoader):
-    def __init__(self):
-        pass
-    def load(self, enabled_codes=None):
-        return []
-```
+from unittest.mock import MagicMock, patch
 
-**What to mock (via custom doubles):**
-- Configuration loaders to avoid filesystem dependency
-- Replace YAML file loading with in-memory config objects
+def _make_container(user=None):
+    container = MagicMock()
+    container.user_db.find_by_login.return_value = user
+    return container
+
+def _make_request(ip="127.0.0.1"):
+    req = MagicMock()
+    req.client = MagicMock()
+    req.client.host = ip
+    return req
+```
+Used for: auth router, users router, auth dependencies — anything that needs FastAPI request/container mocking.
 
 **What NOT to mock:**
 - The class under test — always use the real implementation
@@ -133,65 +132,56 @@ class _EmptyLoader(CountryConfigLoader):
 
 ## Fixtures and Factories
 
-**Inline builder functions (module-level helpers):**
+**Inline builder functions (module-level helpers, prefixed with `_`):**
 ```python
 def _blank(h: int = 120, w: int = 160) -> np.ndarray:
     """Return a black BGR frame."""
     return np.zeros((h, w, 3), dtype=np.uint8)
 
-def _noisy(h: int = 120, w: int = 160, value: int = 200) -> np.ndarray:
-    """Return a uniform non-black BGR frame to simulate motion."""
-    return np.full((h, w, 3), value, dtype=np.uint8)
-```
-
-```python
-def _make_format(name: str, regex: str, display_format: str = "") -> PlateFormat:
-    return PlateFormat(name=name, regex=regex, pattern=re.compile(regex), display_format=display_format)
-
-def _ru_country() -> CountryConfig:
-    """Minimal Russia-like config with one standard format."""
-    return CountryConfig(name="Russia", code="RU", priority=1, ...)
+def _make_user(user_id=1, login="superadmin", role="superadmin", is_active=True,
+               permissions=None, password="1234"):
+    return {
+        "id": user_id,
+        "login": login,
+        "password": hash_password(password),
+        "role": role,
+        "permissions": permissions or [],
+        "is_active": is_active,
+    }
 
 def _processor_with_ru() -> PlatePostProcessor:
     return PlatePostProcessor(_inline_loader([_ru_country()]))
 ```
 
-```python
-def _bbox(y: int, size: int) -> list[int]:
-    """Convenience: square bbox centred around y."""
-    half = size // 2
-    return [100 - half, y - half, 100 + half, y + half]
-```
+**Pattern:** Helpers are module-level, prefixed `_`, have docstrings. No `@pytest.fixture` decorators. No shared `conftest.py`. Helpers defined at top of each test file.
 
-**Pattern:** Helper functions are module-level, prefixed with underscore `_`, and have docstrings. No pytest fixtures (`@pytest.fixture`) are used. No shared `conftest.py`.
-
-**Location:** Helpers are defined at the top of each test file, not in a shared utilities module.
+**pytest built-in fixtures used:**
+- `tmp_path` for temporary file creation in YAML loading tests
 
 ## Coverage
 
-**Requirements:** Not enforced. No coverage configuration or CI integration detected.
+**Requirements:** Not enforced. No coverage config or CI integration.
 
-**View Coverage:**
+**View coverage:**
 ```bash
-pytest --cov=anpr --cov=common tests/   # If pytest-cov is installed
+pytest --cov=anpr --cov=app --cov=database tests/   # requires pytest-cov
 ```
 
 ## Test Types
 
-**Unit Tests:**
-- All 4 test files are pure unit tests
-- Test individual classes in isolation (TrackAggregator, PlatePostProcessor, MotionDetector, TrackDirectionEstimator)
-- No database, network, or filesystem dependencies (except `tmp_path` for YAML loading test)
-- Use synthetic data (numpy arrays for frames, hand-built config objects for validators)
+**Unit Tests (primary):**
+- All 13 test files are unit tests
+- Test individual classes in isolation
+- No real database, network, or filesystem access (except `tmp_path`)
+- Use synthetic data (numpy arrays, hand-built config objects, MagicMock containers)
 
-**Integration Tests:**
-- Not present
+**API Tests (via direct function calls, not HTTP):**
+- `test_auth_router.py`, `test_users_router.py` — call router functions directly with mocked requests and containers
+- Pattern: `result = login(body=LoginRequest(...), request=_make_request(), container=_make_container(user))`
 
-**E2E Tests:**
-- Not present
-
-**API Tests:**
-- Not present (no tests for FastAPI routers)
+**Integration Tests:** Not present  
+**E2E Tests:** Not present  
+**Tests hitting real DB:** Not present (all DB tests use mocks or in-memory data)
 
 ## Common Patterns
 
@@ -205,7 +195,7 @@ def test_first_frame_returns_false(self):
 **Sequence testing (stateful objects):**
 ```python
 def test_motion_triggers_after_activation_frames(self):
-    cfg = MotionDetectorConfig(threshold=0.001, activation_frames=3, release_frames=100)
+    cfg = MotionDetectorConfig(threshold=0.001, activation_frames=3)
     md = MotionDetector(cfg)
     md.update(_blank())           # seed
     md.update(_noisy())           # motion 1
@@ -214,30 +204,23 @@ def test_motion_triggers_after_activation_frames(self):
     assert result is True
 ```
 
-**Boundary/edge case testing:**
+**API test with MagicMock:**
 ```python
-def test_empty_bbox_returns_unknown(self):
-    est = TrackDirectionEstimator()
-    result = est.update(1, [])
-    assert result["direction"] == UNKNOWN
-
-def test_empty_frame_returns_false(self):
-    md = MotionDetector(MotionDetectorConfig())
-    empty = np.zeros((0, 0, 3), dtype=np.uint8)
-    assert md.update(empty) is False
-```
-
-**Testing internal state when needed (pragmatic, not dogmatic):**
-```python
-def test_shape_change_resets_state(self):
-    ...
-    assert md._motion_active is True  # access private attr to verify state
+def test_valid_login_returns_token(self):
+    user = _make_user()
+    container = _make_container(user=user)
+    result = login(
+        body=LoginRequest(login="superadmin", password="1234"),
+        request=_make_request(),
+        container=container,
+    )
+    assert isinstance(result.token, str)
+    assert result.token != ""
 ```
 
 **Stale eviction with time manipulation:**
 ```python
 def test_stale_eviction_cleans_state(self):
-    import time as _time
     agg = TrackAggregator(best_shots=3, ttl_seconds=5.0)
     agg.add_result(1, "ABC", 0.9)
     agg._track_ts[1] = _time.monotonic() - 60.0  # backdate timestamp
@@ -245,8 +228,13 @@ def test_stale_eviction_cleans_state(self):
     assert agg.should_process(1) is True
 ```
 
-**pytest built-in fixtures used:**
-- `tmp_path` for temporary file creation in YAML loading tests
+**Boundary / edge case testing:**
+```python
+def test_empty_bbox_returns_unknown(self):
+    est = TrackDirectionEstimator()
+    result = est.update(1, [])
+    assert result["direction"] == UNKNOWN
+```
 
 **Float comparison:**
 ```python
@@ -255,10 +243,19 @@ assert est.confidence_threshold == pytest.approx(0.4)
 
 **Assertions style:**
 - `assert result == "expected"` for equality
-- `assert result is True` / `assert result is False` for explicit boolean checks
+- `assert result is True` / `assert result is False` for booleans
 - `assert result in (APPROACHING, RECEDING, UNKNOWN)` for set membership
 - `assert isinstance(result, bool)` for type checks
+- Access private attributes when needed for state verification: `assert md._motion_active is True`
+
+**Testing HTTPException raised by dependencies:**
+```python
+def test_rate_limit_raises_429(self):
+    with pytest.raises(HTTPException) as exc_info:
+        _check_rate_limit("127.0.0.1")
+    assert exc_info.value.status_code == 429
+```
 
 ---
 
-*Testing analysis: 2026-03-25*
+*Testing analysis: 2026-04-14*
