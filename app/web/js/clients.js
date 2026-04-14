@@ -29,9 +29,7 @@ export function renderClientsTable() {
       <td>${c.first_name || ''}</td>
       <td>${c.phone || ''}</td>
       <td>${c.car || ''}</td>
-      <td>${listName}</td>
-      <td class="col-actions"><button class="client-open-btn btn btn-ghost btn-sm">Открыть</button></td>`;
-    tr.querySelector('.client-open-btn').onclick = (e) => { e.stopPropagation(); openClientCard(c.id); };
+      <td>${listName}</td>`;
     tr.onclick = () => openClientCard(c.id);
     body.appendChild(tr);
   });

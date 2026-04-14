@@ -206,7 +206,7 @@ class ListDatabase(PooledDatabase):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT e.plate, e.last_name, e.first_name, e.middle_name,
+                    SELECT e.id, e.plate, e.last_name, e.first_name, e.middle_name,
                            e.phone, e.car, e.comment, l.type, l.name
                     FROM clients e
                     JOIN lists l ON l.id = e.list_id
@@ -220,15 +220,16 @@ class ListDatabase(PooledDatabase):
         if not row:
             return None
         return {
-            "plate": row[0],
-            "last_name": row[1],
-            "first_name": row[2],
-            "middle_name": row[3],
-            "phone": row[4],
-            "car": row[5],
-            "comment": row[6],
-            "list_type": row[7],
-            "list_name": row[8],
+            "id": row[0],
+            "plate": row[1],
+            "last_name": row[2],
+            "first_name": row[3],
+            "middle_name": row[4],
+            "phone": row[5],
+            "car": row[6],
+            "comment": row[7],
+            "list_type": row[8],
+            "list_name": row[9],
         }
 
     def plate_in_lists(self, plate: str, list_ids: Iterable[int]) -> bool:

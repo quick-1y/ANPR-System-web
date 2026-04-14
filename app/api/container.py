@@ -112,6 +112,7 @@ class AppContainer:
             debug_registry=self.debug_registry,
             model_config=model_config,
             events_db=self.events_db,
+            lists_db=self.lists_db,
         )
 
     def _build_lifecycle(self) -> DataLifecycleService:

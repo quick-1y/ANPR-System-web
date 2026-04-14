@@ -97,13 +97,11 @@ export function renderListClientsTable(clients) {
       <td>${c.last_name || ''}</td>
       <td>${c.phone || ''}</td>
       <td>${c.car || ''}</td>
-      <td>${c.comment || ''}</td>
-      <td class="col-actions"><button class="member-open-btn btn btn-ghost btn-sm">Открыть</button></td>`;
+      <td>${c.comment || ''}</td>`;
     const openCard = async () => {
       const { openClientCard } = await import('./clients.js');
       openClientCard(c.id);
     };
-    tr.querySelector('.member-open-btn').onclick = (e) => { e.stopPropagation(); openCard(); };
     tr.onclick = openCard;
     body.appendChild(tr);
   });

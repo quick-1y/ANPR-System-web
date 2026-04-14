@@ -76,6 +76,7 @@ class ChannelProcessor:
         debug_registry: DebugRegistry | None = None,
         model_config: "AnprModelConfig | None" = None,
         events_db=None,
+        lists_db=None,
     ) -> None:
         self._event_callback = event_callback
         self._contexts: Dict[int, ChannelContext] = {}
@@ -84,6 +85,7 @@ class ChannelProcessor:
         self._events_db = events_db if events_db is not None else PostgresEventDatabase(
             str(self._storage_settings.get("postgres_dsn", ""))
         )
+        self._lists_db = lists_db
         self._plate_settings = plate_settings or {}
         self._reconnect_config = self._build_reconnect_config(reconnect_settings or {})
         self._reconnect_config_cache_ts = 0.0
@@ -587,6 +589,8 @@ class ChannelProcessor:
                         self._io_pool.submit(self._save_jpeg, frame_file, frame)
                         if plate_crop is not None:
                             self._io_pool.submit(self._save_jpeg, plate_file, plate_crop)
+                        client_info = self._lists_db.find_client_by_plate(plate) if self._lists_db else None
+                        client_id = client_info["id"] if client_info else None
                         event = {
                             "timestamp": event_ts.isoformat(),
                             "channel": channel.get("name", f"Канал {channel_id}"),
@@ -599,6 +603,7 @@ class ChannelProcessor:
                             "frame_path": frame_path,
                             "plate_path": plate_path,
                             "direction": detection.get("direction", "UNKNOWN"),
+                            "client_id": client_id,
                         }
                         event_id = self._events_db.insert_event(**{
                             k: event[k]
@@ -614,6 +619,7 @@ class ChannelProcessor:
                                 "frame_path",
                                 "plate_path",
                                 "direction",
+                                "client_id",
                             )
                         })
                         if int(event_id or 0) > 0:

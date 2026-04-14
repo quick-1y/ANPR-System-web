@@ -43,6 +43,7 @@ class PostgresEventDatabase(PooledDatabase):
             "frame_path": row[9],
             "plate_path": row[10],
             "direction": row[11],
+            "client_id": row[12],
         }
 
     def insert_event(
@@ -58,6 +59,7 @@ class PostgresEventDatabase(PooledDatabase):
         frame_path: Optional[str] = None,
         plate_path: Optional[str] = None,
         direction: Optional[str] = None,
+        client_id: Optional[int] = None,
     ) -> int:
         self._ensure_schema()
         ts = timestamp or datetime.now(timezone.utc).isoformat()
@@ -66,10 +68,10 @@ class PostgresEventDatabase(PooledDatabase):
                 with conn.cursor() as cursor:
                     cursor.execute(
                         (
-                            "INSERT INTO events (timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction) "
-                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"
+                            "INSERT INTO events (timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id) "
+                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"
                         ),
-                        (ts, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction),
+                        (ts, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id),
                     )
                     row = cursor.fetchone()
                 conn.commit()
@@ -85,7 +87,7 @@ class PostgresEventDatabase(PooledDatabase):
             with self._connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction "
+                        "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id "
                         "FROM events ORDER BY timestamp DESC, id DESC LIMIT %s",
                         (limit,),
                     )
@@ -125,7 +127,7 @@ class PostgresEventDatabase(PooledDatabase):
             params.append(f"%{plate}%")
         where = f"WHERE {' AND '.join(filters)}" if filters else ""
         query = (
-            "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction "
+            "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id "
             f"FROM events {where} ORDER BY timestamp DESC, id DESC LIMIT %s"
         )
         params.append(page_limit)
@@ -143,7 +145,7 @@ class PostgresEventDatabase(PooledDatabase):
             with self._connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction FROM events WHERE id = %s",
+                        "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id FROM events WHERE id = %s",
                         (int(event_id),),
                     )
                     row = cursor.fetchone()
@@ -217,7 +219,7 @@ class PostgresEventDatabase(PooledDatabase):
             params.append(f"%{plate}%")
         where = f"WHERE {' AND '.join(filters)}" if filters else ""
         query = (
-            "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction "
+            "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id "
             f"FROM events {where} ORDER BY timestamp DESC"
         )
         try:

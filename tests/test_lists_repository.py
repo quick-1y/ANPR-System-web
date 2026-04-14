@@ -181,11 +181,12 @@ class TestFindClientByPlate:
     def test_returns_normalized_structure(self):
         db = _make_list_db()
         conn, cursor = _mock_conn(
-            fetchone=("А123БВ", "Смирнов", "Олег", "П.", "89001234567", "Toyota", "постоянный", "white", "Белый список")
+            fetchone=(42, "А123БВ", "Смирнов", "Олег", "П.", "89001234567", "Toyota", "постоянный", "white", "Белый список")
         )
         with patch.object(db, "_connect", return_value=conn):
             result = db.find_client_by_plate("А123БВ")
         assert result is not None
+        assert result["id"] == 42
         assert result["last_name"] == "Смирнов"
         assert result["first_name"] == "Олег"
         assert result["middle_name"] == "П."
@@ -207,7 +208,7 @@ class TestFindClientByPlate:
 
     def test_uses_latin_normalized_for_query(self):
         db = _make_list_db()
-        conn, cursor = _mock_conn(fetchone=("А777КН77", "", "", "", "", "", "", "white", "Test"))
+        conn, cursor = _mock_conn(fetchone=(1, "А777КН77", "", "", "", "", "", "", "white", "Test"))
         with patch.object(db, "_connect", return_value=conn):
             db.find_client_by_plate("A777KH77")
         _, params = cursor.execute.call_args[0]
@@ -385,7 +386,7 @@ class TestGetClient:
     def test_returns_full_record(self):
         db = _make_client_db()
         conn, cursor = _mock_conn(
-            fetchone=(1, 3, "A123BC", "Иванов", "Иван", "П.", "+7", "BMW", "VIP")
+            fetchone=(1, 3, "A123BC", "Иванов", "Иван", "П.", "+7", "BMW", "VIP", "Белый список", "white")
         )
         with patch.object(db, "_connect", return_value=conn):
             result = db.get_client(1)
@@ -394,6 +395,8 @@ class TestGetClient:
         assert result["list_id"] == 3
         assert result["plate"] == "A123BC"
         assert result["last_name"] == "Иванов"
+        assert result["list_name"] == "Белый список"
+        assert result["list_type"] == "white"
 
     def test_returns_none_when_not_found(self):
         db = _make_client_db()

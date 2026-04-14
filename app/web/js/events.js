@@ -198,25 +198,22 @@ export async function openEventDetails(ev) {
   ];
 
   let listHtml = "";
-  const plate = payload.plate;
-  if (plate) {
-    try {
-      const entry = await jfetch(api(`/api/lists/entry-by-plate?plate=${encodeURIComponent(plate)}`));
-      if (entry) {
-        const typeLabels = { white: "Белый список", info: "Информационный список", black: "Черный список" };
-        const listRows = [
-          ["Список", `${entry.list_name}\u2002·\u2002${typeLabels[entry.list_type] || entry.list_type}`],
-          ["Имя", entry.first_name || "—"],
-          ["Фамилия", entry.last_name || "—"],
-          ["Отчество", entry.middle_name || "—"],
-          ["Телефон", entry.phone || "—"],
-          ["Марка авто", entry.car || "—"],
-          ["Комментарий", entry.comment || "—"],
-        ];
-        listHtml = `<div class="event-meta-divider">Данные из списка</div>` +
-          listRows.map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
-      }
-    } catch (_e) {}
+  const entry = payload.client_id
+    ? await jfetch(api(`/api/clients/${payload.client_id}`)).catch(() => null)
+    : null;
+  if (entry) {
+    const typeLabels = { white: "Белый список", info: "Информационный список", black: "Черный список" };
+    const listRows = [
+      ["Список", `${entry.list_name}\u2002·\u2002${typeLabels[entry.list_type] || entry.list_type}`],
+      ["Имя", entry.first_name || "—"],
+      ["Фамилия", entry.last_name || "—"],
+      ["Отчество", entry.middle_name || "—"],
+      ["Телефон", entry.phone || "—"],
+      ["Марка авто", entry.car || "—"],
+      ["Комментарий", entry.comment || "—"],
+    ];
+    listHtml = `<div class="event-meta-divider">Данные из списка</div>` +
+      listRows.map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
   }
 
   const meta = document.getElementById("eventMeta");

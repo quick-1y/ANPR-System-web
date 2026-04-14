@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS events (
     source TEXT,
     frame_path TEXT,
     plate_path TEXT,
-    direction TEXT
+    direction TEXT,
+    client_id BIGINT
 );
 
 -- Migration: add plate_display column to existing installations.
@@ -30,6 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_events_channel ON events(channel);
 CREATE INDEX IF NOT EXISTS idx_events_plate ON events(plate);
 CREATE INDEX IF NOT EXISTS idx_events_ts_id_desc ON events(timestamp DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_events_channel_id_ts_id_desc ON events(channel_id, timestamp DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_events_client_id ON events(client_id) WHERE client_id IS NOT NULL;
 
 -- ── Users (auth) ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (

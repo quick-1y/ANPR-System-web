@@ -695,7 +695,6 @@ select.s-input {
   padding: 0 12px; display: flex; align-items: center; gap: 8px;
   position: sticky; top: 0; z-index: 5; background: var(--card);
 }
-.clients-search-wrap { margin-left: auto; }
 .clients-search-wrap .s-input { width: 220px; }
 .clients-data-wrap { margin: 12px; border-radius: var(--radius); overflow: hidden; }
 
@@ -1028,8 +1027,8 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
 .data-table th.col-country { width: 60px; }
 .data-table td.col-dir { width: 130px; }
 .data-table th.col-dir { width: 130px; }
-.data-table td.col-plate { width: 160px; min-width: 160px; }
-.data-table th.col-plate { width: 160px; min-width: 160px; }
+.data-table td.col-plate { width: 130px; min-width: 130px; }
+.data-table th.col-plate { width: 130px; min-width: 130px; }
 .data-table td.col-conf { width: 60px; text-align: right; }
 .data-table th.col-conf { width: 60px; text-align: right; }
 .data-table td.col-source {

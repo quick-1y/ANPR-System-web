@@ -34,21 +34,37 @@ class ClientDatabase(PooledDatabase):
                 return [self._row_to_dict(row) for row in cursor.fetchall()]
 
     def get_client(self, client_id: int) -> Optional[Dict[str, Any]]:
-        """Return a single non-deleted client by primary key, or None."""
+        """Return a single non-deleted client by primary key with list metadata, or None."""
         self._ensure_schema()
         with self._connect() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT id, list_id, plate, last_name, first_name,
-                           middle_name, phone, car, comment
-                    FROM clients
-                    WHERE id = %s AND is_deleted = FALSE
+                    SELECT c.id, c.list_id, c.plate, c.last_name, c.first_name,
+                           c.middle_name, c.phone, c.car, c.comment,
+                           l.name AS list_name, l.type AS list_type
+                    FROM clients c
+                    LEFT JOIN lists l ON l.id = c.list_id
+                    WHERE c.id = %s AND c.is_deleted = FALSE
                     """,
                     (int(client_id),),
                 )
                 row = cursor.fetchone()
-        return self._row_to_dict(row) if row else None
+        if row is None:
+            return None
+        return {
+            "id": row[0],
+            "list_id": row[1],
+            "plate": row[2],
+            "last_name": row[3],
+            "first_name": row[4],
+            "middle_name": row[5],
+            "phone": row[6],
+            "car": row[7],
+            "comment": row[8],
+            "list_name": row[9],
+            "list_type": row[10],
+        }
 
     def search_clients(self, query: str) -> List[Dict[str, Any]]:
         """Return clients whose name fields or plate contain *query* (case-insensitive)."""

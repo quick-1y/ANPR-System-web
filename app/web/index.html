@@ -179,8 +179,7 @@
           <div class="subtab-pane active" id="subtab-clients">
             <div class="clients-main">
               <div class="clients-main-header" id="clientsMainHeader">
-                <div class="lists-main-title">Все клиенты</div>
-                <button class="btn btn-ghost btn-sm" id="addClientBtn">Добавить клиента</button>
+                <button class="btn btn-primary btn-sm" id="addClientBtn">Добавить клиента</button>
                 <div class="clients-search-wrap">
                   <input class="input input--md s-input" id="clientsSearchInput" placeholder="Поиск…" autocomplete="off" />
                 </div>
@@ -189,13 +188,12 @@
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th>Гос. номер</th>
+                      <th class="col-plate">Гос. номер</th>
                       <th>Фамилия</th>
                       <th>Имя</th>
                       <th>Телефон</th>
                       <th>Марка авто</th>
                       <th>Список</th>
-                      <th class="col-actions"></th>
                     </tr>
                   </thead>
                   <tbody id="clientsBody"></tbody>
@@ -218,7 +216,6 @@
             </div>
             <div class="lists-main">
               <div class="lists-main-header" id="listsMainHeader">
-                <div class="lists-main-title" id="listTitle">—</div>
                 <button class="btn btn-ghost btn-sm" id="attachClientToListBtn">Прикрепить клиента</button>
                 <button class="btn btn-ghost btn-sm" id="exportListBtn">
                   <img class="btn-icon ui-icon-sm" src="/web/assets/icons/export.svg" alt="" />
@@ -230,6 +227,7 @@
                 </button>
                 <input type="file" id="importListFileInput" accept=".csv" class="hidden" />
                 <button class="btn btn-ghost btn-sm" id="listSettingsBtn">Настройки</button>
+                <div class="lists-main-title" id="listTitle" style="margin-left:auto;text-align:right;">—</div>
               </div>
               <div class="lists-empty-state" id="listsEmptyState">
                 <span>Выберите список или создайте новый</span>
@@ -238,13 +236,12 @@
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th>Гос. номер</th>
+                      <th class="col-plate">Гос. номер</th>
                       <th>Фамилия</th>
                       <th>Имя</th>
                       <th>Телефон</th>
                       <th>Марка авто</th>
                       <th>Комментарий</th>
-                      <th class="col-actions"></th>
                     </tr>
                   </thead>
                   <tbody id="listMembersBody"></tbody>
