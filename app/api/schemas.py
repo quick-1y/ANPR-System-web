@@ -236,6 +236,10 @@ class UpdateListPayload(BaseModel):
     type: str = "white"
 
 
+class BulkImportPayload(BaseModel):
+    clients: List[ClientPayload]
+
+
 class RetentionPolicyPayload(BaseModel):
     auto_cleanup_enabled: bool = True
     cleanup_interval_minutes: int = 30

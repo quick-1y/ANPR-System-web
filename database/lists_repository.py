@@ -73,9 +73,9 @@ class ListDatabase(PooledDatabase):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT l.id, l.name, l.type, COUNT(e.id) AS clients_count
+                    SELECT l.id, l.name, l.type, COUNT(c.id) AS clients_count
                     FROM lists l
-                    LEFT JOIN clients e ON e.list_id = l.id AND e.is_deleted = FALSE
+                    LEFT JOIN clients c ON c.list_id = l.id AND c.is_deleted = FALSE
                     WHERE l.is_deleted = FALSE
                     GROUP BY l.id
                     ORDER BY l.name
@@ -161,10 +161,10 @@ class ListDatabase(PooledDatabase):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT e.plate_normalized, l.type
-                    FROM clients e
-                    JOIN lists l ON l.id = e.list_id
-                    WHERE e.is_deleted = FALSE AND l.is_deleted = FALSE
+                    SELECT c.plate_normalized, l.type
+                    FROM clients c
+                    JOIN lists l ON l.id = c.list_id
+                    WHERE c.is_deleted = FALSE AND l.is_deleted = FALSE
                     """
                 )
                 return [{"plate": row[0], "list_type": row[1]} for row in cursor.fetchall()]
@@ -179,10 +179,10 @@ class ListDatabase(PooledDatabase):
                 cursor.execute(
                     """
                     SELECT 1
-                    FROM clients e
-                    JOIN lists l ON l.id = e.list_id
-                    WHERE e.plate_normalized = %s AND l.type = %s
-                      AND e.is_deleted = FALSE AND l.is_deleted = FALSE
+                    FROM clients c
+                    JOIN lists l ON l.id = c.list_id
+                    WHERE c.plate_normalized = %s AND l.type = %s
+                      AND c.is_deleted = FALSE AND l.is_deleted = FALSE
                     LIMIT 1
                     """,
                     (normalized, list_type),
@@ -199,12 +199,12 @@ class ListDatabase(PooledDatabase):
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT e.id, e.plate, e.last_name, e.first_name, e.middle_name,
-                           e.phone, e.car, e.comment, l.type, l.name
-                    FROM clients e
-                    JOIN lists l ON l.id = e.list_id
-                    WHERE e.plate_normalized = %s
-                      AND e.is_deleted = FALSE AND l.is_deleted = FALSE
+                    SELECT c.id, c.plate, c.last_name, c.first_name, c.middle_name,
+                           c.phone, c.car, c.comment, l.type, l.name
+                    FROM clients c
+                    JOIN lists l ON l.id = c.list_id
+                    WHERE c.plate_normalized = %s
+                      AND c.is_deleted = FALSE AND l.is_deleted = FALSE
                     LIMIT 1
                     """,
                     (normalized,),
@@ -233,10 +233,10 @@ class ListDatabase(PooledDatabase):
             return False
         placeholders = ",".join(["%s"] * len(ids))
         query = (
-            f"SELECT 1 FROM clients e "
-            f"JOIN lists l ON l.id = e.list_id "
-            f"WHERE e.plate_normalized = %s AND e.list_id IN ({placeholders}) "
-            f"AND e.is_deleted = FALSE AND l.is_deleted = FALSE "
+            f"SELECT 1 FROM clients c "
+            f"JOIN lists l ON l.id = c.list_id "
+            f"WHERE c.plate_normalized = %s AND c.list_id IN ({placeholders}) "
+            f"AND c.is_deleted = FALSE AND l.is_deleted = FALSE "
             f"LIMIT 1"
         )
         with self._connect() as conn:

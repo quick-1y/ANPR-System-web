@@ -14,7 +14,6 @@ import numpy as np
 
 from common.logging import get_logger
 from runtime.debug import DebugRegistry
-from database.postgres_event_repository import PostgresEventDatabase
 
 if TYPE_CHECKING:
     from anpr.model_config import AnprModelConfig
@@ -82,9 +81,9 @@ class ChannelProcessor:
         self._contexts: Dict[int, ChannelContext] = {}
         self._lock = threading.RLock()
         self._storage_settings = storage_settings or {}
-        self._events_db = events_db if events_db is not None else PostgresEventDatabase(
-            str(self._storage_settings.get("postgres_dsn", ""))
-        )
+        if events_db is None:
+            raise ValueError("events_db is required for ChannelProcessor")
+        self._events_db = events_db
         self._lists_db = lists_db
         self._plate_settings = plate_settings or {}
         self._reconnect_config = self._build_reconnect_config(reconnect_settings or {})
@@ -251,6 +250,9 @@ class ChannelProcessor:
     def restart(self, channel_id: int) -> None:
         self.stop(channel_id)
         self.start(channel_id)
+
+    def shutdown_io_pool(self) -> None:
+        self._io_pool.shutdown(wait=True, cancel_futures=False)
 
     @staticmethod
     def _sanitize_for_filename(value: str) -> str:
@@ -545,11 +547,7 @@ class ChannelProcessor:
                     # (unfinalized) tracks exist — saves YOLO calls during idle.
                     effective_stride = detector_frame_stride
                     if adaptive_stride_enabled:
-                        active_tracks = sum(
-                            1 for s in pipeline.aggregator._track_states.values()
-                            if not s.finalized
-                        )
-                        if active_tracks == 0:
+                        if not pipeline.aggregator.has_active_tracks():
                             effective_stride = detector_frame_stride * 3
                     if detector_input_frames % effective_stride != 0:
                         metrics.detector_skipped_frames += 1

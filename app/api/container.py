@@ -135,6 +135,7 @@ class AppContainer:
         self.stream_shutdown.set()
         for channel_id in list(self.processor.list_states().keys()):
             self.processor.stop(channel_id)
+        self.processor.shutdown_io_pool()
 
     def storage_503(self, exc: Exception) -> HTTPException:
         return HTTPException(status_code=503, detail=f"PostgreSQL недоступен: {exc}")
@@ -154,12 +155,14 @@ class AppContainer:
     def restart_processor_for_settings(self) -> None:
         channels = self.channel_db.list_channels()
         enabled_ids = [int(item["id"]) for item in channels if item.get("enabled", True)]
+        old_processor = self.processor
         for channel in channels:
             try:
-                self.processor.stop(int(channel["id"]))
+                old_processor.stop(int(channel["id"]))
             except Exception:
                 pass
         self.processor = self._create_processor()
+        old_processor.shutdown_io_pool()
         for channel in channels:
             self.processor.ensure_channel(channel)
         for channel_id in enabled_ids:
@@ -213,6 +216,7 @@ class AppContainer:
         self.events_db = PostgresEventDatabase(dsn)
         self.lifecycle = self._build_lifecycle()
         self.lists_db = ListDatabase(dsn)
+        self.processor._lists_db = self.lists_db
         self.clients_db = ClientDatabase(dsn)
         self.user_db = UserDatabase(dsn)
         self.channel_db = ChannelDatabase(dsn)

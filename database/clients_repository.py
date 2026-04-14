@@ -220,6 +220,55 @@ class ClientDatabase(PooledDatabase):
             conn.commit()
         return updated
 
+    def bulk_create_and_attach(self, list_id: int, clients: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Insert all clients and attach them to *list_id* in a single transaction.
+
+        Duplicate plates (unique constraint on list_id + plate_normalized) and
+        empty plates are counted as skipped. Returns imported/skipped/errors counts.
+        """
+        self._ensure_schema()
+        imported = 0
+        skipped = 0
+        errors: List[str] = []
+        with self._connect() as conn:
+            with conn.cursor() as cursor:
+                for client in clients:
+                    plate = (client.get("plate") or "").strip()
+                    normalized = normalize_plate(plate)
+                    if not normalized:
+                        skipped += 1
+                        continue
+                    cursor.execute("SAVEPOINT bulk_row")
+                    try:
+                        cursor.execute(
+                            """
+                            INSERT INTO clients
+                                (list_id, plate, plate_normalized, last_name, first_name,
+                                 middle_name, phone, car, comment)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                int(list_id),
+                                plate,
+                                normalized,
+                                (client.get("last_name") or "").strip(),
+                                (client.get("first_name") or "").strip(),
+                                (client.get("middle_name") or "").strip(),
+                                (client.get("phone") or "").strip(),
+                                (client.get("car") or "").strip(),
+                                (client.get("comment") or "").strip(),
+                            ),
+                        )
+                        cursor.execute("RELEASE SAVEPOINT bulk_row")
+                        imported += 1
+                    except Exception as exc:  # noqa: BLE001
+                        cursor.execute("ROLLBACK TO SAVEPOINT bulk_row")
+                        cursor.execute("RELEASE SAVEPOINT bulk_row")
+                        skipped += 1
+                        errors.append(f"{plate}: {exc}")
+            conn.commit()
+        return {"imported": imported, "skipped": skipped, "errors": errors}
+
     # ── Internal helpers ─────────────────────────────────────────────────
 
     @staticmethod

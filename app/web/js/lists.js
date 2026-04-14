@@ -225,30 +225,28 @@ export async function importCurrentListCSV(file) {
   const dataLines = lines.slice(1);
   if (dataLines.length === 0) { showToast('Нет записей для импорта', 3000); return; }
 
-  let imported = 0;
-  let skipped = 0;
+  const clients = [];
+  let skippedLocally = 0;
   for (const line of dataLines) {
     const cells = parseCSVLine(line);
     const plate = (cells[0] || '').trim();
-    if (!plate) { skipped++; continue; }
-    try {
-      const result = await jfetch(api('/api/clients'), 'POST', {
-        plate,
-        first_name:  (cells[1] || '').trim(),
-        last_name:   (cells[2] || '').trim(),
-        middle_name: (cells[3] || '').trim(),
-        phone:       (cells[4] || '').trim(),
-        car:         (cells[5] || '').trim(),
-        comment:     (cells[6] || '').trim(),
-      });
-      if (result?.id) {
-        await jfetch(api(`/api/clients/${result.id}/attach`), 'POST', { list_id: state.selectedListId });
-      }
-      imported++;
-    } catch (_e) {
-      skipped++;
-    }
+    if (!plate) { skippedLocally++; continue; }
+    clients.push({
+      plate,
+      first_name:  (cells[1] || '').trim(),
+      last_name:   (cells[2] || '').trim(),
+      middle_name: (cells[3] || '').trim(),
+      phone:       (cells[4] || '').trim(),
+      car:         (cells[5] || '').trim(),
+      comment:     (cells[6] || '').trim(),
+    });
   }
+
+  if (clients.length === 0) { showToast('Нет записей для импорта', 3000); return; }
+
+  const result = await jfetch(api(`/api/lists/${state.selectedListId}/import`), 'POST', { clients });
+  const imported = result?.imported ?? 0;
+  const skipped = (result?.skipped ?? 0) + skippedLocally;
 
   await loadListClients(state.selectedListId);
   const { loadAllClients } = await import('./clients.js');
