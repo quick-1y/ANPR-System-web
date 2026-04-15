@@ -82,7 +82,7 @@ curl http://localhost:8080/worker/health
 
 Оба должны вернуть `200 OK`.
 
-### 6. Открыть Web UI
+### 5. Открыть Web UI
 
 Перейти в браузере на **http://localhost:8080**
 
@@ -95,10 +95,12 @@ curl http://localhost:8080/worker/health
 ```bash
 # Пересборка с новым кодом
 docker compose build --no-cache && docker compose up -d
-
+```
+```bash
 # Остановка
 docker compose down
-
+```
+```bash
 # Полный сброс (удаляет все данные и volumes)
 docker compose down -v
 ```
