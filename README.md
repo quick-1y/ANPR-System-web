@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/YOLOv8-red?style=for-the-badge"/> 
   <img src="https://img.shields.io/badge/CRNN-orange?style=for-the-badge"/> 
   <img src="https://img.shields.io/badge/Docker-2496ed?style=for-the-badge&logo=docker&logoColor=white"/>
-</p>>
+</p>
 
 <p align="center">
   Веб приложение системы автоматического распознавания автомобильных номеров.
