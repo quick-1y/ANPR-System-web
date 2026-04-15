@@ -1,4 +1,4 @@
-# ANPR System v0.8 Web
+# ANPR System
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue.svg)
 ![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)
@@ -16,14 +16,15 @@
 ## Документация
 
 | Раздел | Что внутри |
-|--------|------------|
-| [Диаграммы](docs/diagrams.md) | Архитектурные схемы, pipeline, event flow, retention |
-| [Описание модулей](docs/modules.md) | Назначение основных директорий и ключевых файлов |
-| [Технологический стек](docs/technology-stack.md) | Языки, runtime, инфраструктура и ключевые зависимости |
-| [Структура проекта](docs/project-structure.md) | Дерево проекта и навигация по репозиторию |
+|---|---|
+| [Деплой и конфигурация](docs/setup.md) | Docker-запуск, переменные окружения, runtime-настройки, аппаратные контроллеры, хранилище |
+| [Аутентификация и пользователи](docs/auth.md) | Роли, разрешения, JWT, управление пользователями |
 | [API endpoints](docs/endpoints.md) | Web UI, REST, SSE, debug, worker и export endpoints |
-| [ANPR pipeline](docs/anpr-pipeline.md) | Алгоритмы ядра, OCR по треку, сценарии и ключевые параметры |
-
+| [ANPR pipeline](docs/anpr-pipeline.md) | Алгоритмы детекции, OCR, агрегация по треку, ключевые параметры |
+| [Диаграммы](docs/diagrams.md) | Архитектурные схемы, pipeline, event flow, retention |
+| [Описание модулей](docs/modules.md) | Назначение директорий и ключевых файлов |
+| [Технологический стек](docs/technology-stack.md) | Языки, runtime, инфраструктура, ключевые зависимости |
+| [Структура проекта](docs/project-structure.md) | Дерево репозитория и навигация |
 
 ---
 
@@ -31,16 +32,16 @@
 
 - многоканальная обработка видео: отдельный поток исполнения на каждый канал;
 - server-side ANPR pipeline: детекция (YOLOv8), OCR (CRNN), агрегация по треку, постобработка, cooldown;
-- web UI оператора: наблюдение, журнал событий, управление списками, настройки;
-- live preview по MJPEG из того же channel runtime;
+- web UI оператора: наблюдение, журнал событий, управление клиентами, списки номеров, настройки;
+- live preview по MJPEG из того же потока канала;
 - live-события через SSE без опроса (long-lived stream с keepalive);
 - управление каналами через API: создать, изменить, запустить, остановить, перезапустить;
-- настройка ROI, размера номерного знака, OCR порогов, cooldown, motion gate;
+- настройка ROI, размера номерного знака, OCR-порогов, cooldown и motion gate — отдельно на каждый канал;
 - управление клиентами (ФИО, номер, телефон, автомобиль, комментарий) независимо от списков;
-- white / black / custom plate lists с фильтрацией событий для автоматической сработки реле; клиенты могут быть прикреплены к списку или существовать без него;
+- white / black / custom plate lists с фильтрацией событий для автосработки реле; клиенты могут существовать без привязки к списку;
 - управление аппаратными контроллерами через API (тип DTWONDER2CH);
 - retention / cleanup / CSV / ZIP export через отдельный worker-сервис;
-- backup / restore: полный бэкап PostgreSQL и settings.yaml с валидацией и восстановлением через UI;
+- полный бэкап PostgreSQL и `settings.yaml` с восстановлением через UI;
 - PostgreSQL — единственный поддерживаемый backend хранения данных.
 
 ---
@@ -50,10 +51,10 @@
 Система разделена на три контура:
 
 1. **API service** (`app/api/`) — FastAPI-приложение: web UI, REST API, управление каналами, SSE-поток событий, preview endpoints.
-2. **Channel runtime / ANPR core** (`runtime/`, `anpr/`) — для каждого канала создаётся отдельный поток, который открывает источник видео, формирует MJPEG preview в памяти и прогоняет кадры через полный ANPR pipeline.
+2. **Channel runtime / ANPR core** (`runtime/`, `anpr/`) — для каждого канала создаётся отдельный поток, который открывает источник видео, хранит MJPEG preview в памяти и прогоняет кадры через полный ANPR pipeline.
 3. **Retention worker** (`app/worker/`) — отдельный FastAPI-сервис для очистки старых событий, удаления медиа, контроля размера хранилища и экспорта.
 
-Подробные схемы вынесены в [`docs/diagrams.md`](docs/diagrams.md), а описание ключевых компонентов — в [`docs/modules.md`](docs/modules.md).
+Архитектурные схемы вынесены в [`docs/diagrams.md`](docs/diagrams.md), описание компонентов — в [`docs/modules.md`](docs/modules.md).
 
 ---
 
@@ -61,257 +62,27 @@
 
 Поддерживаемая модель runtime: Docker Compose.
 
-### Требования
-
-- Docker Engine 24+
-- Docker Compose v2+
-- файлы моделей в `anpr/models/yolo/` и `anpr/models/ocr_crnn/`
-
-### Подготовка
+**Требования:** Docker Engine 24+, Docker Compose v2+, файлы ML-моделей в `anpr/models/yolo/` и `anpr/models/ocr_crnn/`.
 
 ```bash
 cp .env.example .env
-# при необходимости отредактировать .env
-```
-
-### Запуск
-
-```bash
+# Отредактировать .env — как минимум задать JWT_SECRET_KEY
 docker compose up -d --build
 ```
 
-Поднимаются четыре сервиса:
-
-| Сервис | Описание | Внутренний адрес |
-|---|---|---|
-| `nginx` | Reverse proxy, единственная публичная точка входа | `HTTP_PORT` (по умолчанию `8080`) |
-| `api` | FastAPI + Web UI + channel runtime | `api:8080` |
-| `retention_worker` | Retention / cleanup / export | `retention_worker:8092` |
-| `postgres` | PostgreSQL 16 с init-схемой | `postgres:5432` (только внутри сети) |
-
-**Volumes:**
-- `pgdata` — данные PostgreSQL
-- `media_data` — `data/screenshots` и `data/exports`
-- `logs_data` — `logs`
-
-### Проверка
+Проверить, что система запустилась:
 
 ```bash
 curl http://localhost:8080/api/health
 curl http://localhost:8080/worker/health
-curl http://localhost:8080/api/channels
-curl -o snapshot.jpg http://localhost:8080/api/channels/1/snapshot.jpg
 ```
 
-### Обновление / сброс
+Web UI доступен по адресу `http://localhost:8080`. Логин по умолчанию: `superadmin` / `1234`.
 
-```bash
-# Пересборка
-docker compose build --no-cache && docker compose up -d
-```
-
-```bash
-# Остановка
-docker compose down
-```
-
-```bash
-# Полный сброс данных (удаляет volumes)
-docker compose down -v
-```
+Подробнее о конфигурации, переменных окружения и процедурах обновления — в [`docs/setup.md`](docs/setup.md).
 
 ---
 
-## Авторизация и аутентификация
-
-Система использует JWT-аутентификацию для защиты API.
-
-### Механизм
-
-- Аутентификация через `POST /api/auth/login` (логин + пароль) — возвращает JWT access token.
-- Все API-эндпоинты (кроме `/api/health` и `/api/auth/login`) требуют валидный JWT.
-- Токен передаётся в заголовке `Authorization: Bearer <token>` или в query-параметре `?token=<jwt>` (для SSE/MJPEG стримов).
-- Срок жизни токена: 8 часов (настраивается через `JWT_EXPIRATION_MINUTES`).
-
-### Модель пользователей
-
-- Роли: `admin` (полный доступ) и `operator` (ограниченный доступ).
-- Разрешения хранятся как JSONB-массив строковых ключей: `["tab:obs", "tab:journal", "tab:lists", "tab:settings"]`.
-- Администраторы имеют все разрешения неявно.
-
-### Первый запуск
-
-При первом запуске автоматически создаётся пользователь по умолчанию:
-- Логин: `superadmin`
-- Пароль: `1234`
-- Роль: `superadmin`
-
-### Auth API endpoints
-
-| Метод | URL | Описание |
-|---|---|---|
-| `POST` | `/api/auth/login` | Аутентификация, возвращает JWT |
-| `POST` | `/api/auth/logout` | Подтверждение выхода (клиент удаляет токен) |
-| `GET` | `/api/auth/me` | Текущий пользователь |
-| `GET` | `/api/permissions/available` | Список доступных ключей разрешений (только admin) |
-
-### Управление пользователями (admin-only)
-
-| Метод | URL | Описание |
-|---|---|---|
-| `GET` | `/api/users` | Список всех пользователей |
-| `POST` | `/api/users` | Создать пользователя |
-| `GET` | `/api/users/{id}` | Получить пользователя по ID |
-| `PUT` | `/api/users/{id}` | Изменить роль, разрешения, статус активности |
-| `PUT` | `/api/users/{id}/password` | Сменить пароль |
-| `DELETE` | `/api/users/{id}` | Деактивировать пользователя |
-
-Пользователи никогда не удаляются физически (мягкое удаление через `is_active=false`).
-
-### Управление пользователями в Web UI
-
-Администраторы видят дополнительный пункт **«Пользователи»** в левом меню раздела **Настройки**.
-
-- **Список пользователей**: логин, роль (АДМ / ОПЕ), статус активности.
-- **Создание**: логин, пароль, подтверждение, роль, права доступа к вкладкам.
-- **Редактирование**: роль, вкладки, переключатель активен/неактивен, смена пароля.
-- **Защита от самоблокировки**: нельзя деактивировать себя или снять роль admin, если вы единственный активный администратор.
-
-### Переменные окружения (auth)
-
-| Переменная | Описание | По умолчанию |
-|---|---|---|
-| `JWT_SECRET_KEY` | Секретный ключ для подписи JWT | `anpr-default-secret-change-me` |
-| `JWT_EXPIRATION_MINUTES` | Время жизни токена в минутах | `480` (8 часов) |
-| `API_KEY` | Устаревший статический ключ (обратная совместимость) | _(пусто)_ |
-
-### Web UI — вход и выход
-
-- При открытии страницы, если токен отсутствует или истёк, отображается **экран входа** (`#login-overlay`) с полями «Логин» и «Пароль».
-- После успешного входа JWT сохраняется в `localStorage` под ключом `anpr_token`; данные пользователя хранятся в `state.currentUser`.
-- В правом углу topbar отображается логин текущего пользователя и кнопка **«Выход»**.
-- Выход очищает `anpr_token` из `localStorage` и перезагружает страницу.
-- Все API-запросы из UI (включая SSE/MJPEG-стримы) передают JWT через `Authorization: Bearer` или `?token=`.
-
-### Обратная совместимость
-
-Если задана переменная `API_KEY`, статический ключ принимается наряду с JWT-токенами. Это позволяет существующим скриптам и интеграциям продолжать работать во время перехода. Поддержка `API_KEY` будет удалена в будущей фазе.
-
----
-
-## Конфигурация
-
-| Файл | Назначение |
-|---|---|
-| `.env` | Переменные окружения для Docker Compose (`POSTGRES_*`, `HTTP_PORT`, `LOG_LEVEL`, `API_KEY`, `JWT_SECRET_KEY`, `SETTINGS_PATH`) |
-| `.env.example` | Шаблон `.env` |
-| `config/settings.yaml` | Runtime-конфигурация: каналы, ROI, OCR, retention, контроллеры |
-
-API и retention_worker используют один и тот же `SETTINGS_PATH=/app/config/settings.yaml`. PostgreSQL — единственный backend runtime-данных.
-
-### Версионирование `settings.yaml`
-
-- `settings_lineage: mainline` — каноническая линия схемы.
-- `settings_version: 1` — текущая версия для этой линии.
-- При загрузке legacy-конфиги (без `settings_lineage`) автоматически мигрируют до текущей схемы и сохраняются обратно.
-- `settings_version` выше поддерживаемой → явная ошибка (без silent downgrade).
-- Неизвестная `settings_lineage` → явная ошибка (без принудительной перезаписи).
-- Любое изменение структуры полей требует повышения версии схемы и обновления migration path.
-
----
-
-## Поток данных
-
-Диаграмма публикации событий и обслуживания хранилища вынесена в [`docs/diagrams.md`](docs/diagrams.md).
-
-### Шаги обработки
-
-1. **Подключение канала** — при старте API читает каналы из `config/settings.yaml`; `ChannelProcessor` создаёт `ChannelContext` и запускает поток для каждого `enabled=true` канала.
-2. **Получение кадров** — поток открывает источник через `cv2.VideoCapture(source)` и в цикле вызывает `cap.read()`.
-3. **Reconnect логика**:
-   - `reconnect.signal_loss.enabled` — контроль таймаута чтения; при таймауте увеличивается `timeout_count`, выполняется controlled reconnect.
-   - `reconnect.periodic.enabled` — принудительный reconnect каждые `interval_minutes` независимо от signal-loss.
-   - При каждом reconnect увеличивается `reconnect_count`.
-4. **Preview** — кадр кодируется в JPEG только при наличии активных MJPEG/snapshot потребителей (lazy encode), с частотой не выше `preview_fps_limit` (per-channel, по умолчанию 5 fps). Отключается через `debug.disable_video_output`.
-5. **Детекция и распознавание** — кадр идёт в `YOLODetector.track()`, затем в `ANPRPipeline.process_frame()`.
-6. **Сохранение события** — валидный номер (с прошедшим cooldown) записывается в PostgreSQL через `EventSink`, затем публикуется в `EventBus` для SSE.
-
----
-
-## Контроллеры и plate lists
-
-### Привязка контроллера к каналу
-
-- Контроллер настраивается отдельно: имя, тип, адрес, пароль, 2 реле с режимом и хоткеем.
-- В конфиге канала указываются `controller_id`, `controller_relay`, `list_filter_mode`, `list_filter_list_ids`.
-- Режим реле задаётся в контроллере, а не в канале.
-- При удалении контроллера, который используется каналом, API возвращает ошибку.
-
-### Режимы фильтрации для автосработки реле
-
-| Режим | Поведение |
-|---|---|
-| `all` | Реле срабатывает для любого номера, кроме номеров из black list |
-| `whitelist` | Реле срабатывает только для номеров из списков типа `white`; black list блокирует |
-| `custom` | Реле срабатывает только для номеров из выбранных списков (`list_filter_list_ids`); black list блокирует |
-
-Приоритет black list абсолютный.
-
-#### Фильтр направления движения (`controller_direction_filter`)
-
-Дополнительный фильтр, применяемый **совместно** с режимом списков: оба условия должны выполниться, чтобы команда была отправлена контроллеру.
-
-| Значение | Поведение |
-|---|---|
-| `both` | Направление не учитывается (поведение по умолчанию) |
-| `approaching` | Команда отправляется только при движении ТС **в сторону** камеры |
-| `receding` | Команда отправляется только при движении ТС **от** камеры |
-
-Если направление не удалось определить (`UNKNOWN`), команда при значениях `approaching` или `receding` **не** отправляется.
-
-### Режимы реле
-
-| Режим | Описание |
-|---|---|
-| `pulse` | Без таймера (timer_seconds=1) |
-| `pulse_timer` | С таймером >= 1 с |
-
-### Хоткеи реле
-
-- Хоткей задаётся на конкретное реле конкретного контроллера.
-- По нажатию в web UI отправляется `POST /api/controllers/{controller_id}/test`.
-- Блокируется при фокусе в `input/textarea/select/contenteditable` или при key repeat.
-- Дубликаты хоткеев в одном контроллере запрещены валидацией API.
-
----
-
-## Хранение данных
-
-### PostgreSQL (обязательно)
-
-Все события и списки номеров хранятся в PostgreSQL через `POSTGRES_DSN`.
-
-**Таблицы:**
-
-| Таблица | Поля |
-|---|---|
-| `events` | `id`, `timestamp`, `channel_id`, `channel`, `plate`, `plate_display`, `country`, `confidence`, `source`, `frame_path`, `plate_path`, `direction` |
-| `lists` | `id`, `name`, `type`, `is_deleted` |
-| `clients` | `id`, `list_id` *(nullable — клиент может существовать без списка)*, `plate`, `plate_normalized`, `last_name`, `first_name`, `middle_name`, `phone`, `car`, `comment`, `is_deleted` |
-| `users` | `id`, `login`, `password` (bcrypt), `role`, `permissions` (JSONB), `is_active`, `created_at`, `updated_at` |
-
-**Индексы:** `(timestamp DESC, id DESC)` по событиям; `plate_normalized` и `(list_id, plate_normalized) UNIQUE WHERE is_deleted = FALSE` по клиентам (partial unique — несколько неприкреплённых клиентов с одинаковым номером не конфликтуют).
-
-### Медиа и экспорт
-
-- Медиа сохраняются в `storage.screenshots_dir`.
-- CSV/ZIP-экспорт формируется сервером в памяти и отдаётся в браузер как файл для скачивания.(TODO, если будут проблемы с RAM, изменить метод сохранения перед экспортом на что то вроде `_export_dir = /tmp/anpr_exports`)
-- Bundle export упаковывает CSV и доступные медиафайлы в ZIP.
-
-Подробности по стеку и расположению директорий см. в [`docs/technology-stack.md`](docs/technology-stack.md) и [`docs/project-structure.md`](docs/project-structure.md).
-
----
-
-## License
+## Лицензия
 
 MIT

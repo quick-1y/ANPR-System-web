@@ -139,6 +139,10 @@ ANPR-System-v0.8_web/
 
 ## Связанные документы
 
+- Деплой и конфигурация: [`setup.md`](setup.md)
+- Аутентификация и пользователи: [`auth.md`](auth.md)
+- API endpoints: [`endpoints.md`](endpoints.md)
 - Диаграммы: [`diagrams.md`](diagrams.md)
 - Описание модулей: [`modules.md`](modules.md)
 - Технологический стек: [`technology-stack.md`](technology-stack.md)
+- ANPR pipeline: [`anpr-pipeline.md`](anpr-pipeline.md)
