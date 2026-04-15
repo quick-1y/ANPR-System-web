@@ -1,5 +1,5 @@
 // Debug panels, log stream
-import { debugLogSource, debugLogReconnectTimer, lastDebugLogId, debugSettingsCache, setDebugLogSource, setDebugLogReconnectTimer, setLastDebugLogId, streamReconnectTimer, eventSource, setStreamReconnectTimer, setEventSource } from './state.js';
+import { debugLogSource, debugLogReconnectTimer, lastDebugLogId, debugSettingsCache, setDebugLogSource, setDebugLogReconnectTimer, setLastDebugLogId, streamReconnectTimer, eventSource, setStreamReconnectTimer, setEventSource, isSuperAdmin } from './state.js';
 import { api, apiUrl, jfetch } from './api.js';
 import { scheduleVideoGridLayout } from './channels.js';
 import { pushEvent } from './events.js';
@@ -26,8 +26,13 @@ function prependDebugLine(text, type = "info", timestamp = null, meta = "") {
 
 export function applyDebugPanelVisibility() {
   const panel = document.getElementById("obsDebugPanel");
-  const btn = document.getElementById("toggleDebugPanelBtn");
   if (!panel) return;
+  if (!isSuperAdmin()) {
+    panel.style.display = "none";
+    scheduleVideoGridLayout(true);
+    return;
+  }
+  const btn = document.getElementById("toggleDebugPanelBtn");
   const enabled = Boolean((debugSettingsCache || {}).log_panel_enabled);
   panel.style.display = enabled ? "flex" : "none";
   scheduleVideoGridLayout(true);

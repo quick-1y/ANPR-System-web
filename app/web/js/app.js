@@ -276,6 +276,7 @@ initBackupBindings();
   }
   _applyUserUI(currentUser);
   applyTabVisibility(currentUser.permissions || [], currentUser.role === "superadmin");
+  applyDebugPanelVisibility();
   initUsersPane();
 
   // --- Superadmin-only: reveal "Разработка" section ---
@@ -314,13 +315,13 @@ initBackupBindings();
   await loadLists();
   await loadAllClients();
   await loadJournal();
-  await loadGlobalSettings();
-  await refreshOverlayStates();
   if (currentUser.role === "superadmin") {
+    await loadGlobalSettings();
+    await refreshOverlayStates();
     await loadDebugLogHistory();
     setupDebugLogStream();
+    await loadControllers();
   }
-  await loadControllers();
   setupStream();
   setInterval(refreshChannels, 8000);
   syncOverlayPolling();
