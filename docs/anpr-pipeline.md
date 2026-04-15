@@ -1,17 +1,19 @@
 # ANPR Pipeline
 
-Что находится в документе:
-- алгоритмы ядра: YOLO, motion detector, preprocessing, CRNN, track aggregation, direction estimator и post-processing;
-- трек-уровневый OCR-алгоритм: бюджет попыток, ранняя финализация, unreadable flow и защита от дублей;
-- практические сценарии обработки треков;
-- параметры `max_ocr_attempts`, `max_consecutive_empty_ocr`, `detector_frame_stride`, `adaptive_stride_enabled`, `preview_fps_limit` и их взаимодействие с `best_shots` и `ocr_min_confidence`.
+Этот документ описывает внутренний pipeline распознавания: детекцию, OCR, агрегацию результатов по треку, постобработку, логику финализации трека и ключевые runtime-параметры.
 
-Кратко: pipeline построен вокруг трек-уровневой агрегации OCR, чтобы сокращать CPU-нагрузку и не генерировать дубликаты событий. OCR выполняется только пока трек не финализирован и пока не исчерпан бюджет попыток.
-
-
----
+Текущая версия pipeline построена вокруг трек-уровневой агрегации OCR. Это снижает CPU-нагрузку, ограничивает число OCR-попыток на трек и предотвращает дублирование событий для долгоживущих или нечитаемых объектов.
 
 Схемы видеоввода, внутреннего pipeline и жизненного цикла событий вынесены в [`docs/diagrams.md`](docs/diagrams.md).
+
+## Что покрывает документ
+
+- алгоритмы ядра: YOLO, motion detector, preprocessing, CRNN, track aggregation, direction estimator и post-processing
+- трек-уровневый OCR-алгоритм: бюджет попыток, ранняя финализация, unreadable flow и защита от дублей
+- практические сценарии обработки треков
+- параметры `max_ocr_attempts`, `max_consecutive_empty_ocr`, `detector_frame_stride`, `adaptive_stride_enabled`, `preview_fps_limit` и их взаимодействие с `best_shots` и `ocr_min_confidence`
+
+---
 
 ### Алгоритмы ядра
 
