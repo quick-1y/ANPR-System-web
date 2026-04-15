@@ -54,7 +54,7 @@ class TestRequireSuperadmin:
 
     def test_operator_with_all_tab_permissions_still_raises_403(self):
         """Having all tab permissions does not grant superadmin route access."""
-        op = _operator_user(permissions=["tab:obs", "tab:journal", "tab:lists", "tab:settings"])
+        op = _operator_user(permissions=["tab:obs", "tab:journal", "tab:clients", "tab:settings"])
         with pytest.raises(HTTPException) as exc_info:
             _call_require_superadmin(op)
         assert exc_info.value.status_code == 403

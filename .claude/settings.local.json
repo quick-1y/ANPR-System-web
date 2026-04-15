@@ -121,7 +121,10 @@
       "Bash(\"C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\pypoetry\\\\Cache\\\\virtualenvs\\\\anpr-system-wAD8mgqr-py3.14\\\\Scripts\\\\python.exe\" -m pytest tests/test_lists_repository.py -v)",
       "Bash(\"C:\\\\Users\\\\User\\\\AppData\\\\Local\\\\pypoetry\\\\Cache\\\\virtualenvs\\\\anpr-system-wAD8mgqr-py3.14\\\\Scripts\\\\python.exe\" -m pytest tests/ --ignore=tests/test_lists_repository.py -v)",
       "Bash(cat docker-compose.yml)",
-      "Bash(cat docker-compose.yaml)"
+      "Bash(cat docker-compose.yaml)",
+      "Bash(python -m pytest tests/test_auth_router.py tests/test_permission_guards.py -q)",
+      "Bash(ls .venv/Scripts/)",
+      "Bash(ls venv/Scripts/)"
     ]
   }
 }

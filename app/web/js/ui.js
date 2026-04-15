@@ -96,6 +96,7 @@ export function applyTabVisibility(permissions, userIsAdmin) {
 
   tabs.forEach((el) => {
     const tabName = el.dataset.tab;
+    if (!tabName) return; // skip non-tab elements (e.g. logout button)
     const permitted =
       userIsAdmin ||
       (Array.isArray(permissions) && permissions.includes(`tab:${tabName}`));

@@ -167,7 +167,7 @@ class TestAvailablePermissions:
         keys = [item["key"] for item in result]
         assert "tab:obs" in keys
         assert "tab:journal" in keys
-        assert "tab:lists" in keys
+        assert "tab:clients" in keys
         assert "tab:settings" in keys
 
     def test_operator_is_blocked(self):
@@ -219,10 +219,10 @@ class TestMeResponseContract:
         assert result.is_active is True
 
     def test_me_returns_permissions_list(self):
-        user = _make_user(role="operator", permissions=["tab:obs", "tab:lists"])
+        user = _make_user(role="operator", permissions=["tab:obs", "tab:clients"])
         result = me(current_user=user)
         assert "tab:obs" in result.permissions
-        assert "tab:lists" in result.permissions
+        assert "tab:clients" in result.permissions
 
 
 # ---------------------------------------------------------------------------
