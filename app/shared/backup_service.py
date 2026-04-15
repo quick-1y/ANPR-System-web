@@ -17,7 +17,10 @@ from common.logging import get_logger
 logger = get_logger(__name__)
 
 # ── Tables included in the database backup ──────────────────────
-_BACKUP_TABLES = ("lists", "clients", "events")
+# Order matters: parents before children for INSERT, reversed for DELETE.
+# FK constraints: clients.list_id -> lists.id
+# channels.controller_id is an INTEGER with no FK constraint in the schema.
+_BACKUP_TABLES = ("controllers", "users", "lists", "channels", "clients", "events")
 
 _BACKUP_MANIFEST_VERSION = 1
 
@@ -119,6 +122,16 @@ def validate_database_backup(data: bytes) -> None:
         )
 
 
+def _fetch_jsonb_columns(cur: Any, table: str) -> frozenset[str]:
+    """Return the set of column names whose data type is jsonb for *table*."""
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_schema = 'public' AND table_name = %s AND udt_name = 'jsonb'",
+        (table,),
+    )
+    return frozenset(row[0] for row in cur.fetchall())
+
+
 def restore_database_backup(dsn: str, data: bytes) -> Dict[str, Any]:
     """Restore tables from a backup ZIP.  Returns a summary dict."""
     zf = ZipFile(io.BytesIO(data), "r")
@@ -129,7 +142,7 @@ def restore_database_backup(dsn: str, data: bytes) -> Dict[str, Any]:
 
     with psycopg.connect(dsn) as conn:
         with conn.cursor() as cur:
-            # Restore in reverse order to respect FK constraints (delete children first)
+            # Delete children before parents to respect FK constraints
             for table in reversed(_BACKUP_TABLES):
                 if table in tables:
                     cur.execute(f"DELETE FROM {table}")  # noqa: S608
@@ -143,12 +156,21 @@ def restore_database_backup(dsn: str, data: bytes) -> Dict[str, Any]:
                     restored[table] = 0
                     continue
 
+                jsonb_cols = _fetch_jsonb_columns(cur, table)
                 columns = list(rows[0].keys())
-                placeholders = ", ".join(["%s"] * len(columns))
                 col_names = ", ".join(columns)
+                placeholders = ", ".join(
+                    f"%s::jsonb" if col in jsonb_cols else "%s"  # noqa: S608
+                    for col in columns
+                )
 
                 for row in rows:
-                    values = [row.get(c) for c in columns]
+                    values = []
+                    for col in columns:
+                        val = row.get(col)
+                        if col in jsonb_cols and isinstance(val, (dict, list)):
+                            val = json.dumps(val, ensure_ascii=False)
+                        values.append(val)
                     cur.execute(
                         f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})",  # noqa: S608
                         values,
