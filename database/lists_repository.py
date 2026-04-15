@@ -190,7 +190,11 @@ class ListDatabase(PooledDatabase):
                 return cursor.fetchone() is not None
 
     def find_client_by_plate(self, plate: str) -> Optional[Dict[str, Any]]:
-        """Return the first client record matching the given plate that belongs to a list, or None."""
+        """Return the first active client record matching the given plate, or None.
+
+        The client is returned regardless of whether they are attached to a list.
+        list_type and list_name will be None when the client has no list assignment.
+        """
         self._ensure_schema()
         normalized = normalize_plate(plate)
         if not normalized:
@@ -202,9 +206,9 @@ class ListDatabase(PooledDatabase):
                     SELECT c.id, c.plate, c.last_name, c.first_name, c.middle_name,
                            c.phone, c.car, c.comment, l.type, l.name
                     FROM clients c
-                    JOIN lists l ON l.id = c.list_id
+                    LEFT JOIN lists l ON l.id = c.list_id AND l.is_deleted = FALSE
                     WHERE c.plate_normalized = %s
-                      AND c.is_deleted = FALSE AND l.is_deleted = FALSE
+                      AND c.is_deleted = FALSE
                     LIMIT 1
                     """,
                     (normalized,),
