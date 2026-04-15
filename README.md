@@ -130,8 +130,10 @@ docker compose down -v
 | 🧠 | [ANPR pipeline](docs/anpr-pipeline.md) | Алгоритмы OCR, агрегация по треку, ключевые параметры |
 | 📊 | [Диаграммы](docs/diagrams.md) | Схемы сервисов, pipeline, event flow, retention |
 | 📦 | [Описание модулей](docs/modules.md) | Назначение каждого файла и директории |
+| | [Architecture](docs/architecture.md) | Текстовое описание архитектуры системы, сервисов и потоков данных |
 | 🛠 | [Технологический стек](docs/technology-stack.md) | Языки, фреймворки, ключевые зависимости |
 | 📁 | [Структура проекта](docs/project-structure.md) | Дерево репозитория |
+
 
 ---
 
