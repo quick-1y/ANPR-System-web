@@ -1,19 +1,18 @@
 # ANPR System
 
 <p align="center">
-  <b>🚀 Core</b><br/>
-  <img src="https://img.shields.io/badge/Python-3.13-3776ab?style=for-the-badge&logo=python&logoColor=white"/>
-  <img src="https://img.shields.io/badge/API-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Data-PostgreSQL-4169e1?style=for-the-badge&logo=postgresql&logoColor=white"/>
-  <br/><br/>
-  <b>🧠 ML & Vision</b><br/>
-  <img src="https://img.shields.io/badge/Detection-YOLOv8-red?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/OCR-CRNN-orange?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/PyTorch-2.8-ee4c2c?style=for-the-badge&logo=pytorch&logoColor=white"/>
-  <br/><br/>
-  <b>🐳 Deployment</b><br/>
-  <img src="https://img.shields.io/badge/Docker-2496ed?style=for-the-badge&logo=docker&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white"/>
+  <table border="0">
+    <tr>
+      <td><img src="https://img.shields.io/badge/Python-3.13-3776ab?style=for-the-badge&logo=python&logoColor=white"/></td>
+      <td><img src="https://img.shields.io/badge/API-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white"/></td>
+      <td><img src="https://img.shields.io/badge/Data-PostgreSQL-4169e1?style=for-the-badge&logo=postgresql&logoColor=white"/></td>
+    </tr>
+    <tr>
+      <td><img src="https://img.shields.io/badge/Detection-YOLOv8-red?style=for-the-badge"/></td>
+      <td><img src="https://img.shields.io/badge/OCR-CRNN-orange?style=for-the-badge"/></td>
+      <td><img src="https://img.shields.io/badge/Docker-2496ed?style=for-the-badge&logo=docker&logoColor=white"/></td>
+    </tr>
+  </table>
 </p>
 
 <p align="center">
