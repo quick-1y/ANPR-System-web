@@ -36,14 +36,7 @@
 |---|---|
 | Docker Engine | 24+ |
 | Docker Compose | v2+ |
-| ML-модели | файлы YOLO и CRNN (см. ниже) |
-
-Файлы моделей не входят в репозиторий. Перед запуском разместите их в:
-
-```
-anpr/models/yolo/        ← модель детекции YOLOv8
-anpr/models/ocr_crnn/    ← модель распознавания CRNN
-```
+| ML-модели | файлы YOLO и CRNN  |
 
 ---
 
