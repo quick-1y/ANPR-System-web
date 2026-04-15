@@ -52,7 +52,7 @@ anpr/models/ocr_crnn/    ← модель распознавания CRNN
 ### 1. Клонировать репозиторий
 
 ```bash
-git clone <url репозитория>
+git clone https://github.com/quick-1y/ANPR-System-v0.8_web
 cd ANPR-System-v0.8_web
 ```
 
