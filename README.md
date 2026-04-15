@@ -64,14 +64,8 @@ POSTGRES_PASSWORD=<надёжный пароль>
 
 Полный список переменных — в [документации по деплою](docs/setup.md#переменные-окружения).
 
-### 3. Разместить файлы ML-моделей
 
-```
-anpr/models/yolo/        ← .pt файл детектора
-anpr/models/ocr_crnn/    ← .onnx / веса CRNN
-```
-
-### 4. Собрать и запустить
+### 3. Собрать и запустить
 
 ```bash
 docker compose up -d --build
@@ -79,7 +73,7 @@ docker compose up -d --build
 
 Поднимаются четыре сервиса: `nginx`, `api`, `retention_worker`, `postgres`.
 
-### 5. Проверить готовность
+### 4. Проверить готовность
 
 ```bash
 curl http://localhost:8080/api/health
@@ -93,8 +87,6 @@ curl http://localhost:8080/worker/health
 Перейти в браузере на **http://localhost:8080**
 
 Логин по умолчанию: `superadmin` / `1234`
-
-> **Важно:** сразу после первого входа смените пароль в разделе Настройки.
 
 ---
 
