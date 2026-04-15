@@ -10,22 +10,70 @@
 
 ---
 
-## Быстрый старт
+## Установка и запуск
+
+### 1. Клонировать репозиторий
+
+```bash
+git clone https://github.com/quick-1y/ANPR-System-v0.8_web
+cd ANPR-System-v0.8_web
+```
+
+### 2. Создать и настроить `.env`
 
 ```bash
 cp .env.example .env
-# Отредактировать .env — как минимум задать JWT_SECRET_KEY
+```
+
+Обязательно задать перед запуском в production:
+
+```env
+JWT_SECRET_KEY=<случайная строка 32+ символа>
+POSTGRES_PASSWORD=<надёжный пароль>
+```
+
+Полный список переменных — в [документации по деплою](docs/setup.md#переменные-окружения).
+
+
+### 3. Собрать и запустить
+
+```bash
 docker compose up -d --build
 ```
 
-Проверка готовности:
+Поднимаются четыре сервиса: `nginx`, `api`, `retention_worker`, `postgres`.
+
+### 4. Проверить готовность
 
 ```bash
 curl http://localhost:8080/api/health
 curl http://localhost:8080/worker/health
 ```
 
-Web UI доступен по адресу `http://localhost:8080`. Логин по умолчанию: `superadmin` / `1234`.
+Оба должны вернуть `200 OK`.
+
+### 5. Открыть Web UI
+
+Перейти в браузере на **http://localhost:8080**
+
+Логин по умолчанию: `superadmin` / `1234`
+
+---
+
+## Обновление и сброс
+
+```bash
+# Пересборка с новым кодом
+docker compose build --no-cache && docker compose up -d
+```
+```bash
+# Остановка
+docker compose down
+```
+```bash
+# Полный сброс (удаляет все данные и volumes)
+docker compose down -v
+```
 
 ---
 
