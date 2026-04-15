@@ -1,7 +1,7 @@
 # ANPR System
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.13-3776ab?style=flat-square&logo=python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Python 3.13-3776ab?style=flat-square&logo=python&logoColor=white"/>
   <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white"/>
   <img src="https://img.shields.io/badge/PostgreSQL-4169e1?style=flat-square&logo=postgresql&logoColor=white"/>
   <img src="https://img.shields.io/badge/YOLOv8-red?style=flat-square"/>
