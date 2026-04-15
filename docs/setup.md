@@ -134,21 +134,6 @@ Docker Compose запускает четыре сервиса:
 
 ---
 
-## Обновление и сброс
-
-```bash
-# Пересборка и перезапуск с актуальным кодом
-docker compose build --no-cache && docker compose up -d
-
-# Остановка сервисов
-docker compose down
-
-# Полный сброс — остановка и удаление volumes (все данные будут удалены)
-docker compose down -v
-```
-
----
-
 ## Аппаратные контроллеры
 
 Контроллеры настраиваются через API и хранятся в PostgreSQL. Описание реализации — в [`docs/modules.md`](modules.md).
