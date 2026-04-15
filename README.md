@@ -1,88 +1,172 @@
 # ANPR System
 
-![Python](https://img.shields.io/badge/Python-3.13-blue.svg)
-![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)
-![Web UI](https://img.shields.io/badge/UI-Web--only-4CAF50.svg)
-![YOLOv8](https://img.shields.io/badge/Detection-YOLOv8-red.svg)
-![CRNN](https://img.shields.io/badge/OCR-CRNN-orange.svg)
-![Storage](https://img.shields.io/badge/Data-PostgreSQL-blue.svg)
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.13-3776ab?style=for-the-badge&logo=python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-4169e1?style=for-the-badge&logo=postgresql&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Docker-2496ed?style=for-the-badge&logo=docker&logoColor=white"/>
+  <img src="https://img.shields.io/badge/YOLOv8-red?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/CRNN-orange?style=for-the-badge"/>
+</p>
 
-Многоканальная система автоматического распознавания автомобильных номеров с web-интерфейсом оператора.
-
-Система выполняет server-side обработку видеопотоков, распознаёт номера, сохраняет события в PostgreSQL, публикует live-обновления в браузер через SSE и отдаёт live preview по MJPEG без отдельного медиасервера.
-
----
-
-## Документация
-
-| Раздел | Что внутри |
-|---|---|
-| [Деплой и конфигурация](docs/setup.md) | Docker-запуск, переменные окружения, runtime-настройки, аппаратные контроллеры, хранилище |
-| [Аутентификация и пользователи](docs/auth.md) | Роли, разрешения, JWT, управление пользователями |
-| [API endpoints](docs/endpoints.md) | Web UI, REST, SSE, debug, worker и export endpoints |
-| [ANPR pipeline](docs/anpr-pipeline.md) | Алгоритмы детекции, OCR, агрегация по треку, ключевые параметры |
-| [Диаграммы](docs/diagrams.md) | Архитектурные схемы, pipeline, event flow, retention |
-| [Описание модулей](docs/modules.md) | Назначение директорий и ключевых файлов |
-| [Технологический стек](docs/technology-stack.md) | Языки, runtime, инфраструктура, ключевые зависимости |
-| [Структура проекта](docs/project-structure.md) | Дерево репозитория и навигация |
+<p align="center">
+  Многоканальная система автоматического распознавания автомобильных номеров с web-интерфейсом оператора.
+</p>
 
 ---
 
-## Возможности
+## О системе
 
-- многоканальная обработка видео: отдельный поток исполнения на каждый канал;
-- server-side ANPR pipeline: детекция (YOLOv8), OCR (CRNN), агрегация по треку, постобработка, cooldown;
-- web UI оператора: наблюдение, журнал событий, управление клиентами, списки номеров, настройки;
-- live preview по MJPEG из того же потока канала;
-- live-события через SSE без опроса (long-lived stream с keepalive);
-- управление каналами через API: создать, изменить, запустить, остановить, перезапустить;
-- настройка ROI, размера номерного знака, OCR-порогов, cooldown и motion gate — отдельно на каждый канал;
-- управление клиентами (ФИО, номер, телефон, автомобиль, комментарий) независимо от списков;
-- white / black / custom plate lists с фильтрацией событий для автосработки реле; клиенты могут существовать без привязки к списку;
-- управление аппаратными контроллерами через API (тип DTWONDER2CH);
-- retention / cleanup / CSV / ZIP export через отдельный worker-сервис;
-- полный бэкап PostgreSQL и `settings.yaml` с восстановлением через UI;
-- PostgreSQL — единственный поддерживаемый backend хранения данных.
+Система выполняет распознавание номерных знаков прямо на сервере — без внешних сервисов и облаков. Видеопоток захватывается и обрабатывается в реальном времени: детекция через YOLOv8, распознавание через CRNN с трек-уровневой агрегацией OCR, результаты мгновенно появляются в браузере через SSE. Live-preview отдаётся напрямую по MJPEG из того же потока, без отдельного медиасервера.
+
+**Ключевые возможности:**
+
+- Несколько каналов одновременно — каждый в отдельном потоке
+- Настраиваемые ROI, motion gate, OCR-пороги, cooldown, размер номера — на каждый канал
+- White / black / custom plate lists с автоматической сработкой реле на контроллер
+- Журнал событий, клиентская база, экспорт CSV / ZIP
+- Полный бэкап и восстановление БД и настроек через UI
+- JWT-аутентификация, ролевая модель, управление операторами
 
 ---
 
 ## Архитектура
 
-Система разделена на три контура:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        nginx (reverse proxy)                 │
+│                     HTTP_PORT → 80 внутри                    │
+└──────────────┬─────────────────────┬───────────────────────-┘
+               │                     │
+               ▼                     ▼
+     ┌─────────────────┐   ┌──────────────────────┐
+     │   API service   │   │  Retention worker    │
+     │   (FastAPI)     │   │  (FastAPI)           │
+     │                 │   │                      │
+     │  • Web UI       │   │  • Очистка событий   │
+     │  • REST API     │   │  • Удаление медиа    │
+     │  • SSE stream   │   │  • Контроль размера  │
+     │  • MJPEG        │   │  • CSV / ZIP export  │
+     │  • Channel      │   └──────────┬───────────┘
+     │    runtime      │              │
+     └────────┬────────┘              │
+              │                       │
+              ▼                       ▼
+     ┌──────────────────────────────────────┐
+     │            PostgreSQL 16             │
+     │  события · каналы · клиенты · users  │
+     └──────────────────────────────────────┘
+```
 
-1. **API service** (`app/api/`) — FastAPI-приложение: web UI, REST API, управление каналами, SSE-поток событий, preview endpoints.
-2. **Channel runtime / ANPR core** (`runtime/`, `anpr/`) — для каждого канала создаётся отдельный поток, который открывает источник видео, хранит MJPEG preview в памяти и прогоняет кадры через полный ANPR pipeline.
-3. **Retention worker** (`app/worker/`) — отдельный FastAPI-сервис для очистки старых событий, удаления медиа, контроля размера хранилища и экспорта.
-
-Архитектурные схемы вынесены в [`docs/diagrams.md`](docs/diagrams.md), описание компонентов — в [`docs/modules.md`](docs/modules.md).
+Каждый активный канал — это отдельный поток: `cv2.VideoCapture` → YOLOv8 tracking → CRNN OCR → агрегация по треку → запись в БД и публикация в SSE.
 
 ---
 
-## Быстрый старт
+## Требования
 
-Поддерживаемая модель runtime: Docker Compose.
+| Зависимость | Версия |
+|---|---|
+| Docker Engine | 24+ |
+| Docker Compose | v2+ |
+| ML-модели | файлы YOLO и CRNN (см. ниже) |
 
-**Требования:** Docker Engine 24+, Docker Compose v2+, файлы ML-моделей в `anpr/models/yolo/` и `anpr/models/ocr_crnn/`.
+Файлы моделей не входят в репозиторий. Перед запуском разместите их в:
+
+```
+anpr/models/yolo/        ← модель детекции YOLOv8
+anpr/models/ocr_crnn/    ← модель распознавания CRNN
+```
+
+---
+
+## Установка и запуск
+
+### 1. Клонировать репозиторий
+
+```bash
+git clone <url репозитория>
+cd ANPR-System-v0.8_web
+```
+
+### 2. Создать и настроить `.env`
 
 ```bash
 cp .env.example .env
-# Отредактировать .env — как минимум задать JWT_SECRET_KEY
+```
+
+Обязательно задать перед запуском в production:
+
+```env
+JWT_SECRET_KEY=<случайная строка 32+ символа>
+POSTGRES_PASSWORD=<надёжный пароль>
+```
+
+Полный список переменных — в [документации по деплою](docs/setup.md#переменные-окружения).
+
+### 3. Разместить файлы ML-моделей
+
+```
+anpr/models/yolo/        ← .pt файл детектора
+anpr/models/ocr_crnn/    ← .onnx / веса CRNN
+```
+
+### 4. Собрать и запустить
+
+```bash
 docker compose up -d --build
 ```
 
-Проверить, что система запустилась:
+Поднимаются четыре сервиса: `nginx`, `api`, `retention_worker`, `postgres`.
+
+### 5. Проверить готовность
 
 ```bash
 curl http://localhost:8080/api/health
 curl http://localhost:8080/worker/health
 ```
 
-Web UI доступен по адресу `http://localhost:8080`. Логин по умолчанию: `superadmin` / `1234`.
+Оба должны вернуть `200 OK`.
 
-Подробнее о конфигурации, переменных окружения и процедурах обновления — в [`docs/setup.md`](docs/setup.md).
+### 6. Открыть Web UI
+
+Перейти в браузере на **http://localhost:8080**
+
+Логин по умолчанию: `superadmin` / `1234`
+
+> **Важно:** сразу после первого входа смените пароль в разделе Настройки.
+
+---
+
+## Обновление и сброс
+
+```bash
+# Пересборка с новым кодом
+docker compose build --no-cache && docker compose up -d
+
+# Остановка
+docker compose down
+
+# Полный сброс (удаляет все данные и volumes)
+docker compose down -v
+```
+
+---
+
+## Документация
+
+| | Раздел | Описание |
+|---|---|---|
+| ⚙️ | [Деплой и конфигурация](docs/setup.md) | Переменные окружения, volumes, контроллеры, хранилище |
+| 🔐 | [Аутентификация и пользователи](docs/auth.md) | Роли, разрешения, JWT, управление операторами |
+| 🔌 | [API endpoints](docs/endpoints.md) | Полный список REST, SSE, MJPEG и worker endpoints |
+| 🧠 | [ANPR pipeline](docs/anpr-pipeline.md) | Алгоритмы OCR, агрегация по треку, ключевые параметры |
+| 📊 | [Диаграммы](docs/diagrams.md) | Схемы сервисов, pipeline, event flow, retention |
+| 📦 | [Описание модулей](docs/modules.md) | Назначение каждого файла и директории |
+| 🛠 | [Технологический стек](docs/technology-stack.md) | Языки, фреймворки, ключевые зависимости |
+| 📁 | [Структура проекта](docs/project-structure.md) | Дерево репозитория |
 
 ---
 
 ## Лицензия
 
-MIT
+[MIT](LICENSE)
