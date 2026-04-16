@@ -75,11 +75,21 @@
 | `GET` | `/api/channels/{channel_id}/preview/status` | Готовность preview |
 | `GET` | `/api/channels/{channel_id}/preview.mjpg` | MJPEG-поток (`multipart/x-mixed-replace`) |
 
+### Zones
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/zones` | Список всех зон (id, name, capacity, occupied, free) |
+| `POST` | `/api/zones` | Создать зону |
+| `GET` | `/api/zones/{zone_id}` | Детали зоны: name, capacity, occupancy, список привязанных каналов |
+| `PUT` | `/api/zones/{zone_id}` | Обновить название и вместимость зоны |
+| `DELETE` | `/api/zones/{zone_id}` | Удалить зону; каскадно снимает назначение zone_id/zone_channel_type у привязанных каналов |
+
 ### Events
 
 | Метод | Путь | Описание |
 |---|---|---|
-| `GET` | `/api/events` | Журнал событий; параметры: `limit`, `before_ts`, `before_id`, `channel_id`, `plate`; сортировка `timestamp DESC, id DESC` |
+| `GET` | `/api/events` | Журнал событий; параметры: `limit`, `before_ts`, `before_id`, `channel_id`, `plate`; сортировка `time DESC, id DESC` |
 | `GET` | `/api/events/item/{event_id}` | Детали события |
 | `GET` | `/api/events/item/{event_id}/media/{kind}` | Медиафайл события (`kind=frame` или `plate`) |
 | `GET` | `/api/events/stream` | SSE-поток live событий (`text/event-stream`; keepalive `: ping`; auto-retry) |

@@ -19,7 +19,7 @@ ANPR-System-v0.8_web/
 │   └── model_config.py            # Конфигурация путей к моделям
 ├── app/                           # Application layer
 │   ├── api/                       # Основной FastAPI API server
-│   │   ├── routers/               # Channels, events, settings, data, debug, auth, users, ...
+│   │   ├── routers/               # Channels, events, zones, settings, data, debug, auth, users, ...
 │   │   ├── auth_utils.py
 │   │   ├── container.py
 │   │   ├── deps.py
@@ -46,7 +46,8 @@ ANPR-System-v0.8_web/
 │   │   │   ├── state.js
 │   │   │   ├── ui.js
 │   │   │   ├── users.js
-│   │   │   └── video-grid.js
+│   │   │   ├── video-grid.js
+│   │   │   └── zones.js
 │   │   ├── assets/
 │   │   ├── favicon/
 │   │   └── images/
@@ -76,7 +77,8 @@ ANPR-System-v0.8_web/
 │   ├── errors.py
 │   ├── lists_repository.py
 │   ├── postgres_event_repository.py
-│   └── user_repository.py
+│   ├── user_repository.py
+│   └── zones_repository.py
 ├── nginx/                         # Конфиг reverse proxy
 │   └── default.conf
 ├── runtime/                       # Выполнение каналов и runtime-сервисы
@@ -87,7 +89,9 @@ ANPR-System-v0.8_web/
 │   ├── test_auth_deps.py
 │   ├── test_auth_router.py
 │   ├── test_auth_utils.py
+│   ├── test_channel_repository_zones.py
 │   ├── test_direction_estimator.py
+│   ├── test_events_repository_zones.py
 │   ├── test_lists_repository.py
 │   ├── test_motion_detector.py
 │   ├── test_permission_guards.py
@@ -95,7 +99,9 @@ ANPR-System-v0.8_web/
 │   ├── test_settings_storage_cleanup.py
 │   ├── test_track_aggregator.py
 │   ├── test_user_repository.py
-│   └── test_users_router.py
+│   ├── test_users_router.py
+│   ├── test_zone_eligibility.py
+│   └── test_zones_repository.py
 ├── .planning/
 │   └── codebase/                  # Аналитические markdown-файлы по проекту
 ├── AGENTS.md

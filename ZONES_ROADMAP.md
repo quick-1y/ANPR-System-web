@@ -1014,61 +1014,49 @@ Each phase is independently commitable and testable.
 
 ---
 
-## 13. Documentation Update Plan
+## 13. Documentation Update Plan ✅ COMPLETED
 
-Update the following documentation files after implementation is complete. These should be written as part of Phase 10 or a dedicated Phase 11.
+### `README.md` ✅
+- Added "Режим парковочных зон" to Ключевые возможности
+- Added link to `docs/zones.md` in the documentation table
 
-### `README.md`
+### `docs/endpoints.md` ✅
+- Added Zones section with all 5 endpoints
 
-Add to **Ключевые возможности** section:
-- "Режим парковочных зон: учёт въезда и выезда транспортных средств по зонам"
+### `docs/architecture.md` ✅
+- Added zones to postgres storage list
+- Extended Main Runtime Flow with zone branch (steps 5a/5b for entry/exit)
+- Added `zone_id = 0` sentinel explanation note
+- Added link to zones.md in Related Documents
 
-Add brief description of Zones tab.
+### `docs/modules.md` ✅
+- Added `database/zones_repository.py`
+- Added `app/api/routers/zones.py`
+- Added `app/web/js/zones.js`
+- Extended `api.js` description with zone API methods
+- Extended tests section with 4 new zone test files
 
-### `docs/endpoints.md`
+### `docs/project-structure.md` ✅
+- Added `zones_repository.py` to database directory
+- Added `zones.js` to JS directory
+- Added 4 zone test files to tests directory
 
-Add new section **Zones**:
+### `docs/setup.md` ✅
+- Updated events table fields (timestamp→time, removed channel text, added zone_id/time_entry/time_exit)
+- Added zones table
+- Added zone_id sentinel explanation
+- Updated index description
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/zones` | List all zones with occupancy |
-| `POST` | `/api/zones` | Create zone |
-| `GET` | `/api/zones/{id}` | Zone detail + assigned channels |
-| `PUT` | `/api/zones/{id}` | Update zone |
-| `DELETE` | `/api/zones/{id}` | Delete zone (cascades channel assignments) |
-
-### `docs/architecture.md`
-
-Update the **Storage** layer description:
-- Add `ZoneDatabase` to the list of repositories
-- Note `zone_id = 0` sentinel meaning in events table
-
-Update **Data Flow** section:
-- Add zone branch to the video frame processing pipeline description (Step 8 onward)
-
-### `docs/modules.md`
-
-Add entry for `database/zones_repository.py`:
-- Purpose: Zone CRUD and occupancy queries; cascade zone deletion to channels
-
-### `docs/project-structure.md`
-
-Add `database/zones_repository.py` to the directory tree.
-
-### `docs/setup.md` (if it describes database schema)
-
-Update schema description to reflect new events table structure.
-
-### New doc: `docs/zones.md`
-
-Create a dedicated zones documentation page covering:
-- What zones are and how they interact with channels
-- Channel type (entry/exit) explanation
-- List mode interaction (how eligibility is determined per mode)
-- How `zone_id = 0` signals "vehicle has exited"
-- How free spaces are calculated
-- How zone deletion affects channels
-- Known limitations: multiple open entries for same plate, no real-time occupancy push, no cross-zone validation
+### New doc: `docs/zones.md` ✅
+Created dedicated zones documentation covering:
+- Concept and channel type explanation
+- Setup walkthrough (create zone → assign channels)
+- Entry and exit event flow
+- Occupancy display
+- `zone_id` field semantics
+- Zone deletion behavior
+- Known limitations
+- API reference
 
 ---
 

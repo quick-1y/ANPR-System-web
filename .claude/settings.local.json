@@ -126,7 +126,8 @@
       "Bash(ls .venv/Scripts/)",
       "Bash(ls venv/Scripts/)",
       "Bash(python -m pytest tests/test_zones_repository.py tests/test_events_repository_zones.py tests/test_channel_repository_zones.py tests/test_zone_eligibility.py -v)",
-      "Bash(python -m pip install pytest -q)"
+      "Bash(python -m pip install pytest -q)",
+      "Bash(python -m pytest --tb=short -q)"
     ]
   }
 }
