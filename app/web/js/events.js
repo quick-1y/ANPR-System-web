@@ -51,7 +51,7 @@ function applyLastPlate(ev) {
   const payload = {
     plate: ev.plate || "",
     plate_display: ev.plate_display || null,
-    timestamp: ev.timestamp || null,
+    timestamp: ev.time || ev.timestamp || null,
     country: ev.country || null,
     confidence: ev.confidence ?? null,
     direction: ev.direction || null,
@@ -78,9 +78,9 @@ export function renderEventFeed(forceRebuild = false) {
   function makeItem(item, isNew) {
     const conf = Number(item.confidence || 0);
     const direction = formatDirection(item.direction);
-    const key = String(item.id ?? item.timestamp ?? "");
+    const key = String(item.id ?? item.time ?? item.timestamp ?? "");
     const channelName = item.channel || `CAM-${item.channel_id || ""}`;
-    const timeStr = new Date(item.timestamp || Date.now()).toLocaleTimeString();
+    const timeStr = new Date(item.time || item.timestamp || Date.now()).toLocaleTimeString();
     const div = document.createElement("div");
     const normalizedPlate = normalizePlate(item.plate);
     const listType = state.plateLookup[normalizedPlate];
@@ -120,6 +120,12 @@ export function renderEventFeed(forceRebuild = false) {
     rowBottom.appendChild(chanSpan);
     rowBottom.appendChild(timeSpan);
     rowBottom.appendChild(confSpan);
+    if (Number(item.zone_id) > 0) {
+      const zoneSpan = document.createElement('span');
+      zoneSpan.className = 'ev-zone-badge badge';
+      zoneSpan.textContent = `Зона ${item.zone_id}`;
+      rowBottom.appendChild(zoneSpan);
+    }
     div.appendChild(rowTop);
     div.appendChild(rowBottom);
     div.onclick = () => openEventDetails(item);
@@ -224,8 +230,8 @@ export async function openEventDetails(ev) {
       payload = ev;
     }
   }
-  const ts = payload.timestamp
-    ? new Date(payload.timestamp).toLocaleString()
+  const ts = (payload.time || payload.timestamp)
+    ? new Date(payload.time || payload.timestamp).toLocaleString()
     : "—";
   const rows = [
     ["Дата/время", ts],
@@ -236,6 +242,11 @@ export async function openEventDetails(ev) {
     ["Направление", formatDirection(payload.direction).plain],
     ["Источник", payload.source || "—"],
   ];
+  if (Number(payload.zone_id) > 0) {
+    rows.push(["Зона", String(payload.zone_id)]);
+    if (payload.time_entry) rows.push(["Въезд", new Date(payload.time_entry).toLocaleString()]);
+    if (payload.time_exit) rows.push(["Выезд", new Date(payload.time_exit).toLocaleString()]);
+  }
 
   const meta = document.getElementById("eventMeta");
   meta.innerHTML = "";

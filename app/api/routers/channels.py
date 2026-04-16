@@ -175,6 +175,7 @@ def put_channel_config(channel_id: int, payload: ChannelConfigPayload, container
     if data.get("enabled") is None:
         data.pop("enabled", None)
     container.validate_channel_controller_binding(data)
+    container.validate_channel_zone_binding(data)
     return update_channel(channel_id, data, container)
 
 

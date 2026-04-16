@@ -131,6 +131,8 @@ class ChannelConfigPayload(BaseModel):
     preview_fps_limit: int = Field(default=5, ge=1, le=30)
     roi_enabled: bool = True
     region: ROIRegionPayload = Field(default_factory=ROIRegionPayload)
+    zone_id: Optional[int] = None
+    zone_channel_type: Optional[str] = Field(default=None, pattern="^(entry|exit)$")
 
     @field_validator("controller_id")
     @classmethod
@@ -140,6 +142,12 @@ class ChannelConfigPayload(BaseModel):
         if int(value) <= 0:
             return None
         return int(value)
+
+    @model_validator(mode="after")
+    def clear_zone_type_when_no_zone(self) -> "ChannelConfigPayload":
+        if self.zone_id is None:
+            self.zone_channel_type = None
+        return self
 
 
 class ChannelOCRPayload(BaseModel):
@@ -251,7 +259,7 @@ class RetentionPolicyPayload(BaseModel):
 class ExportBundlePayload(BaseModel):
     start: Optional[str] = None
     end: Optional[str] = None
-    channel: Optional[str] = None
+    channel_id: Optional[int] = None
     include_media: bool = True
 
 
@@ -310,3 +318,13 @@ class GlobalSettingsPayload(BaseModel):
     time: TimePayload
     plates: PlatesPayload
     debug: DebugPayload
+
+
+class ZonePayload(BaseModel):
+    name: str
+    capacity: int = Field(default=0, ge=0)
+
+
+class ZoneUpdatePayload(BaseModel):
+    name: str
+    capacity: int = Field(ge=0)

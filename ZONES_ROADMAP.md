@@ -781,107 +781,107 @@ Each phase is independently commitable and testable.
 
 ---
 
-### Phase 1 — Database Schema Redesign
+### Phase 1 — Database Schema Redesign ✅ COMPLETED
 
 **Goal:** Clean schema with new events table, zones table, and zone columns on channels.  
 **Touches:** `database/postgres/schema.sql`
 
 **Tasks:**
 
-1. Replace `database/postgres/schema.sql` with the new schema (Section 2.4)
+1. ✅ Replace `database/postgres/schema.sql` with the new schema (Section 2.4)
 2. Verify schema boots cleanly on a fresh database by running the app and checking startup logs
 
 **Done when:** App starts, schema initializes without error, `\d events` in psql shows correct columns.
 
 ---
 
-### Phase 2 — Events Repository Update
+### Phase 2 — Events Repository Update ✅ COMPLETED
 
 **Goal:** `PostgresEventDatabase` speaks the new schema.  
 **Touches:** `database/postgres_event_repository.py`
 
 **Tasks:**
 
-1. Update `_to_dict`: remove `channel`, add `zone_id`, `time_entry`, `time_exit`; map column positions to new schema order
-2. Update `insert_event`: remove `channel` parameter; add optional `zone_id`, `time_entry`
-3. Update all SELECT query strings: `timestamp` → `time`; remove `channel` from column list; add new columns
-4. Update `fetch_journal_page`: fix cursor `(timestamp, id)` → `(time, id)`, fix column list, fix filter for `channel` text → remove (keep `channel_id`)
-5. Update `fetch_for_export`: remove `channel` text filter; update column list
-6. Add `find_active_entry_and_write_exit(plate, zone_id, time_exit_iso)` method
-7. Update `delete_before` to use `time` column
-8. Update `fetch_last_plates_by_channel_ids` to use `time` column and new column list
+1. ✅ Update `_to_dict`: remove `channel`, add `zone_id`, `time_entry`, `time_exit`; map column positions to new schema order
+2. ✅ Update `insert_event`: remove `channel` parameter; add optional `zone_id`, `time_entry`
+3. ✅ Update all SELECT query strings: `timestamp` → `time`; remove `channel` from column list; add new columns
+4. ✅ Update `fetch_journal_page`: fix cursor `(timestamp, id)` → `(time, id)`, fix column list, fix filter for `channel` text → remove (keep `channel_id`)
+5. ✅ Update `fetch_for_export`: remove `channel` text filter; update column list
+6. ✅ Add `find_active_entry_and_write_exit(plate, zone_id, time_exit_iso)` method
+7. ✅ Update `delete_before` to use `time` column
+8. ✅ Update `fetch_last_plates_by_channel_ids` to use `time` column and new column list
 
 **Done when:** All existing tests pass; manual check that insert and fetch return correct field names.
 
 ---
 
-### Phase 3 — Channel Repository Update
+### Phase 3 — Channel Repository Update ✅ COMPLETED
 
 **Goal:** Channels carry zone config in the database.  
 **Touches:** `database/channel_repository.py`
 
 **Tasks:**
 
-1. Add `zone_id INTEGER, zone_channel_type TEXT` to `_SCHEMA` CREATE TABLE
-2. Append `zone_id, zone_channel_type` to `_SELECT_COLS`
-3. Update `_row_to_dict`: map positions 28, 29
-4. Update `_normalize`: add zone_id and zone_channel_type normalization block (Section 3.3)
-5. Update `create_channel` INSERT: add `zone_id, zone_channel_type` columns and values
-6. Update `update_channel` UPDATE SET: add `zone_id=%s, zone_channel_type=%s`
+1. ✅ Add `zone_id INTEGER, zone_channel_type TEXT` to `_SCHEMA` CREATE TABLE
+2. ✅ Append `zone_id, zone_channel_type` to `_SELECT_COLS`
+3. ✅ Update `_row_to_dict`: map positions 28, 29
+4. ✅ Update `_normalize`: add zone_id and zone_channel_type normalization block (Section 3.3)
+5. ✅ Update `create_channel` INSERT: add `zone_id, zone_channel_type` columns and values
+6. ✅ Update `update_channel` UPDATE SET: add `zone_id=%s, zone_channel_type=%s`
 
 **Done when:** Creating and updating a channel with `zone_id=1, zone_channel_type='entry'` persists and round-trips correctly.
 
 ---
 
-### Phase 4 — Zones Repository
+### Phase 4 — Zones Repository ✅ COMPLETED
 
 **Goal:** Full CRUD for zones table, including cascade-on-delete for channels.  
 **Touches:** `database/zones_repository.py` (new file), `app/api/container.py`
 
 **Tasks:**
 
-1. Create `database/zones_repository.py` with `ZoneDatabase(PooledDatabase)` (Section 3.1)
-2. Add `ZoneDatabase` to `AppContainer.build()` and `refresh_storage_clients()`
-3. Wire `zone_db` into `ChannelProcessor` constructor and store as `self._zones_db`
-4. Expose `zone_db` via `AppContainer` dataclass field
+1. ✅ Create `database/zones_repository.py` with `ZoneDatabase(PooledDatabase)` (Section 3.1)
+2. ✅ Add `ZoneDatabase` to `AppContainer.build()` and `refresh_storage_clients()`
+3. ✅ Wire `zone_db` into `ChannelProcessor` constructor and store as `self._zones_db`
+4. ✅ Expose `zone_db` via `AppContainer` dataclass field
 
 **Done when:** `ZoneDatabase.create_zone()`, `list_zones()`, `delete_zone()` work and channel cascade fires on zone delete.
 
 ---
 
-### Phase 5 — Zones API Router
+### Phase 5 — Zones API Router ✅ COMPLETED
 
 **Goal:** REST endpoints for zone management.  
 **Touches:** `app/api/routers/zones.py` (new), `app/api/main.py`, `app/api/schemas.py`
 
 **Tasks:**
 
-1. Add `ZonePayload` and `ZoneUpdatePayload` to `schemas.py`
-2. Create `app/api/routers/zones.py` with all endpoints (Section 6.1)
-3. Register router in `app/api/main.py`
-4. Add `validate_channel_zone_binding()` to `AppContainer` (Section 6.3)
-5. Call zone validation in `put_channel_config` in `channels.py`
-6. Add `zone_id: Optional[int]` and `zone_channel_type: Optional[str]` to `ChannelConfigPayload`
+1. ✅ Add `ZonePayload` and `ZoneUpdatePayload` to `schemas.py`
+2. ✅ Create `app/api/routers/zones.py` with all endpoints (Section 6.1)
+3. ✅ Register router in `app/api/main.py`
+4. ✅ Add `validate_channel_zone_binding()` to `AppContainer` (Section 6.3)
+5. ✅ Call zone validation in `put_channel_config` in `channels.py`
+6. ✅ Add `zone_id: Optional[int]` and `zone_channel_type: Optional[str]` to `ChannelConfigPayload`
 
 **Done when:** All zone endpoints return correct data; zone delete cascades channels in the DB; creating a channel with an invalid zone_id returns 400.
 
 ---
 
-### Phase 6 — Zone-Aware Event Processing
+### Phase 6 — Zone-Aware Event Processing ✅ COMPLETED
 
 **Goal:** Entry channels write zone fields; exit channels update existing events.  
 **Touches:** `runtime/channel_runtime.py`, `controllers/service.py` (no change needed), `app/api/container.py`
 
 **Tasks:**
 
-1. Add `_resolve_zone_eligibility(channel, plate)` method to `ChannelProcessor` (Section 4.3)
-2. Modify the event-creation block in `_run_channel()`:
+1. ✅ Add `_resolve_zone_eligibility(channel, plate)` method to `ChannelProcessor` (Section 4.3)
+2. ✅ Modify the event-creation block in `_run_channel()`:
    - Read `zone_id` and `zone_channel_type` from `channel` dict
    - Branch A (no zone): pass through unchanged
    - Branch B (entry channel): compute eligibility; include `zone_id` and `time_entry` in `insert_event` if eligible
    - Branch C (exit channel): compute eligibility; if eligible, call `find_active_entry_and_write_exit`; build relay_event dict; call `_event_callback(relay_event)` without calling `insert_event`
-3. Ensure relay_event dict for exit channels always has `channel_id`, `plate`, `direction`
-4. Add `event.get("id")` guard in the callback path (may be None for exit channels)
+3. ✅ Ensure relay_event dict for exit channels always has `channel_id`, `plate`, `direction`
+4. ✅ Add `event.get("id")` guard in the callback path (may be None for exit channels)
 
 **Done when:** 
 - A channel with no zone creates events identically to before
@@ -891,39 +891,39 @@ Each phase is independently commitable and testable.
 
 ---
 
-### Phase 7 — Export and Lifecycle Cleanup
+### Phase 7 — Export and Lifecycle Cleanup ✅ COMPLETED
 
 **Goal:** Ensure `fetch_for_export`, data lifecycle, and backup are consistent with the new schema.  
 **Touches:** `app/api/routers/data.py`, `app/shared/data_lifecycle.py`
 
 **Tasks:**
 
-1. Audit `app/api/routers/data.py` for any reference to `channel` text column or `timestamp` column
-2. Update `ExportBundlePayload` if it has a `channel` text filter — replace with `channel_id`
-3. Audit `app/shared/data_lifecycle.py` for column references in `delete_before` or related queries
-4. Update CSV export column headers to reflect `time`, `zone_id`, `time_entry`, `time_exit`; remove `channel` (text)
+1. ✅ Audit `app/api/routers/data.py` for any reference to `channel` text column or `timestamp` column
+2. ✅ Update `ExportBundlePayload` if it has a `channel` text filter — replace with `channel_id`
+3. ✅ Audit `app/shared/data_lifecycle.py` for column references in `delete_before` or related queries
+4. ✅ Update CSV export column headers to reflect `time`, `zone_id`, `time_entry`, `time_exit`; remove `channel` (text)
 
 **Done when:** Export bundle generates a CSV with correct columns; retention delete still works.
 
 ---
 
-### Phase 8 — Frontend: Zones Tab
+### Phase 8 — Frontend: Zones Tab ✅ COMPLETED
 
 **Goal:** Operators can create, view, configure, and delete zones.  
 **Touches:** `app/web/js/zones.js` (new), `app/web/index.html`, `app/web/js/app.js`, `app/web/js/api.js`
 
 **Tasks:**
 
-1. Add zone API methods to `api.js`: `getZones()`, `createZone()`, `getZone(id)`, `updateZone(id, data)`, `deleteZone(id)`
-2. Create `app/web/js/zones.js` with zone list, create, settings panel, delete-with-warning flow (Section 7.2)
-3. Add Zones entry to sidebar in `index.html`
-4. Register zones tab route in `app.js`
+1. ✅ Add zone API methods to `api.js`: `getZones()`, `createZone()`, `getZone(id)`, `updateZone(id, data)`, `deleteZone(id)`
+2. ✅ Create `app/web/js/zones.js` with zone list, create, settings panel, delete-with-warning flow (Section 7.2)
+3. ✅ Add Zones entry to sidebar in `index.html`
+4. ✅ Register zones tab route in `app.js`
 
 **Done when:** Zones tab loads, zone create/delete works, zone settings panel shows name/capacity/occupancy/channels.
 
 ---
 
-### Phase 9 — Frontend: Channel Zone Settings
+### Phase 9 — Frontend: Channel Zone Settings ✅
 
 **Goal:** Operators can assign a zone and channel type to a channel from the channel config form.  
 **Touches:** `app/web/js/channels.js`
@@ -940,7 +940,7 @@ Each phase is independently commitable and testable.
 
 ---
 
-### Phase 10 — Frontend: Events and Journal Updates
+### Phase 10 — Frontend: Events and Journal Updates ✅
 
 **Goal:** Live events and journal reflect zone tracking fields.  
 **Touches:** `app/web/js/events.js`, `app/web/js/journal.js`

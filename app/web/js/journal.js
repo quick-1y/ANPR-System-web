@@ -51,7 +51,7 @@ async function fetchJournalPage() {
     journalState.hasMore = hasMore;
     if (items.length > 0) {
       const last = items[items.length - 1];
-      journalState.cursor = { ts: last.timestamp, id: last.id };
+      journalState.cursor = { ts: last.time || last.timestamp, id: last.id };
     }
     appendJournalRows(items);
     updateJournalSentinel();
@@ -64,7 +64,7 @@ async function fetchJournalPage() {
 export function makeJournalRow(ev) {
   const conf = Number(ev.confidence || 0);
   const direction = formatDirection(ev.direction);
-  const ts = new Date(ev.timestamp);
+  const ts = new Date(ev.time || ev.timestamp);
   const timeStr = ts.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) +
     " " + ts.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const tr = document.createElement("tr");
@@ -73,13 +73,21 @@ export function makeJournalRow(ev) {
   else if (listType === "black") tr.classList.add("list-black");
   else if (listType === "info") tr.classList.add("list-info");
   const srcText = ev.source || "";
+  const ch = state.channels.find((c) => Number(c.id) === Number(ev.channel_id));
+  const channelName = ch ? ch.name : (ev.channel || `CAM-${ev.channel_id || ""}`);
+  const zoneCell = Number(ev.zone_id) > 0 ? String(ev.zone_id) : "";
+  const entryCell = ev.time_entry ? new Date(ev.time_entry).toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "";
+  const exitCell = ev.time_exit ? new Date(ev.time_exit).toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "";
   tr.innerHTML = `<td class="col-time">${timeStr}</td>` +
-    `<td class="col-channel">${esc(ev.channel || `CAM-${ev.channel_id || ""}`)}</td>` +
+    `<td class="col-channel">${esc(channelName)}</td>` +
     `<td class="col-country">${flagHtml(ev.country)} ${esc(ev.country || "")}</td>` +
     `<td class="col-dir"><span class="badge ${direction.badgeClass}">${direction.label}</span></td>` +
     `<td class="col-plate plate-cell">${esc(ev.plate_display || ev.plate || "")}</td>` +
     `<td class="col-conf conf-cell" style="color:${conf < 0.85 ? "var(--warning)" : "var(--success)"}">${conf.toFixed(2)}</td>` +
-    `<td class="col-source" title="${esc(srcText)}">${esc(srcText)}</td>`;
+    `<td class="col-source" title="${esc(srcText)}">${esc(srcText)}</td>` +
+    `<td class="col-zone col-zone-name">${esc(zoneCell)}</td>` +
+    `<td class="col-zone col-zone-time">${esc(entryCell)}</td>` +
+    `<td class="col-zone col-zone-time">${esc(exitCell)}</td>`;
   tr.onclick = () => openEventDetails(ev);
   return tr;
 }
@@ -95,8 +103,17 @@ function updateJournalSentinel() {
   sentinel.style.display = journalState.hasMore ? "block" : "none";
 }
 
+export function toggleJournalZoneCols() {
+  const table = document.getElementById("journalTable");
+  if (!table) return;
+  const on = table.classList.toggle("zone-cols-on");
+  const btn = document.getElementById("btnZoneCols");
+  if (btn) btn.textContent = on ? "Скрыть зону" : "Зона";
+}
+
 export function initJournalBindings() {
   document.getElementById("btnFind").onclick = loadJournal;
+  document.getElementById("btnZoneCols").onclick = toggleJournalZoneCols;
   document.getElementById("btnReset").onclick = () => {
     document.getElementById("fltPlate").value = "";
     document.getElementById("fltChannel").value = "";

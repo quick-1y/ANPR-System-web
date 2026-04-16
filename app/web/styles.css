@@ -1493,3 +1493,12 @@ tr.list-black > td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
 tr.list-info  > td:first-child { box-shadow: inset 3px 0 0 var(--success); }
 tr.list-white, tr.list-black, tr.list-info { background: rgba(232,168,56,0.06); }
 tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(232,168,56,0.10); }
+
+/* ─── Zone badge (event feed) ───────────────────────── */
+.ev-zone-badge { color: #a78bfa; background: rgba(167,139,250,0.12); margin-left: 4px; }
+
+/* ─── Journal zone columns: hidden by default ───────── */
+.data-table td.col-zone, .data-table th.col-zone { display: none; }
+.data-table.zone-cols-on td.col-zone, .data-table.zone-cols-on th.col-zone { display: table-cell; }
+.data-table th.col-zone-name { width: 80px; }
+.data-table th.col-zone-time { width: 120px; }

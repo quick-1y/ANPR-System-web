@@ -1,6 +1,6 @@
 // Channel config state, CRUD, hotkeys, vision canvas orchestration
 import { state } from './state.js';
-import { api, apiUrl, jfetch } from './api.js';
+import { api, apiUrl, jfetch, getZones } from './api.js';
 import { val, setVal, setChk, showToast, openModal, closeModal } from './ui.js';
 
 // --- Sub-module imports ---
@@ -430,6 +430,31 @@ export function updateCustomListsVisibility() {
   hint.style.display = isCustom ? "flex" : "none";
 }
 
+function renderChannelZoneOptions(zones, selectedZoneId) {
+  const select = document.getElementById("c_zone_id");
+  if (!select) return;
+  const current = String(selectedZoneId ?? "");
+  select.innerHTML = '<option value="">Без зоны</option>';
+  (zones || []).forEach((z) => {
+    const option = document.createElement("option");
+    option.value = String(z.id);
+    option.textContent = z.name;
+    select.appendChild(option);
+  });
+  select.value = current;
+  if (select.value !== current) select.value = "";
+  updateZoneChannelTypeState();
+}
+
+export function updateZoneChannelTypeState() {
+  const zoneSelect = document.getElementById("c_zone_id");
+  const typeSelect = document.getElementById("c_zone_channel_type");
+  if (!zoneSelect || !typeSelect) return;
+  const hasZone = Boolean(zoneSelect.value);
+  typeSelect.disabled = !hasZone;
+  if (!hasZone) typeSelect.value = "";
+}
+
 function renderChannelControllerOptions(selectedId = "") {
   const select = document.getElementById("c_controller_id");
   const current = String(selectedId ?? "");
@@ -502,6 +527,15 @@ export async function selectChannel(id) {
   currentChannelCustomListIds = (c.list_filter_list_ids || []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0);
   renderCustomListOptions(currentChannelCustomListIds);
   updateCustomListsVisibility();
+  try {
+    const zones = await getZones();
+    renderChannelZoneOptions(zones, c.zone_id ?? "");
+  } catch (_e) {
+    renderChannelZoneOptions([], c.zone_id ?? "");
+  }
+  const typeEl = document.getElementById("c_zone_channel_type");
+  if (typeEl) typeEl.value = c.zone_channel_type || "";
+  updateZoneChannelTypeState();
   setVal("c_detection_mode", c.detection_mode || "motion");
   setVal("c_motion_threshold", c.motion_threshold ?? 0.01);
   setVal("c_motion_frame_stride", c.motion_frame_stride ?? 1);
@@ -579,6 +613,8 @@ export async function saveChannel() {
     max_ocr_attempts: Number(val("c_max_ocr_attempts")),
     max_consecutive_empty_ocr: Number(val("c_max_consecutive_empty_ocr")),
     preview_fps_limit: Number(val("c_preview_fps_limit")),
+    zone_id: val("c_zone_id") ? Number(val("c_zone_id")) : null,
+    zone_channel_type: val("c_zone_id") ? (val("c_zone_channel_type") || null) : null,
     roi_enabled: document.getElementById("c_roi_enabled").checked,
     region: {
       unit: "percent",

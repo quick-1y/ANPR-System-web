@@ -11,6 +11,11 @@ from database.errors import StorageUnavailableError
 logger = get_logger(__name__)
 _SCHEMA_SQL_PATH = Path(__file__).resolve().parents[1] / "database" / "postgres" / "schema.sql"
 
+_SELECT_COLS = (
+    "id, time, channel_id, plate, plate_display, country, confidence, source, "
+    "frame_path, plate_path, direction, client_id, zone_id, time_entry, time_exit"
+)
+
 class PostgresEventDatabase(PooledDatabase):
     """PostgreSQL-only хранилище событий с ленивым bootstrap схемы."""
 
@@ -31,51 +36,96 @@ class PostgresEventDatabase(PooledDatabase):
     @staticmethod
     def _to_dict(row: Any) -> dict[str, Any]:
         return {
-            "id": row[0],
-            "timestamp": row[1],
-            "channel_id": row[2],
-            "channel": row[3],
-            "plate": row[4],
-            "plate_display": row[5],
-            "country": row[6],
-            "confidence": row[7],
-            "source": row[8],
-            "frame_path": row[9],
-            "plate_path": row[10],
-            "direction": row[11],
-            "client_id": row[12],
+            "id":            row[0],
+            "time":          row[1],
+            "channel_id":    row[2],
+            "plate":         row[3],
+            "plate_display": row[4],
+            "country":       row[5],
+            "confidence":    row[6],
+            "source":        row[7],
+            "frame_path":    row[8],
+            "plate_path":    row[9],
+            "direction":     row[10],
+            "client_id":     row[11],
+            "zone_id":       row[12],
+            "time_entry":    row[13],
+            "time_exit":     row[14],
         }
 
     def insert_event(
         self,
-        channel: str,
         plate: str,
         channel_id: Optional[int] = None,
         plate_display: Optional[str] = None,
         country: Optional[str] = None,
         confidence: float = 0.0,
         source: str = "",
-        timestamp: Optional[str] = None,
+        time: Optional[str] = None,
         frame_path: Optional[str] = None,
         plate_path: Optional[str] = None,
         direction: Optional[str] = None,
         client_id: Optional[int] = None,
+        zone_id: Optional[int] = None,
+        time_entry: Optional[str] = None,
     ) -> int:
         self._ensure_schema()
-        ts = timestamp or datetime.now(timezone.utc).isoformat()
+        ts = time or datetime.now(timezone.utc).isoformat()
         try:
             with self._connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
                         (
-                            "INSERT INTO events (timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id) "
-                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"
+                            "INSERT INTO events "
+                            "(time, channel_id, plate, plate_display, country, confidence, source, "
+                            "frame_path, plate_path, direction, client_id, zone_id, time_entry) "
+                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"
                         ),
-                        (ts, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id),
+                        (ts, channel_id, plate, plate_display, country, confidence, source,
+                         frame_path, plate_path, direction, client_id, zone_id, time_entry),
                     )
                     row = cursor.fetchone()
                 conn.commit()
             return int(row[0]) if row else 0
+        except StorageUnavailableError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
+
+    def find_active_entry_and_write_exit(
+        self,
+        plate: str,
+        zone_id: int,
+        time_exit_iso: str,
+    ) -> Optional[int]:
+        """
+        Find the most recent open entry event for `plate` in `zone_id`
+        (where time_exit IS NULL), write time_exit and set zone_id = 0.
+        Returns the updated event id, or None if no open entry found.
+        """
+        self._ensure_schema()
+        try:
+            with self._connect() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE events
+                        SET time_exit = %s, zone_id = 0
+                        WHERE id = (
+                            SELECT id FROM events
+                            WHERE plate = %s
+                              AND zone_id = %s
+                              AND time_exit IS NULL
+                            ORDER BY time DESC
+                            LIMIT 1
+                        )
+                        RETURNING id
+                        """,
+                        (time_exit_iso, plate, zone_id),
+                    )
+                    row = cursor.fetchone()
+                conn.commit()
+            return int(row[0]) if row else None
         except StorageUnavailableError:
             raise
         except Exception as exc:  # noqa: BLE001
@@ -87,8 +137,7 @@ class PostgresEventDatabase(PooledDatabase):
             with self._connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id "
-                        "FROM events ORDER BY timestamp DESC, id DESC LIMIT %s",
+                        f"SELECT {_SELECT_COLS} FROM events ORDER BY time DESC, id DESC LIMIT %s",
                         (limit,),
                     )
                     return [self._to_dict(row) for row in cursor.fetchall()]
@@ -111,13 +160,13 @@ class PostgresEventDatabase(PooledDatabase):
         filters: list[str] = []
         params: list[Any] = []
         if start_ts is not None:
-            filters.append("timestamp >= %s")
+            filters.append("time >= %s")
             params.append(start_ts)
         if end_ts is not None:
-            filters.append("timestamp <= %s")
+            filters.append("time <= %s")
             params.append(end_ts)
         if before_ts is not None and before_id is not None:
-            filters.append("(timestamp, id) < (%s, %s)")
+            filters.append("(time, id) < (%s, %s)")
             params.extend([before_ts, int(before_id)])
         if channel_id is not None:
             filters.append("channel_id = %s")
@@ -127,8 +176,8 @@ class PostgresEventDatabase(PooledDatabase):
             params.append(f"%{plate}%")
         where = f"WHERE {' AND '.join(filters)}" if filters else ""
         query = (
-            "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id "
-            f"FROM events {where} ORDER BY timestamp DESC, id DESC LIMIT %s"
+            f"SELECT {_SELECT_COLS} "
+            f"FROM events {where} ORDER BY time DESC, id DESC LIMIT %s"
         )
         params.append(page_limit)
         try:
@@ -145,7 +194,7 @@ class PostgresEventDatabase(PooledDatabase):
             with self._connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id FROM events WHERE id = %s",
+                        f"SELECT {_SELECT_COLS} FROM events WHERE id = %s",
                         (int(event_id),),
                     )
                     row = cursor.fetchone()
@@ -159,7 +208,7 @@ class PostgresEventDatabase(PooledDatabase):
             with self._connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "DELETE FROM events WHERE timestamp < %s RETURNING id, frame_path, plate_path",
+                        "DELETE FROM events WHERE time < %s RETURNING id, frame_path, plate_path",
                         (cutoff_iso,),
                     )
                     rows = cursor.fetchall()
@@ -168,16 +217,15 @@ class PostgresEventDatabase(PooledDatabase):
         except Exception as exc:  # noqa: BLE001
             raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
 
-
     def fetch_last_plates_by_channel_ids(self, channel_ids: Sequence[int]) -> dict[int, dict[str, Any]]:
         self._ensure_schema()
         ids = sorted({int(channel_id) for channel_id in channel_ids if channel_id is not None})
         if not ids:
             return {}
         query = (
-            "SELECT DISTINCT ON (channel_id) channel_id, plate, plate_display, timestamp, country, confidence, direction "
+            "SELECT DISTINCT ON (channel_id) channel_id, plate, plate_display, time, country, confidence, direction "
             "FROM events WHERE channel_id = ANY(%s) AND channel_id IS NOT NULL "
-            "ORDER BY channel_id, timestamp DESC"
+            "ORDER BY channel_id, time DESC"
         )
         try:
             with self._connect() as conn:
@@ -188,40 +236,41 @@ class PostgresEventDatabase(PooledDatabase):
             raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
         return {
             int(row[0]): {
-                "plate": row[1],
+                "plate":         row[1],
                 "plate_display": row[2],
-                "timestamp": row[3],
-                "country": row[4],
-                "confidence": row[5],
-                "direction": row[6],
+                "time":          row[3],
+                "country":       row[4],
+                "confidence":    row[5],
+                "direction":     row[6],
             }
             for row in rows
         }
 
-    def fetch_for_export(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None, plate: Optional[str] = None, channel_id: Optional[int] = None) -> list[dict[str, Any]]:
+    def fetch_for_export(
+        self,
+        *,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        plate: Optional[str] = None,
+        channel_id: Optional[int] = None,
+    ) -> list[dict[str, Any]]:
         self._ensure_schema()
         filters: list[str] = []
         params: list[Any] = []
         if start:
-            filters.append("timestamp >= %s")
+            filters.append("time >= %s")
             params.append(start)
         if end:
-            filters.append("timestamp <= %s")
+            filters.append("time <= %s")
             params.append(end)
         if channel_id is not None:
             filters.append("channel_id = %s")
             params.append(int(channel_id))
-        elif channel:
-            filters.append("channel = %s")
-            params.append(channel)
         if plate:
             filters.append("plate ILIKE %s")
             params.append(f"%{plate}%")
         where = f"WHERE {' AND '.join(filters)}" if filters else ""
-        query = (
-            "SELECT id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction, client_id "
-            f"FROM events {where} ORDER BY timestamp DESC"
-        )
+        query = f"SELECT {_SELECT_COLS} FROM events {where} ORDER BY time DESC"
         try:
             with self._connect() as conn:
                 with conn.cursor() as cursor:

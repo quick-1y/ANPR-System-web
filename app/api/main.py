@@ -22,6 +22,7 @@ from app.api.routers.lists import router as lists_router
 from app.api.routers.settings import router as settings_router
 from app.api.routers.system import router as system_router
 from app.api.routers.users import router as users_router
+from app.api.routers.zones import router as zones_router
 
 
 def _configure_thread_limits() -> None:
@@ -65,3 +66,4 @@ app.include_router(lists_router)
 app.include_router(clients_router)
 app.include_router(settings_router)
 app.include_router(data_router)
+app.include_router(zones_router)
