@@ -16,7 +16,7 @@
         <div class="rail-nav">
           <div class="ttab active" data-tab="obs" title="Наблюдение">
             <span class="ttab-icon-wrap">
-              <img class="ttab-icon ui-icon" src="/web/assets/icons/observe.svg" alt="" />
+              <img class="ttab-icon ui-icon" src="/web/assets/icons/camera.svg" alt="" />
             </span>
             <span class="ttab-label">Наблюдение</span>
           </div>
@@ -30,7 +30,7 @@
       
           <div class="ttab" data-tab="zones" title="Зоны">
             <span class="ttab-icon-wrap">
-              <img class="ttab-icon ui-icon" src="/web/assets/icons/lists.svg" alt="" />
+              <img class="ttab-icon ui-icon" src="/web/assets/icons/channels.svg" alt="" />
             </span>
             <span class="ttab-label">Зоны</span>
           </div>
@@ -62,7 +62,10 @@
       <div class="main-shell">
         <div class="topbar">
           <div class="topbar-left">
-            <div class="topbar-title" id="topbarTitle">Наблюдение</div>
+            <div class="topbar-title-block">
+              <div class="topbar-product-label">ANPR System · Web UI</div>
+              <div class="topbar-title" id="topbarTitle">Наблюдение</div>
+            </div>
           </div>
           <div class="topbar-center">
             <div class="topbar-datetime-block">
@@ -95,20 +98,29 @@
         </div>
         <div class="content">
           <div class="tab-pane active" id="tab-obs">
-            <div class="obs-left">
-              <div class="obs-toolbar">
-                <span class="obs-label">Сетка</span>
-                <select class="input input--md input--select grid-select" id="gridSelect">
-                  <option value="1x1">1×1</option>
-                  <option value="2x2" selected>2×2</option>
-                  <option value="2x3">2×3</option>
-                  <option value="3x3">3×3</option>
-                </select>
+            <div class="obs-main-card">
+              <div class="obs-main-card-head">
+                <div class="obs-workspace-title">
+                  <h2>Камеры</h2>
+                </div>
+                <div class="obs-toolbar">
+                  <span class="obs-label">Сетка</span>
+                  <select class="input input--md input--select grid-select" id="gridSelect">
+                    <option value="1x1">1×1</option>
+                    <option value="2x2" selected>2×2</option>
+                    <option value="2x3">2×3</option>
+                    <option value="3x3">3×3</option>
+                  </select>
+                </div>
               </div>
-              <div class="video-grid" id="videoGrid"></div>
+              <div class="obs-main-card-body">
+                <div class="video-grid" id="videoGrid"></div>
+              </div>
+            </div>
+            <div class="obs-left">
               <div class="obs-debug-panel" id="obsDebugPanel" data-collapsed="0">
                 <div class="panel-header obs-debug-header">
-                  <span>Логи</span>
+                  <span>Технический лог канала</span>
                   <button class="btn btn-ghost" id="toggleDebugPanelBtn">Свернуть</button>
                 </div>
                 <div class="log-output obs-log-output" id="debugLog"></div>
@@ -116,13 +128,14 @@
             </div>
             <div class="obs-right">
               <div class="panel-header obs-events-header">
-                <span>События</span>
+                <span>События распознавания</span>
               </div>
               <div class="event-feed" id="eventFeed"></div>
             </div>
           </div>
           <div class="tab-pane" id="tab-journal">
             <div class="filter-card">
+              <div class="workspace-card-title">Фильтры журнала</div>
               <div class="filter-group">
                 <div class="filter-label">Поиск</div>
                 <input
@@ -155,6 +168,7 @@
               </div>
             </div>
             <div class="data-table-wrap">
+              <div class="workspace-card-title">История событий</div>
               <div class="table-scroll" id="journalScroll">
                 <table class="data-table" id="journalTable">
                   <thead>
@@ -188,7 +202,7 @@
           </div>
           <div class="zones-settings-col hidden" id="zonesSettingsPanel">
             <div class="panel-header">
-              <span>Настройки зоны</span>
+              <span>Параметры зоны</span>
               <button class="btn btn-ghost btn-sm" id="closeZoneSettingsBtn">✕</button>
             </div>
             <div class="s-card">
@@ -268,6 +282,7 @@
           <div class="subtab-pane active" id="subtab-clients">
             <div class="clients-main">
               <div class="clients-main-header" id="clientsMainHeader">
+                <div class="workspace-card-title">База клиентов</div>
                 <button class="btn btn-primary btn-sm" id="addClientBtn">Добавить клиента</button>
                 <div class="clients-search-wrap">
                   <input class="input input--md s-input" id="clientsSearchInput" placeholder="Поиск…" autocomplete="off" />
@@ -305,6 +320,7 @@
             </div>
             <div class="lists-main">
               <div class="lists-main-header" id="listsMainHeader">
+                <div class="workspace-card-title">Состав списка</div>
                 <button class="btn btn-ghost btn-sm" id="attachClientToListBtn">Прикрепить клиента</button>
                 <button class="btn btn-ghost btn-sm" id="exportListBtn">
                   <img class="btn-icon ui-icon-sm" src="/web/assets/icons/export.svg" alt="" />
@@ -343,6 +359,7 @@
       </div>
       <div class="tab-pane" id="tab-settings">
         <div class="settings-nav">
+          <div class="workspace-card-title settings-title">Разделы настроек</div>
           <div class="snav-label">Основное</div>
         
           <div class="snav-item active" data-sp="general">
@@ -378,6 +395,10 @@
           </div>
         </div>
         <div class="settings-content">
+          <div class="settings-content-head">
+            <div class="settings-content-eyebrow">Параметры раздела</div>
+            <div class="settings-content-title" id="settingsPaneTitle">Общие</div>
+          </div>
           <div class="settings-pane active" id="sp-general">
             <!-- Интерфейс -->
             <div class="s-card">
@@ -404,13 +425,6 @@
                     <option value="dark">Тёмная</option>
                     <option value="light">Светлая</option>
                   </select>
-                </div>
-                <div class="s-row">
-                  <div class="s-row-label">
-                    <button class="param-help-btn" data-help="g_sidebar_locked">?</button>
-                    <div class="s-row-name">Зафиксировать левую панель</div>
-                  </div>
-                  <input type="checkbox" id="g_sidebar_locked" />
                 </div>
               </div>
             </div>
@@ -602,20 +616,22 @@
           <div class="settings-pane" id="sp-channels">
             <div class="ch-layout">
               <div class="ch-sidebar">
-                <div class="sidebar-toolbar compact-actions">
-                  <button class="icon-btn-sm" id="createChannelBtn">+</button>
-                  <button class="icon-btn-sm" id="deleteChannelBtn">-</button>
+                <div class="panel-header ch-sidebar-header">
+                  <span>Каналы</span>
+                  <div class="sidebar-toolbar compact-actions">
+                    <button class="icon-btn-sm" id="createChannelBtn">+</button>
+                    <button class="icon-btn-sm" id="deleteChannelBtn">-</button>
+                  </div>
                 </div>
                 <div class="ch-list" id="channelsList"></div>
               </div>
               <div class="ch-config-pane" id="channelConfigPane">
+                <div class="channel-config-head">
+                  <div class="channel-config-eyebrow">Параметры канала</div>
+                  <div class="channel-config-title" id="channelConfigTitle">—</div>
+                </div>
                 <div
-                  style="
-                    display: flex;
-                    gap: 8px;
-                    flex-wrap: wrap;
-                    margin-bottom: 10px;
-                  "
+                  class="channel-tabs"
                   id="channelTabs"
                 >
                   <button
@@ -981,13 +997,20 @@
           <div class="settings-pane" id="sp-controllers">
             <div class="ch-layout">
               <div class="ch-sidebar">
-                <div class="sidebar-toolbar compact-actions">
-                  <button class="icon-btn-sm" id="createControllerBtn">+</button
-                  ><button class="icon-btn-sm" id="deleteControllerBtn">-</button>
+                <div class="panel-header ch-sidebar-header">
+                  <span>Контроллеры</span>
+                  <div class="sidebar-toolbar compact-actions">
+                    <button class="icon-btn-sm" id="createControllerBtn">+</button
+                    ><button class="icon-btn-sm" id="deleteControllerBtn">-</button>
+                  </div>
                 </div>
                 <div class="ch-list" id="controllerItems"></div>
               </div>
               <div class="ch-config-pane" id="controllerConfigPane">
+                <div class="channel-config-head">
+                  <div class="channel-config-eyebrow">Параметры контроллера</div>
+                  <div class="channel-config-title" id="controllerConfigTitle">—</div>
+                </div>
                 <div class="s-card">
                   <div class="s-card-header">Параметры контроллера</div>
                   <div class="s-card-body">

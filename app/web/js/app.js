@@ -1,7 +1,7 @@
 // Application entry point — initialization, DOM bindings, timers
 import { eventSource, debugLogSource, overlayRefreshTimer, eventFeedRenderFrame, eventFeedRenderScheduled, setEventFeedRenderScheduled, setEventFeedRenderFrame } from './state.js';
 import { api, getToken, setToken, isTokenExpired, getCurrentUser, showLoginOverlay, logoutRequest } from './api.js';
-import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, applyTabVisibility, showToast } from './ui.js';
+import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applyTabVisibility, showToast } from './ui.js';
 import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVideoGridDragDrop, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate, clearExpandMode, updateZoneChannelTypeState } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
 import { loadJournal, initJournalScroll, initJournalBindings } from './journal.js';
@@ -193,7 +193,6 @@ document.getElementById("c_controller_id").onchange = updateChannelControllerBin
 document.getElementById("c_list_filter_mode").onchange = updateCustomListsVisibility;
 document.getElementById("saveDebugBtn").onclick = saveGeneral;
 document.getElementById("g_theme").onchange = () => applyTheme(val("g_theme"));
-document.getElementById("g_sidebar_locked").onchange = () => applySidebarLocked(document.getElementById("g_sidebar_locked").checked);
 document.getElementById("themeToggleBtn").onclick = () => { const nextTheme = val("g_theme") === "light" ? "dark" : "light"; setVal("g_theme", nextTheme); applyTheme(nextTheme); };
 document.getElementById("plateSizeResetBtn").onclick = resetPlateSizeBoxes;
 document.getElementById("roiRefreshBtn").onclick = refreshPreviewSnapshot;
@@ -237,9 +236,6 @@ window.addEventListener("beforeunload", cleanupStreamsAndTimers);
 window.addEventListener("pagehide", cleanupStreamsAndTimers);
 window.addEventListener("resize", () => scheduleEventFeedRender(true));
 
-// --- Sidebar ---
-initSidebarHover();
-
 // --- Help & Backup ---
 initHelpSystem();
 initBackupBindings();
@@ -251,8 +247,8 @@ if (_zoneIdEl) _zoneIdEl.onchange = updateZoneChannelTypeState;
 (async function init() {
   const apiBaseEl = document.getElementById("apiBase");
   if (apiBaseEl) apiBaseEl.value = window.location.origin;
-  try { applyTheme(localStorage.getItem("anpr_theme") || "dark"); }
-  catch (_e) { applyTheme("dark"); }
+  try { applyTheme(localStorage.getItem("anpr_theme") || "light"); }
+  catch (_e) { applyTheme("light"); }
 
   const startLoginFlow = () => {
     showLoginOverlay((user) => {

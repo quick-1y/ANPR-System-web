@@ -54,6 +54,14 @@ export function updateTopbarTitle() {
 }
 
 export function switchSettings(name) {
+  const settingsLabels = {
+    general: "Общие",
+    channels: "Каналы",
+    controllers: "Контроллеры",
+    users: "Пользователи",
+    sysdata: "Системные данные",
+    debug: "Отладка",
+  };
   document
     .querySelectorAll(".snav-item")
     .forEach((el) => el.classList.toggle("active", el.dataset.sp === name));
@@ -61,6 +69,8 @@ export function switchSettings(name) {
     .querySelectorAll(".settings-pane")
     .forEach((p) => p.classList.remove("active"));
   document.getElementById(`sp-${name}`).classList.add("active");
+  const paneTitle = document.getElementById("settingsPaneTitle");
+  if (paneTitle) paneTitle.textContent = settingsLabels[name] || settingsLabels.general;
   updateTopbarTitle();
 }
 
@@ -183,7 +193,7 @@ export function openModal(id) { document.getElementById(id).classList.add("activ
 export function closeModal(id) { document.getElementById(id).classList.remove("active"); }
 
 export function applyTheme(theme) {
-  const normalized = String(theme || "dark").toLowerCase() === "light" ? "light" : "dark";
+  const normalized = String(theme || "light").toLowerCase() === "dark" ? "dark" : "light";
   document.body.setAttribute("data-theme", normalized);
   try {
     localStorage.setItem("anpr_theme", normalized);
@@ -214,27 +224,6 @@ export function parseIds(raw) {
     .split(",")
     .map((x) => Number(x.trim()))
     .filter((x) => Number.isFinite(x));
-}
-
-// Sidebar
-let sidebarLocked = false;
-export function applySidebarLocked(locked) {
-  sidebarLocked = !!locked;
-  const rail = document.getElementById("leftRail");
-  if (sidebarLocked) {
-    rail.classList.remove("rail-expanded");
-  }
-}
-
-export function initSidebarHover() {
-  const rail = document.getElementById("leftRail");
-  rail.addEventListener("mouseenter", () => {
-    if (sidebarLocked) return;
-    rail.classList.add("rail-expanded");
-  });
-  rail.addEventListener("mouseleave", () => {
-    rail.classList.remove("rail-expanded");
-  });
 }
 
 export function esc(str) {
