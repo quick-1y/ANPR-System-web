@@ -1655,13 +1655,15 @@ body { overflow: hidden; }
 
 /* Observation */
 #tab-obs {
-  display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   grid-template-areas:
     "video events"
     "debug events";
   gap: 14px;
   align-items: stretch;
+}
+#tab-obs.active {
+  display: grid;
 }
 .obs-main-card { grid-area: video; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .obs-main-card-head {
@@ -1792,7 +1794,8 @@ body { overflow: hidden; }
 .lists-main-header .workspace-card-title { margin-right: auto; }
 
 /* Settings */
-#tab-settings { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; min-height: 0; }
+#tab-settings { grid-template-columns: 250px minmax(0, 1fr); gap: 14px; min-height: 0; }
+#tab-settings.active { display: grid; }
 .settings-nav {
   width: auto;
   padding: 12px;
