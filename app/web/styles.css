@@ -1699,30 +1699,79 @@ body { overflow: hidden; }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(127,146,188,0.08), transparent);
+  background: var(--card);
 }
-.obs-workspace-title h2 { font-size: 18px; margin: 0 0 4px; font-weight: 620; }
-.obs-workspace-title p { font-size: 12px; color: var(--text2); }
+.obs-workspace-title h2 {
+  font-size: 15px;
+  margin: 0;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+}
 .obs-toolbar {
   padding: 0;
   border: 0;
   background: transparent;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
-.obs-label { color: var(--text3); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
-.obs-main-card-body { flex: 1; min-height: 0; padding: 14px; }
+.obs-label { color: var(--text3); font-size: 11px; letter-spacing: 0.04em; }
+.obs-main-card-body { flex: 1; min-height: 0; padding: 10px; }
 .video-grid {
   height: 100%;
-  min-height: 420px;
-  border-radius: 12px;
-  padding: 6px;
-  background: var(--field);
+  min-height: 520px;
+  border-radius: 14px;
+  padding: 4px;
+  background: transparent;
   border: 1px solid var(--border);
+  gap: 10px;
+}
+.video-cell {
+  border-radius: 14px;
+  border: 1px solid rgba(122, 142, 178, 0.28);
+  background: #cfd6e1;
+}
+body[data-theme="dark"] .video-cell {
+  background: #2a3343;
+  border-color: #455068;
+}
+.video-cell:hover { border-color: var(--accent-border); }
+.cam-label {
+  top: 12px;
+  left: 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.86);
+  color: #1c2a45;
+  border: 1px solid rgba(85, 105, 143, 0.28);
+  font-size: 11px;
+  padding: 4px 10px;
+}
+body[data-theme="dark"] .cam-label {
+  background: rgba(17, 24, 38, 0.86);
+  color: #e2e9f8;
+  border-color: rgba(120, 136, 170, 0.3);
+}
+.cam-status {
+  top: 14px;
+  right: 14px;
+  width: 10px;
+  height: 10px;
+}
+.cam-metrics-widget {
+  left: 10px;
+  bottom: 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.82);
+  border-color: rgba(102, 122, 156, 0.2);
+  color: #334a74;
+}
+body[data-theme="dark"] .cam-metrics-widget {
+  background: rgba(16, 23, 36, 0.78);
+  border-color: rgba(100, 118, 153, 0.35);
+  color: #c8d6f0;
 }
 .obs-left { grid-area: debug; min-height: 0; }
 .obs-debug-panel {
@@ -1749,12 +1798,6 @@ body { overflow: hidden; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-.obs-events-meta {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text3);
 }
 .event-feed { padding: 10px; gap: 10px; }
 .ev-item {
