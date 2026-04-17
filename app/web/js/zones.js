@@ -1,6 +1,7 @@
 // Zones tab — list, create, settings panel, delete with confirmation
 import { getZones, createZone, getZone, updateZone, deleteZone } from './api.js';
 import { showToast, openModal, closeModal } from './ui.js';
+import { state } from './state.js';
 
 let _zones = [];
 let _selectedZoneId = null;
@@ -13,6 +14,7 @@ export async function loadZones() {
   } catch (_e) {
     _zones = [];
   }
+  state.zones = _zones;
   renderZoneList(_zones);
 }
 

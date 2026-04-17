@@ -32,6 +32,7 @@ export function updateTopbarTitle() {
   const tabLabels = {
     obs: "Наблюдение",
     journal: "Журнал",
+    zones: "Зоны",
     clients: "Клиенты",
     settings: "Настройки",
   };

@@ -148,7 +148,6 @@
               <div class="filter-actions">
                 <button class="btn btn-primary" id="btnFind">Найти</button>
                 <button class="btn btn-ghost" id="btnReset">Сброс</button>
-                <button class="btn btn-ghost btn-sm" id="btnZoneCols">Зона</button>
                 <button class="btn btn-ghost" id="btnExport">
                   <img class="btn-icon ui-icon-sm" src="/web/assets/icons/export.svg" alt="" />
                   <span>Экспорт</span>
@@ -220,19 +219,19 @@
       </div>
 
       <!-- Create Zone Modal -->
-      <div class="modal-overlay" id="createZoneModal">
-        <div class="modal">
-          <div class="modal-header">
+      <div class="modal" id="createZoneModal">
+        <div class="modal-card modal-card--sm">
+          <div class="modal-head">
             <span>Создать зону</span>
             <button class="modal-close" id="createZoneModalClose">✕</button>
           </div>
           <div class="modal-body">
-            <div class="s-row">
-              <div class="s-row-name">Название</div>
+            <div class="modal-field">
+              <label class="modal-label">Название</label>
               <input class="input input--md" id="newZoneName" type="text" placeholder="Название зоны" />
             </div>
-            <div class="s-row">
-              <div class="s-row-name">Вместимость</div>
+            <div class="modal-field">
+              <label class="modal-label">Вместимость</label>
               <input class="input input--md" id="newZoneCapacity" type="number" min="0" value="0" />
             </div>
           </div>
@@ -244,9 +243,9 @@
       </div>
 
       <!-- Delete Zone Modal -->
-      <div class="modal-overlay" id="deleteZoneModal">
-        <div class="modal">
-          <div class="modal-header"><span>Удалить зону?</span></div>
+      <div class="modal" id="deleteZoneModal">
+        <div class="modal-card modal-card--sm">
+          <div class="modal-head"><span>Удалить зону?</span></div>
           <div class="modal-body">
             <div id="deleteZoneInfo"></div>
           </div>

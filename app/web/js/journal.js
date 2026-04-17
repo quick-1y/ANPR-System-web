@@ -51,7 +51,7 @@ async function fetchJournalPage() {
     journalState.hasMore = hasMore;
     if (items.length > 0) {
       const last = items[items.length - 1];
-      journalState.cursor = { ts: last.time || last.timestamp, id: last.id };
+      journalState.cursor = { ts: last.time, id: last.id };
     }
     appendJournalRows(items);
     updateJournalSentinel();
@@ -64,7 +64,7 @@ async function fetchJournalPage() {
 export function makeJournalRow(ev) {
   const conf = Number(ev.confidence || 0);
   const direction = formatDirection(ev.direction);
-  const ts = new Date(ev.time || ev.timestamp);
+  const ts = new Date(ev.time);
   const timeStr = ts.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) +
     " " + ts.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const tr = document.createElement("tr");
@@ -103,17 +103,8 @@ function updateJournalSentinel() {
   sentinel.style.display = journalState.hasMore ? "block" : "none";
 }
 
-export function toggleJournalZoneCols() {
-  const table = document.getElementById("journalTable");
-  if (!table) return;
-  const on = table.classList.toggle("zone-cols-on");
-  const btn = document.getElementById("btnZoneCols");
-  if (btn) btn.textContent = on ? "Скрыть зону" : "Зона";
-}
-
 export function initJournalBindings() {
   document.getElementById("btnFind").onclick = loadJournal;
-  document.getElementById("btnZoneCols").onclick = toggleJournalZoneCols;
   document.getElementById("btnReset").onclick = () => {
     document.getElementById("fltPlate").value = "";
     document.getElementById("fltChannel").value = "";

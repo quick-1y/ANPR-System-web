@@ -314,6 +314,7 @@ if (_zoneIdEl) _zoneIdEl.onchange = updateZoneChannelTypeState;
   switchChannelSettingsTab("channel");
   updateTopbarTitle();
   await refreshChannels();
+  loadZones();
   await hydrateChannelLastPlates();
   initJournalScroll();
   await loadEventFeedHistory();
