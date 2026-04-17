@@ -95,55 +95,73 @@
         </div>
         <div class="content">
           <div class="tab-pane active" id="tab-obs">
-            <div class="obs-left">
-              <div class="obs-toolbar">
-                <span class="obs-label">Сетка</span>
-                <select class="input input--md input--select grid-select" id="gridSelect">
-                  <option value="1x1">1×1</option>
-                  <option value="2x2" selected>2×2</option>
-                  <option value="2x3">2×3</option>
-                  <option value="3x3">3×3</option>
-                </select>
-              </div>
-              <div class="video-grid" id="videoGrid"></div>
-              <div class="obs-debug-panel" id="obsDebugPanel" data-collapsed="0">
-                <div class="panel-header obs-debug-header">
-                  <span>Логи</span>
-                  <button class="btn btn-ghost" id="toggleDebugPanelBtn">Свернуть</button>
+            <div class="obs-main-stack">
+              <div class="obs-left">
+                <div class="obs-stage panel-surface">
+                  <div class="obs-toolbar">
+                    <div class="obs-toolbar-title">
+                      <span class="obs-label">Наблюдение</span>
+                      <span class="obs-toolbar-subtitle">Сетка камер</span>
+                    </div>
+                    <div class="obs-grid-control">
+                      <span class="obs-label">Сетка</span>
+                      <select class="input input--md input--select grid-select" id="gridSelect">
+                        <option value="1x1">1×1</option>
+                        <option value="2x2" selected>2×2</option>
+                        <option value="2x3">2×3</option>
+                        <option value="3x3">3×3</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="video-grid-wrap">
+                    <div class="video-grid" id="videoGrid"></div>
+                  </div>
                 </div>
-                <div class="log-output obs-log-output" id="debugLog"></div>
+                <div class="obs-debug-panel panel-surface" id="obsDebugPanel" data-collapsed="0">
+                  <div class="panel-header obs-debug-header">
+                    <span>Технические логи</span>
+                    <button class="btn btn-ghost" id="toggleDebugPanelBtn">Свернуть</button>
+                  </div>
+                  <div class="log-output obs-log-output" id="debugLog"></div>
+                </div>
               </div>
-            </div>
-            <div class="obs-right">
-              <div class="panel-header obs-events-header">
-                <span>События</span>
+              <div class="obs-right panel-surface">
+                <div class="panel-header obs-events-header">
+                  <span>События</span>
+                </div>
+                <div class="event-feed" id="eventFeed"></div>
               </div>
-              <div class="event-feed" id="eventFeed"></div>
             </div>
           </div>
           <div class="tab-pane" id="tab-journal">
-            <div class="filter-card">
-              <div class="filter-group">
-                <div class="filter-label">Поиск</div>
-                <input
-                  class="input input--md filter-input"
-                  id="fltPlate"
-                  placeholder="Поиск по номеру..."
-                />
+            <div class="filter-card journal-toolbar-card">
+              <div class="toolbar-title-block">
+                <div class="obs-label">Журнал</div>
+                <div class="toolbar-title">Фильтры событий</div>
               </div>
-              <div class="filter-group">
-                <div class="filter-label">Канал</div>
-                <select class="input input--md filter-input input--select" id="fltChannel">
-                  <option value="">Все каналы</option>
-                </select>
-              </div>
-              <div class="filter-group">
-                <div class="filter-label">С</div>
-                <input class="input input--md filter-input filter-input-dt" type="datetime-local" id="fltDateFrom" />
-              </div>
-              <div class="filter-group">
-                <div class="filter-label">По</div>
-                <input class="input input--md filter-input filter-input-dt" type="datetime-local" id="fltDateTo" />
+              <div class="journal-toolbar-fields">
+                <div class="filter-group">
+                  <div class="filter-label">Поиск</div>
+                  <input
+                    class="input input--md filter-input"
+                    id="fltPlate"
+                    placeholder="Поиск по номеру..."
+                  />
+                </div>
+                <div class="filter-group">
+                  <div class="filter-label">Канал</div>
+                  <select class="input input--md filter-input input--select" id="fltChannel">
+                    <option value="">Все каналы</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <div class="filter-label">С</div>
+                  <input class="input input--md filter-input filter-input-dt" type="datetime-local" id="fltDateFrom" />
+                </div>
+                <div class="filter-group">
+                  <div class="filter-label">По</div>
+                  <input class="input input--md filter-input filter-input-dt" type="datetime-local" id="fltDateTo" />
+                </div>
               </div>
               <div class="filter-actions">
                 <button class="btn btn-primary" id="btnFind">Найти</button>
@@ -154,7 +172,7 @@
                 </button>
               </div>
             </div>
-            <div class="data-table-wrap">
+            <div class="data-table-wrap journal-table-card">
               <div class="table-scroll" id="journalScroll">
                 <table class="data-table" id="journalTable">
                   <thead>
@@ -342,7 +360,8 @@
         </div>
       </div>
       <div class="tab-pane" id="tab-settings">
-        <div class="settings-nav">
+        <div class="settings-shell">
+        <div class="settings-nav panel-surface">
           <div class="snav-label">Основное</div>
         
           <div class="snav-item active" data-sp="general">
@@ -377,7 +396,7 @@
             Отладка
           </div>
         </div>
-        <div class="settings-content">
+        <div class="settings-content panel-surface">
           <div class="settings-pane active" id="sp-general">
             <!-- Интерфейс -->
             <div class="s-card">
@@ -1246,6 +1265,7 @@
               Сохранить
             </button>
 </div>
+        </div>
         </div>
       </div>
     </div>
