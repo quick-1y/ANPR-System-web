@@ -1582,8 +1582,9 @@ body { overflow: hidden; }
   border-right: 1px solid var(--border);
   background: var(--rail-bg);
   box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset;
+  transition: none !important;
 }
-.left-rail.rail-expanded { width: 108px; box-shadow: 8px 0 30px rgba(5, 10, 20, 0.2); }
+.left-rail.rail-expanded { width: 108px; box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset; }
 .rail-nav {
   padding: 12px 0 14px;
   gap: 8px;
@@ -1612,6 +1613,7 @@ body { overflow: hidden; }
   font-size: 14px;
   color: #55688b;
   font-weight: 500;
+  transition: none;
 }
 .ttab.active .ttab-label { color: var(--accent2); }
 .ttab-icon {

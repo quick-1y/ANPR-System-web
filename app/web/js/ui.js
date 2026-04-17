@@ -216,27 +216,6 @@ export function parseIds(raw) {
     .filter((x) => Number.isFinite(x));
 }
 
-// Sidebar
-let sidebarLocked = false;
-export function applySidebarLocked(locked) {
-  sidebarLocked = !!locked;
-  const rail = document.getElementById("leftRail");
-  if (sidebarLocked) {
-    rail.classList.remove("rail-expanded");
-  }
-}
-
-export function initSidebarHover() {
-  const rail = document.getElementById("leftRail");
-  rail.addEventListener("mouseenter", () => {
-    if (sidebarLocked) return;
-    rail.classList.add("rail-expanded");
-  });
-  rail.addEventListener("mouseleave", () => {
-    rail.classList.remove("rail-expanded");
-  });
-}
-
 export function esc(str) {
   return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
