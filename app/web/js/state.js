@@ -1,6 +1,7 @@
 // Global application state — shared across all modules
 export const state = {
   channels: [],
+  zones: [],
   lists: [],
   selectedListId: null,
   allClients: [],

@@ -51,7 +51,7 @@ function applyLastPlate(ev) {
   const payload = {
     plate: ev.plate || "",
     plate_display: ev.plate_display || null,
-    timestamp: ev.timestamp || null,
+    time: ev.time || null,
     country: ev.country || null,
     confidence: ev.confidence ?? null,
     direction: ev.direction || null,
@@ -78,9 +78,10 @@ export function renderEventFeed(forceRebuild = false) {
   function makeItem(item, isNew) {
     const conf = Number(item.confidence || 0);
     const direction = formatDirection(item.direction);
-    const key = String(item.id ?? item.timestamp ?? "");
-    const channelName = item.channel || `CAM-${item.channel_id || ""}`;
-    const timeStr = new Date(item.timestamp || Date.now()).toLocaleTimeString();
+    const key = String(item.id ?? item.time ?? "");
+    const chObj = state.channels.find((c) => Number(c.id) === Number(item.channel_id));
+    const channelName = chObj ? chObj.name : (item.channel || `CAM-${item.channel_id || ""}`);
+    const timeStr = new Date(item.time || Date.now()).toLocaleTimeString();
     const div = document.createElement("div");
     const normalizedPlate = normalizePlate(item.plate);
     const listType = state.plateLookup[normalizedPlate];
@@ -151,7 +152,7 @@ export function renderEventFeed(forceRebuild = false) {
 
   const newItems = [];
   for (const ev of events) {
-    const key = String(ev.id ?? ev.timestamp ?? "");
+    const key = String(ev.id ?? ev.time ?? "");
     if (existingKeys.has(key)) break;
     newItems.push(ev);
   }
@@ -224,18 +225,27 @@ export async function openEventDetails(ev) {
       payload = ev;
     }
   }
-  const ts = payload.timestamp
-    ? new Date(payload.timestamp).toLocaleString()
+  const ts = payload.time
+    ? new Date(payload.time).toLocaleString()
     : "—";
+  const chObj = state.channels.find((c) => Number(c.id) === Number(payload.channel_id));
+  const channelName = chObj ? chObj.name : (payload.channel || `CAM-${payload.channel_id || ""}`);
   const rows = [
     ["Дата/время", ts],
-    ["Канал", payload.channel || `CAM-${payload.channel_id || ""}`],
+    ["Канал", channelName],
     ["Страна", payload.country || "—"],
     ["Гос. номер", payload.plate_display || payload.plate || "—"],
     ["Уверенность", Number(payload.confidence || 0).toFixed(2)],
     ["Направление", formatDirection(payload.direction).plain],
     ["Источник", payload.source || "—"],
   ];
+  if (Number(payload.zone_id) > 0) {
+    const zoneObj = state.zones.find((z) => Number(z.id) === Number(payload.zone_id));
+    const zoneName = zoneObj ? zoneObj.name : String(payload.zone_id);
+    rows.push(["Зона", zoneName]);
+    if (payload.time_entry) rows.push(["Въезд", new Date(payload.time_entry).toLocaleString()]);
+    if (payload.time_exit) rows.push(["Выезд", new Date(payload.time_exit).toLocaleString()]);
+  }
 
   const meta = document.getElementById("eventMeta");
   meta.innerHTML = "";

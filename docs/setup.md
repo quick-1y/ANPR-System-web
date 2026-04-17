@@ -193,12 +193,16 @@ Docker Compose запускает четыре сервиса:
 
 | Таблица | Основные поля |
 |---|---|
-| `events` | `id`, `timestamp`, `channel_id`, `channel`, `plate`, `plate_display`, `country`, `confidence`, `source`, `frame_path`, `plate_path`, `direction` |
+| `zones` | `id`, `name`, `capacity` |
+| `events` | `id`, `time`, `channel_id`, `plate`, `plate_display`, `country`, `confidence`, `source`, `frame_path`, `plate_path`, `direction`, `client_id`, `zone_id`, `time_entry`, `time_exit` |
 | `lists` | `id`, `name`, `type`, `is_deleted` |
 | `clients` | `id`, `list_id` *(nullable — клиент может существовать без списка)*, `plate`, `plate_normalized`, `last_name`, `first_name`, `middle_name`, `phone`, `car`, `comment`, `is_deleted` |
 | `users` | `id`, `login`, `password` (bcrypt), `role`, `permissions` (JSONB), `is_active`, `created_at`, `updated_at` |
 
-**Индексы:** `(timestamp DESC, id DESC)` по событиям; `plate_normalized` и `(list_id, plate_normalized) UNIQUE WHERE is_deleted = FALSE` по клиентам. Partial unique index позволяет нескольким неприкреплённым клиентам иметь одинаковый номер без конфликта.
+**Зоновые поля событий:**  
+`zone_id > 0` — ТС находится в зоне; `zone_id = 0` — ТС выехало; `zone_id IS NULL` — зона не используется. `time_entry` и `time_exit` фиксируют моменты въезда и выезда.
+
+**Индексы:** `(time DESC, id DESC)` по событиям; `plate_normalized` и `(list_id, plate_normalized) UNIQUE WHERE is_deleted = FALSE` по клиентам; `(zone_id) WHERE zone_id IS NOT NULL AND zone_id > 0 AND time_exit IS NULL` для подсчёта занятости зоны.
 
 ### Медиа и экспорт
 

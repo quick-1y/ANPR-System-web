@@ -176,6 +176,13 @@ export function showLoginOverlay(onSuccess) {
   setTimeout(() => { if (loginInp) loginInp.focus(); }, 50);
 }
 
+// ── Zone API helpers ──────────────────────────────────────────────────
+export async function getZones() { return jfetch(api("/api/zones")); }
+export async function createZone(data) { return jfetch(api("/api/zones"), "POST", data); }
+export async function getZone(id) { return jfetch(api(`/api/zones/${id}`)); }
+export async function updateZone(id, data) { return jfetch(api(`/api/zones/${id}`), "PUT", data); }
+export async function deleteZone(id) { return jfetch(api(`/api/zones/${id}`), "DELETE"); }
+
 export async function jfetch(url, method = "GET", body = null) {
   // Pre-flight expiry check — avoids sending a request we know will fail
   if (isTokenExpired()) {

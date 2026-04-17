@@ -117,26 +117,26 @@ class DataLifecycleService:
         result.update(self.enforce_storage_limit())
         return result
 
-    def export_events_csv(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None, plate: Optional[str] = None, channel_id: Optional[int] = None) -> tuple[str, bytes]:
+    def export_events_csv(self, *, start: Optional[str] = None, end: Optional[str] = None, plate: Optional[str] = None, channel_id: Optional[int] = None) -> tuple[str, bytes]:
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         filename = f"events_{ts}.csv"
-        rows = self.pg_events.fetch_for_export(start=start, end=end, channel=channel, plate=plate, channel_id=channel_id)
-        fieldnames = ["id", "timestamp", "channel_id", "channel", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
+        rows = self.pg_events.fetch_for_export(start=start, end=end, plate=plate, channel_id=channel_id)
+        fieldnames = ["id", "time", "channel_id", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction", "zone_id", "time_entry", "time_exit"]
         csv_buffer = io.StringIO()
-        writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames)
+        writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
         return filename, csv_buffer.getvalue().encode("utf-8")
 
-    def export_events_bundle(self, *, start: Optional[str] = None, end: Optional[str] = None, channel: Optional[str] = None, include_media: bool = True) -> tuple[str, bytes]:
-        rows = self.pg_events.fetch_for_export(start=start, end=end, channel=channel)
+    def export_events_bundle(self, *, start: Optional[str] = None, end: Optional[str] = None, channel_id: Optional[int] = None, include_media: bool = True) -> tuple[str, bytes]:
+        rows = self.pg_events.fetch_for_export(start=start, end=end, channel_id=channel_id)
 
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         csv_name = f"events_{ts}.csv"
-        fieldnames = ["id", "timestamp", "channel_id", "channel", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction"]
+        fieldnames = ["id", "time", "channel_id", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction", "zone_id", "time_entry", "time_exit"]
         csv_buffer = io.StringIO()
-        writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames)
+        writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         for row in rows:
             writer.writerow(row)

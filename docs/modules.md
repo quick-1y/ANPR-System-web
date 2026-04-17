@@ -14,6 +14,7 @@
 | `app/api/routers/auth.py` | Auth endpoints: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/permissions/available` (admin-only, возвращает `{key,label,group}`) |
 | `app/api/routers/users.py` | User management (admin-only): list, create, get, update, change password, deactivate |
 | `app/api/routers/channels.py` | CRUD каналов, start/stop/restart, snapshot, MJPEG, health — авторизованный |
+| `app/api/routers/zones.py` | CRUD зон парковки; каскадный сброс назначений каналов при удалении зоны — авторизованный |
 | `app/api/routers/events.py` | Журнал событий, детали, медиа, SSE-поток — авторизованный |
 | `app/api/routers/controllers.py` | CRUD аппаратных контроллеров, тест реле — **только Admin** |
 | `app/api/routers/clients.py` | CRUD клиентов, поиск, прикрепление к спискам / открепление — авторизованный |
@@ -26,7 +27,8 @@
 | `app/shared/backup_service.py` | `BackupService`: бэкап и восстановление базы данных и settings.yaml |
 | `app/shared/data_lifecycle.py` | `DataLifecycleService`: cleanup событий/медиа, контроль размера, CSV/ZIP export |
 | `app/web/index.html` | Единственная HTML-страница SPA; включает `#login-overlay` для аутентификации и кнопку «Выход» в topbar |
-| `app/web/js/api.js` | HTTP-слой: `getToken/setToken` (JWT в `localStorage`), `jfetch()` (Bearer), `apiUrl()` (?token=), `loginRequest()`, `getCurrentUser()`, `showLoginOverlay()` |
+| `app/web/js/api.js` | HTTP-слой: `getToken/setToken` (JWT в `localStorage`), `jfetch()` (Bearer), `apiUrl()` (?token=), `loginRequest()`, `getCurrentUser()`, `showLoginOverlay()`; методы зон: `getZones()`, `createZone()`, `getZone(id)`, `updateZone(id, data)`, `deleteZone(id)` |
+| `app/web/js/zones.js` | Вкладка «Зоны»: список зон с вместимостью и занятостью, создание, настройки, удаление с предупреждением о привязанных каналах |
 | `app/web/js/state.js` | Глобальное состояние SPA; `state.currentUser`, `state.allClients`, `state.listMembers`, `state.lists`, `state.plateLookup` и др.; `setCurrentUser()`, `isAdmin()`, `hasPermission(key)` |
 | `app/web/js/clients.js` | Модуль клиентов: таблица всех клиентов, карточка клиента (просмотр/редактирование/удаление), прикрепление к списку, отвязка, поиск с дебаунсом |
 | `app/web/js/app.js` | Точка входа: проверка JWT при старте, показ login overlay, инициализация после аутентификации, `applyTabVisibility()` после получения пользователя, logout; вызывает `initUsersPane()` для admin |
@@ -72,7 +74,8 @@
 
 | Файл / директория | Ответственность |
 |---|---|
-| `database/postgres_event_repository.py` | `PostgresEventDatabase`: insert, pagination, fetch, delete, export |
+| `database/postgres_event_repository.py` | `PostgresEventDatabase`: insert, pagination, fetch, delete, export; `find_active_entry_and_write_exit()` для зонового выезда |
+| `database/zones_repository.py` | `ZoneDatabase`: CRUD зон, запрос занятости (`get_zone_occupancy`), каскадный сброс назначений каналов при удалении зоны |
 | `database/clients_repository.py` | `ClientDatabase`: CRUD клиентов, поиск, прикрепление/открепление от списка |
 | `database/lists_repository.py` | `ListDatabase`: CRUD списков, проверка вхождения номера (`plate_in_list_type`, `plate_in_lists`), обогащение событий клиентом (`find_client_by_plate` — ищет по нормализованному номеру среди всех активных клиентов, вне зависимости от наличия списка; `list_type`/`list_name` будут `None` если клиент не прикреплён к списку) |
 | `database/user_repository.py` | `UserDatabase`: CRUD пользователей, seed admin по умолчанию |
@@ -102,7 +105,7 @@
 
 | Директория / файл | Назначение |
 |---|---|
-| `tests/` | Тесты ключевых компонентов: validator, motion detector, direction estimator, track aggregator, user repository, JWT utils, auth deps, auth router, permission guards; `test_lists_repository.py` — тесты `ListDatabase` и `ClientDatabase` (нормализация номеров, CRUD, прикрепление/открепление, channel automation methods) |
+| `tests/` | Тесты ключевых компонентов: validator, motion detector, direction estimator, track aggregator, user repository, JWT utils, auth deps, auth router, permission guards; `test_lists_repository.py` — тесты `ListDatabase` и `ClientDatabase`; `test_zones_repository.py`, `test_events_repository_zones.py`, `test_channel_repository_zones.py`, `test_zone_eligibility.py` — тесты зоновой логики |
 | `nginx/` | Конфигурация reverse proxy |
 | `.planning/codebase/` | Аналитические markdown-файлы по архитектуре, стеку, структуре, соглашениям и интеграциям |
 | `Dockerfile` | Сборка приложения |

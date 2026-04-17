@@ -2,7 +2,7 @@
 import { eventSource, debugLogSource, overlayRefreshTimer, eventFeedRenderFrame, eventFeedRenderScheduled, setEventFeedRenderScheduled, setEventFeedRenderFrame } from './state.js';
 import { api, getToken, setToken, isTokenExpired, getCurrentUser, showLoginOverlay, logoutRequest } from './api.js';
 import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, applyTabVisibility, showToast } from './ui.js';
-import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVideoGridDragDrop, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate, clearExpandMode } from './channels.js';
+import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVideoGridDragDrop, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate, clearExpandMode, updateZoneChannelTypeState } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
 import { loadJournal, initJournalScroll, initJournalBindings } from './journal.js';
 import { loadLists, refreshPlateLookup, exportCurrentListCSV, importCurrentListCSV, openClientPickerModal } from './lists.js';
@@ -14,12 +14,14 @@ import { initHelpSystem } from './help.js';
 import { initBackupBindings } from './backup.js';
 import { state, setCurrentUser } from './state.js';
 import { initUsersPane } from './users.js';
+import { loadZones, initZonesTab } from './zones.js';
 import { initSystemPolling, refreshSystemResources, checkServerHealth } from './system.js';
 
 // --- Tab navigation bindings ---
 document.querySelectorAll(".ttab").forEach((el) => (el.onclick = () => {
   switchTab(el.dataset.tab);
   if (el.dataset.tab === "obs") { scheduleVideoGridLayout(); renderEventFeed(true); }
+  if (el.dataset.tab === "zones") { loadZones(); }
 }));
 document.querySelectorAll(".snav-item").forEach((el) => (el.onclick = () => switchSettings(el.dataset.sp)));
 document.querySelectorAll(".ch-tab").forEach((el) => (el.onclick = () => switchChannelSettingsTab(el.dataset.chTab)));
@@ -241,6 +243,9 @@ initSidebarHover();
 // --- Help & Backup ---
 initHelpSystem();
 initBackupBindings();
+initZonesTab();
+const _zoneIdEl = document.getElementById("c_zone_id");
+if (_zoneIdEl) _zoneIdEl.onchange = updateZoneChannelTypeState;
 
 // --- Main init ---
 (async function init() {
@@ -309,6 +314,7 @@ initBackupBindings();
   switchChannelSettingsTab("channel");
   updateTopbarTitle();
   await refreshChannels();
+  loadZones();
   await hydrateChannelLastPlates();
   initJournalScroll();
   await loadEventFeedHistory();

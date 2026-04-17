@@ -28,6 +28,13 @@
             <span class="ttab-label">Журнал</span>
           </div>
       
+          <div class="ttab" data-tab="zones" title="Зоны">
+            <span class="ttab-icon-wrap">
+              <img class="ttab-icon ui-icon" src="/web/assets/icons/lists.svg" alt="" />
+            </span>
+            <span class="ttab-label">Зоны</span>
+          </div>
+
           <div class="ttab" data-tab="clients" title="Клиенты">
             <span class="ttab-icon-wrap">
               <img class="ttab-icon ui-icon" src="/web/assets/icons/lists.svg" alt="" />
@@ -149,7 +156,7 @@
             </div>
             <div class="data-table-wrap">
               <div class="table-scroll" id="journalScroll">
-                <table class="data-table">
+                <table class="data-table" id="journalTable">
                   <thead>
                     <tr>
                       <th class="col-time">Время</th>
@@ -159,6 +166,9 @@
                       <th class="col-plate">Номер</th>
                       <th class="col-conf">Увер.</th>
                       <th class="col-source">Источник</th>
+                      <th class="col-zone col-zone-name">Зона</th>
+                      <th class="col-zone col-zone-time">Въезд</th>
+                      <th class="col-zone col-zone-time">Выезд</th>
                     </tr>
                   </thead>
                   <tbody id="journalBody"></tbody>
@@ -167,6 +177,85 @@
               </div>
             </div>
           </div>
+      <div class="tab-pane" id="tab-zones">
+        <div class="zones-layout">
+          <div class="zones-list-col">
+            <div class="panel-header">
+              <span>Зоны</span>
+              <button class="btn btn-primary btn-sm" id="createZoneBtn">+ Создать зону</button>
+            </div>
+            <div id="zonesList"></div>
+          </div>
+          <div class="zones-settings-col hidden" id="zonesSettingsPanel">
+            <div class="panel-header">
+              <span>Настройки зоны</span>
+              <button class="btn btn-ghost btn-sm" id="closeZoneSettingsBtn">✕</button>
+            </div>
+            <div class="s-card">
+              <div class="s-card-body">
+                <div class="s-row">
+                  <div class="s-row-name">Название</div>
+                  <input class="input input--md s-input" id="zoneSettingName" type="text" placeholder="Название зоны" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-name">Вместимость</div>
+                  <input class="input input--md s-input" id="zoneSettingCapacity" type="number" min="0" value="0" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-name">Занятость</div>
+                  <div id="zoneOccupancyInfo" class="s-row-value">—</div>
+                </div>
+                <div class="s-row">
+                  <div class="s-row-name">Каналы</div>
+                  <div id="zoneChannelsList"></div>
+                </div>
+              </div>
+            </div>
+            <div class="settings-actions">
+              <button class="btn btn-primary" id="saveZoneBtn">Сохранить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create Zone Modal -->
+      <div class="modal" id="createZoneModal">
+        <div class="modal-card modal-card--sm">
+          <div class="modal-head">
+            <span>Создать зону</span>
+            <button class="modal-close" id="createZoneModalClose">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="modal-field">
+              <label class="modal-label">Название</label>
+              <input class="input input--md" id="newZoneName" type="text" placeholder="Название зоны" />
+            </div>
+            <div class="modal-field">
+              <label class="modal-label">Вместимость</label>
+              <input class="input input--md" id="newZoneCapacity" type="number" min="0" value="0" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" id="createZoneCancel">Отмена</button>
+            <button class="btn btn-primary" id="createZoneConfirm">Создать</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Delete Zone Modal -->
+      <div class="modal" id="deleteZoneModal">
+        <div class="modal-card modal-card--sm">
+          <div class="modal-head"><span>Удалить зону?</span></div>
+          <div class="modal-body">
+            <div id="deleteZoneInfo"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" id="deleteZoneCancel">Отмена</button>
+            <button class="btn btn-danger" id="deleteZoneConfirm">Удалить</button>
+          </div>
+        </div>
+      </div>
+
       <div class="tab-pane" id="tab-clients">
         <!-- Sub-tab navigation -->
         <div class="clients-subtab-nav">
@@ -608,6 +697,25 @@
                     <div class="s-row" id="c_custom_lists_hint" style="display: none">
                       <div class="s-row-label"></div>
                       <div class="roi-hint" style="margin-top:0">Черный список применяется всегда автоматически.</div>
+                    </div>
+                    <div class="s-card-header" style="margin-top:8px;margin-bottom:4px">Зона</div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <div class="s-row-name">Зона</div>
+                      </div>
+                      <select class="input input--md s-input input--select" id="c_zone_id">
+                        <option value="">Без зоны</option>
+                      </select>
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <div class="s-row-name">Тип канала</div>
+                      </div>
+                      <select class="input input--md s-input input--select" id="c_zone_channel_type" disabled>
+                        <option value="">—</option>
+                        <option value="entry">Въезд</option>
+                        <option value="exit">Выезд</option>
+                      </select>
                     </div>
                   </div>
                 </div>

@@ -54,14 +54,13 @@ def run_retention(container: AppContainer = Depends(get_container), _user: Dict[
 def export_events_csv(
     start: Optional[str] = None,
     end: Optional[str] = None,
-    channel: Optional[str] = None,
     plate: Optional[str] = None,
     channel_id: Optional[int] = None,
     container: AppContainer = Depends(get_container),
     _user: Dict[str, Any] = Depends(require_role("superadmin")),
 ) -> Response:
     try:
-        filename, payload = container.lifecycle.export_events_csv(start=start, end=end, channel=channel, plate=plate, channel_id=channel_id)
+        filename, payload = container.lifecycle.export_events_csv(start=start, end=end, plate=plate, channel_id=channel_id)
         return Response(
             content=payload,
             media_type="text/csv",
@@ -77,7 +76,7 @@ def export_events_bundle(payload: ExportBundlePayload, container: AppContainer =
         filename, body = container.lifecycle.export_events_bundle(
             start=payload.start,
             end=payload.end,
-            channel=payload.channel,
+            channel_id=payload.channel_id,
             include_media=payload.include_media,
         )
         return Response(

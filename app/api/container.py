@@ -15,6 +15,7 @@ from database.lists_repository import ListDatabase
 from database.user_repository import UserDatabase
 from config.settings_manager import SettingsManager
 from database.postgres_event_repository import PostgresEventDatabase
+from database.zones_repository import ZoneDatabase
 from database.errors import StorageUnavailableError
 from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 from common.logging import configure_logging, get_live_log_bus, get_logger
@@ -36,6 +37,7 @@ class AppContainer:
     user_db: UserDatabase
     channel_db: ChannelDatabase
     controller_db: ControllerDatabase
+    zone_db: ZoneDatabase
     controller_service: ControllerService
     controller_automation: ControllerAutomationService
     event_bus: EventBus
@@ -61,6 +63,7 @@ class AppContainer:
         user_db = UserDatabase(dsn)
         channel_db = ChannelDatabase(dsn)
         controller_db = ControllerDatabase(dsn)
+        zone_db = ZoneDatabase(dsn)
         controller_service = ControllerService()
         event_bus = EventBus()
         debug_registry = DebugRegistry(settings.get_debug_settings())
@@ -74,6 +77,7 @@ class AppContainer:
             user_db=user_db,
             channel_db=channel_db,
             controller_db=controller_db,
+            zone_db=zone_db,
             controller_service=controller_service,
             controller_automation=None,  # type: ignore[arg-type]
             event_bus=event_bus,
@@ -113,6 +117,7 @@ class AppContainer:
             model_config=model_config,
             events_db=self.events_db,
             lists_db=self.lists_db,
+            zones_db=self.zone_db,
         )
 
     def _build_lifecycle(self) -> DataLifecycleService:
@@ -190,6 +195,14 @@ class AppContainer:
         if not self.controller_exists(int(controller_id)):
             raise HTTPException(status_code=400, detail=f"Контроллер #{controller_id} не найден")
 
+    def validate_channel_zone_binding(self, payload: Dict[str, Any]) -> None:
+        zone_id = payload.get("zone_id")
+        if zone_id is None:
+            payload["zone_channel_type"] = None
+            return
+        if not self.zone_db.get_zone(int(zone_id)):
+            raise HTTPException(status_code=400, detail=f"Зона #{zone_id} не найдена")
+
     @staticmethod
     def validate_global_hotkeys(controllers: List[Dict[str, Any]]) -> None:
         bindings: Dict[str, List[str]] = {}
@@ -221,6 +234,7 @@ class AppContainer:
         self.user_db = UserDatabase(dsn)
         self.channel_db = ChannelDatabase(dsn)
         self.controller_db = ControllerDatabase(dsn)
+        self.zone_db = ZoneDatabase(dsn)
         self.controller_automation = ControllerAutomationService(
             self.controller_service,
             get_channels=self.channel_db.list_channels,
