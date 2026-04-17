@@ -95,20 +95,30 @@
         </div>
         <div class="content">
           <div class="tab-pane active" id="tab-obs">
-            <div class="obs-left">
-              <div class="obs-toolbar">
-                <span class="obs-label">Сетка</span>
-                <select class="input input--md input--select grid-select" id="gridSelect">
-                  <option value="1x1">1×1</option>
-                  <option value="2x2" selected>2×2</option>
-                  <option value="2x3">2×3</option>
-                  <option value="3x3">3×3</option>
-                </select>
+            <div class="obs-main-card">
+              <div class="obs-main-card-head">
+                <div class="obs-workspace-title">
+                  <h2>Онлайн наблюдение</h2>
+                  <p>Потоки каналов и последние распознавания в реальном времени</p>
+                </div>
+                <div class="obs-toolbar">
+                  <span class="obs-label">Сетка камер</span>
+                  <select class="input input--md input--select grid-select" id="gridSelect">
+                    <option value="1x1">1×1</option>
+                    <option value="2x2" selected>2×2</option>
+                    <option value="2x3">2×3</option>
+                    <option value="3x3">3×3</option>
+                  </select>
+                </div>
               </div>
-              <div class="video-grid" id="videoGrid"></div>
+              <div class="obs-main-card-body">
+                <div class="video-grid" id="videoGrid"></div>
+              </div>
+            </div>
+            <div class="obs-left">
               <div class="obs-debug-panel" id="obsDebugPanel" data-collapsed="0">
                 <div class="panel-header obs-debug-header">
-                  <span>Логи</span>
+                  <span>Технический лог канала</span>
                   <button class="btn btn-ghost" id="toggleDebugPanelBtn">Свернуть</button>
                 </div>
                 <div class="log-output obs-log-output" id="debugLog"></div>
@@ -116,13 +126,14 @@
             </div>
             <div class="obs-right">
               <div class="panel-header obs-events-header">
-                <span>События</span>
+                <span>События распознавания</span>
               </div>
               <div class="event-feed" id="eventFeed"></div>
             </div>
           </div>
           <div class="tab-pane" id="tab-journal">
             <div class="filter-card">
+              <div class="workspace-card-title">Фильтры журнала</div>
               <div class="filter-group">
                 <div class="filter-label">Поиск</div>
                 <input
@@ -155,6 +166,7 @@
               </div>
             </div>
             <div class="data-table-wrap">
+              <div class="workspace-card-title">История событий</div>
               <div class="table-scroll" id="journalScroll">
                 <table class="data-table" id="journalTable">
                   <thead>
@@ -188,7 +200,7 @@
           </div>
           <div class="zones-settings-col hidden" id="zonesSettingsPanel">
             <div class="panel-header">
-              <span>Настройки зоны</span>
+              <span>Параметры зоны</span>
               <button class="btn btn-ghost btn-sm" id="closeZoneSettingsBtn">✕</button>
             </div>
             <div class="s-card">
@@ -268,6 +280,7 @@
           <div class="subtab-pane active" id="subtab-clients">
             <div class="clients-main">
               <div class="clients-main-header" id="clientsMainHeader">
+                <div class="workspace-card-title">База клиентов</div>
                 <button class="btn btn-primary btn-sm" id="addClientBtn">Добавить клиента</button>
                 <div class="clients-search-wrap">
                   <input class="input input--md s-input" id="clientsSearchInput" placeholder="Поиск…" autocomplete="off" />
@@ -305,6 +318,7 @@
             </div>
             <div class="lists-main">
               <div class="lists-main-header" id="listsMainHeader">
+                <div class="workspace-card-title">Состав списка</div>
                 <button class="btn btn-ghost btn-sm" id="attachClientToListBtn">Прикрепить клиента</button>
                 <button class="btn btn-ghost btn-sm" id="exportListBtn">
                   <img class="btn-icon ui-icon-sm" src="/web/assets/icons/export.svg" alt="" />
@@ -343,6 +357,7 @@
       </div>
       <div class="tab-pane" id="tab-settings">
         <div class="settings-nav">
+          <div class="workspace-card-title settings-title">Разделы настроек</div>
           <div class="snav-label">Основное</div>
         
           <div class="snav-item active" data-sp="general">

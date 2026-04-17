@@ -251,8 +251,8 @@ if (_zoneIdEl) _zoneIdEl.onchange = updateZoneChannelTypeState;
 (async function init() {
   const apiBaseEl = document.getElementById("apiBase");
   if (apiBaseEl) apiBaseEl.value = window.location.origin;
-  try { applyTheme(localStorage.getItem("anpr_theme") || "dark"); }
-  catch (_e) { applyTheme("dark"); }
+  try { applyTheme(localStorage.getItem("anpr_theme") || "light"); }
+  catch (_e) { applyTheme("light"); }
 
   const startLoginFlow = () => {
     showLoginOverlay((user) => {
