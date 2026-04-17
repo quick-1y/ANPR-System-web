@@ -1576,26 +1576,62 @@ body.theme-light {
 }
 
 body { overflow: hidden; }
-.app-shell { grid-template-columns: 72px 1fr; background: var(--bg); }
+.app-shell { grid-template-columns: 108px 1fr; background: var(--bg); }
 .left-rail {
-  width: 72px;
+  width: 108px;
   border-right: 1px solid var(--border);
   background: var(--rail-bg);
   box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset;
 }
-.left-rail.rail-expanded { width: 220px; box-shadow: 8px 0 30px rgba(5, 10, 20, 0.2); }
-.rail-nav { padding: 14px 0 14px 10px; gap: 8px; }
-.ttab { width: 52px; height: 44px; border-radius: 12px; }
-.ttab-icon-wrap { width: 44px; height: 44px; flex: 0 0 44px; }
-.left-rail.rail-expanded .ttab { width: 196px; }
-.left-rail.rail-expanded .ttab-label { max-width: 132px; }
-.ttab:hover { background: rgba(127, 146, 188, 0.12); }
+.left-rail.rail-expanded { width: 108px; box-shadow: 8px 0 30px rgba(5, 10, 20, 0.2); }
+.rail-nav {
+  padding: 12px 0 14px;
+  gap: 8px;
+  align-items: center;
+}
+.ttab {
+  width: 88px;
+  height: 76px;
+  border-radius: 16px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+.ttab-icon-wrap { width: 24px; height: 24px; flex: 0 0 auto; }
+.ttab:hover { background: rgba(127, 146, 188, 0.10); }
 .ttab.active {
   color: var(--accent2);
-  background: var(--accent-soft);
+  background: rgba(43, 109, 246, 0.10);
   border-color: var(--accent-border);
 }
-.ttab.active::before { background: var(--accent2); box-shadow: none; }
+.ttab.active::before { display: none; }
+.ttab-label {
+  max-width: none;
+  opacity: 1;
+  font-size: 14px;
+  color: #55688b;
+  font-weight: 500;
+}
+.ttab.active .ttab-label { color: var(--accent2); }
+.ttab-icon {
+  width: 22px;
+  height: 22px;
+  opacity: 0.86;
+  filter: hue-rotate(0deg) saturate(75%);
+}
+.ttab.active .ttab-icon { opacity: 1; }
+.rail-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 12px;
+}
+#logoutBtn {
+  width: 88px;
+  height: 74px;
+  border-radius: 16px;
+}
 
 .main-shell { background: var(--bg); }
 .topbar {
