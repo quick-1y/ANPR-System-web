@@ -2793,3 +2793,105 @@ body[data-theme="dark"] #sp-controllers #saveControllerBtn {
     font-size: 22px;
   }
 }
+
+/* =========================================================
+   Reference alignment v2: settings + observation structure
+   ========================================================= */
+#tab-obs {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas:
+    "video events"
+    "debug events";
+}
+.obs-main-card,
+.obs-right,
+.obs-debug-panel {
+  border-radius: 18px;
+}
+.obs-main-card-head {
+  padding: 8px 10px;
+}
+.obs-main-card-body {
+  padding: 6px;
+}
+.video-grid {
+  min-height: 460px;
+  gap: 7px;
+}
+.obs-events-header {
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.event-feed {
+  padding: 7px;
+  gap: 7px;
+}
+.ev-item {
+  border-radius: 12px;
+  padding: 8px 9px;
+}
+
+#tab-settings {
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 12px;
+}
+.settings-nav {
+  border-radius: 18px;
+  padding: 10px;
+}
+.snav-label {
+  margin: 4px 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.11em;
+}
+.snav-item {
+  border-radius: 13px;
+  min-height: 40px;
+  padding: 9px 10px;
+  font-size: 15px;
+}
+.snav-item img {
+  width: 16px;
+  height: 16px;
+}
+.settings-content {
+  border-radius: 18px;
+  padding: 12px;
+}
+.settings-pane {
+  gap: 10px;
+}
+.s-card {
+  border-radius: 16px;
+}
+.s-card-header {
+  padding: 10px 12px;
+  font-size: 15px;
+}
+.s-card-body {
+  padding: 8px 12px;
+}
+.s-row {
+  padding: 7px 0;
+}
+
+#sp-controllers .ch-layout,
+#sp-channels .ch-layout {
+  min-height: 620px;
+}
+
+@media (max-width: 1024px) {
+  #tab-settings {
+    grid-template-columns: 1fr;
+  }
+  #tab-obs {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "video"
+      "events"
+      "debug";
+  }
+  .obs-right {
+    max-height: 340px;
+  }
+}
