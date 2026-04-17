@@ -2577,3 +2577,219 @@ body[data-theme="dark"] #sp-channels #saveChannelBtn {
     font-size: 13px;
   }
 }
+
+/* =========================================================
+   Compact settings panes: channels/controllers
+   ========================================================= */
+#sp-channels .ch-layout,
+#sp-controllers .ch-layout {
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+#sp-channels .ch-sidebar,
+#sp-channels .ch-config-pane,
+#sp-controllers .ch-sidebar,
+#sp-controllers .ch-config-pane {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+#sp-channels .ch-sidebar,
+#sp-controllers .ch-sidebar {
+  padding: 10px;
+  gap: 8px;
+}
+#sp-channels .ch-sidebar-header,
+#sp-controllers .ch-sidebar-header {
+  padding: 2px 2px 8px;
+  border: 0;
+  background: transparent;
+  min-height: auto;
+}
+#sp-channels .ch-sidebar-header > span,
+#sp-controllers .ch-sidebar-header > span {
+  font-size: 20px;
+  font-weight: 650;
+  color: var(--text1);
+}
+#sp-channels .compact-actions .icon-btn-sm,
+#sp-controllers .compact-actions .icon-btn-sm {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  font-size: 17px;
+}
+#sp-channels .ch-list,
+#sp-controllers .ch-list {
+  border: 0;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+}
+#sp-channels .ch-item,
+#sp-controllers .ch-item {
+  min-height: 58px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--field);
+  padding: 9px 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+}
+#sp-channels .ch-item-name,
+#sp-controllers .ch-item-name {
+  font-size: 17px;
+  font-weight: 640;
+  line-height: 1.1;
+}
+#sp-channels .ch-item-sub,
+#sp-controllers .ch-item-sub {
+  font-size: 12px;
+  color: var(--text2);
+}
+#sp-controllers .ch-item-status {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--accent2);
+  border-color: rgba(37, 99, 235, 0.28);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+#sp-channels .ch-config-pane,
+#sp-controllers .ch-config-pane {
+  padding: 12px 14px;
+}
+#sp-channels .channel-config-head,
+#sp-controllers .channel-config-head {
+  padding: 0 1px 8px;
+}
+#sp-channels .channel-config-eyebrow,
+#sp-controllers .channel-config-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 4px;
+}
+#sp-channels .channel-config-title,
+#sp-controllers .channel-config-title {
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+#sp-channels .channel-tabs {
+  margin-bottom: 10px;
+}
+#sp-channels .ch-tab {
+  height: 32px;
+  font-size: 14px;
+  padding: 0 14px;
+}
+#sp-channels .s-row {
+  padding: 6px 0;
+  grid-template-columns: 188px minmax(240px, 500px);
+}
+#sp-channels .s-row-name,
+#sp-controllers .s-row-name {
+  font-size: 13px;
+}
+#sp-channels .s-input,
+#sp-channels .s-row .input--select,
+#sp-channels .s-row select.s-input,
+#sp-channels .s-row .s-input:not(.sm):not(.wide):not(select),
+#sp-controllers .s-input,
+#sp-controllers .s-row .input--select,
+#sp-controllers .s-row select.s-input,
+#sp-controllers .s-row .s-input:not(.sm):not(.wide):not(select) {
+  height: 34px;
+  border-radius: 13px;
+  font-size: 13px;
+}
+#sp-channels #saveChannelBtn,
+#sp-controllers #saveControllerBtn {
+  min-width: 160px;
+  height: 34px;
+  border-radius: 999px;
+  background: #0f1f3f;
+  border-color: #0f1f3f;
+}
+body[data-theme="dark"] #sp-channels #saveChannelBtn,
+body[data-theme="dark"] #sp-controllers #saveControllerBtn {
+  background: #1c376c;
+  border-color: #1c376c;
+}
+
+#sp-controllers .s-card {
+  border-radius: 16px;
+  margin-bottom: 10px;
+}
+#sp-controllers .s-card:first-of-type .s-card-header {
+  display: none;
+}
+#sp-controllers .s-card:first-of-type .s-card-body {
+  padding-top: 0;
+}
+#sp-controllers .s-card-header {
+  font-size: 18px;
+  font-weight: 620;
+  padding: 10px 12px;
+}
+#sp-controllers .s-card-body {
+  padding: 8px 12px;
+}
+#sp-controllers .s-row {
+  padding: 7px 0;
+  border: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 180px minmax(240px, 500px);
+  gap: 10px;
+  align-items: center;
+}
+#sp-controllers .s-row-label {
+  width: auto;
+  min-width: 0;
+}
+#sp-controllers .form-actions {
+  padding-top: 8px;
+}
+#sp-controllers #testRelay0Btn,
+#sp-controllers #testRelay1Btn {
+  border-radius: 999px;
+  height: 34px;
+  padding: 0 16px;
+}
+
+@media (max-width: 1200px) {
+  #sp-channels .ch-layout,
+  #sp-controllers .ch-layout {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  #sp-channels .s-row,
+  #sp-controllers .s-row {
+    grid-template-columns: 170px minmax(200px, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  #sp-channels .ch-layout,
+  #sp-controllers .ch-layout {
+    grid-template-columns: 1fr;
+  }
+  #sp-channels .s-row,
+  #sp-controllers .s-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  #sp-channels .channel-config-title,
+  #sp-controllers .channel-config-title {
+    font-size: 22px;
+  }
+}

@@ -993,13 +993,20 @@
           <div class="settings-pane" id="sp-controllers">
             <div class="ch-layout">
               <div class="ch-sidebar">
-                <div class="sidebar-toolbar compact-actions">
-                  <button class="icon-btn-sm" id="createControllerBtn">+</button
-                  ><button class="icon-btn-sm" id="deleteControllerBtn">-</button>
+                <div class="panel-header ch-sidebar-header">
+                  <span>Контроллеры</span>
+                  <div class="sidebar-toolbar compact-actions">
+                    <button class="icon-btn-sm" id="createControllerBtn">+</button
+                    ><button class="icon-btn-sm" id="deleteControllerBtn">-</button>
+                  </div>
                 </div>
                 <div class="ch-list" id="controllerItems"></div>
               </div>
               <div class="ch-config-pane" id="controllerConfigPane">
+                <div class="channel-config-head">
+                  <div class="channel-config-eyebrow">Параметры контроллера</div>
+                  <div class="channel-config-title" id="controllerConfigTitle">—</div>
+                </div>
                 <div class="s-card">
                   <div class="s-card-header">Параметры контроллера</div>
                   <div class="s-card-body">

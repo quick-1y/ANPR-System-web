@@ -57,7 +57,13 @@ function renderControllerItems() {
   controllersCache.forEach((c) => {
     const row = document.createElement("div");
     row.className = `ch-item ${c.id === selectedControllerId ? "active" : ""}`;
-    row.textContent = c.name;
+    row.innerHTML = `
+      <div class="ch-item-main">
+        <div class="ch-item-name">${c.name}</div>
+        <div class="ch-item-sub">${c.type || "—"} · ${c.address || "—"}</div>
+      </div>
+      <span class="ch-item-status">2CH</span>
+    `;
     row.onclick = () => selectController(c.id);
     box.appendChild(row);
   });
@@ -67,12 +73,15 @@ export function selectController(id) {
   setSelectedControllerId(id);
   syncControllerConfigVisibility();
   const item = controllersCache.find((c) => c.id === id);
+  const title = document.getElementById("controllerConfigTitle");
+  if (title) title.textContent = item?.name || `Контроллер ${id}`;
   fillControllerForm(item || null);
   renderControllerItems();
 }
 
 export async function loadControllers() {
   setControllersCache(await jfetch(api("/api/controllers")));
+  const title = document.getElementById("controllerConfigTitle");
   if (controllersCache.length) {
     if (!selectedControllerId || !controllersCache.some((c) => c.id === selectedControllerId)) {
       setSelectedControllerId(controllersCache[0].id);
@@ -80,6 +89,7 @@ export async function loadControllers() {
     selectController(selectedControllerId);
   } else {
     setSelectedControllerId(null);
+    if (title) title.textContent = "—";
     fillControllerForm(null);
     renderControllerItems();
   }
