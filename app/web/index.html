@@ -612,20 +612,22 @@
           <div class="settings-pane" id="sp-channels">
             <div class="ch-layout">
               <div class="ch-sidebar">
-                <div class="sidebar-toolbar compact-actions">
-                  <button class="icon-btn-sm" id="createChannelBtn">+</button>
-                  <button class="icon-btn-sm" id="deleteChannelBtn">-</button>
+                <div class="panel-header ch-sidebar-header">
+                  <span>Каналы</span>
+                  <div class="sidebar-toolbar compact-actions">
+                    <button class="icon-btn-sm" id="createChannelBtn">+</button>
+                    <button class="icon-btn-sm" id="deleteChannelBtn">-</button>
+                  </div>
                 </div>
                 <div class="ch-list" id="channelsList"></div>
               </div>
               <div class="ch-config-pane" id="channelConfigPane">
+                <div class="channel-config-head">
+                  <div class="channel-config-eyebrow">Параметры канала</div>
+                  <div class="channel-config-title" id="channelConfigTitle">—</div>
+                </div>
                 <div
-                  style="
-                    display: flex;
-                    gap: 8px;
-                    flex-wrap: wrap;
-                    margin-bottom: 10px;
-                  "
+                  class="channel-tabs"
                   id="channelTabs"
                 >
                   <button

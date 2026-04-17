@@ -264,11 +264,21 @@ export function renderChannelsList() {
     return;
   }
   const selectedNum = Number(selectedChannelId);
+  const zonesById = new Map((state.zones || []).map((zone) => [Number(zone.id), zone]));
   state.channels.forEach((c) => {
-    const run = (c.metrics || {}).state === "running";
+    const metricsState = String((c.metrics || {}).state || "").toLowerCase();
+    const status = metricsState === "running" ? "online" : metricsState === "warning" ? "warning" : "offline";
+    const zoneName = zonesById.get(Number(c.zone_id))?.name || "Без зоны";
+    const typeLabel = c.zone_channel_type === "entry" ? "Въезд" : c.zone_channel_type === "exit" ? "Выезд" : "—";
     const row = document.createElement("div");
     row.className = `ch-item ${Number(c.id) === selectedNum ? "active" : ""}`;
-    row.innerHTML = `<div class='ch-item-dot ${run ? "" : "off"}'></div> ${c.name}`;
+    row.innerHTML = `
+      <div class="ch-item-main">
+        <div class="ch-item-name">${c.name}</div>
+        <div class="ch-item-sub">${typeLabel} · ${zoneName}</div>
+      </div>
+      <span class="ch-item-status ${status}">${status}</span>
+    `;
     row.onclick = () => selectChannel(c.id);
     box.appendChild(row);
   });
@@ -517,6 +527,8 @@ export async function selectChannel(id) {
   ) {
     return;
   }
+  const cfgTitle = document.getElementById("channelConfigTitle");
+  if (cfgTitle) cfgTitle.textContent = c.name || `Канал ${id}`;
   setVal("c_name", c.name);
   setVal("c_source", c.source);
   renderChannelControllerOptions(c.controller_id ?? "");
