@@ -4,10 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ANPR Web</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
-      rel="stylesheet"
-    />
     <link rel="stylesheet" href="/web/styles.css" />
     <link rel="icon" type="image/x-icon" href="/web/favicon/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/web/favicon/logo-32.png" />
@@ -17,35 +13,51 @@
   <body>
     <div class="app-shell">
       <aside class="left-rail" id="leftRail">
-        <div class="rail-top">
-          <button class="rail-logo" title="ANPR">
-            <img class="ui-icon ui-icon-logo" src="/web/assets/icons/logo.svg" alt="ANPR" />
-          </button>
-        </div>
-      
         <div class="rail-nav">
           <div class="ttab active" data-tab="obs" title="Наблюдение">
-            <img class="ttab-icon ui-icon" src="/web/assets/icons/observe.svg" alt="" />
-            <span>Наблюдение</span>
+            <span class="ttab-icon-wrap">
+              <img class="ttab-icon ui-icon" src="/web/assets/icons/observe.svg" alt="" />
+            </span>
+            <span class="ttab-label">Наблюдение</span>
           </div>
       
           <div class="ttab" data-tab="journal" title="Журнал">
-            <img class="ttab-icon ui-icon" src="/web/assets/icons/journal.svg" alt="" />
-            <span>Журнал</span>
+            <span class="ttab-icon-wrap">
+              <img class="ttab-icon ui-icon" src="/web/assets/icons/journal.svg" alt="" />
+            </span>
+            <span class="ttab-label">Журнал</span>
           </div>
       
-          <div class="ttab" data-tab="lists" title="Списки">
-            <img class="ttab-icon ui-icon" src="/web/assets/icons/lists.svg" alt="" />
-            <span>Списки</span>
+          <div class="ttab" data-tab="zones" title="Зоны">
+            <span class="ttab-icon-wrap">
+              <img class="ttab-icon ui-icon" src="/web/assets/icons/lists.svg" alt="" />
+            </span>
+            <span class="ttab-label">Зоны</span>
+          </div>
+
+          <div class="ttab" data-tab="clients" title="Клиенты">
+            <span class="ttab-icon-wrap">
+              <img class="ttab-icon ui-icon" src="/web/assets/icons/lists.svg" alt="" />
+            </span>
+            <span class="ttab-label">Клиенты</span>
           </div>
       
           <div class="ttab" data-tab="settings" title="Настройки">
-            <img class="ttab-icon ui-icon" src="/web/assets/icons/settings.svg" alt="" />
-            <span>Настройки</span>
+            <span class="ttab-icon-wrap">
+              <img class="ttab-icon ui-icon" src="/web/assets/icons/settings.svg" alt="" />
+            </span>
+            <span class="ttab-label">Настройки</span>
           </div>
         </div>
       
-        <div class="rail-bottom"></div>
+        <div class="rail-bottom" id="railBottom">
+          <button class="ttab" id="logoutBtn" title="Выход">
+            <span class="ttab-icon-wrap">
+              <img class="ttab-icon ui-icon" src="/web/assets/icons/logout.svg" alt="" />
+            </span>
+            <span class="ttab-label" id="railUserLogin"></span>
+          </button>
+        </div>
       </aside>
       <div class="main-shell">
         <div class="topbar">
@@ -59,10 +71,6 @@
             </div>
           </div>
           <div class="topbar-right">
-            <div class="topbar-pill">
-              <div class="live-dot"></div>
-              <span id="channelsCount">0 каналов</span>
-            </div>
             <div class="topbar-load-stat" title="CPU">
               <span class="load-stat-label">CPU</span>
               <div class="load-bar"><div class="load-bar-fill" id="cpuBar"></div></div>
@@ -72,6 +80,10 @@
               <span class="load-stat-label">RAM</span>
               <div class="load-bar"><div class="load-bar-fill" id="ramBar"></div></div>
               <span class="load-stat-val" id="ramStat">0%</span>
+            </div>
+            <div class="topbar-pill">
+              <div class="live-dot"></div>
+              <span id="channelsCount">0 каналов</span>
             </div>
             <div class="topbar-server-pill" id="serverStatusEl">
               <div class="server-dot off" id="serverDot"></div>
@@ -86,7 +98,7 @@
             <div class="obs-left">
               <div class="obs-toolbar">
                 <span class="obs-label">Сетка</span>
-                <select class="grid-select" id="gridSelect">
+                <select class="input input--md input--select grid-select" id="gridSelect">
                   <option value="1x1">1×1</option>
                   <option value="2x2" selected>2×2</option>
                   <option value="2x3">2×3</option>
@@ -114,24 +126,24 @@
               <div class="filter-group">
                 <div class="filter-label">Поиск</div>
                 <input
-                  class="filter-input"
+                  class="input input--md filter-input"
                   id="fltPlate"
-                  placeholder="Поиск по фрагменту..."
+                  placeholder="Поиск по номеру..."
                 />
               </div>
               <div class="filter-group">
                 <div class="filter-label">Канал</div>
-                <select class="filter-input" id="fltChannel">
+                <select class="input input--md filter-input input--select" id="fltChannel">
                   <option value="">Все каналы</option>
                 </select>
               </div>
               <div class="filter-group">
                 <div class="filter-label">С</div>
-                <input class="filter-input filter-input-dt" type="datetime-local" id="fltDateFrom" />
+                <input class="input input--md filter-input filter-input-dt" type="datetime-local" id="fltDateFrom" />
               </div>
               <div class="filter-group">
                 <div class="filter-label">По</div>
-                <input class="filter-input filter-input-dt" type="datetime-local" id="fltDateTo" />
+                <input class="input input--md filter-input filter-input-dt" type="datetime-local" id="fltDateTo" />
               </div>
               <div class="filter-actions">
                 <button class="btn btn-primary" id="btnFind">Найти</button>
@@ -144,7 +156,7 @@
             </div>
             <div class="data-table-wrap">
               <div class="table-scroll" id="journalScroll">
-                <table class="data-table">
+                <table class="data-table" id="journalTable">
                   <thead>
                     <tr>
                       <th class="col-time">Время</th>
@@ -154,6 +166,9 @@
                       <th class="col-plate">Номер</th>
                       <th class="col-conf">Увер.</th>
                       <th class="col-source">Источник</th>
+                      <th class="col-zone col-zone-name">Зона</th>
+                      <th class="col-zone col-zone-time">Въезд</th>
+                      <th class="col-zone col-zone-time">Выезд</th>
                     </tr>
                   </thead>
                   <tbody id="journalBody"></tbody>
@@ -162,51 +177,168 @@
               </div>
             </div>
           </div>
-      <div class="tab-pane" id="tab-lists">
-        <div class="lists-sidebar">
-          <div class="panel-header">
-            <span>СПИСКИ НОМЕРОВ</span>
-            <div style="display:flex;gap:4px">
-              <button class="icon-btn-sm" id="addListBtn" title="Создать список">+</button>
-              <button class="icon-btn-sm" id="deleteListBtn" title="Удалить список">−</button>
+      <div class="tab-pane" id="tab-zones">
+        <div class="zones-layout">
+          <div class="zones-list-col">
+            <div class="panel-header">
+              <span>Зоны</span>
+              <button class="btn btn-primary btn-sm" id="createZoneBtn">+ Создать зону</button>
+            </div>
+            <div id="zonesList"></div>
+          </div>
+          <div class="zones-settings-col hidden" id="zonesSettingsPanel">
+            <div class="panel-header">
+              <span>Настройки зоны</span>
+              <button class="btn btn-ghost btn-sm" id="closeZoneSettingsBtn">✕</button>
+            </div>
+            <div class="s-card">
+              <div class="s-card-body">
+                <div class="s-row">
+                  <div class="s-row-name">Название</div>
+                  <input class="input input--md s-input" id="zoneSettingName" type="text" placeholder="Название зоны" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-name">Вместимость</div>
+                  <input class="input input--md s-input" id="zoneSettingCapacity" type="number" min="0" value="0" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-name">Занятость</div>
+                  <div id="zoneOccupancyInfo" class="s-row-value">—</div>
+                </div>
+                <div class="s-row">
+                  <div class="s-row-name">Каналы</div>
+                  <div id="zoneChannelsList"></div>
+                </div>
+              </div>
+            </div>
+            <div class="settings-actions">
+              <button class="btn btn-primary" id="saveZoneBtn">Сохранить</button>
             </div>
           </div>
-          <div class="list-items" id="listItems"></div>
         </div>
-        <div class="lists-main">
-          <div class="lists-main-header" id="listsMainHeader">
-            <div class="lists-main-title" id="listTitle">—</div>
-            <button class="btn btn-ghost btn-sm" id="addEntryBtn">Добавить запись</button>
-            <button class="btn btn-ghost btn-sm" id="exportListBtn">
-              <img class="btn-icon ui-icon-sm" src="/web/assets/icons/export.svg" alt="" />
-              <span>Экспорт списка</span>
-            </button>
-            <button class="btn btn-ghost btn-sm" id="importListBtn">
-              <img class="btn-icon ui-icon-sm" src="/web/assets/icons/import.svg" alt="" />
-              <span>Импорт списка</span>
-            </button>
-            <input type="file" id="importListFileInput" accept=".csv" style="display:none" />
-            <button class="btn btn-ghost btn-sm" id="listSettingsBtn">Настройки</button>
+      </div>
+
+      <!-- Create Zone Modal -->
+      <div class="modal" id="createZoneModal">
+        <div class="modal-card modal-card--sm">
+          <div class="modal-head">
+            <span>Создать зону</span>
+            <button class="modal-close" id="createZoneModalClose">✕</button>
           </div>
-          <div class="lists-empty-state" id="listsEmptyState">
-            <span>Выберите список или создайте новый</span>
+          <div class="modal-body">
+            <div class="modal-field">
+              <label class="modal-label">Название</label>
+              <input class="input input--md" id="newZoneName" type="text" placeholder="Название зоны" />
+            </div>
+            <div class="modal-field">
+              <label class="modal-label">Вместимость</label>
+              <input class="input input--md" id="newZoneCapacity" type="number" min="0" value="0" />
+            </div>
           </div>
-          <div class="data-table-wrap lists-data-wrap" id="listsDataWrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Гос. номер</th>
-                  <th>Имя</th>
-                  <th>Фамилия</th>
-                  <th>Отчество</th>
-                  <th>Телефон</th>
-                  <th>Марка авто</th>
-                  <th class="col-actions"></th>
-                </tr>
-              </thead>
-              <tbody id="entriesBody"></tbody>
-            </table>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" id="createZoneCancel">Отмена</button>
+            <button class="btn btn-primary" id="createZoneConfirm">Создать</button>
           </div>
+        </div>
+      </div>
+
+      <!-- Delete Zone Modal -->
+      <div class="modal" id="deleteZoneModal">
+        <div class="modal-card modal-card--sm">
+          <div class="modal-head"><span>Удалить зону?</span></div>
+          <div class="modal-body">
+            <div id="deleteZoneInfo"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" id="deleteZoneCancel">Отмена</button>
+            <button class="btn btn-danger" id="deleteZoneConfirm">Удалить</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-clients">
+        <!-- Sub-tab navigation -->
+        <div class="clients-subtab-nav">
+          <button class="clients-subtab-btn active" data-subtab="clients">Клиенты</button>
+          <button class="clients-subtab-btn" data-subtab="lists">Списки</button>
+        </div>
+        <div class="clients-subtab-body">
+
+          <!-- ── Clients subtab ─────────────────────────────── -->
+          <div class="subtab-pane active" id="subtab-clients">
+            <div class="clients-main">
+              <div class="clients-main-header" id="clientsMainHeader">
+                <button class="btn btn-primary btn-sm" id="addClientBtn">Добавить клиента</button>
+                <div class="clients-search-wrap">
+                  <input class="input input--md s-input" id="clientsSearchInput" placeholder="Поиск…" autocomplete="off" />
+                </div>
+              </div>
+              <div class="data-table-wrap clients-data-wrap" id="clientsDataWrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="col-plate">Гос. номер</th>
+                      <th>Фамилия</th>
+                      <th>Имя</th>
+                      <th>Телефон</th>
+                      <th>Марка авто</th>
+                      <th>Список</th>
+                    </tr>
+                  </thead>
+                  <tbody id="clientsBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Lists subtab ───────────────────────────────── -->
+          <div class="subtab-pane" id="subtab-lists">
+            <div class="lists-sidebar">
+              <div class="panel-header">
+                <span>Списки номеров</span>
+                <div style="display:flex;gap:4px">
+                  <button class="icon-btn-sm" id="addListBtn" title="Создать список">+</button>
+                  <button class="icon-btn-sm" id="deleteListBtn" title="Удалить список">−</button>
+                </div>
+              </div>
+              <div class="list-items" id="listItems"></div>
+            </div>
+            <div class="lists-main">
+              <div class="lists-main-header" id="listsMainHeader">
+                <button class="btn btn-ghost btn-sm" id="attachClientToListBtn">Прикрепить клиента</button>
+                <button class="btn btn-ghost btn-sm" id="exportListBtn">
+                  <img class="btn-icon ui-icon-sm" src="/web/assets/icons/export.svg" alt="" />
+                  <span>Экспорт списка</span>
+                </button>
+                <button class="btn btn-ghost btn-sm" id="importListBtn">
+                  <img class="btn-icon ui-icon-sm" src="/web/assets/icons/import.svg" alt="" />
+                  <span>Импорт списка</span>
+                </button>
+                <input type="file" id="importListFileInput" accept=".csv" class="hidden" />
+                <button class="btn btn-ghost btn-sm" id="listSettingsBtn">Настройки</button>
+                <div class="lists-main-title" id="listTitle" style="margin-left:auto;text-align:right;">—</div>
+              </div>
+              <div class="lists-empty-state" id="listsEmptyState">
+                <span>Выберите список или создайте новый</span>
+              </div>
+              <div class="data-table-wrap lists-data-wrap" id="listsDataWrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="col-plate">Гос. номер</th>
+                      <th>Фамилия</th>
+                      <th>Имя</th>
+                      <th>Телефон</th>
+                      <th>Марка авто</th>
+                      <th>Комментарий</th>
+                    </tr>
+                  </thead>
+                  <tbody id="listMembersBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
       <div class="tab-pane" id="tab-settings">
@@ -228,14 +360,19 @@
             Контроллеры
           </div>
 
+          <div class="snav-item hidden" id="snav-users" data-sp="users">
+            <img class="ui-icon ui-icon-sm" src="/web/assets/icons/users.svg" alt="" />
+            Пользователи
+          </div>
+
           <div class="snav-item" data-sp="sysdata">
             <img class="ui-icon ui-icon-sm" src="/web/assets/icons/sysdata.svg" alt="" />
             Системные данные
           </div>
 
-          <div class="snav-label">Разработка</div>
-        
-          <div class="snav-item" data-sp="debug">
+          <div class="snav-label hidden" id="snav-label-dev">Разработка</div>
+
+          <div class="snav-item hidden" id="snav-debug" data-sp="debug">
             <img class="ui-icon ui-icon-sm" src="/web/assets/icons/debug.svg" alt="" />
             Отладка
           </div>
@@ -251,7 +388,7 @@
                     <button class="param-help-btn" data-help="g_grid">?</button>
                     <div class="s-row-name">Сетка превью</div>
                   </div>
-                  <select class="s-input" id="g_grid">
+                  <select class="input input--md s-input input--select" id="g_grid">
                     <option>1x1</option>
                     <option selected>2x2</option>
                     <option>2x3</option>
@@ -263,7 +400,7 @@
                     <button class="param-help-btn" data-help="g_theme">?</button>
                     <div class="s-row-name">Тема оформления</div>
                   </div>
-                  <select class="s-input" id="g_theme">
+                  <select class="input input--md s-input input--select" id="g_theme">
                     <option value="dark">Тёмная</option>
                     <option value="light">Светлая</option>
                   </select>
@@ -294,14 +431,14 @@
                     <button class="param-help-btn" data-help="g_frame_timeout">?</button>
                     <div class="s-row-name">Таймаут кадра (сек)</div>
                   </div>
-                  <input class="s-input sm" id="g_frame_timeout" type="number" />
+                  <input class="input input--sm s-input sm" id="g_frame_timeout" type="number" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
                     <button class="param-help-btn" data-help="g_retry_interval">?</button>
                     <div class="s-row-name">Интервал повтора (сек)</div>
                   </div>
-                  <input class="s-input sm" id="g_retry_interval" type="number" />
+                  <input class="input input--sm s-input sm" id="g_retry_interval" type="number" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
@@ -315,7 +452,7 @@
                     <button class="param-help-btn" data-help="g_periodic_minutes">?</button>
                     <div class="s-row-name">Период (мин)</div>
                   </div>
-                  <input class="s-input sm" id="g_periodic_minutes" type="number" />
+                  <input class="input input--sm s-input sm" id="g_periodic_minutes" type="number" />
                 </div>
               </div>
             </div>
@@ -329,14 +466,14 @@
                     <button class="param-help-btn" data-help="g_max_screenshots">?</button>
                     <div class="s-row-name">Лимит хранения (МБ)</div>
                   </div>
-                  <input class="s-input sm" id="g_max_screenshots" type="number" />
+                  <input class="input input--sm s-input sm" id="g_max_screenshots" type="number" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
                     <button class="param-help-btn" data-help="g_media_retention">?</button>
                     <div class="s-row-name">Хранить медиа (дней)</div>
                   </div>
-                  <input class="s-input sm" id="g_media_retention" type="number" />
+                  <input class="input input--sm s-input sm" id="g_media_retention" type="number" />
                 </div>
               </div>
             </div>
@@ -350,7 +487,7 @@
                     <button class="param-help-btn" data-help="g_log_level">?</button>
                     <div class="s-row-name">Уровень логирования</div>
                   </div>
-                  <select class="s-input" id="g_log_level">
+                  <select class="input input--md s-input input--select" id="g_log_level">
                     <option>ALL</option><option>DEBUG</option><option>INFO</option>
                     <option>WARNING</option><option>ERROR</option><option>CRITICAL</option>
                   </select>
@@ -360,7 +497,7 @@
                     <button class="param-help-btn" data-help="g_log_retention">?</button>
                     <div class="s-row-name">Хранить логи (дней)</div>
                   </div>
-                  <input class="s-input sm" id="g_log_retention" type="number" />
+                  <input class="input input--sm s-input sm" id="g_log_retention" type="number" />
                 </div>
               </div>
             </div>
@@ -381,14 +518,14 @@
                     <button class="param-help-btn" data-help="g_cleanup_minutes">?</button>
                     <div class="s-row-name">Интервал проверки (мин)</div>
                   </div>
-                  <input class="s-input sm" id="g_cleanup_minutes" type="number" />
+                  <input class="input input--sm s-input sm" id="g_cleanup_minutes" type="number" />
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
                     <button class="param-help-btn" data-help="g_events_retention">?</button>
                     <div class="s-row-name">Хранить события (дней)</div>
                   </div>
-                  <input class="s-input sm" id="g_events_retention" type="number" />
+                  <input class="input input--sm s-input sm" id="g_events_retention" type="number" />
                 </div>
               </div>
             </div>
@@ -405,7 +542,7 @@
                     <button class="param-help-btn" data-help="g_timezone">?</button>
                     <div class="s-row-name">Часовой пояс</div>
                   </div>
-                  <select class="s-input" id="g_timezone">
+                  <select class="input input--md s-input input--select" id="g_timezone">
                     <option value="UTC-12:00">UTC−12:00</option>
                     <option value="UTC-11:00">UTC−11:00</option>
                     <option value="UTC-10:00">UTC−10:00</option>
@@ -439,7 +576,7 @@
                     <button class="param-help-btn" data-help="g_offset_minutes">?</button>
                     <div class="s-row-name">Дополнительное смещение (мин)</div>
                   </div>
-                  <input class="s-input sm" id="g_offset_minutes" type="number" />
+                  <input class="input input--sm s-input sm" id="g_offset_minutes" type="number" />
                 </div>
               </div>
             </div>
@@ -506,21 +643,45 @@
                         <button class="param-help-btn" data-help="name">?</button>
                         <div class="s-row-name">Название</div>
                       </div>
-                      <input class="s-input" id="c_name" />
+                      <input class="input input--md s-input" id="c_name" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
                         <button class="param-help-btn" data-help="source">?</button>
                         <div class="s-row-name">Источник / RTSP</div>
                       </div>
-                      <input class="s-input wide" id="c_source" />
+                      <input class="input input--md input--wide s-input wide" id="c_source" />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <button class="param-help-btn" data-help="preview_fps_limit">?</button>
+                        <div class="s-row-name">Лимит FPS предпросмотра</div>
+                      </div>
+                      <input
+                        class="input input--sm s-input sm"
+                        id="c_preview_fps_limit"
+                        type="number"
+                        min="1"
+                        max="30"
+                      />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <button class="param-help-btn" data-help="controller_direction_filter">?</button>
+                        <div class="s-row-name">Фильтр направления</div>
+                      </div>
+                      <select class="input input--md s-input input--select" id="c_controller_direction_filter">
+                        <option value="both">Оба направления</option>
+                        <option value="approaching">Приближение</option>
+                        <option value="receding">Удаление</option>
+                      </select>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
                         <button class="param-help-btn" data-help="list_filter_mode">?</button>
                         <div class="s-row-name">Режим фильтра списков</div>
                       </div>
-                      <select class="s-input" id="c_list_filter_mode">
+                      <select class="input input--md s-input input--select" id="c_list_filter_mode">
                         <option value="all">Все</option>
                         <option value="whitelist">Белые списки</option>
                         <option value="custom">Свои списки</option>
@@ -537,18 +698,34 @@
                       <div class="s-row-label"></div>
                       <div class="roi-hint" style="margin-top:0">Черный список применяется всегда автоматически.</div>
                     </div>
+                    <div class="s-card-header" style="margin-top:8px;margin-bottom:4px">Зона</div>
                     <div class="s-row">
                       <div class="s-row-label">
-                        <button class="param-help-btn" data-help="preview_fps_limit">?</button>
-                        <div class="s-row-name">Лимит FPS предпросмотра</div>
+                        <div class="s-row-name">Зона до</div>
                       </div>
-                      <input
-                        class="s-input sm"
-                        id="c_preview_fps_limit"
-                        type="number"
-                        min="1"
-                        max="30"
-                      />
+                      <select class="input input--md s-input input--select" id="c_zone_before_id">
+                        <option value="">Не задано</option>
+                        <option value="0">Вне парковки</option>
+                      </select>
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <div class="s-row-name">Зона после</div>
+                      </div>
+                      <select class="input input--md s-input input--select" id="c_zone_after_id">
+                        <option value="">Не задано</option>
+                        <option value="0">Вне парковки</option>
+                      </select>
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <div class="s-row-name">Тип канала</div>
+                      </div>
+                      <select class="input input--md s-input input--select" id="c_zone_channel_type" disabled>
+                        <option value="">—</option>
+                        <option value="entry">Въезд</option>
+                        <option value="exit">Выезд</option>
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -564,7 +741,7 @@
                         <button class="param-help-btn" data-help="detection_mode">?</button>
                         <div class="s-row-name">Режим обнаружения ТС</div>
                       </div>
-                      <select class="s-input" id="c_detection_mode">
+                      <select class="input input--md s-input input--select" id="c_detection_mode">
                         <option>always</option>
                         <option>motion</option>
                       </select>
@@ -575,7 +752,7 @@
                         <div class="s-row-name">Порог движения</div>
                       </div>
                       <input
-                        class="s-input sm"
+                        class="input input--sm s-input sm"
                         id="c_motion_threshold"
                         type="number"
                         step="0.01"
@@ -587,7 +764,7 @@
                         <div class="s-row-name">Частота анализа (кадр)</div>
                       </div>
                       <input
-                        class="s-input sm"
+                        class="input input--sm s-input sm"
                         id="c_motion_frame_stride"
                         type="number"
                       />
@@ -598,7 +775,7 @@
                         <div class="s-row-name">Мин. кадров с движением</div>
                       </div>
                       <input
-                        class="s-input sm"
+                        class="input input--sm s-input sm"
                         id="c_motion_activation"
                         type="number"
                       />
@@ -609,7 +786,7 @@
                         <div class="s-row-name">Мин. кадров без движения</div>
                       </div>
                       <input
-                        class="s-input sm"
+                        class="input input--sm s-input sm"
                         id="c_motion_release"
                         type="number"
                       />
@@ -629,7 +806,7 @@
                         <div class="s-row-name">Шаг инференса (кадр)</div>
                       </div>
                       <input
-                        class="s-input sm"
+                        class="input input--sm s-input sm"
                         id="c_detector_stride"
                         type="number"
                       />
@@ -665,14 +842,14 @@
                               <button class="param-help-btn" data-help="min_plate_size">?</button>
                               <div class="s-row-name">Мин. размер рамки (ш,в)</div>
                             </div>
-                            <input class="s-input sm" id="c_min_w" type="number" min="1" /><input class="s-input sm" id="c_min_h" type="number" min="1" />
+                            <input class="input input--sm s-input sm" id="c_min_w" type="number" min="1" /><input class="input input--sm s-input sm" id="c_min_h" type="number" min="1" />
                           </div>
                           <div class="s-row">
                             <div class="s-row-label">
                               <button class="param-help-btn" data-help="max_plate_size">?</button>
                               <div class="s-row-name">Макс. размер рамки (ш,в)</div>
                             </div>
-                            <input class="s-input sm" id="c_max_w" type="number" min="1" /><input class="s-input sm" id="c_max_h" type="number" min="1" />
+                            <input class="input input--sm s-input sm" id="c_max_w" type="number" min="1" /><input class="input input--sm s-input sm" id="c_max_h" type="number" min="1" />
                           </div>
                           <div class="form-actions">
                             <button class="btn btn-ghost btn-sm" id="plateSizeResetBtn">Сбросить размеры</button>
@@ -724,7 +901,7 @@
                         <div class="s-row-name">Бестшоты на трек</div>
                       </div>
                       <input
-                        class="s-input sm"
+                        class="input input--sm s-input sm"
                         id="c_best_shots"
                         type="number"
                       />
@@ -734,7 +911,7 @@
                         <button class="param-help-btn" data-help="cooldown_seconds">?</button>
                         <div class="s-row-name">Пауза повтора (сек)</div>
                       </div>
-                      <input class="s-input sm" id="c_cooldown" type="number" />
+                      <input class="input input--sm s-input sm" id="c_cooldown" type="number" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
@@ -742,7 +919,7 @@
                         <div class="s-row-name">Мин. уверенность OCR</div>
                       </div>
                       <input
-                        class="s-input sm"
+                        class="input input--sm s-input sm"
                         id="c_ocr_conf"
                         type="number"
                         step="0.01"
@@ -754,7 +931,7 @@
                         <div class="s-row-name">Макс. OCR попыток на трек</div>
                       </div>
                       <input
-                        class="s-input sm"
+                        class="input input--sm s-input sm"
                         id="c_max_ocr_attempts"
                         type="number"
                         min="1"
@@ -767,7 +944,7 @@
                         <div class="s-row-name">Пустых OCR подряд до завершения трека</div>
                       </div>
                       <input
-                        class="s-input sm"
+                        class="input input--sm s-input sm"
                         id="c_max_consecutive_empty_ocr"
                         type="number"
                         min="0"
@@ -788,14 +965,14 @@
                         <button class="param-help-btn" data-help="controller_id">?</button>
                         <div class="s-row-name">Контроллер</div>
                       </div>
-                      <select class="s-input" id="c_controller_id"></select>
+                      <select class="input input--md s-input input--select" id="c_controller_id"></select>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
                         <button class="param-help-btn" data-help="controller_relay">?</button>
                         <div class="s-row-name">Реле</div>
                       </div>
-                      <select class="s-input sm" id="c_controller_relay">
+                      <select class="input input--sm s-input sm input--select" id="c_controller_relay">
                         <option value="0">Реле 1</option>
                         <option value="1">Реле 2</option>
                       </select>
@@ -828,25 +1005,25 @@
                       <div class="s-row-label">
                         <div class="s-row-name">Название</div>
                       </div>
-                      <input class="s-input" id="ctrlName" />
+                      <input class="input input--md s-input" id="ctrlName" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
                         <div class="s-row-name">Тип</div>
                       </div>
-                      <select class="s-input" id="ctrlType"><option value="DTWONDER2CH">DTWONDER2CH</option></select>
+                      <select class="input input--md s-input input--select" id="ctrlType"><option value="DTWONDER2CH">DTWONDER2CH</option></select>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
                         <div class="s-row-name">Адрес</div>
                       </div>
-                      <input class="s-input" id="ctrlAddress" />
+                      <input class="input input--md s-input" id="ctrlAddress" />
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
                         <div class="s-row-name">Пароль</div>
                       </div>
-                      <input class="s-input" id="ctrlPassword" />
+                      <input class="input input--md s-input" id="ctrlPassword" />
                     </div>
                   </div>
                 </div>
@@ -857,7 +1034,7 @@
                       <div class="s-row-label">
                         <div class="s-row-name">Режим</div>
                       </div>
-                      <select class="s-input" id="ctrlR0Mode">
+                      <select class="input input--md s-input input--select" id="ctrlR0Mode">
                         <option value="pulse">Импульс</option>
                         <option value="pulse_timer">Импульс с таймером</option>
                       </select>
@@ -867,7 +1044,7 @@
                         <div class="s-row-name">Задержка (сек)</div>
                       </div>
                       <input
-                        class="s-input sm"
+                        class="input input--sm s-input sm"
                         id="ctrlR0Timer"
                         type="number"
                         min="1"
@@ -878,7 +1055,7 @@
                       <div class="s-row-label">
                         <div class="s-row-name">Хоткей</div>
                       </div>
-                      <input class="s-input" id="ctrlR0Hotkey" />
+                      <input class="input input--md s-input" id="ctrlR0Hotkey" />
                     </div>
                     <div class="form-actions">
                       <button class="btn btn-ghost" id="testRelay0Btn">Тест реле 1</button>
@@ -892,7 +1069,7 @@
                       <div class="s-row-label">
                         <div class="s-row-name">Режим</div>
                       </div>
-                      <select class="s-input" id="ctrlR1Mode">
+                      <select class="input input--md s-input input--select" id="ctrlR1Mode">
                         <option value="pulse">Импульс</option>
                         <option value="pulse_timer">Импульс с таймером</option>
                       </select>
@@ -902,7 +1079,7 @@
                         <div class="s-row-name">Задержка (сек)</div>
                       </div>
                       <input
-                        class="s-input sm"
+                        class="input input--sm s-input sm"
                         id="ctrlR1Timer"
                         type="number"
                         min="1"
@@ -913,7 +1090,7 @@
                       <div class="s-row-label">
                         <div class="s-row-name">Хоткей</div>
                       </div>
-                      <input class="s-input" id="ctrlR1Hotkey" />
+                      <input class="input input--md s-input" id="ctrlR1Hotkey" />
                     </div>
                     <div class="form-actions">
                       <button class="btn btn-ghost" id="testRelay1Btn">Тест реле 2</button>
@@ -942,7 +1119,7 @@
                     <img class="backup-icon" src="/web/assets/icons/import.svg" alt="" width="16" height="16" />
                     Импорт БД
                   </button>
-                  <input type="file" id="dbRestoreFileInput" accept=".zip" style="display:none" />
+                  <input type="file" id="dbRestoreFileInput" accept=".zip" class="hidden" />
                 </div>
               </div>
             </div>
@@ -958,11 +1135,99 @@
                     <img class="backup-icon" src="/web/assets/icons/import.svg" alt="" width="16" height="16" />
                     Импорт настроек
                   </button>
-                  <input type="file" id="settingsRestoreFileInput" accept=".yaml,.yml" style="display:none" />
+                  <input type="file" id="settingsRestoreFileInput" accept=".yaml,.yml" class="hidden" />
                 </div>
               </div>
             </div>
           </div>
+          <!-- Users management pane (admin only) -->
+          <div class="settings-pane" id="sp-users">
+            <div class="ch-layout">
+              <div class="ch-sidebar">
+                <div class="sidebar-toolbar compact-actions">
+                  <button class="icon-btn-sm" id="createUserBtn" title="Добавить пользователя">+</button>
+                </div>
+                <div class="ch-list" id="userItems"></div>
+              </div>
+
+              <!-- Create user form -->
+              <div class="ch-config-pane hidden" id="userCreatePane">
+                <div class="s-card">
+                  <div class="s-card-header">Новый пользователь</div>
+                  <div class="s-card-body">
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Логин</div></div>
+                      <input class="input input--md s-input" id="newUserLogin" autocomplete="off" />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Пароль</div></div>
+                      <input class="input input--md s-input" type="password" id="newUserPassword" autocomplete="new-password" />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Подтверждение пароля</div></div>
+                      <input class="input input--md s-input" type="password" id="newUserPasswordConfirm" autocomplete="new-password" />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Роль</div></div>
+                      <select class="input input--md s-input input--select" id="newUserRole">
+                        <option value="operator">Оператор</option>
+                        <option value="admin">Администратор</option>
+                      </select>
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Доступные вкладки</div></div>
+                      <div id="newUserPermissions" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 0"></div>
+                    </div>
+                  </div>
+                </div>
+                <div id="createUserError" style="color:var(--danger);font-size:12px;min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
+                <div class="form-actions">
+                  <button class="btn btn-ghost" id="cancelCreateUserBtn">Отмена</button>
+                  <button class="btn btn-primary" id="confirmCreateUserBtn">Создать</button>
+                </div>
+              </div>
+
+              <!-- Edit user form -->
+              <div class="ch-config-pane hidden" id="userEditPane">
+                <div class="s-card">
+                  <div class="s-card-header">Параметры пользователя</div>
+                  <div class="s-card-body">
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Логин</div></div>
+                      <input class="input input--md s-input" id="editUserLogin" readonly style="opacity:0.6" />
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Роль</div></div>
+                      <select class="input input--md s-input input--select" id="editUserRole">
+                        <option value="operator">Оператор</option>
+                        <option value="admin">Администратор</option>
+                      </select>
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Доступные вкладки</div></div>
+                      <div id="editUserPermissions" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 0"></div>
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label"><div class="s-row-name">Активен</div></div>
+                      <input type="checkbox" id="editUserActive" />
+                    </div>
+                  </div>
+                </div>
+                <div id="editUserError" style="color:var(--danger);font-size:12px;min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
+                <div class="form-actions">
+                  <button class="btn btn-ghost" id="changeUserPasswordBtn">Сменить пароль</button>
+                  <div style="flex:1"></div>
+                  <button class="btn btn-primary" id="saveUserBtn">Сохранить</button>
+                </div>
+              </div>
+
+              <!-- Empty state -->
+              <div class="empty-pane" id="userConfigEmpty">
+                Выберите пользователя или нажмите «+» для создания нового.
+              </div>
+            </div>
+          </div>
+
           <div class="settings-pane" id="sp-debug">
             <div class="s-card">
               <div class="s-card-header">Настройки отладки</div>
@@ -995,14 +1260,14 @@
       </div>
     </div>
 
-    <div class="event-modal" id="eventModal">
-      <div class="event-modal-card">
-        <div class="event-modal-head">
+    <div class="modal" id="eventModal">
+      <div class="modal-card modal-card--xl">
+        <div class="modal-head">
           <span>Детальный просмотр события</span>
           <div style="flex: 1"></div>
           <button class="btn btn-ghost" id="eventModalClose">Закрыть</button>
         </div>
-        <div class="event-modal-body">
+        <div class="modal-body modal-body--event">
           <div>
             <div class="event-section-title">
               <img class="ui-icon ui-icon-sm" src="/web/assets/icons/event.svg" alt="" />
@@ -1026,19 +1291,19 @@
     </div>
 
     <!-- Create List Modal -->
-    <div class="app-modal" id="createListModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="createListModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Новый список</span>
           <button class="btn btn-ghost btn-sm" id="createListModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название списка</label>
-            <input class="s-input" style="width:100%" id="newListName" placeholder="Введите название" autocomplete="off" />
+            <input class="input input--md s-input" id="newListName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="createListCancel">Отменить</button>
           <button class="btn btn-primary" id="createListConfirm">Создать</button>
         </div>
@@ -1046,40 +1311,44 @@
     </div>
 
     <!-- Add / Edit Entry Modal -->
-    <div class="app-modal" id="addEntryModal">
-      <div class="app-modal-card">
-        <div class="app-modal-head">
+    <div class="modal" id="addEntryModal">
+      <div class="modal-card">
+        <div class="modal-head">
           <span id="addEntryModalTitle">Добавить запись</span>
           <button class="btn btn-ghost btn-sm" id="addEntryModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Фамилия</label>
-            <input class="s-input" style="width:100%" id="entryLastName" autocomplete="off" />
+            <input class="input input--md s-input" id="entryLastName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Имя <span class="modal-required">*</span></label>
-            <input class="s-input" style="width:100%" id="entryFirstName" autocomplete="off" />
+            <input class="input input--md s-input" id="entryFirstName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Отчество</label>
-            <input class="s-input" style="width:100%" id="entryPatronymic" autocomplete="off" />
+            <input class="input input--md s-input" id="entryMiddleName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Телефон</label>
-            <input class="s-input" style="width:100%" id="entryPhone" autocomplete="off" />
+            <input class="input input--md s-input" id="entryPhone" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Марка автомобиля</label>
-            <input class="s-input" style="width:100%" id="entryCarMake" autocomplete="off" />
+            <input class="input input--md s-input" id="entryCar" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Гос. номер автомобиля <span class="modal-required">*</span></label>
-            <input class="s-input" style="width:100%" id="entryPlate" autocomplete="off" />
+            <input class="input input--md s-input" id="entryPlate" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Комментарий</label>
+            <input class="input input--md s-input" id="entryComment" autocomplete="off" />
           </div>
           <div class="modal-error" id="addEntryError"></div>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="addEntryCancel">Отменить</button>
           <button class="btn btn-primary" id="addEntryConfirm">Сохранить</button>
         </div>
@@ -1087,27 +1356,27 @@
     </div>
 
     <!-- List Settings Modal -->
-    <div class="app-modal" id="listSettingsModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="listSettingsModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Настройки списка</span>
           <button class="btn btn-ghost btn-sm" id="listSettingsModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название списка</label>
-            <input class="s-input" style="width:100%" id="settingsListName" autocomplete="off" />
+            <input class="input input--md s-input" id="settingsListName" autocomplete="off" />
           </div>
           <div class="modal-field">
             <label class="modal-label">Тип списка</label>
-            <select class="s-input" style="width:100%" id="settingsListType">
+            <select class="input input--md s-input input--select" id="settingsListType">
               <option value="white">Белый список</option>
               <option value="info">Информационный список</option>
               <option value="black">Черный список</option>
             </select>
           </div>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="listSettingsCancel">Отменить</button>
           <button class="btn btn-primary" id="listSettingsConfirm">Сохранить</button>
         </div>
@@ -1115,35 +1384,173 @@
     </div>
 
     <!-- Delete List Confirmation Modal -->
-    <div class="app-modal" id="deleteListModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="deleteListModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Удалить список</span>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <p class="modal-confirm-text">Вы уверены, что хотите удалить список <strong id="deleteListNameLabel"></strong>? Это действие необратимо.</p>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="deleteListCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteListConfirm">Удалить</button>
         </div>
       </div>
     </div>
 
+    <!-- Delete Entry Confirmation Modal -->
+    <div class="modal" id="deleteEntryModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+          <span>Удалить запись</span>
+        </div>
+        <div class="modal-body">
+          <p class="modal-confirm-text">Вы уверены, что хотите удалить запись <strong id="deleteEntryPlateLabel"></strong>?</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="deleteEntryCancel">Отменить</button>
+          <button class="btn btn-danger" id="deleteEntryConfirm">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Client Card Modal (view / edit / delete + list attachment) -->
+    <div class="modal" id="clientCardModal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <span id="clientCardTitle">Клиент</span>
+          <button class="btn btn-ghost btn-sm" id="clientCardClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <label class="modal-label">Фамилия</label>
+            <input class="input input--md s-input" id="clientCardLastName" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Имя <span class="modal-required">*</span></label>
+            <input class="input input--md s-input" id="clientCardFirstName" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Отчество</label>
+            <input class="input input--md s-input" id="clientCardMiddleName" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Телефон</label>
+            <input class="input input--md s-input" id="clientCardPhone" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Марка автомобиля</label>
+            <input class="input input--md s-input" id="clientCardCar" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Гос. номер автомобиля <span class="modal-required">*</span></label>
+            <input class="input input--md s-input" id="clientCardPlate" autocomplete="off" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Комментарий</label>
+            <input class="input input--md s-input" id="clientCardComment" autocomplete="off" />
+          </div>
+          <div class="client-card-list-row">
+            <span class="modal-label">Список:</span>
+            <span class="client-card-list-name" id="clientCardListName">—</span>
+            <button class="btn btn-ghost btn-sm" id="clientCardListBtn">Прикрепить к списку</button>
+          </div>
+          <div class="modal-error" id="clientCardError"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-danger" id="clientCardDeleteBtn">Удалить</button>
+          <button class="btn btn-ghost" id="clientCardCancel">Отменить</button>
+          <button class="btn btn-primary" id="clientCardSaveBtn">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Client Confirmation Modal -->
+    <div class="modal" id="deleteClientModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+          <span>Удалить клиента</span>
+        </div>
+        <div class="modal-body">
+          <p class="modal-confirm-text">Вы уверены, что хотите удалить клиента <strong id="deleteClientPlateLabel"></strong>?</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="deleteClientCancel">Отменить</button>
+          <button class="btn btn-danger" id="deleteClientConfirm">Удалить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detach Client Confirmation Modal -->
+    <div class="modal" id="detachClientModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+          <span>Открепить клиента</span>
+        </div>
+        <div class="modal-body">
+          <p class="modal-confirm-text">Открепить клиента <strong id="detachClientPlateLabel"></strong> от текущего списка?</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="detachClientCancel">Отменить</button>
+          <button class="btn btn-danger" id="detachClientConfirm">Открепить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- List Picker Modal (attach client to a list) -->
+    <div class="modal" id="listPickerModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+          <span>Прикрепить к списку</span>
+          <button class="btn btn-ghost btn-sm" id="listPickerClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="list-picker-items" id="listPickerItems">
+            <!-- Populated by JS: one row per list with an Attach button -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="listPickerCancel">Отменить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Client Picker Modal (attach an existing client to the current list) -->
+    <div class="modal" id="clientPickerModal">
+      <div class="modal-card modal-card--md">
+        <div class="modal-head">
+          <span>Прикрепить клиента к списку</span>
+          <button class="btn btn-ghost btn-sm" id="clientPickerClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <input class="input input--md s-input" id="clientPickerSearch" placeholder="Поиск по имени или номеру…" autocomplete="off" />
+          </div>
+          <div class="client-picker-items" id="clientPickerItems">
+            <!-- Populated by JS: one row per client with an Attach button -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="clientPickerCancel">Отменить</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Create Channel Modal -->
-    <div class="app-modal" id="createChannelModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="createChannelModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Новый канал</span>
           <button class="btn btn-ghost btn-sm" id="createChannelModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название канала</label>
-            <input class="s-input" style="width:100%" id="newChannelName" placeholder="Введите название" autocomplete="off" />
+            <input class="input input--md s-input" id="newChannelName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="createChannelCancel">Отменить</button>
           <button class="btn btn-primary" id="createChannelConfirm">Создать</button>
         </div>
@@ -1151,15 +1558,15 @@
     </div>
 
     <!-- Delete Channel Modal -->
-    <div class="app-modal" id="deleteChannelModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="deleteChannelModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Удалить канал</span>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <p class="modal-confirm-text">Вы уверены, что хотите удалить канал <strong id="deleteChannelNameLabel"></strong>? Это действие необратимо.</p>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="deleteChannelCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteChannelConfirm">Удалить</button>
         </div>
@@ -1167,19 +1574,19 @@
     </div>
 
     <!-- Create Controller Modal -->
-    <div class="app-modal" id="createControllerModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="createControllerModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Новый контроллер</span>
           <button class="btn btn-ghost btn-sm" id="createControllerModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <div class="modal-field">
             <label class="modal-label">Название контроллера</label>
-            <input class="s-input" style="width:100%" id="newControllerName" placeholder="Введите название" autocomplete="off" />
+            <input class="input input--md s-input" id="newControllerName" placeholder="Введите название" autocomplete="off" />
           </div>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="createControllerCancel">Отменить</button>
           <button class="btn btn-primary" id="createControllerConfirm">Создать</button>
         </div>
@@ -1187,15 +1594,15 @@
     </div>
 
     <!-- Delete Controller Modal -->
-    <div class="app-modal" id="deleteControllerModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="deleteControllerModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Удалить контроллер</span>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <p class="modal-confirm-text">Вы уверены, что хотите удалить контроллер <strong id="deleteControllerNameLabel"></strong>? Это действие необратимо.</p>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="deleteControllerCancel">Отменить</button>
           <button class="btn btn-danger" id="deleteControllerConfirm">Удалить</button>
         </div>
@@ -1203,13 +1610,13 @@
     </div>
 
     <!-- DB Restore Confirmation Modal -->
-    <div class="app-modal" id="dbRestoreModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="dbRestoreModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Восстановление базы данных</span>
           <button class="btn btn-ghost btn-sm" id="dbRestoreModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <p class="modal-confirm-text">
             Вы собираетесь восстановить базу данных из файла <strong id="dbRestoreFileName"></strong>.
           </p>
@@ -1223,7 +1630,7 @@
             ⚠ После успешного восстановления приложение будет <strong>перезапущено</strong>.
           </p>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="dbRestoreCancel">Отменить</button>
           <button class="btn btn-danger" id="dbRestoreConfirm">Восстановить</button>
         </div>
@@ -1231,13 +1638,13 @@
     </div>
 
     <!-- Settings Restore Confirmation Modal -->
-    <div class="app-modal" id="settingsRestoreModal">
-      <div class="app-modal-card app-modal-card-sm">
-        <div class="app-modal-head">
+    <div class="modal" id="settingsRestoreModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
           <span>Восстановление настроек</span>
           <button class="btn btn-ghost btn-sm" id="settingsRestoreModalClose">✕</button>
         </div>
-        <div class="app-modal-body">
+        <div class="modal-body">
           <p class="modal-confirm-text">
             Вы собираетесь восстановить настройки из файла <strong id="settingsRestoreFileName"></strong>.
           </p>
@@ -1248,20 +1655,56 @@
             ⚠ После восстановления конфигурация приложения будет <strong>полностью перезагружена</strong>. Возможен кратковременный перезапуск обработки каналов.
           </p>
         </div>
-        <div class="app-modal-footer">
+        <div class="modal-footer">
           <button class="btn btn-ghost" id="settingsRestoreCancel">Отменить</button>
           <button class="btn btn-danger" id="settingsRestoreConfirm">Восстановить</button>
         </div>
       </div>
     </div>
 
-    <!-- Auth overlay — shown when API_KEY is required and not yet entered -->
-    <div id="auth-overlay">
+    <!-- User Password Change Modal -->
+    <div class="modal" id="userPasswordModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+          <span>Смена пароля</span>
+          <button class="btn btn-ghost btn-sm" id="userPasswordModalClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <label class="modal-label">Новый пароль</label>
+            <input class="input input--md s-input" type="password" id="userNewPassword" autocomplete="new-password" />
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">Подтверждение пароля</label>
+            <input class="input input--md s-input" type="password" id="userConfirmPassword" autocomplete="new-password" />
+          </div>
+          <div id="userPasswordError" class="modal-error"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" id="userPasswordCancel">Отмена</button>
+          <button class="btn btn-primary" id="userPasswordConfirm">Сохранить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login overlay — shown when user is not authenticated -->
+    <div id="login-overlay">
       <div class="auth-card">
-        <div class="auth-title">Введите API-ключ</div>
-        <input id="auth-key-input" type="password" class="auth-input" placeholder="API ключ" autocomplete="current-password" />
-        <div id="auth-error" class="auth-error"></div>
-        <button id="auth-submit" class="auth-btn">Войти</button>
+        <div class="auth-title">Вход в систему</div>
+        <input id="login-input" type="text" class="input input--lg auth-input" placeholder="Логин" autocomplete="username" />
+        <div class="auth-password-wrap">
+          <input id="login-password" type="password" class="input input--lg auth-input login-password-input" placeholder="Пароль" autocomplete="current-password" />
+          <button id="login-password-toggle" class="auth-pass-toggle" type="button" aria-label="Показать пароль" title="Показать пароль">
+            <img class="auth-pass-eye" src="/web/assets/icons/eye.svg" alt="" aria-hidden="true" />
+            <img class="auth-pass-eye-off" src="/web/assets/icons/eye-off.svg" alt="" aria-hidden="true" />
+          </button>
+        </div>
+        <div id="login-caps-hint" class="auth-caps-hint" aria-live="polite">Caps Lock включён</div>
+        <div id="login-error" class="auth-error"></div>
+        <button id="login-submit" class="auth-btn">
+          <span id="login-submit-spinner" class="auth-btn-spinner" aria-hidden="true"></span>
+          <span id="login-submit-label">Войти</span>
+        </button>
       </div>
     </div>
     <script type="module" src="/web/js/app.js"></script>
