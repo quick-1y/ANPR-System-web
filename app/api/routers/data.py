@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse, Response
 
 from database.errors import StorageUnavailableError
 from app.api.container import AppContainer
-from app.api.deps import get_container
+from app.api.deps import get_container, require_role
 from app.api.schemas import ExportBundlePayload, RetentionPolicyPayload
 from app.shared.data_lifecycle import RetentionPolicy
 from app.shared.backup_service import (
@@ -29,12 +29,12 @@ router = APIRouter()
 
 
 @router.get("/api/data/policy")
-def get_data_policy(container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def get_data_policy(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
     return container.lifecycle.policy.to_storage()
 
 
 @router.put("/api/data/policy")
-def update_data_policy(payload: RetentionPolicyPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def update_data_policy(payload: RetentionPolicyPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
     policy = RetentionPolicy(**payload.model_dump())
     container.lifecycle.update_policy(policy)
     container.settings.save_storage_settings(policy.to_storage())
@@ -42,7 +42,7 @@ def update_data_policy(payload: RetentionPolicyPayload, container: AppContainer 
 
 
 @router.post("/api/data/retention/run")
-def run_retention(container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def run_retention(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
     try:
         result = container.lifecycle.run_retention_cycle()
         return {"status": "ok", **result}
@@ -54,13 +54,13 @@ def run_retention(container: AppContainer = Depends(get_container)) -> Dict[str,
 def export_events_csv(
     start: Optional[str] = None,
     end: Optional[str] = None,
-    channel: Optional[str] = None,
     plate: Optional[str] = None,
     channel_id: Optional[int] = None,
     container: AppContainer = Depends(get_container),
+    _user: Dict[str, Any] = Depends(require_role("superadmin")),
 ) -> Response:
     try:
-        filename, payload = container.lifecycle.export_events_csv(start=start, end=end, channel=channel, plate=plate, channel_id=channel_id)
+        filename, payload = container.lifecycle.export_events_csv(start=start, end=end, plate=plate, channel_id=channel_id)
         return Response(
             content=payload,
             media_type="text/csv",
@@ -71,12 +71,12 @@ def export_events_csv(
 
 
 @router.post("/api/data/export/bundle")
-def export_events_bundle(payload: ExportBundlePayload, container: AppContainer = Depends(get_container)) -> Response:
+def export_events_bundle(payload: ExportBundlePayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Response:
     try:
         filename, body = container.lifecycle.export_events_bundle(
             start=payload.start,
             end=payload.end,
-            channel=payload.channel,
+            channel_id=payload.channel_id,
             include_media=payload.include_media,
         )
         return Response(
@@ -91,7 +91,7 @@ def export_events_bundle(payload: ExportBundlePayload, container: AppContainer =
 # ── Database backup / restore ────────────────────────────
 
 @router.get("/api/data/backup/database")
-def backup_database(container: AppContainer = Depends(get_container)) -> Response:
+def backup_database(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Response:
     dsn = str(container.settings.get_storage_settings().get("postgres_dsn", "")).strip()
     if not dsn:
         return JSONResponse(status_code=500, content={"status": "error", "detail": "PostgreSQL DSN не настроен"})
@@ -113,6 +113,7 @@ def backup_database(container: AppContainer = Depends(get_container)) -> Respons
 async def restore_database(
     file: UploadFile = File(...),
     container: AppContainer = Depends(get_container),
+    _user: Dict[str, Any] = Depends(require_role("superadmin")),
 ) -> JSONResponse:
     lock = get_restore_lock()
     if not lock.acquire("database_restore"):
@@ -150,7 +151,7 @@ async def restore_database(
         try:
             container.refresh_storage_clients()
             container.processor = container._create_processor()
-            for channel in container.settings.get_channels():
+            for channel in container.channel_db.list_channels():
                 container.processor.ensure_channel(channel)
                 if channel.get("enabled", True):
                     container.processor.start(int(channel["id"]))
@@ -178,7 +179,7 @@ async def restore_database(
 # ── Settings backup / restore ────────────────────────────
 
 @router.get("/api/data/backup/settings")
-def backup_settings(container: AppContainer = Depends(get_container)) -> Response:
+def backup_settings(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Response:
     try:
         settings_path = container.settings._repo.path
         filename, body = export_settings(settings_path)
@@ -198,6 +199,7 @@ def backup_settings(container: AppContainer = Depends(get_container)) -> Respons
 async def restore_settings_endpoint(
     file: UploadFile = File(...),
     container: AppContainer = Depends(get_container),
+    _user: Dict[str, Any] = Depends(require_role("superadmin")),
 ) -> JSONResponse:
     lock = get_restore_lock()
     if not lock.acquire("settings_restore"):

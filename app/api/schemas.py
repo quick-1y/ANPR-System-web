@@ -1,10 +1,89 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from config.settings_schema import SUPPORTED_CONTROLLER_TYPES
+from config.settings_schema import SUPPORTED_CONTROLLER_TYPES, normalize_hotkey
+
+
+# ── Auth schemas ──────────────────────────────────────────────────────
+
+
+class LoginRequest(BaseModel):
+    login: str
+    password: str
+
+
+class UserOut(BaseModel):
+    id: int
+    login: str
+    role: str
+    permissions: List[str] = []
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+    warn_default_password: bool = False
+
+
+class UserCreate(BaseModel):
+    login: str
+    password: str
+    role: str = "operator"
+    permissions: List[str] = []
+
+    @field_validator("login")
+    @classmethod
+    def validate_login(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Логин не может быть пустым")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 4:
+            raise ValueError("Пароль должен содержать не менее 4 символов")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ("admin", "operator"):
+            raise ValueError("Роль должна быть 'admin' или 'operator'")
+        return v
+
+
+class UserUpdate(BaseModel):
+    role: Optional[str] = None
+    permissions: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ("superadmin", "admin", "operator"):
+            raise ValueError("Роль должна быть 'superadmin', 'admin' или 'operator'")
+        return v
+
+
+class UserPasswordChange(BaseModel):
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 4:
+            raise ValueError("Пароль должен содержать не менее 4 символов")
+        return v
 
 
 class ChannelPayload(BaseModel):
@@ -31,6 +110,7 @@ class ChannelConfigPayload(BaseModel):
     enabled: Optional[bool] = None
     controller_id: Optional[int] = None
     controller_relay: int = Field(default=0, ge=0, le=1)
+    controller_direction_filter: str = Field(default="both", pattern="^(approaching|receding|both)$")
     list_filter_mode: str = Field(default="all", pattern="^(all|whitelist|custom)$")
     list_filter_list_ids: List[int] = Field(default_factory=list)
     detection_mode: str = Field(default="motion", pattern="^(always|motion)$")
@@ -51,6 +131,9 @@ class ChannelConfigPayload(BaseModel):
     preview_fps_limit: int = Field(default=5, ge=1, le=30)
     roi_enabled: bool = True
     region: ROIRegionPayload = Field(default_factory=ROIRegionPayload)
+    zone_before_id: Optional[int] = None
+    zone_after_id: Optional[int] = None
+    zone_channel_type: Optional[str] = Field(default=None, pattern="^(entry|exit)$")
 
     @field_validator("controller_id")
     @classmethod
@@ -60,6 +143,20 @@ class ChannelConfigPayload(BaseModel):
         if int(value) <= 0:
             return None
         return int(value)
+
+    @field_validator("zone_before_id", "zone_after_id")
+    @classmethod
+    def validate_zone_endpoint(cls, value: Optional[int]) -> Optional[int]:
+        if value is None:
+            return None
+        v = int(value)
+        return v if v >= 0 else None
+
+    @model_validator(mode="after")
+    def clear_zone_type_when_no_zone(self) -> "ChannelConfigPayload":
+        if self.zone_before_id is None or self.zone_after_id is None:
+            self.zone_channel_type = None
+        return self
 
 
 class ChannelOCRPayload(BaseModel):
@@ -79,30 +176,7 @@ class ChannelFilterPayload(BaseModel):
 
 
 def _normalize_hotkey(value: str) -> str:
-    normalized = str(value or "").strip().upper()
-    if not normalized:
-        return ""
-    parts = [part.strip() for part in normalized.split("+") if part.strip()]
-    if not parts:
-        return ""
-    modifiers_order = ["CTRL", "ALT", "SHIFT"]
-    seen_modifiers: set[str] = set()
-    normalized_parts: list[str] = []
-    key_part = ""
-    for part in parts:
-        if part in modifiers_order:
-            seen_modifiers.add(part)
-            continue
-        if key_part:
-            raise ValueError("Хоткей должен содержать только одну основную клавишу")
-        key_part = part
-    if not key_part:
-        raise ValueError("Хоткей должен содержать основную клавишу")
-    for modifier in modifiers_order:
-        if modifier in seen_modifiers:
-            normalized_parts.append(modifier)
-    normalized_parts.append(key_part)
-    return "+".join(normalized_parts)
+    return normalize_hotkey(value, strict=True)
 
 
 class RelayPayload(BaseModel):
@@ -160,14 +234,27 @@ class ListPayload(BaseModel):
     type: str = "white"
 
 
-class EntryPayload(BaseModel):
+class ClientPayload(BaseModel):
     plate: str
+    last_name: str = ""
+    first_name: str = ""
+    middle_name: str = ""
+    phone: str = ""
+    car: str = ""
     comment: str = ""
+
+
+class AttachClientPayload(BaseModel):
+    list_id: int
 
 
 class UpdateListPayload(BaseModel):
     name: str
     type: str = "white"
+
+
+class BulkImportPayload(BaseModel):
+    clients: List[ClientPayload]
 
 
 class RetentionPolicyPayload(BaseModel):
@@ -181,7 +268,7 @@ class RetentionPolicyPayload(BaseModel):
 class ExportBundlePayload(BaseModel):
     start: Optional[str] = None
     end: Optional[str] = None
-    channel: Optional[str] = None
+    channel_id: Optional[int] = None
     include_media: bool = True
 
 
@@ -240,3 +327,13 @@ class GlobalSettingsPayload(BaseModel):
     time: TimePayload
     plates: PlatesPayload
     debug: DebugPayload
+
+
+class ZonePayload(BaseModel):
+    name: str
+    capacity: int = Field(default=0, ge=0)
+
+
+class ZoneUpdatePayload(BaseModel):
+    name: str
+    capacity: int = Field(ge=0)

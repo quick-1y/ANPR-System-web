@@ -32,13 +32,15 @@ export function updateTopbarTitle() {
   const tabLabels = {
     obs: "Наблюдение",
     journal: "Журнал",
-    lists: "Списки",
+    zones: "Зоны",
+    clients: "Клиенты",
     settings: "Настройки",
   };
   const settingsLabels = {
     general: "Общие",
     channels: "Каналы",
     controllers: "Контроллеры",
+    users: "Пользователи",
     sysdata: "Системные данные",
     debug: "Debug",
   };
@@ -63,6 +65,9 @@ export function switchSettings(name) {
 }
 
 export function switchTab(name) {
+  // Do not switch to a tab that has been hidden by permission rules
+  const targetTabEl = document.querySelector(`.ttab[data-tab="${name}"]`);
+  if (targetTabEl && targetTabEl.style.display === "none") return;
   document
     .querySelectorAll(".ttab")
     .forEach((el) => el.classList.toggle("active", el.dataset.tab === name));
@@ -73,6 +78,39 @@ export function switchTab(name) {
   if (!tabPane) return;
   tabPane.classList.add("active");
   updateTopbarTitle();
+}
+
+/**
+ * Hide sidebar tabs the current user is not permitted to see.
+ *
+ * @param {string[]} permissions - User's permission keys (e.g. ["tab:obs", "tab:journal"]).
+ * @param {boolean} userIsAdmin  - Admins bypass all permission checks (see all tabs).
+ *
+ * Called from app.js after login / page load with the resolved user object.
+ * If the currently active tab becomes hidden, switches to the first visible tab.
+ */
+export function applyTabVisibility(permissions, userIsAdmin) {
+  const tabs = document.querySelectorAll(".ttab");
+  const activeTab = getActiveTabName();
+  let firstVisible = null;
+  let activeTabVisible = false;
+
+  tabs.forEach((el) => {
+    const tabName = el.dataset.tab;
+    if (!tabName) return; // skip non-tab elements (e.g. logout button)
+    const permitted =
+      userIsAdmin ||
+      (Array.isArray(permissions) && permissions.includes(`tab:${tabName}`));
+    el.style.display = permitted ? "" : "none";
+    if (permitted) {
+      if (!firstVisible) firstVisible = tabName;
+      if (tabName === activeTab) activeTabVisible = true;
+    }
+  });
+
+  if (!activeTabVisible && firstVisible) {
+    switchTab(firstVisible);
+  }
 }
 
 export function loadBarColor(pct) {
@@ -197,4 +235,8 @@ export function initSidebarHover() {
   rail.addEventListener("mouseleave", () => {
     rail.classList.remove("rail-expanded");
   });
+}
+
+export function esc(str) {
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

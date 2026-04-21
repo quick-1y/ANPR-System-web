@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from database.errors import StorageUnavailableError
 from app.api.container import AppContainer
-from app.api.deps import get_container
+from app.api.deps import get_container, get_current_user
 
 router = APIRouter()
 
@@ -26,6 +26,7 @@ def list_events(
     start_ts: Optional[datetime] = None,
     end_ts: Optional[datetime] = None,
     container: AppContainer = Depends(get_container),
+    _user: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, Any]:
     safe_limit = max(1, min(int(limit), 200))
     fetch_limit = safe_limit + 1
@@ -67,7 +68,7 @@ def _fetch_event_by_id(container: AppContainer, event_id: int) -> Dict[str, Any]
 
 
 @router.get("/api/events/item/{event_id}")
-def get_event(event_id: int, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def get_event(event_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
     event = _fetch_event_by_id(container, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Событие не найдено")
@@ -75,7 +76,7 @@ def get_event(event_id: int, container: AppContainer = Depends(get_container)) -
 
 
 @router.get("/api/events/item/{event_id}/media/{kind}")
-def get_event_media(event_id: int, kind: str, container: AppContainer = Depends(get_container)) -> FileResponse:
+def get_event_media(event_id: int, kind: str, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> FileResponse:
     event = _fetch_event_by_id(container, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Событие не найдено")
@@ -91,7 +92,7 @@ def get_event_media(event_id: int, kind: str, container: AppContainer = Depends(
 
 
 @router.get("/api/events/stream")
-async def stream_events(request: Request, container: AppContainer = Depends(get_container)) -> StreamingResponse:
+async def stream_events(request: Request, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(get_current_user)) -> StreamingResponse:
     queue = await container.event_bus.subscribe()
 
     async def generator():

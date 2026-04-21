@@ -87,7 +87,7 @@ If documentation and code disagree, prefer code and mention the mismatch in your
 - Language(s): Python 3.13
 - Runtime(s): Python 3.13-slim Docker image (Debian-based)
 - Framework(s): FastAPI (unpinned), Uvicorn (unpinned)
-- Package manager(s): pip (no poetry/pipenv); `requirements.txt` + Dockerfile-inline PyTorch install
+- Package manager(s): Poetry; `pyproject.toml` + `poetry.lock` (PyTorch CPU wheels via explicit Poetry source)
 - Build tool(s): Docker + Docker Compose
 - Database(s): PostgreSQL 16
 - Messaging / queueing: none (in-memory `EventBus` with asyncio queues)
@@ -111,7 +111,7 @@ If documentation and code disagree, prefer code and mention the mismatch in your
 ### Version Policy
 
 - Required versions: Python 3.13, PostgreSQL 16, ultralytics 8.3.20, torch 2.8.0
-- Version source of truth: `requirements.txt` + `Dockerfile`
+- Version source of truth: `pyproject.toml` + `poetry.lock`
 - Dependency update policy: manual
 - Compatibility requirements: CPU-only inference (no GPU required); RTSP camera network access
 
@@ -184,7 +184,7 @@ ANPR-System-v0.8_web/
 │   ├── postgres/               # PostgreSQL-specific files
 │   │   └── schema.sql          # Database schema DDL
 │   ├── errors.py               # StorageUnavailableError
-│   ├── plate_lists_repository.py  # Plate lists CRUD
+│   ├── lists_repository.py        # Lists and clients CRUD
 │   └── postgres_event_repository.py  # Event CRUD with psycopg_pool
 ├── runtime/                    # Channel processing runtime
 │   ├── channel_runtime.py      # ChannelProcessor, ChannelContext, ChannelMetrics
@@ -195,7 +195,8 @@ ANPR-System-v0.8_web/
 ├── tests/                      # Unit tests (pytest)
 ├── Dockerfile                  # Docker build definition
 ├── docker-compose.yml          # Multi-service orchestration (4 services)
-├── requirements.txt            # Python dependencies
+├── pyproject.toml              # Python dependencies (Poetry)
+├── poetry.lock                 # Locked dependency versions
 ├── .env.example                # Environment variable template
 ├── AGENTS.md                   # This file
 └── README.md                   # Project documentation (Russian)
@@ -397,6 +398,7 @@ Don't:
 
 - PostgreSQL schema bootstrap is lazy (on first write) and idempotent (`CREATE TABLE IF NOT EXISTS`).
 - `schema.sql` is also mounted as Docker init script for fresh databases.
+- Database schema changes must be implemented directly in `database/postgres/schema.sql` and the relevant repositories. Do not create DB migration modules, legacy compatibility layers, or transitional upgrade paths for database changes — in this project context, functional development assumes a fresh database and migration code only adds unnecessary clutter.
 - Settings schema changes require version bump and migration path (see Settings Schema Versioning below).
 - Preserve backward compatibility for API responses unless the task explicitly allows a breaking change.
 
@@ -494,6 +496,7 @@ A change is not complete until:
 
 - PostgreSQL is the only supported storage backend for runtime data.
 - Do not add SQLite, dual-write, fallback storage paths, or compatibility layers.
+- Database schema evolution is direct-only for development: update `database/postgres/schema.sql` and the current repositories/services in place. Do not introduce DB migration modules, legacy schema adapters, backward-compat database shims, or dual-path support for old database structures.
 - Do not introduce a second source of truth for settings if existing settings/config already covers the case.
 - Both `PostgresEventDatabase` and `ListDatabase` use `psycopg_pool.ConnectionPool` (min=2, max=10).
 - Do not replace connection pooling with per-request connections.
@@ -534,7 +537,7 @@ The agent should pause and ask a human when:
 This repository also uses:
 
 - `CLAUDE.md` — Claude Code specific instructions (if present)
-- `README.md` — project documentation (Russian, kept up-to-date with architecture)
-- `AGENTS_old.md` — previous version of this file (historical reference only)
+- `README.md` — primary project documentation (Russian, kept up-to-date with architecture)
+- `docs/` — additional project documentation in the repository root
 
 Prefer `AGENTS.md` as the authoritative source for agent behavior.

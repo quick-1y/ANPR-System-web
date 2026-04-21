@@ -13,8 +13,8 @@ import cv2
 import numpy as np
 
 from common.logging import get_logger
+from controllers.service import ControllerAutomationService
 from runtime.debug import DebugRegistry
-from runtime.event_sink import EventSink
 
 if TYPE_CHECKING:
     from anpr.model_config import AnprModelConfig
@@ -76,15 +76,18 @@ class ChannelProcessor:
         debug_registry: DebugRegistry | None = None,
         model_config: "AnprModelConfig | None" = None,
         events_db=None,
+        lists_db=None,
+        zones_db=None,
     ) -> None:
         self._event_callback = event_callback
         self._contexts: Dict[int, ChannelContext] = {}
         self._lock = threading.RLock()
         self._storage_settings = storage_settings or {}
-        self._sink = EventSink(
-            postgres_dsn=str(self._storage_settings.get("postgres_dsn", "")),
-            events_db=events_db,
-        )
+        if events_db is None:
+            raise ValueError("events_db is required for ChannelProcessor")
+        self._events_db = events_db
+        self._lists_db = lists_db
+        self._zones_db = zones_db
         self._plate_settings = plate_settings or {}
         self._reconnect_config = self._build_reconnect_config(reconnect_settings or {})
         self._reconnect_config_cache_ts = 0.0
@@ -251,6 +254,9 @@ class ChannelProcessor:
         self.stop(channel_id)
         self.start(channel_id)
 
+    def shutdown_io_pool(self) -> None:
+        self._io_pool.shutdown(wait=True, cancel_futures=False)
+
     @staticmethod
     def _sanitize_for_filename(value: str) -> str:
         safe = re.sub(r"[^A-Za-z0-9_-]", "_", str(value or "").strip())
@@ -364,6 +370,30 @@ class ChannelProcessor:
             if self._is_point_in_polygon(center, roi_polygon):
                 filtered.append(detection)
         return filtered
+
+    def _resolve_zone_eligibility(self, channel: Dict[str, Any], plate: str) -> bool:
+        """
+        Determine whether zone_id and time_entry/time_exit fields should be
+        written to the event, based on list_filter_mode.
+        Returns False for blacklisted plates regardless of mode.
+        """
+        if self._lists_db is None:
+            return True  # no list db, treat as "all" mode
+
+        if self._lists_db.plate_in_list_type(plate, "black"):
+            return False
+
+        mode = str(channel.get("list_filter_mode") or "all").strip().lower()
+        if mode == "all":
+            return True
+        if mode == "whitelist":
+            return self._lists_db.plate_in_list_type(plate, "white")
+        if mode == "custom":
+            list_ids = ControllerAutomationService._normalize_positive_int_ids(
+                channel.get("list_filter_list_ids")
+            )
+            return self._lists_db.plate_in_lists(plate, list_ids)
+        return True  # fallback
 
     def _run_channel(self, channel_id: int) -> None:
         with self._lock:
@@ -544,11 +574,7 @@ class ChannelProcessor:
                     # (unfinalized) tracks exist — saves YOLO calls during idle.
                     effective_stride = detector_frame_stride
                     if adaptive_stride_enabled:
-                        active_tracks = sum(
-                            1 for s in pipeline.aggregator._track_states.values()
-                            if not s.finalized
-                        )
-                        if active_tracks == 0:
+                        if not pipeline.aggregator.has_active_tracks():
                             effective_stride = detector_frame_stride * 3
                     if detector_input_frames % effective_stride != 0:
                         metrics.detector_skipped_frames += 1
@@ -588,9 +614,15 @@ class ChannelProcessor:
                         self._io_pool.submit(self._save_jpeg, frame_file, frame)
                         if plate_crop is not None:
                             self._io_pool.submit(self._save_jpeg, plate_file, plate_crop)
+                        client_info = self._lists_db.find_client_by_plate(plate) if self._lists_db else None
+                        client_id = client_info["id"] if client_info else None
+                        event_ts_iso = event_ts.isoformat()
+                        zone_before = channel.get("zone_before_id")  # None=not configured, 0=outside, >0=zone
+                        zone_after = channel.get("zone_after_id")    # None=not configured, 0=outside, >0=zone
+                        zone_type = channel.get("zone_channel_type")  # 'entry', 'exit', or None
+
                         event = {
-                            "timestamp": event_ts.isoformat(),
-                            "channel": channel.get("name", f"Канал {channel_id}"),
+                            "time": event_ts_iso,
                             "channel_id": channel_id,
                             "plate": plate,
                             "plate_display": detection.get("plate_display") or plate,
@@ -600,27 +632,69 @@ class ChannelProcessor:
                             "frame_path": frame_path,
                             "plate_path": plate_path,
                             "direction": detection.get("direction", "UNKNOWN"),
+                            "client_id": client_id,
                         }
-                        event_id = self._sink.insert_event(**{
-                            k: event[k]
-                            for k in (
-                                "channel",
-                                "plate",
-                                "plate_display",
-                                "channel_id",
-                                "country",
-                                "confidence",
-                                "source",
-                                "timestamp",
-                                "frame_path",
-                                "plate_path",
-                                "direction",
+
+                        if zone_type is None or zone_before is None or zone_after is None:
+                            # Branch A: no zone — current behavior unchanged
+                            event_id = self._events_db.insert_event(
+                                plate=plate,
+                                channel_id=channel_id,
+                                plate_display=event["plate_display"],
+                                country=event["country"],
+                                confidence=event["confidence"],
+                                source=event["source"],
+                                time=event_ts_iso,
+                                frame_path=frame_path,
+                                plate_path=plate_path,
+                                direction=event["direction"],
+                                client_id=client_id,
                             )
-                        })
-                        if int(event_id or 0) > 0:
-                            event["id"] = int(event_id)
-                        self._event_callback(event)
-                        metrics.last_event_at = event["timestamp"]
+                            event["id"] = int(event_id) if int(event_id or 0) > 0 else None
+                            self._event_callback(event)
+
+                        elif zone_type == "entry":
+                            # Branch B: entry channel — insert with zone_after as zone_id if eligible
+                            zone_eligible = self._resolve_zone_eligibility(channel, plate)
+                            zone_fields = {"zone_id": zone_after, "time_entry": event_ts_iso} if zone_eligible else {}
+                            event_id = self._events_db.insert_event(
+                                plate=plate,
+                                channel_id=channel_id,
+                                plate_display=event["plate_display"],
+                                country=event["country"],
+                                confidence=event["confidence"],
+                                source=event["source"],
+                                time=event_ts_iso,
+                                frame_path=frame_path,
+                                plate_path=plate_path,
+                                direction=event["direction"],
+                                client_id=client_id,
+                                **zone_fields,
+                            )
+                            event.update(zone_fields)
+                            event["id"] = int(event_id) if int(event_id or 0) > 0 else None
+                            self._event_callback(event)
+
+                        else:
+                            # Branch C: exit channel — find event by zone_before, write zone_after
+                            zone_eligible = self._resolve_zone_eligibility(channel, plate)
+                            relay_event = {
+                                "time": event_ts_iso,
+                                "channel_id": channel_id,
+                                "plate": plate,
+                                "plate_display": event["plate_display"],
+                                "direction": event["direction"],
+                                "client_id": client_id,
+                            }
+                            if zone_eligible:
+                                updated_id = self._events_db.find_active_entry_and_write_exit(
+                                    plate, zone_before, zone_after, event_ts_iso
+                                )
+                                if updated_id:
+                                    relay_event["id"] = updated_id
+                            self._event_callback(relay_event)
+
+                        metrics.last_event_at = event_ts_iso
                     postprocess_ms = (time.monotonic() - postprocess_started) * 1000.0
                     self._debug_registry.update_stage_timings(
                         channel_id,

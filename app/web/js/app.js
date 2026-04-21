@@ -1,79 +1,33 @@
 // Application entry point — initialization, DOM bindings, timers
 import { eventSource, debugLogSource, overlayRefreshTimer, eventFeedRenderFrame, eventFeedRenderScheduled, setEventFeedRenderScheduled, setEventFeedRenderFrame } from './state.js';
-import { api, getApiKey } from './api.js';
-import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, loadBarColor } from './ui.js';
-import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate } from './channels.js';
+import { api, getToken, setToken, isTokenExpired, getCurrentUser, showLoginOverlay, logoutRequest } from './api.js';
+import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, applyTabVisibility, showToast } from './ui.js';
+import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVideoGridDragDrop, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate, clearExpandMode, updateZoneChannelTypeState } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
-import { loadJournal, initJournalScroll } from './journal.js';
-import { loadLists, loadEntries, refreshPlateLookup, exportCurrentListCSV, importCurrentListCSV, getEditingEntryId, setEditingEntryId } from './lists.js';
+import { loadJournal, initJournalScroll, initJournalBindings } from './journal.js';
+import { loadLists, refreshPlateLookup, exportCurrentListCSV, importCurrentListCSV, openClientPickerModal } from './lists.js';
+import { loadAllClients, openAddClientModal, searchClients, saveClientChanges, openDeleteClientConfirm, confirmDeleteClient, openListPickerModal, detachClientFromList, confirmDetachClient } from './clients.js';
 import { loadGlobalSettings, saveGeneral } from './settings.js';
 import { loadControllers, createController, _doCreateController, deleteController, _doDeleteController, saveController, testController } from './controllers.js';
 import { applyDebugPanelVisibility, loadDebugLogHistory, setupDebugLogStream, setupStream } from './debug.js';
 import { initHelpSystem } from './help.js';
 import { initBackupBindings } from './backup.js';
-import { state } from './state.js';
-
-// --- System monitoring ---
-async function refreshSystemResources() {
-  if (document.hidden) return;
-  try {
-    const resources = await (await fetch(api("/api/system/resources"), { headers: (() => { const h = { "Content-Type": "application/json" }; const k = getApiKey(); if (k) h["X-Api-Key"] = k; return h; })() })).json();
-    const cpu = Math.round(Number(resources.cpu_percent) || 0);
-    const ram = Math.round(Number(resources.ram_percent) || 0);
-    const cpuStat = document.getElementById("cpuStat");
-    const ramStat = document.getElementById("ramStat");
-    const cpuBar = document.getElementById("cpuBar");
-    const ramBar = document.getElementById("ramBar");
-    if (cpuStat) cpuStat.textContent = `${cpu}%`;
-    if (ramStat) ramStat.textContent = `${ram}%`;
-    if (cpuBar) { cpuBar.style.width = `${cpu}%`; cpuBar.style.background = loadBarColor(cpu); }
-    if (ramBar) { ramBar.style.width = `${ram}%`; ramBar.style.background = loadBarColor(ram); }
-  } catch (_e) {}
-}
-
-async function checkServerHealth() {
-  if (document.hidden) return;
-  const dot = document.getElementById("serverDot");
-  if (!dot) return;
-  try {
-    const k = getApiKey();
-    const headers = k ? { "X-Api-Key": k } : {};
-    const r = await fetch(api("/api/health"), { method: "GET", headers, signal: AbortSignal.timeout(4000) });
-    dot.className = r.ok ? "server-dot live" : "server-dot off";
-  } catch (_e) { dot.className = "server-dot off"; }
-}
+import { state, setCurrentUser } from './state.js';
+import { initUsersPane } from './users.js';
+import { loadZones, initZonesTab } from './zones.js';
+import { initSystemPolling, refreshSystemResources, checkServerHealth } from './system.js';
 
 // --- Tab navigation bindings ---
 document.querySelectorAll(".ttab").forEach((el) => (el.onclick = () => {
   switchTab(el.dataset.tab);
   if (el.dataset.tab === "obs") { scheduleVideoGridLayout(); renderEventFeed(true); }
+  if (el.dataset.tab === "zones") { loadZones(); }
 }));
 document.querySelectorAll(".snav-item").forEach((el) => (el.onclick = () => switchSettings(el.dataset.sp)));
 document.querySelectorAll(".ch-tab").forEach((el) => (el.onclick = () => switchChannelSettingsTab(el.dataset.chTab)));
-document.getElementById("gridSelect").onchange = () => scheduleVideoGridLayout(true);
+document.getElementById("gridSelect").onchange = () => { clearExpandMode(); scheduleVideoGridLayout(true); };
 
-// --- Journal bindings ---
-document.getElementById("btnFind").onclick = loadJournal;
-document.getElementById("btnReset").onclick = () => {
-  document.getElementById("fltPlate").value = "";
-  document.getElementById("fltChannel").value = "";
-  document.getElementById("fltDateFrom").value = "";
-  document.getElementById("fltDateTo").value = "";
-  loadJournal();
-};
-document.getElementById("btnExport").onclick = () => {
-  const params = new URLSearchParams();
-  const plate = (document.getElementById("fltPlate").value || "").trim();
-  const channelId = document.getElementById("fltChannel").value;
-  const dateFrom = document.getElementById("fltDateFrom").value;
-  const dateTo = document.getElementById("fltDateTo").value;
-  if (plate) params.set("plate", plate);
-  if (channelId) params.set("channel_id", channelId);
-  if (dateFrom) params.set("start", new Date(dateFrom).toISOString());
-  if (dateTo) params.set("end", new Date(dateTo).toISOString());
-  const qs = params.toString();
-  window.open(api(`/api/data/export/events.csv${qs ? "?" + qs : ""}`), "_blank");
-};
+initJournalBindings();
 
 // --- List modals ---
 document.getElementById("addListBtn").onclick = () => {
@@ -94,47 +48,56 @@ document.getElementById("createListConfirm").onclick = async () => {
 document.getElementById("createListModal").onclick = (e) => { if (e.target.id === "createListModal") closeModal("createListModal"); };
 document.getElementById("newListName").onkeydown = (e) => { if (e.key === "Enter") document.getElementById("createListConfirm").click(); };
 
-// --- Entry modals ---
-document.getElementById("addEntryBtn").onclick = () => {
-  if (!state.selectedListId) return;
-  setEditingEntryId(null);
-  document.getElementById("addEntryModalTitle").textContent = "Добавить запись";
-  ["entryLastName","entryFirstName","entryPatronymic","entryPhone","entryCarMake","entryPlate"].forEach(id => document.getElementById(id).value = "");
-  document.getElementById("addEntryError").textContent = "";
-  openModal("addEntryModal");
-  setTimeout(() => document.getElementById("entryLastName").focus(), 50);
-};
-document.getElementById("addEntryModalClose").onclick = () => closeModal("addEntryModal");
-document.getElementById("addEntryCancel").onclick = () => closeModal("addEntryModal");
-document.getElementById("addEntryConfirm").onclick = async () => {
-  const firstName = document.getElementById("entryFirstName").value.trim();
-  const plate = document.getElementById("entryPlate").value.trim();
-  const errEl = document.getElementById("addEntryError");
-  if (!firstName || !plate) { errEl.textContent = "Поля «Имя» и «Гос. номер автомобиля» обязательны."; return; }
-  errEl.textContent = "";
-  const comment = JSON.stringify({
-    last_name: document.getElementById("entryLastName").value.trim(),
-    first_name: firstName,
-    patronymic: document.getElementById("entryPatronymic").value.trim(),
-    phone: document.getElementById("entryPhone").value.trim(),
-    car_make: document.getElementById("entryCarMake").value.trim(),
-  });
-  const { jfetch } = await import('./api.js');
-  const editingEntryId = getEditingEntryId();
-  try {
-    if (editingEntryId !== null) await jfetch(api(`/api/lists/${state.selectedListId}/entries/${editingEntryId}`), "PUT", { plate, comment });
-    else await jfetch(api(`/api/lists/${state.selectedListId}/entries`), "POST", { plate, comment });
-  } catch (_e) {
-    errEl.textContent = editingEntryId !== null ? "Не удалось обновить: возможно, номер уже существует." : "Не удалось сохранить: возможно, номер уже существует.";
-    return;
+// --- Clients sub-tab switching ---
+document.querySelectorAll('.clients-subtab-btn').forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll('.clients-subtab-btn').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('.subtab-pane').forEach((p) => p.classList.remove('active'));
+    btn.classList.add('active');
+    const pane = document.getElementById(`subtab-${btn.dataset.subtab}`);
+    if (pane) pane.classList.add('active');
+  };
+});
+
+// --- All clients table ---
+document.getElementById('addClientBtn').onclick = openAddClientModal;
+document.getElementById('clientsSearchInput').oninput = (e) => searchClients(e.target.value);
+
+// --- Client card modal ---
+document.getElementById('clientCardClose').onclick = () => closeModal('clientCardModal');
+document.getElementById('clientCardCancel').onclick = () => closeModal('clientCardModal');
+document.getElementById('clientCardModal').onclick = (e) => { if (e.target.id === 'clientCardModal') closeModal('clientCardModal'); };
+document.getElementById('clientCardSaveBtn').onclick = saveClientChanges;
+document.getElementById('clientCardDeleteBtn').onclick = openDeleteClientConfirm;
+document.getElementById('clientCardListBtn').onclick = () => {
+  const btn = document.getElementById('clientCardListBtn');
+  if (btn.textContent.trim() === 'Открепить от списка') {
+    detachClientFromList();
+  } else {
+    openListPickerModal();
   }
-  setEditingEntryId(null);
-  closeModal("addEntryModal");
-  await loadEntries(state.selectedListId);
-  await refreshPlateLookup();
-  renderEventFeed(true);
 };
-document.getElementById("addEntryModal").onclick = (e) => { if (e.target.id === "addEntryModal") { setEditingEntryId(null); closeModal("addEntryModal"); } };
+
+// --- Delete client confirmation ---
+document.getElementById('deleteClientCancel').onclick = () => closeModal('deleteClientModal');
+document.getElementById('deleteClientConfirm').onclick = confirmDeleteClient;
+document.getElementById('deleteClientModal').onclick = (e) => { if (e.target.id === 'deleteClientModal') closeModal('deleteClientModal'); };
+
+// --- Detach client confirmation ---
+document.getElementById('detachClientCancel').onclick = () => closeModal('detachClientModal');
+document.getElementById('detachClientConfirm').onclick = confirmDetachClient;
+document.getElementById('detachClientModal').onclick = (e) => { if (e.target.id === 'detachClientModal') closeModal('detachClientModal'); };
+
+// --- List picker (attach client → list) ---
+document.getElementById('listPickerClose').onclick = () => closeModal('listPickerModal');
+document.getElementById('listPickerCancel').onclick = () => closeModal('listPickerModal');
+document.getElementById('listPickerModal').onclick = (e) => { if (e.target.id === 'listPickerModal') closeModal('listPickerModal'); };
+
+// --- Client picker (attach client to list from the Lists subtab) ---
+document.getElementById('attachClientToListBtn').onclick = () => { if (!state.selectedListId) return; openClientPickerModal(state.selectedListId); };
+document.getElementById('clientPickerClose').onclick = () => closeModal('clientPickerModal');
+document.getElementById('clientPickerCancel').onclick = () => closeModal('clientPickerModal');
+document.getElementById('clientPickerModal').onclick = (e) => { if (e.target.id === 'clientPickerModal') closeModal('clientPickerModal'); };
 
 // --- Export/Import ---
 document.getElementById("exportListBtn").onclick = exportCurrentListCSV;
@@ -178,10 +141,13 @@ document.getElementById("deleteListConfirm").onclick = async () => {
   const { jfetch } = await import('./api.js');
   await jfetch(api(`/api/lists/${state.selectedListId}`), "DELETE");
   closeModal("deleteListModal");
-  state.selectedListId = null; state.currentEntries = [];
-  document.getElementById("listTitle").textContent = "—";
-  document.getElementById("entriesBody").innerHTML = "";
+  state.selectedListId = null; state.listMembers = [];
+  const listTitleEl = document.getElementById("listTitle");
+  if (listTitleEl) listTitleEl.textContent = "—";
+  const listMembersBodyEl = document.getElementById("listMembersBody");
+  if (listMembersBodyEl) listMembersBodyEl.innerHTML = "";
   await loadLists();
+  await loadAllClients();
 };
 document.getElementById("deleteListModal").onclick = (e) => { if (e.target.id === "deleteListModal") closeModal("deleteListModal"); };
 
@@ -258,10 +224,7 @@ document.addEventListener("keydown", (event) => {
 // --- Timers ---
 updateTopbarDateTime();
 setInterval(updateTopbarDateTime, 1000);
-refreshSystemResources();
-setInterval(refreshSystemResources, 10000);
-checkServerHealth();
-setInterval(checkServerHealth, 10000);
+initSystemPolling();
 
 // --- Cleanup ---
 function cleanupStreamsAndTimers() {
@@ -280,6 +243,11 @@ initSidebarHover();
 // --- Help & Backup ---
 initHelpSystem();
 initBackupBindings();
+initZonesTab();
+const _zoneBeforeEl = document.getElementById("c_zone_before_id");
+const _zoneAfterEl = document.getElementById("c_zone_after_id");
+if (_zoneBeforeEl) _zoneBeforeEl.onchange = updateZoneChannelTypeState;
+if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
 
 // --- Main init ---
 (async function init() {
@@ -287,6 +255,53 @@ initBackupBindings();
   if (apiBaseEl) apiBaseEl.value = window.location.origin;
   try { applyTheme(localStorage.getItem("anpr_theme") || "dark"); }
   catch (_e) { applyTheme("dark"); }
+
+  const startLoginFlow = () => {
+    showLoginOverlay((user) => {
+      setCurrentUser(user);
+      _applyUserUI(user);
+      location.reload();
+    });
+  };
+
+  // --- Auth check ---
+  const token = getToken();
+  if (!token || isTokenExpired()) {
+    setToken(null);
+    startLoginFlow();
+    return;
+  }
+  let currentUser;
+  try {
+    currentUser = await getCurrentUser();
+    setCurrentUser(currentUser);
+  } catch (_e) {
+    // Token expired or invalid — clear it and re-authenticate
+    setToken(null);
+    startLoginFlow();
+    return;
+  }
+  _applyUserUI(currentUser);
+  applyTabVisibility(currentUser.permissions || [], currentUser.role === "superadmin");
+  applyDebugPanelVisibility();
+  initUsersPane();
+
+  // --- Superadmin-only: reveal "Разработка" section ---
+  if (currentUser.role === "superadmin") {
+    const devLabel = document.getElementById("snav-label-dev");
+    const debugItem = document.getElementById("snav-debug");
+    if (devLabel) devLabel.classList.remove("hidden");
+    if (debugItem) debugItem.classList.remove("hidden");
+  }
+
+  // --- Logout button ---
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) logoutBtn.onclick = async () => {
+    await logoutRequest();
+    setToken(null);
+    location.reload();
+  };
+
   syncChannelConfigVisibility();
   syncControllerConfigVisibility();
   setupVideoGridLayoutGuards(() => {
@@ -294,23 +309,36 @@ initBackupBindings();
     refreshSystemResources();
     checkServerHealth();
   });
+  setupVideoGridDragDrop();
   setupEventFeedLayoutGuards();
   setupVisionCanvas();
   setupPlateSizeInputListeners();
   switchChannelSettingsTab("channel");
   updateTopbarTitle();
   await refreshChannels();
+  loadZones();
   await hydrateChannelLastPlates();
   initJournalScroll();
   await loadEventFeedHistory();
   await loadLists();
+  await loadAllClients();
   await loadJournal();
-  await loadGlobalSettings();
-  await refreshOverlayStates();
-  await loadDebugLogHistory();
-  setupDebugLogStream();
-  await loadControllers();
+  if (currentUser.role === "superadmin") {
+    await loadGlobalSettings();
+    await refreshOverlayStates();
+    await loadDebugLogHistory();
+    setupDebugLogStream();
+    await loadControllers();
+  }
   setupStream();
   setInterval(refreshChannels, 8000);
   syncOverlayPolling();
 })();
+
+function _applyUserUI(user) {
+  if (!user) return;
+  const loginEl = document.getElementById("railUserLogin");
+  if (loginEl) loginEl.textContent = user.login || "";
+  const railBottom = document.getElementById("railBottom");
+  if (railBottom) railBottom.classList.add("has-user");
+}

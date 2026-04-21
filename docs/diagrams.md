@@ -26,7 +26,6 @@ flowchart TD
         CH["Channel thread"]
         YOLO["YOLODetector"]
         PIPE["ANPRPipeline"]
-        SINK["EventSink"]
     end
 
     subgraph WORKER["Retention worker\napp/worker/main.py"]
@@ -54,9 +53,8 @@ flowchart TD
     SRC --> CH
     CH --> YOLO
     YOLO --> PIPE
-    PIPE --> SINK
-    SINK --> EVENTS_DB
-    SINK --> BUS
+    PIPE --> EVENTS_DB
+    PIPE --> BUS
 
     SSE --> BUS
     PREVIEW --> PROC
@@ -152,8 +150,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["Готовое событие"] --> B["EventSink.insert_event(...)"]
-    B --> D["PostgresEventDatabase.insert_event(...)"]
+    A["Готовое событие"] --> D["PostgresEventDatabase.insert_event(...)"]
     D --> PG[("PostgreSQL")]
 
     A --> I["event_callback"]

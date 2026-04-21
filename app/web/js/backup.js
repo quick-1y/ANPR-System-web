@@ -1,5 +1,5 @@
 // Backup & Restore
-import { api, getApiKey, showAuthOverlay } from './api.js';
+import { api, getToken, showLoginOverlay } from './api.js';
 import { showToast, openModal, closeModal } from './ui.js';
 import { loadGlobalSettings } from './settings.js';
 
@@ -17,10 +17,10 @@ async function downloadBackup(url, fallbackName) {
   setBackupBusy(true);
   try {
     const headers = {};
-    const k = getApiKey();
-    if (k) headers["X-Api-Key"] = k;
+    const t = getToken();
+    if (t) headers["Authorization"] = `Bearer ${t}`;
     const resp = await fetch(api(url), { headers });
-    if (resp.status === 401) { showAuthOverlay(() => downloadBackup(url, fallbackName)); return; }
+    if (resp.status === 401) { showLoginOverlay(() => location.reload()); return; }
     if (!resp.ok) {
       let detail = "Ошибка скачивания";
       try { const j = await resp.json(); detail = j.detail || detail; } catch(_) {}
@@ -59,9 +59,9 @@ export function initBackupBindings() {
     const confirmBtn = document.getElementById("dbRestoreConfirm"); confirmBtn.disabled = true;
     try {
       const formData = new FormData(); formData.append("file", _pendingDbFile);
-      const headers = {}; const k = getApiKey(); if (k) headers["X-Api-Key"] = k;
+      const headers = {}; const t = getToken(); if (t) headers["Authorization"] = `Bearer ${t}`;
       const resp = await fetch(api("/api/data/backup/database/restore"), { method: "POST", headers, body: formData });
-      if (resp.status === 401) { showAuthOverlay(); return; }
+      if (resp.status === 401) { showLoginOverlay(() => location.reload()); return; }
       const result = await resp.json();
       if (resp.ok && result.status === "ok") {
         showToast("БД восстановлена. Приложение перезапускается...", 8000);
@@ -90,9 +90,9 @@ export function initBackupBindings() {
     const confirmBtn = document.getElementById("settingsRestoreConfirm"); confirmBtn.disabled = true;
     try {
       const formData = new FormData(); formData.append("file", _pendingSettingsFile);
-      const headers = {}; const k = getApiKey(); if (k) headers["X-Api-Key"] = k;
+      const headers = {}; const t = getToken(); if (t) headers["Authorization"] = `Bearer ${t}`;
       const resp = await fetch(api("/api/data/backup/settings/restore"), { method: "POST", headers, body: formData });
-      if (resp.status === 401) { showAuthOverlay(); return; }
+      if (resp.status === 401) { showLoginOverlay(() => location.reload()); return; }
       const result = await resp.json();
       if (resp.ok && result.status === "ok") { showToast("Настройки восстановлены и применены", 3000); await loadGlobalSettings(); }
       else { showToast(result.detail || "Ошибка восстановления настроек", 5000); }

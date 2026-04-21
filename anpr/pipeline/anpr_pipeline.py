@@ -240,6 +240,10 @@ class TrackAggregator:
             if state.ocr_attempts < self.max_ocr_attempts:
                 state.finalized = False
 
+    def has_active_tracks(self) -> bool:
+        """Return True if any track is still being processed (not yet finalized)."""
+        return any(not s.finalized for s in self._track_states.values())
+
 
 class TrackDirectionEstimator:
     """Оценивает направление движения по истории рамок номера."""

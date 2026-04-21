@@ -23,7 +23,6 @@ class AnprModelConfig:
     ocr_height: int = 32
     ocr_width: int = 128
     ocr_alphabet: str = ""
-    ocr_confidence_threshold: float = 0.6
     # Detector
     detection_confidence_threshold: float = 0.5
     bbox_padding_ratio: float = 0.08
@@ -55,7 +54,6 @@ class AnprModelConfig:
             ocr_height=int(ocr_settings.get("img_height", 32)),
             ocr_width=int(ocr_settings.get("img_width", 128)),
             ocr_alphabet=str(ocr_settings.get("alphabet", "")),
-            ocr_confidence_threshold=float(ocr_settings.get("confidence_threshold", 0.6)),
             detection_confidence_threshold=float(detector_settings.get("confidence_threshold", 0.5)),
             bbox_padding_ratio=float(detector_settings.get("bbox_padding_ratio", 0.08)),
             min_padding_pixels=int(detector_settings.get("min_padding_pixels", 2)),

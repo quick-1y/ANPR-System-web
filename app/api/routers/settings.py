@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends
 
 from app.api.container import AppContainer
-from app.api.deps import get_container
+from app.api.deps import get_container, require_role
 from app.api.schemas import GlobalSettingsPayload
 from anpr.postprocessing.country_config import CountryConfigLoader
 from common.logging import configure_logging, get_logger
@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/api/countries")
-def get_available_countries(container: AppContainer = Depends(get_container)) -> List[Dict[str, str]]:
+def get_available_countries(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> List[Dict[str, str]]:
     plates = container.settings.get_plate_settings()
     config_dir = str(plates.get("config_dir") or "anpr/countries")
     loader = CountryConfigLoader(os.path.abspath(config_dir))
@@ -24,7 +24,7 @@ def get_available_countries(container: AppContainer = Depends(get_container)) ->
 
 
 @router.get("/api/settings")
-def get_global_settings(container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def get_global_settings(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
     return {
         "grid": container.settings.get_grid(),
         "theme": container.settings.get_theme(),
@@ -39,7 +39,7 @@ def get_global_settings(container: AppContainer = Depends(get_container)) -> Dic
 
 
 @router.put("/api/settings")
-def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
+def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
     import copy
 
     old_plates = container.settings.get_plate_settings()

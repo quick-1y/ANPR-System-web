@@ -1,12 +1,16 @@
 // Global application state — shared across all modules
 export const state = {
   channels: [],
+  zones: [],
   lists: [],
   selectedListId: null,
+  allClients: [],
+  selectedClientId: null,
   allEvents: [],
   lastPlatesByChannelId: {},
   plateLookup: {},
-  currentEntries: [],
+  listMembers: [],
+  currentUser: null,  // { id, login, role, permissions: [...] }
 };
 
 // Mutable singletons shared across modules
@@ -33,3 +37,12 @@ export function setOverlayRefreshTimer(v) { overlayRefreshTimer = v; }
 export function setEventFeedResizeObserver(v) { eventFeedResizeObserver = v; }
 export function setEventFeedRenderScheduled(v) { eventFeedRenderScheduled = v; }
 export function setEventFeedRenderFrame(v) { eventFeedRenderFrame = v; }
+
+// Current user helpers
+export function setCurrentUser(user) { state.currentUser = user; }
+export function isSuperAdmin() { return state.currentUser?.role === "superadmin"; }
+export function hasPermission(key) {
+  if (!state.currentUser) return false;
+  if (isSuperAdmin()) return true;
+  return Array.isArray(state.currentUser.permissions) && state.currentUser.permissions.includes(key);
+}

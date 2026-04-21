@@ -1,6 +1,6 @@
 // Event feed, event streaming, event details modal
 import { state, eventFeedRenderScheduled, eventFeedRenderFrame, setEventFeedRenderScheduled, setEventFeedRenderFrame, setEventFeedResizeObserver } from './state.js';
-import { api, jfetch } from './api.js';
+import { api, apiUrl, jfetch } from './api.js';
 import { getActiveTabName, formatDirection, flagHtml, normalizePlate, openModal, closeModal } from './ui.js';
 import { updateChannelLastPlate } from './channels.js';
 import { journalState, makeJournalRow } from './journal.js';
@@ -51,7 +51,7 @@ function applyLastPlate(ev) {
   const payload = {
     plate: ev.plate || "",
     plate_display: ev.plate_display || null,
-    timestamp: ev.timestamp || null,
+    time: ev.time || null,
     country: ev.country || null,
     confidence: ev.confidence ?? null,
     direction: ev.direction || null,
@@ -78,9 +78,10 @@ export function renderEventFeed(forceRebuild = false) {
   function makeItem(item, isNew) {
     const conf = Number(item.confidence || 0);
     const direction = formatDirection(item.direction);
-    const key = String(item.id ?? item.timestamp ?? "");
-    const channelName = item.channel || `CAM-${item.channel_id || ""}`;
-    const timeStr = new Date(item.timestamp || Date.now()).toLocaleTimeString();
+    const key = String(item.id ?? item.time ?? "");
+    const chObj = state.channels.find((c) => Number(c.id) === Number(item.channel_id));
+    const channelName = chObj ? chObj.name : (item.channel || `CAM-${item.channel_id || ""}`);
+    const timeStr = new Date(item.time || Date.now()).toLocaleTimeString();
     const div = document.createElement("div");
     const normalizedPlate = normalizePlate(item.plate);
     const listType = state.plateLookup[normalizedPlate];
@@ -93,7 +94,35 @@ export function renderEventFeed(forceRebuild = false) {
     div.setAttribute("role", "button");
     div.setAttribute("tabindex", "0");
     const displayPlate = item.plate_display || item.plate || "—";
-    div.innerHTML = `${flagHtml(item.country)}<div class='ev-row-top'><span class='ev-plate'>${displayPlate}</span><span class='ev-direction badge ${direction.badgeClass}'>${direction.label}</span></div><div class='ev-row-bottom'><span class='ev-meta-channel'>${channelName}</span><span class='ev-meta-time'>${timeStr}</span><span class='ev-conf ${conf < 0.85 ? "warn" : ""}'>${conf.toFixed(2)}</span></div>`;
+    const flagContainer = document.createElement('span');
+    flagContainer.innerHTML = flagHtml(item.country);
+    div.appendChild(flagContainer);
+    const rowTop = document.createElement('div');
+    rowTop.className = 'ev-row-top';
+    const plateSpan = document.createElement('span');
+    plateSpan.className = 'ev-plate';
+    plateSpan.textContent = displayPlate;
+    const dirSpan = document.createElement('span');
+    dirSpan.className = `ev-direction badge ${direction.badgeClass}`;
+    dirSpan.textContent = direction.label;
+    rowTop.appendChild(plateSpan);
+    rowTop.appendChild(dirSpan);
+    const rowBottom = document.createElement('div');
+    rowBottom.className = 'ev-row-bottom';
+    const chanSpan = document.createElement('span');
+    chanSpan.className = 'ev-meta-channel';
+    chanSpan.textContent = channelName;
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'ev-meta-time';
+    timeSpan.textContent = timeStr;
+    const confSpan = document.createElement('span');
+    confSpan.className = `ev-conf${conf < 0.85 ? ' warn' : ''}`;
+    confSpan.textContent = conf.toFixed(2);
+    rowBottom.appendChild(chanSpan);
+    rowBottom.appendChild(timeSpan);
+    rowBottom.appendChild(confSpan);
+    div.appendChild(rowTop);
+    div.appendChild(rowBottom);
     div.onclick = () => openEventDetails(item);
     div.onkeydown = (e) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEventDetails(item); }
@@ -123,7 +152,7 @@ export function renderEventFeed(forceRebuild = false) {
 
   const newItems = [];
   for (const ev of events) {
-    const key = String(ev.id ?? ev.timestamp ?? "");
+    const key = String(ev.id ?? ev.time ?? "");
     if (existingKeys.has(key)) break;
     newItems.push(ev);
   }
@@ -161,7 +190,7 @@ export async function loadEventFeedHistory() {
 
 // --- Event details modal ---
 export function closeEventModal() {
-  document.getElementById("eventModal").classList.remove("active");
+  closeModal("eventModal");
 }
 
 function setModalImage(id, url) {
@@ -174,6 +203,18 @@ function setModalImage(id, url) {
   img.src = url;
 }
 
+function _makeMetaRow(label, value) {
+  const row = document.createElement('div');
+  row.className = 'event-meta-row';
+  const labelEl = document.createElement('span');
+  labelEl.textContent = label;
+  const valueEl = document.createElement('b');
+  valueEl.textContent = value;
+  row.appendChild(labelEl);
+  row.appendChild(valueEl);
+  return row;
+}
+
 export async function openEventDetails(ev) {
   const id = Number(ev.id || 0);
   let payload = ev;
@@ -184,52 +225,66 @@ export async function openEventDetails(ev) {
       payload = ev;
     }
   }
-  const ts = payload.timestamp
-    ? new Date(payload.timestamp).toLocaleString()
+  const ts = payload.time
+    ? new Date(payload.time).toLocaleString()
     : "—";
+  const chObj = state.channels.find((c) => Number(c.id) === Number(payload.channel_id));
+  const channelName = chObj ? chObj.name : (payload.channel || `CAM-${payload.channel_id || ""}`);
   const rows = [
     ["Дата/время", ts],
-    ["Канал", payload.channel || `CAM-${payload.channel_id || ""}`],
+    ["Канал", channelName],
     ["Страна", payload.country || "—"],
     ["Гос. номер", payload.plate_display || payload.plate || "—"],
     ["Уверенность", Number(payload.confidence || 0).toFixed(2)],
     ["Направление", formatDirection(payload.direction).plain],
     ["Источник", payload.source || "—"],
   ];
-
-  let listHtml = "";
-  const plate = payload.plate;
-  if (plate) {
-    try {
-      const entry = await jfetch(api(`/api/lists/entry-by-plate?plate=${encodeURIComponent(plate)}`));
-      if (entry) {
-        let info = {};
-        try { info = JSON.parse(entry.comment || "{}"); } catch (_e) {}
-        const typeLabels = { white: "Белый список", info: "Информационный список", black: "Черный список" };
-        const listRows = [
-          ["Список", `${entry.list_name}\u2002·\u2002${typeLabels[entry.list_type] || entry.list_type}`],
-          ["Имя", info.first_name || "—"],
-          ["Фамилия", info.last_name || "—"],
-          ["Отчество", info.patronymic || "—"],
-          ["Телефон", info.phone || "—"],
-          ["Марка авто", info.car_make || "—"],
-        ];
-        listHtml = `<div class="event-meta-divider">Данные из списка</div>` +
-          listRows.map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("");
-      }
-    } catch (_e) {}
+  if (payload.zone_id !== null && payload.zone_id !== undefined) {
+    const zid = Number(payload.zone_id);
+    let zoneName;
+    if (zid === 0) {
+      zoneName = "Вне парковки";
+    } else if (zid > 0) {
+      const zoneObj = state.zones.find((z) => Number(z.id) === zid);
+      zoneName = zoneObj ? zoneObj.name : String(zid);
+    }
+    if (zoneName !== undefined) {
+      rows.push(["Зона", zoneName]);
+      if (payload.time_entry) rows.push(["Въезд", new Date(payload.time_entry).toLocaleString()]);
+      if (payload.time_exit) rows.push(["Выезд", new Date(payload.time_exit).toLocaleString()]);
+    }
   }
 
   const meta = document.getElementById("eventMeta");
-  meta.innerHTML = rows
-    .map((r) => `<div class="event-meta-row"><span>${r[0]}</span><b>${r[1]}</b></div>`)
-    .join("") + listHtml;
+  meta.innerHTML = "";
+  rows.forEach(([label, value]) => meta.appendChild(_makeMetaRow(label, value)));
+
+  const entry = payload.client_id
+    ? await jfetch(api(`/api/clients/${payload.client_id}`)).catch(() => null)
+    : null;
+  if (entry) {
+    const typeLabels = { white: "Белый список", info: "Информационный список", black: "Черный список" };
+    const divider = document.createElement('div');
+    divider.className = 'event-meta-divider';
+    divider.textContent = 'Данные из списка';
+    meta.appendChild(divider);
+    const listRows = [
+      ["Список", `${entry.list_name || "—"}\u2002·\u2002${typeLabels[entry.list_type] || entry.list_type || "—"}`],
+      ["Имя", entry.first_name || "—"],
+      ["Фамилия", entry.last_name || "—"],
+      ["Отчество", entry.middle_name || "—"],
+      ["Телефон", entry.phone || "—"],
+      ["Марка авто", entry.car || "—"],
+      ["Комментарий", entry.comment || "—"],
+    ];
+    listRows.forEach(([label, value]) => meta.appendChild(_makeMetaRow(label, value)));
+  }
   if (id > 0) {
-    setModalImage("eventFrameImg", api(`/api/events/item/${id}/media/frame`));
-    setModalImage("eventPlateImg", api(`/api/events/item/${id}/media/plate`));
+    setModalImage("eventFrameImg", apiUrl(`/api/events/item/${id}/media/frame`));
+    setModalImage("eventPlateImg", apiUrl(`/api/events/item/${id}/media/plate`));
   } else {
     setModalImage("eventFrameImg", null);
     setModalImage("eventPlateImg", null);
   }
-  document.getElementById("eventModal").classList.add("active");
+  openModal("eventModal");
 }
