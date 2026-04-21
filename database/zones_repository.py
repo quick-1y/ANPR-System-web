@@ -80,14 +80,23 @@ class ZoneDatabase(PooledDatabase):
             raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
 
     def delete_zone(self, zone_id: int) -> bool:
-        """Delete zone and cascade: clear zone_id/zone_channel_type on affected channels."""
+        """Delete zone and cascade: clear zone movement bindings on affected channels."""
         self._ensure_schema()
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "UPDATE channels SET zone_id = NULL, zone_channel_type = NULL WHERE zone_id = %s",
-                        (int(zone_id),),
+                        (
+                            "UPDATE channels "
+                            "SET zone_before_id = CASE WHEN zone_before_id = %s THEN NULL ELSE zone_before_id END, "
+                            "zone_after_id = CASE WHEN zone_after_id = %s THEN NULL ELSE zone_after_id END, "
+                            "channel_type = CASE "
+                            "  WHEN (CASE WHEN zone_before_id = %s THEN NULL ELSE zone_before_id END) IS NULL "
+                            "    OR (CASE WHEN zone_after_id = %s THEN NULL ELSE zone_after_id END) IS NULL "
+                            "  THEN NULL ELSE channel_type END "
+                            "WHERE zone_before_id = %s OR zone_after_id = %s"
+                        ),
+                        (int(zone_id), int(zone_id), int(zone_id), int(zone_id), int(zone_id), int(zone_id)),
                     )
                     cur.execute(
                         "DELETE FROM zones WHERE id = %s",
@@ -107,8 +116,8 @@ class ZoneDatabase(PooledDatabase):
             with self._connect() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "SELECT id, name FROM channels WHERE zone_id = %s ORDER BY id",
-                        (int(zone_id),),
+                        "SELECT id, name FROM channels WHERE zone_before_id = %s OR zone_after_id = %s ORDER BY id",
+                        (int(zone_id), int(zone_id)),
                     )
                     return [{"id": row[0], "name": row[1]} for row in cur.fetchall()]
         except StorageUnavailableError:

@@ -14,7 +14,7 @@ _SELECT_COLS = (
     "motion_threshold, motion_frame_stride, motion_activation_frames, motion_release_frames, "
     "size_filter_enabled, min_plate_size, max_plate_size, "
     "controller_id, controller_relay, controller_direction_filter, list_filter_mode, list_filter_list_ids, "
-    "zone_id, zone_channel_type"
+    "zone_before_id, zone_after_id, channel_type"
 )
 
 
@@ -59,8 +59,9 @@ def _row_to_dict(row: Any) -> Dict[str, Any]:
         "controller_direction_filter": row[25],
         "list_filter_mode": row[26],
         "list_filter_list_ids": _load_json(row[27], []),
-        "zone_id": row[28],
-        "zone_channel_type": row[29],
+        "zone_before_id": row[28],
+        "zone_after_id": row[29],
+        "channel_type": row[30],
     }
 
 
@@ -125,24 +126,27 @@ def _normalize(data: Dict[str, Any]) -> Dict[str, Any]:
             ids.append(v)
     result["list_filter_list_ids"] = ids
 
-    zone_id = result.get("zone_id")
-    if zone_id in (None, 0, "", "0"):
-        zone_id = None
-    else:
+    def _normalize_zone_ref(value: Any) -> Optional[int]:
+        if value in (None, "", "none"):
+            return None
         try:
-            zone_id = int(zone_id)
-            if zone_id <= 0:
-                zone_id = None
+            zone_ref = int(value)
         except (TypeError, ValueError):
-            zone_id = None
-    result["zone_id"] = zone_id
+            return None
+        if zone_ref < 0:
+            return None
+        return zone_ref
 
-    zone_type = str(result.get("zone_channel_type") or "").strip().lower()
-    if zone_type not in ("entry", "exit"):
-        zone_type = None
-    if zone_id is None:
-        zone_type = None
-    result["zone_channel_type"] = zone_type
+    result["zone_before_id"] = _normalize_zone_ref(result.get("zone_before_id"))
+    result["zone_after_id"] = _normalize_zone_ref(result.get("zone_after_id"))
+
+    channel_type = str(result.get("channel_type") or "").strip().lower()
+    if channel_type not in ("entry", "exit"):
+        channel_type = None
+    if channel_type is None:
+        result["zone_before_id"] = None
+        result["zone_after_id"] = None
+    result["channel_type"] = channel_type
 
     return result
 
@@ -180,8 +184,9 @@ CREATE TABLE IF NOT EXISTS channels (
     controller_direction_filter TEXT NOT NULL DEFAULT 'both',
     list_filter_mode TEXT NOT NULL DEFAULT 'all',
     list_filter_list_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
-    zone_id INTEGER,
-    zone_channel_type TEXT
+    zone_before_id INTEGER,
+    zone_after_id INTEGER,
+    channel_type TEXT
 );
 """
 
@@ -230,7 +235,7 @@ CREATE TABLE IF NOT EXISTS channels (
                             motion_release_frames, size_filter_enabled, min_plate_size, max_plate_size,
                             controller_id, controller_relay, controller_direction_filter,
                             list_filter_mode, list_filter_list_ids,
-                            zone_id, zone_channel_type
+                            zone_before_id, zone_after_id, channel_type
                         ) VALUES (
                             %s, %s, %s, %s, %s::jsonb,
                             %s, %s, %s, %s,
@@ -259,7 +264,7 @@ CREATE TABLE IF NOT EXISTS channels (
                             d["controller_id"], d["controller_relay"],
                             d["controller_direction_filter"],
                             d["list_filter_mode"], json.dumps(d["list_filter_list_ids"]),
-                            d["zone_id"], d["zone_channel_type"],
+                            d["zone_before_id"], d["zone_after_id"], d["channel_type"],
                         ),
                     )
                     row = cur.fetchone()
@@ -294,7 +299,7 @@ CREATE TABLE IF NOT EXISTS channels (
                             min_plate_size=%s::jsonb, max_plate_size=%s::jsonb,
                             controller_id=%s, controller_relay=%s, controller_direction_filter=%s,
                             list_filter_mode=%s, list_filter_list_ids=%s::jsonb,
-                            zone_id=%s, zone_channel_type=%s
+                            zone_before_id=%s, zone_after_id=%s, channel_type=%s
                         WHERE id=%s
                         RETURNING {_SELECT_COLS}
                         """,
@@ -313,7 +318,7 @@ CREATE TABLE IF NOT EXISTS channels (
                             d["controller_id"], d["controller_relay"],
                             d["controller_direction_filter"],
                             d["list_filter_mode"], json.dumps(d["list_filter_list_ids"]),
-                            d["zone_id"], d["zone_channel_type"],
+                            d["zone_before_id"], d["zone_after_id"], d["channel_type"],
                             int(channel_id),
                         ),
                     )

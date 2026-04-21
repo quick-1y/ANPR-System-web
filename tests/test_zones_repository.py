@@ -206,18 +206,19 @@ class TestDeleteZone:
         assert len(calls) == 2
         # First call: clear channels
         assert "UPDATE channels" in calls[0]
-        assert "zone_id = NULL" in calls[0]
-        assert "zone_channel_type = NULL" in calls[0]
+        assert "zone_before_id" in calls[0]
+        assert "zone_after_id" in calls[0]
+        assert "channel_type" in calls[0]
         # Second call: delete zone
         assert "DELETE FROM zones" in calls[1]
 
-    def test_cascade_filters_channels_by_zone_id(self):
+    def test_cascade_filters_channels_by_zone_refs(self):
         db = _make_db()
         conn, cursor = _mock_conn(rowcount=1)
         with patch.object(db, "_connect", return_value=conn):
             db.delete_zone(5)
         first_call_params = cursor.execute.call_args_list[0][0][1]
-        assert first_call_params == (5,)
+        assert first_call_params == (5, 5, 5, 5, 5, 5)
 
     def test_commits_single_transaction(self):
         db = _make_db()
@@ -252,8 +253,8 @@ class TestGetChannelsForZone:
         with patch.object(db, "_connect", return_value=conn):
             db.get_channels_for_zone(7)
         sql, params = cursor.execute.call_args[0]
-        assert "WHERE zone_id = %s" in sql
-        assert params == (7,)
+        assert "zone_before_id = %s OR zone_after_id = %s" in sql
+        assert params == (7, 7)
 
 
 # ---------------------------------------------------------------------------

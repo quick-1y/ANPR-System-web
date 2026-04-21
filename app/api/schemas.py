@@ -131,8 +131,9 @@ class ChannelConfigPayload(BaseModel):
     preview_fps_limit: int = Field(default=5, ge=1, le=30)
     roi_enabled: bool = True
     region: ROIRegionPayload = Field(default_factory=ROIRegionPayload)
-    zone_id: Optional[int] = None
-    zone_channel_type: Optional[str] = Field(default=None, pattern="^(entry|exit)$")
+    zone_before_id: Optional[int] = Field(default=None, ge=0)
+    zone_after_id: Optional[int] = Field(default=None, ge=0)
+    channel_type: Optional[str] = Field(default=None, pattern="^(entry|exit)$")
 
     @field_validator("controller_id")
     @classmethod
@@ -144,9 +145,10 @@ class ChannelConfigPayload(BaseModel):
         return int(value)
 
     @model_validator(mode="after")
-    def clear_zone_type_when_no_zone(self) -> "ChannelConfigPayload":
-        if self.zone_id is None:
-            self.zone_channel_type = None
+    def clear_zone_fields_when_no_channel_type(self) -> "ChannelConfigPayload":
+        if self.channel_type is None:
+            self.zone_before_id = None
+            self.zone_after_id = None
         return self
 
 

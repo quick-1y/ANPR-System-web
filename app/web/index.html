@@ -698,20 +698,28 @@
                       <div class="s-row-label"></div>
                       <div class="roi-hint" style="margin-top:0">Черный список применяется всегда автоматически.</div>
                     </div>
-                    <div class="s-card-header" style="margin-top:8px;margin-bottom:4px">Зона</div>
+                    <div class="s-card-header" style="margin-top:8px;margin-bottom:4px">Перемещение по зонам</div>
                     <div class="s-row">
                       <div class="s-row-label">
-                        <div class="s-row-name">Зона</div>
+                        <div class="s-row-name">Зона до</div>
                       </div>
-                      <select class="input input--md s-input input--select" id="c_zone_id">
-                        <option value="">Без зоны</option>
+                      <select class="input input--md s-input input--select" id="c_zone_before_id">
+                        <option value="">Не выбрано</option>
+                      </select>
+                    </div>
+                    <div class="s-row">
+                      <div class="s-row-label">
+                        <div class="s-row-name">Зона после</div>
+                      </div>
+                      <select class="input input--md s-input input--select" id="c_zone_after_id">
+                        <option value="">Не выбрано</option>
                       </select>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
                         <div class="s-row-name">Тип канала</div>
                       </div>
-                      <select class="input input--md s-input input--select" id="c_zone_channel_type" disabled>
+                      <select class="input input--md s-input input--select" id="c_channel_type" disabled>
                         <option value="">—</option>
                         <option value="entry">Въезд</option>
                         <option value="exit">Выезд</option>

@@ -239,9 +239,15 @@ export async function openEventDetails(ev) {
     ["Направление", formatDirection(payload.direction).plain],
     ["Источник", payload.source || "—"],
   ];
-  if (Number(payload.zone_id) > 0) {
-    const zoneObj = state.zones.find((z) => Number(z.id) === Number(payload.zone_id));
-    const zoneName = zoneObj ? zoneObj.name : String(payload.zone_id);
+  if (payload.zone_id !== null && payload.zone_id !== undefined) {
+    const zoneId = Number(payload.zone_id);
+    let zoneName = String(payload.zone_id);
+    if (zoneId === 0) {
+      zoneName = "Outside Parking";
+    } else if (zoneId > 0) {
+      const zoneObj = state.zones.find((z) => Number(z.id) === zoneId);
+      zoneName = zoneObj ? zoneObj.name : String(payload.zone_id);
+    }
     rows.push(["Зона", zoneName]);
     if (payload.time_entry) rows.push(["Въезд", new Date(payload.time_entry).toLocaleString()]);
     if (payload.time_exit) rows.push(["Выезд", new Date(payload.time_exit).toLocaleString()]);

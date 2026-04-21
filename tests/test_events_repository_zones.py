@@ -175,30 +175,30 @@ class TestFindActiveEntryAndWriteExit:
         db = _make_db()
         conn, cursor = _mock_conn(fetchone=(77,))
         with patch.object(db, "_connect", return_value=conn):
-            result = db.find_active_entry_and_write_exit("A123BC", 2, "2024-06-01T11:00:00Z")
+            result = db.find_active_entry_and_write_exit("A123BC", 2, 0, "2024-06-01T11:00:00Z")
         assert result == 77
 
     def test_returns_none_when_no_open_entry(self):
         db = _make_db()
         conn, cursor = _mock_conn(fetchone=None)
         with patch.object(db, "_connect", return_value=conn):
-            result = db.find_active_entry_and_write_exit("ZZZZZZ", 1, "2024-06-01T11:00:00Z")
+            result = db.find_active_entry_and_write_exit("ZZZZZZ", 1, 0, "2024-06-01T11:00:00Z")
         assert result is None
 
-    def test_sql_sets_time_exit_and_zone_id_zero(self):
+    def test_sql_sets_time_exit_and_zone_id_from_channel_movement(self):
         db = _make_db()
         conn, cursor = _mock_conn(fetchone=(5,))
         with patch.object(db, "_connect", return_value=conn):
-            db.find_active_entry_and_write_exit("A123BC", 3, "2024-06-01T15:00:00Z")
+            db.find_active_entry_and_write_exit("A123BC", 3, 0, "2024-06-01T15:00:00Z")
         sql = cursor.execute.call_args[0][0]
         assert "time_exit = %s" in sql
-        assert "zone_id = 0" in sql
+        assert "zone_id = %s" in sql
 
     def test_sql_subquery_filters_plate_zone_and_open(self):
         db = _make_db()
         conn, cursor = _mock_conn(fetchone=(5,))
         with patch.object(db, "_connect", return_value=conn):
-            db.find_active_entry_and_write_exit("B456DE", 4, "2024-06-01T15:00:00Z")
+            db.find_active_entry_and_write_exit("B456DE", 4, 0, "2024-06-01T15:00:00Z")
         sql = cursor.execute.call_args[0][0]
         assert "plate = %s" in sql
         assert "zone_id = %s" in sql
@@ -206,19 +206,19 @@ class TestFindActiveEntryAndWriteExit:
         assert "ORDER BY time DESC" in sql
         assert "LIMIT 1" in sql
 
-    def test_params_order_time_exit_plate_zone_id(self):
+    def test_params_order_time_exit_zone_after_plate_zone_before(self):
         db = _make_db()
         conn, cursor = _mock_conn(fetchone=(1,))
         with patch.object(db, "_connect", return_value=conn):
-            db.find_active_entry_and_write_exit("C789FG", 7, "2024-06-02T08:00:00Z")
+            db.find_active_entry_and_write_exit("C789FG", 7, 9, "2024-06-02T08:00:00Z")
         _, params = cursor.execute.call_args[0]
-        assert params == ("2024-06-02T08:00:00Z", "C789FG", 7)
+        assert params == ("2024-06-02T08:00:00Z", 9, "C789FG", 7)
 
     def test_commits_after_update(self):
         db = _make_db()
         conn, cursor = _mock_conn(fetchone=(3,))
         with patch.object(db, "_connect", return_value=conn):
-            db.find_active_entry_and_write_exit("A1", 1, "2024-01-01T00:00:00Z")
+            db.find_active_entry_and_write_exit("A1", 1, 0, "2024-01-01T00:00:00Z")
         conn.commit.assert_called_once()
 
 

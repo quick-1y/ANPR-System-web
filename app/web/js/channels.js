@@ -430,11 +430,11 @@ export function updateCustomListsVisibility() {
   hint.style.display = isCustom ? "flex" : "none";
 }
 
-function renderChannelZoneOptions(zones, selectedZoneId) {
-  const select = document.getElementById("c_zone_id");
+function renderChannelZoneOptions(zones, selectId, selectedZoneId) {
+  const select = document.getElementById(selectId);
   if (!select) return;
   const current = String(selectedZoneId ?? "");
-  select.innerHTML = '<option value="">Без зоны</option>';
+  select.innerHTML = '<option value="">Не выбрано</option><option value="0">Outside Parking</option>';
   (zones || []).forEach((z) => {
     const option = document.createElement("option");
     option.value = String(z.id);
@@ -447,12 +447,13 @@ function renderChannelZoneOptions(zones, selectedZoneId) {
 }
 
 export function updateZoneChannelTypeState() {
-  const zoneSelect = document.getElementById("c_zone_id");
-  const typeSelect = document.getElementById("c_zone_channel_type");
-  if (!zoneSelect || !typeSelect) return;
-  const hasZone = Boolean(zoneSelect.value);
-  typeSelect.disabled = !hasZone;
-  if (!hasZone) typeSelect.value = "";
+  const beforeSelect = document.getElementById("c_zone_before_id");
+  const afterSelect = document.getElementById("c_zone_after_id");
+  const typeSelect = document.getElementById("c_channel_type");
+  if (!beforeSelect || !afterSelect || !typeSelect) return;
+  const hasMovement = Boolean(beforeSelect.value) && Boolean(afterSelect.value);
+  typeSelect.disabled = !hasMovement;
+  if (!hasMovement) typeSelect.value = "";
 }
 
 function renderChannelControllerOptions(selectedId = "") {
@@ -529,12 +530,14 @@ export async function selectChannel(id) {
   updateCustomListsVisibility();
   try {
     const zones = await getZones();
-    renderChannelZoneOptions(zones, c.zone_id ?? "");
+    renderChannelZoneOptions(zones, "c_zone_before_id", c.zone_before_id ?? "");
+    renderChannelZoneOptions(zones, "c_zone_after_id", c.zone_after_id ?? "");
   } catch (_e) {
-    renderChannelZoneOptions([], c.zone_id ?? "");
+    renderChannelZoneOptions([], "c_zone_before_id", c.zone_before_id ?? "");
+    renderChannelZoneOptions([], "c_zone_after_id", c.zone_after_id ?? "");
   }
-  const typeEl = document.getElementById("c_zone_channel_type");
-  if (typeEl) typeEl.value = c.zone_channel_type || "";
+  const typeEl = document.getElementById("c_channel_type");
+  if (typeEl) typeEl.value = c.channel_type || "";
   updateZoneChannelTypeState();
   setVal("c_detection_mode", c.detection_mode || "motion");
   setVal("c_motion_threshold", c.motion_threshold ?? 0.01);
@@ -613,8 +616,9 @@ export async function saveChannel() {
     max_ocr_attempts: Number(val("c_max_ocr_attempts")),
     max_consecutive_empty_ocr: Number(val("c_max_consecutive_empty_ocr")),
     preview_fps_limit: Number(val("c_preview_fps_limit")),
-    zone_id: val("c_zone_id") ? Number(val("c_zone_id")) : null,
-    zone_channel_type: val("c_zone_id") ? (val("c_zone_channel_type") || null) : null,
+    zone_before_id: val("c_zone_before_id") !== "" ? Number(val("c_zone_before_id")) : null,
+    zone_after_id: val("c_zone_after_id") !== "" ? Number(val("c_zone_after_id")) : null,
+    channel_type: val("c_channel_type") || null,
     roi_enabled: document.getElementById("c_roi_enabled").checked,
     region: {
       unit: "percent",
