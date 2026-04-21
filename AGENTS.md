@@ -398,6 +398,7 @@ Don't:
 
 - PostgreSQL schema bootstrap is lazy (on first write) and idempotent (`CREATE TABLE IF NOT EXISTS`).
 - `schema.sql` is also mounted as Docker init script for fresh databases.
+- Database schema changes must be implemented directly in `database/postgres/schema.sql` and the relevant repositories. Do not create DB migration modules, legacy compatibility layers, or transitional upgrade paths for database changes — in this project context, functional development assumes a fresh database and migration code only adds unnecessary clutter.
 - Settings schema changes require version bump and migration path (see Settings Schema Versioning below).
 - Preserve backward compatibility for API responses unless the task explicitly allows a breaking change.
 
@@ -495,6 +496,7 @@ A change is not complete until:
 
 - PostgreSQL is the only supported storage backend for runtime data.
 - Do not add SQLite, dual-write, fallback storage paths, or compatibility layers.
+- Database schema evolution is direct-only for development: update `database/postgres/schema.sql` and the current repositories/services in place. Do not introduce DB migration modules, legacy schema adapters, backward-compat database shims, or dual-path support for old database structures.
 - Do not introduce a second source of truth for settings if existing settings/config already covers the case.
 - Both `PostgresEventDatabase` and `ListDatabase` use `psycopg_pool.ConnectionPool` (min=2, max=10).
 - Do not replace connection pooling with per-request connections.
