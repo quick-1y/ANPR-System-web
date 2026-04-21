@@ -537,7 +537,7 @@ The agent should pause and ask a human when:
 This repository also uses:
 
 - `CLAUDE.md` — Claude Code specific instructions (if present)
-- `README.md` — project documentation (Russian, kept up-to-date with architecture)
-- `AGENTS_old.md` — previous version of this file (historical reference only)
+- `README.md` — primary project documentation (Russian, kept up-to-date with architecture)
+- `docs/` — additional project documentation in the repository root
 
 Prefer `AGENTS.md` as the authoritative source for agent behavior.
