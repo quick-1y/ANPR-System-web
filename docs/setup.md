@@ -200,7 +200,10 @@ Docker Compose запускает четыре сервиса:
 | `users` | `id`, `login`, `password` (bcrypt), `role`, `permissions` (JSONB), `is_active`, `created_at`, `updated_at` |
 
 **Зоновые поля событий:**  
-`zone_id > 0` — ТС находится в зоне; `zone_id = 0` — ТС выехало; `zone_id IS NULL` — зона не используется. `time_entry` и `time_exit` фиксируют моменты въезда и выезда.
+`zone_id > 0` — ТС находится в зоне; `zone_id = 0` — ТС вне парковки (системный sentinel «Вне парковки»); `zone_id IS NULL` — зона не используется. `time_entry` и `time_exit` фиксируют моменты въезда и выезда. Значение `zone_id` всегда соответствует `zone_after_id` канала, обработавшего событие.
+
+**Зоновые поля каналов:**  
+`zone_before_id` — зона, в которой ТС находится до прохождения канала; `zone_after_id` — зона после прохождения; `zone_channel_type` — тип канала (`entry` / `exit` / `null`). Значение `0` в обоих полях означает «Вне парковки».
 
 **Индексы:** `(time DESC, id DESC)` по событиям; `plate_normalized` и `(list_id, plate_normalized) UNIQUE WHERE is_deleted = FALSE` по клиентам; `(zone_id) WHERE zone_id IS NOT NULL AND zone_id > 0 AND time_exit IS NULL` для подсчёта занятости зоны.
 

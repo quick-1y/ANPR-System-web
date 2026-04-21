@@ -617,7 +617,8 @@ class ChannelProcessor:
                         client_info = self._lists_db.find_client_by_plate(plate) if self._lists_db else None
                         client_id = client_info["id"] if client_info else None
                         event_ts_iso = event_ts.isoformat()
-                        zone_id_ch = channel.get("zone_id")
+                        zone_before = channel.get("zone_before_id")  # None=not configured, 0=outside, >0=zone
+                        zone_after = channel.get("zone_after_id")    # None=not configured, 0=outside, >0=zone
                         zone_type = channel.get("zone_channel_type")  # 'entry', 'exit', or None
 
                         event = {
@@ -634,7 +635,7 @@ class ChannelProcessor:
                             "client_id": client_id,
                         }
 
-                        if zone_id_ch is None or zone_type is None:
+                        if zone_type is None or zone_before is None or zone_after is None:
                             # Branch A: no zone — current behavior unchanged
                             event_id = self._events_db.insert_event(
                                 plate=plate,
@@ -653,9 +654,9 @@ class ChannelProcessor:
                             self._event_callback(event)
 
                         elif zone_type == "entry":
-                            # Branch B: entry channel — insert with zone fields if eligible
+                            # Branch B: entry channel — insert with zone_after as zone_id if eligible
                             zone_eligible = self._resolve_zone_eligibility(channel, plate)
-                            zone_fields = {"zone_id": zone_id_ch, "time_entry": event_ts_iso} if zone_eligible else {}
+                            zone_fields = {"zone_id": zone_after, "time_entry": event_ts_iso} if zone_eligible else {}
                             event_id = self._events_db.insert_event(
                                 plate=plate,
                                 channel_id=channel_id,
@@ -675,7 +676,7 @@ class ChannelProcessor:
                             self._event_callback(event)
 
                         else:
-                            # Branch C: exit channel — update existing entry, do NOT insert
+                            # Branch C: exit channel — find event by zone_before, write zone_after
                             zone_eligible = self._resolve_zone_eligibility(channel, plate)
                             relay_event = {
                                 "time": event_ts_iso,
@@ -687,7 +688,7 @@ class ChannelProcessor:
                             }
                             if zone_eligible:
                                 updated_id = self._events_db.find_active_entry_and_write_exit(
-                                    plate, zone_id_ch, event_ts_iso
+                                    plate, zone_before, zone_after, event_ts_iso
                                 )
                                 if updated_id:
                                     relay_event["id"] = updated_id

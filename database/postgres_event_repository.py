@@ -95,12 +95,13 @@ class PostgresEventDatabase(PooledDatabase):
     def find_active_entry_and_write_exit(
         self,
         plate: str,
-        zone_id: int,
+        zone_before_id: int,
+        zone_after_id: int,
         time_exit_iso: str,
     ) -> Optional[int]:
         """
-        Find the most recent open entry event for `plate` in `zone_id`
-        (where time_exit IS NULL), write time_exit and set zone_id = 0.
+        Find the most recent open entry event for `plate` in `zone_before_id`
+        (where time_exit IS NULL), write time_exit and set zone_id = zone_after_id.
         Returns the updated event id, or None if no open entry found.
         """
         self._ensure_schema()
@@ -110,7 +111,7 @@ class PostgresEventDatabase(PooledDatabase):
                     cursor.execute(
                         """
                         UPDATE events
-                        SET time_exit = %s, zone_id = 0
+                        SET time_exit = %s, zone_id = %s
                         WHERE id = (
                             SELECT id FROM events
                             WHERE plate = %s
@@ -121,7 +122,7 @@ class PostgresEventDatabase(PooledDatabase):
                         )
                         RETURNING id
                         """,
-                        (time_exit_iso, plate, zone_id),
+                        (time_exit_iso, zone_after_id, plate, zone_before_id),
                     )
                     row = cursor.fetchone()
                 conn.commit()

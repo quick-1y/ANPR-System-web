@@ -74,12 +74,12 @@
 
 | Файл / директория | Ответственность |
 |---|---|
-| `database/postgres_event_repository.py` | `PostgresEventDatabase`: insert, pagination, fetch, delete, export; `find_active_entry_and_write_exit()` для зонового выезда |
-| `database/zones_repository.py` | `ZoneDatabase`: CRUD зон, запрос занятости (`get_zone_occupancy`), каскадный сброс назначений каналов при удалении зоны |
+| `database/postgres_event_repository.py` | `PostgresEventDatabase`: insert, pagination, fetch, delete, export; `find_active_entry_and_write_exit(plate, zone_before_id, zone_after_id, time_exit_iso)` — находит активное событие по `zone_before_id`, записывает `time_exit` и `zone_id = zone_after_id` |
+| `database/zones_repository.py` | `ZoneDatabase`: CRUD зон, запрос занятости (`get_zone_occupancy`); `delete_zone` — каскадно сбрасывает `zone_before_id`, `zone_after_id`, `zone_channel_type` у всех каналов, ссылающихся на зону в любом из этих полей |
 | `database/clients_repository.py` | `ClientDatabase`: CRUD клиентов, поиск, прикрепление/открепление от списка |
 | `database/lists_repository.py` | `ListDatabase`: CRUD списков, проверка вхождения номера (`plate_in_list_type`, `plate_in_lists`), обогащение событий клиентом (`find_client_by_plate` — ищет по нормализованному номеру среди всех активных клиентов, вне зависимости от наличия списка; `list_type`/`list_name` будут `None` если клиент не прикреплён к списку) |
 | `database/user_repository.py` | `UserDatabase`: CRUD пользователей, seed admin по умолчанию |
-| `database/channel_repository.py` | `ChannelDatabase`: CRUD каналов и всех их настроек; нормализация данных (region, direction, controller_id, фильтры) |
+| `database/channel_repository.py` | `ChannelDatabase`: CRUD каналов и всех их настроек; нормализация данных (region, direction, controller_id, фильтры, зоновые поля `zone_before_id` / `zone_after_id` / `zone_channel_type`); значение `0` в зоновых полях — «Вне парковки», `null` — не задано |
 | `database/controller_repository.py` | `ControllerDatabase`: CRUD аппаратных контроллеров (name, type, address, password, relays) |
 | `database/postgres/schema.sql` | SQL-схема инициализации PostgreSQL (events, users); каналы и контроллеры бутстрапятся в своих репозиториях |
 | `database/errors.py` | Ошибки слоя хранения, включая `StorageUnavailableError` |

@@ -244,8 +244,10 @@ initSidebarHover();
 initHelpSystem();
 initBackupBindings();
 initZonesTab();
-const _zoneIdEl = document.getElementById("c_zone_id");
-if (_zoneIdEl) _zoneIdEl.onchange = updateZoneChannelTypeState;
+const _zoneBeforeEl = document.getElementById("c_zone_before_id");
+const _zoneAfterEl = document.getElementById("c_zone_after_id");
+if (_zoneBeforeEl) _zoneBeforeEl.onchange = updateZoneChannelTypeState;
+if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
 
 // --- Main init ---
 (async function init() {

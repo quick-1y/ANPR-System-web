@@ -83,7 +83,7 @@
 | `POST` | `/api/zones` | Создать зону |
 | `GET` | `/api/zones/{zone_id}` | Детали зоны: name, capacity, occupancy, список привязанных каналов |
 | `PUT` | `/api/zones/{zone_id}` | Обновить название и вместимость зоны |
-| `DELETE` | `/api/zones/{zone_id}` | Удалить зону; каскадно снимает назначение zone_id/zone_channel_type у привязанных каналов |
+| `DELETE` | `/api/zones/{zone_id}` | Удалить зону; каскадно сбрасывает `zone_before_id`, `zone_after_id` и `zone_channel_type` у привязанных каналов |
 
 ### Events
 

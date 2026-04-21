@@ -75,7 +75,16 @@ export function makeJournalRow(ev) {
   const srcText = ev.source || "";
   const ch = state.channels.find((c) => Number(c.id) === Number(ev.channel_id));
   const channelName = ch ? ch.name : (ev.channel || `CAM-${ev.channel_id || ""}`);
-  const zoneCell = Number(ev.zone_id) > 0 ? String(ev.zone_id) : "";
+  let zoneCell = "";
+  if (ev.zone_id !== null && ev.zone_id !== undefined) {
+    const zid = Number(ev.zone_id);
+    if (zid === 0) {
+      zoneCell = "Вне парковки";
+    } else if (zid > 0) {
+      const zoneObj = state.zones.find((z) => Number(z.id) === zid);
+      zoneCell = zoneObj ? zoneObj.name : String(zid);
+    }
+  }
   const entryCell = ev.time_entry ? new Date(ev.time_entry).toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "";
   const exitCell = ev.time_exit ? new Date(ev.time_exit).toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "";
   tr.innerHTML = `<td class="col-time">${timeStr}</td>` +

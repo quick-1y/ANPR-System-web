@@ -239,12 +239,20 @@ export async function openEventDetails(ev) {
     ["Направление", formatDirection(payload.direction).plain],
     ["Источник", payload.source || "—"],
   ];
-  if (Number(payload.zone_id) > 0) {
-    const zoneObj = state.zones.find((z) => Number(z.id) === Number(payload.zone_id));
-    const zoneName = zoneObj ? zoneObj.name : String(payload.zone_id);
-    rows.push(["Зона", zoneName]);
-    if (payload.time_entry) rows.push(["Въезд", new Date(payload.time_entry).toLocaleString()]);
-    if (payload.time_exit) rows.push(["Выезд", new Date(payload.time_exit).toLocaleString()]);
+  if (payload.zone_id !== null && payload.zone_id !== undefined) {
+    const zid = Number(payload.zone_id);
+    let zoneName;
+    if (zid === 0) {
+      zoneName = "Вне парковки";
+    } else if (zid > 0) {
+      const zoneObj = state.zones.find((z) => Number(z.id) === zid);
+      zoneName = zoneObj ? zoneObj.name : String(zid);
+    }
+    if (zoneName !== undefined) {
+      rows.push(["Зона", zoneName]);
+      if (payload.time_entry) rows.push(["Въезд", new Date(payload.time_entry).toLocaleString()]);
+      if (payload.time_exit) rows.push(["Выезд", new Date(payload.time_exit).toLocaleString()]);
+    }
   }
 
   const meta = document.getElementById("eventMeta");

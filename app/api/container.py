@@ -196,12 +196,15 @@ class AppContainer:
             raise HTTPException(status_code=400, detail=f"Контроллер #{controller_id} не найден")
 
     def validate_channel_zone_binding(self, payload: Dict[str, Any]) -> None:
-        zone_id = payload.get("zone_id")
-        if zone_id is None:
+        zone_before_id = payload.get("zone_before_id")
+        zone_after_id = payload.get("zone_after_id")
+        if zone_before_id is None and zone_after_id is None:
             payload["zone_channel_type"] = None
             return
-        if not self.zone_db.get_zone(int(zone_id)):
-            raise HTTPException(status_code=400, detail=f"Зона #{zone_id} не найдена")
+        for field, zid in [("zone_before_id", zone_before_id), ("zone_after_id", zone_after_id)]:
+            if zid is not None and int(zid) != 0:
+                if not self.zone_db.get_zone(int(zid)):
+                    raise HTTPException(status_code=400, detail=f"Зона #{zid} не найдена")
 
     @staticmethod
     def validate_global_hotkeys(controllers: List[Dict[str, Any]]) -> None:
