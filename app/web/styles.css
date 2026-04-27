@@ -1552,7 +1552,6 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
 .zones-list-actions { padding: 10px; border-top: 1px solid var(--border); }
 .zones-list-actions { text-align: center; }
 .zones-list-actions .btn {
-  min-width: 170px;
   width: auto;
   margin: 0 auto;
   text-align: center;
