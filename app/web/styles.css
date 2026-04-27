@@ -1550,7 +1550,13 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
   font-family: var(--mono);
 }
 .zones-list-actions { padding: 10px; border-top: 1px solid var(--border); }
-.zones-list-actions .btn { width: 100%; }
+.zones-list-actions { text-align: center; }
+.zones-list-actions .btn {
+  min-width: 170px;
+  width: auto;
+  margin: 0 auto;
+  text-align: center;
+}
 .zones-empty {
   min-height: 240px; border: 1px dashed var(--border2); border-radius: 10px;
   color: var(--text2); display: flex; align-items: center; justify-content: center;
@@ -1563,10 +1569,6 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
 .zones-detail-title-wrap { display: flex; align-items: center; gap: 10px; }
 .zones-detail-title {
   margin: 0; font-size: 32px; line-height: 1; font-weight: 600; color: var(--text1);
-}
-.zones-detail-type {
-  border: 1px solid var(--border2); border-radius: 999px;
-  padding: 3px 10px; color: var(--text2); font-size: 12px; font-family: var(--mono);
 }
 .zones-detail-actions { display: flex; gap: 8px; }
 .zone-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
@@ -1593,16 +1595,12 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
   gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border);
 }
 .zone-linked-row:last-child { border-bottom: 0; }
+.zone-channel-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .zone-linked-name { color: var(--text1); font-weight: 600; }
-.zone-linked-meta { color: var(--text2); font-size: 12px; font-family: var(--mono); }
-.zone-linked-badges { display: flex; align-items: center; gap: 8px; }
 .zone-badge {
   border-radius: 999px; padding: 2px 9px; font-size: 10px; text-transform: uppercase;
   font-family: var(--mono); letter-spacing: 0.08em; border: 1px solid var(--border2); color: var(--text2);
 }
 .zone-badge.zone-badge-enter { color: var(--success); border-color: var(--success); background: var(--success-glow); }
 .zone-badge.zone-badge-exit { color: var(--accent2); border-color: var(--accent2); background: var(--accent-glow); }
-.zone-live-dot {
-  width: 7px; height: 7px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 6px;
-}
 .modal-note { color: var(--text2); font-size: 12px; }

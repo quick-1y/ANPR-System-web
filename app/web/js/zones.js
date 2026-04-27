@@ -49,11 +49,10 @@ function renderZoneList(zones) {
 
     const meta = document.createElement('div');
     meta.className = 'zone-card-meta';
-    const type = _zoneType(z.capacity);
     if (z.capacity > 0) {
-      meta.textContent = `${type}  ${z.occupied} / ${z.capacity}`;
+      meta.textContent = `${z.occupied} / ${z.capacity}`;
     } else {
-      meta.textContent = `${type}  Без лимита`;
+      meta.textContent = 'Без лимита';
     }
 
     const bar = document.createElement('div');
@@ -97,7 +96,6 @@ async function renderZoneDetail() {
   const today = occupied;
 
   _setText('zoneDetailTitle', detail.name || '—');
-  _setText('zoneDetailType', _zoneType(cap));
   _setText('zoneStatOccupied', `${occupied}${cap > 0 ? ` / ${cap}` : ''}`);
   _setText('zoneStatOccupiedSub', cap > 0 ? `${Math.max(0, occupied - free)} за час` : 'контроль');
   _setText('zoneStatFree', `${free}`);
@@ -119,28 +117,24 @@ async function renderZoneDetail() {
         row.className = 'zone-linked-row';
 
         const left = document.createElement('div');
+        left.className = 'zone-channel-main';
+
+        const dir = document.createElement('span');
+        dir.className = `zone-badge ${_channelDirectionClass(channel.id, detail.id, idx)}`;
+        dir.textContent = _channelDirectionLabel(channel.id, detail.id, idx);
+
+        const dot = document.createElement('span');
+        dot.className = `ch-item-dot ${_channelIsOnline(channel.id) ? '' : 'off'}`.trim();
+
         const name = document.createElement('div');
         name.className = 'zone-linked-name';
         name.textContent = channel.name || `Канал ${channel.id}`;
-        const meta = document.createElement('div');
-        meta.className = 'zone-linked-meta';
-        meta.textContent = `cam-${String(channel.id).padStart(2, '0')}`;
-        left.appendChild(name);
-        left.appendChild(meta);
 
-        const badges = document.createElement('div');
-        badges.className = 'zone-linked-badges';
-        const dir = document.createElement('span');
-        dir.className = `zone-badge ${idx % 2 ? 'zone-badge-exit' : 'zone-badge-enter'}`;
-        dir.textContent = idx % 2 ? 'выезд' : 'въезд';
-        const live = document.createElement('span');
-        live.className = 'zone-badge';
-        live.innerHTML = '<span class="zone-live-dot"></span>live';
-        badges.appendChild(dir);
-        badges.appendChild(live);
+        left.appendChild(dir);
+        left.appendChild(dot);
+        left.appendChild(name);
 
         row.appendChild(left);
-        row.appendChild(badges);
         channelsList.appendChild(row);
       });
     }
@@ -288,10 +282,6 @@ function _setText(id, value) {
   if (el) el.textContent = value;
 }
 
-function _zoneType(capacity) {
-  return Number(capacity) > 0 ? 'Стоянка' : 'Контроль';
-}
-
 function _percent(occupied, capacity) {
   if (!capacity || capacity <= 0) return 0;
   return Math.max(0, Math.min(100, Math.round((occupied / capacity) * 100)));
@@ -306,4 +296,24 @@ function _loadClass(occupied, capacity) {
 
 function _esc(str) {
   return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function _channelDirectionLabel(channelId, zoneId, fallbackIdx) {
+  const channel = state.channels.find((ch) => Number(ch.id) === Number(channelId));
+  if (channel) {
+    if (Number(channel.zone_before_id) === Number(zoneId)) return 'выезд';
+    if (Number(channel.zone_after_id) === Number(zoneId)) return 'въезд';
+  }
+  return fallbackIdx % 2 ? 'выезд' : 'въезд';
+}
+
+function _channelDirectionClass(channelId, zoneId, fallbackIdx) {
+  return _channelDirectionLabel(channelId, zoneId, fallbackIdx) === 'въезд'
+    ? 'zone-badge-enter'
+    : 'zone-badge-exit';
+}
+
+function _channelIsOnline(channelId) {
+  const channel = state.channels.find((ch) => Number(ch.id) === Number(channelId));
+  return Boolean(channel?.running || channel?.enabled);
 }
