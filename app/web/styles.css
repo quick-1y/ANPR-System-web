@@ -1505,12 +1505,11 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
 #tab-zones { flex-direction: row; gap: 0; overflow: hidden; }
 .zones-layout {
   display: flex; flex: 1; min-height: 0; overflow: hidden; gap: 0;
-  background: #070f24;
 }
 .zones-list-col {
   width: 330px; flex-shrink: 0; display: flex; flex-direction: column;
   min-height: 0; border-right: 1px solid var(--border);
-  background: #030d24;
+  background: var(--surface);
 }
 .zones-list-col #zonesList {
   flex: 1; overflow-y: auto; padding: 10px;
@@ -1518,18 +1517,19 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
 }
 .zones-settings-col {
   flex: 1; min-width: 0; display: flex; flex-direction: column;
-  min-height: 0; overflow-y: auto; background: #0a1835;
+  min-height: 0; overflow-y: auto; background: var(--bg);
   padding: 14px; gap: 12px;
 }
 .zones-settings-col.hidden { display: none; }
 .zone-card {
-  background: #0f1d3a; border: 1px solid #223964;
+  background: var(--card); border: 1px solid #223964;
   border-radius: 8px; padding: 12px;
   display: flex; flex-direction: column; gap: 4px;
   cursor: pointer; transition: border-color var(--t), background var(--t);
 }
 .zone-card.active {
   border-color: #5d89ea;
+  background: var(--accent-glow);
   box-shadow: 0 0 0 1px rgba(93, 137, 234, 0.25) inset;
 }
 .zone-card-name { font-size: 24px; font-weight: 600; color: #f4f7ff; line-height: 1.1; }
@@ -1539,10 +1539,10 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
   color: #9fb5da;
   letter-spacing: 0.03em;
 }
-.zone-card-bar { margin-top: 4px; height: 4px; border-radius: 999px; background: #1f2f53; overflow: hidden; }
-.zone-card-bar-fill { height: 100%; background: #20d37f; }
-.zone-card-bar-fill.warn { background: #f5c84c; }
-.zone-card-bar-fill.danger { background: #f45c5c; }
+.zone-card-bar { margin-top: 4px; height: 4px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.zone-card-bar-fill { height: 100%; background: var(--success); }
+.zone-card-bar-fill.warn { background: var(--accent2); }
+.zone-card-bar-fill.danger { background: var(--danger); }
 
 .zones-list-head { padding: 10px 12px 0; }
 .zones-list-title {
@@ -1571,7 +1571,7 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
 .zones-detail-actions { display: flex; gap: 8px; }
 .zone-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .zone-stat-card {
-  background: #061431; border: 1px solid #243d66; border-radius: 10px;
+  background: var(--card); border: 1px solid #243d66; border-radius: 10px;
   padding: 12px 14px; min-height: 96px;
 }
 .zone-stat-label {
@@ -1581,7 +1581,7 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
 .zone-stat-value { margin-top: 8px; font-size: 44px; line-height: 1; color: #f5f8ff; }
 .zone-stat-sub { margin-top: 8px; color: #29d183; font-size: 16px; font-weight: 600; }
 .zone-linked-wrap {
-  background: #0a1734; border: 1px solid #243d66; border-radius: 10px; padding: 12px 14px;
+  background: var(--card); border: 1px solid #243d66; border-radius: 10px; padding: 12px 14px;
 }
 .zone-linked-title {
   margin-bottom: 10px; font-family: var(--mono); letter-spacing: 0.08em;
@@ -1603,6 +1603,6 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
 .zone-badge.zone-badge-enter { color: #20d37f; border-color: #1f7753; background: rgba(32, 211, 127, 0.12); }
 .zone-badge.zone-badge-exit { color: #f5c84c; border-color: #8b6a21; background: rgba(245, 200, 76, 0.12); }
 .zone-live-dot {
-  width: 7px; height: 7px; border-radius: 50%; background: #20d37f; display: inline-block; margin-right: 6px;
+  width: 7px; height: 7px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 6px;
 }
 .modal-note { color: var(--text2); font-size: 12px; }
