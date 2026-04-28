@@ -44,6 +44,9 @@ function renderZoneList(zones) {
       await renderZoneDetail();
     };
 
+    const top = document.createElement('div');
+    top.className = 'zone-card-top';
+
     const name = document.createElement('div');
     name.className = 'zone-card-name';
     name.textContent = z.name;
@@ -63,8 +66,9 @@ function renderZoneList(zones) {
     fill.style.width = `${_percent(z.occupied, z.capacity)}%`;
     bar.appendChild(fill);
 
-    card.appendChild(name);
-    card.appendChild(meta);
+    top.appendChild(name);
+    top.appendChild(meta);
+    card.appendChild(top);
     card.appendChild(bar);
     container.appendChild(card);
   });
