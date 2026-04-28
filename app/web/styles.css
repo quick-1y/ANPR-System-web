@@ -1544,18 +1544,17 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
 .zone-card-bar-fill.warn { background: var(--accent2); }
 .zone-card-bar-fill.danger { background: var(--danger); }
 
-.zones-list-head { padding: 10px 12px 0; }
+.zones-list-head {
+  padding: 10px 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.zones-list-head-actions { display: flex; gap: 4px; }
 .zones-list-title {
   font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--text2);
   font-family: var(--mono);
-}
-.zones-list-actions { padding: 10px; border-top: 1px solid var(--border); }
-.zones-list-actions { text-align: center; }
-.zones-list-actions .btn {
-  min-width: 170px;
-  width: auto;
-  margin: 0 auto;
-  text-align: center;
 }
 .zones-empty {
   min-height: 240px; border: 1px dashed var(--border2); border-radius: 10px;

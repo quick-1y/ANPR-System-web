@@ -30,6 +30,7 @@ function renderZoneList(zones) {
     item.className = 'zone-card';
     item.textContent = 'Нет зон';
     container.appendChild(item);
+    _syncZoneActionButtons();
     return;
   }
 
@@ -67,6 +68,7 @@ function renderZoneList(zones) {
     card.appendChild(bar);
     container.appendChild(card);
   });
+  _syncZoneActionButtons();
 }
 
 async function renderZoneDetail() {
@@ -75,6 +77,7 @@ async function renderZoneDetail() {
   if (!_selectedZoneId) {
     if (empty) empty.classList.remove('hidden');
     if (detailWrap) detailWrap.classList.add('hidden');
+    _syncZoneActionButtons();
     return;
   }
 
@@ -142,8 +145,7 @@ async function renderZoneDetail() {
 
   const editBtn = document.getElementById('editZoneBtn');
   if (editBtn) editBtn.onclick = () => openZoneSettings(detail);
-  const deleteBtn = document.getElementById('deleteZoneBtn');
-  if (deleteBtn) deleteBtn.onclick = () => _confirmDeleteZone(detail.id);
+  _syncZoneActionButtons();
 }
 
 function openZoneSettings(detail) {
@@ -240,8 +242,15 @@ async function _doDeleteZone(zoneId) {
 }
 
 export function initZonesTab() {
-  const createBtn = document.getElementById('createZoneBtn');
+  const createBtn = document.getElementById('addZoneBtn');
   if (createBtn) createBtn.onclick = openCreateZoneModal;
+  const deleteBtn = document.getElementById('deleteZoneBtn');
+  if (deleteBtn) {
+    deleteBtn.onclick = () => {
+      if (!_selectedZoneId) return;
+      _confirmDeleteZone(_selectedZoneId);
+    };
+  }
 
   const modalClose = document.getElementById('createZoneModalClose');
   if (modalClose) modalClose.onclick = () => closeModal('createZoneModal');
@@ -296,6 +305,11 @@ function _loadClass(occupied, capacity) {
 
 function _esc(str) {
   return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function _syncZoneActionButtons() {
+  const deleteBtn = document.getElementById('deleteZoneBtn');
+  if (deleteBtn) deleteBtn.disabled = !_selectedZoneId;
 }
 
 function _channelDirectionLabel(channelId, zoneId, fallbackIdx) {
