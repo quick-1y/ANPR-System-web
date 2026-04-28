@@ -180,40 +180,79 @@
       <div class="tab-pane" id="tab-zones">
         <div class="zones-layout">
           <div class="zones-list-col">
-            <div class="panel-header">
-              <span>Зоны</span>
-              <button class="btn btn-primary btn-sm" id="createZoneBtn">+ Создать зону</button>
+            <div class="zones-list-head">
+              <span class="zones-list-title">Зоны</span>
+              <div class="zones-list-head-actions">
+                <button class="icon-btn-sm" id="addZoneBtn" title="Создать зону">+</button>
+                <button class="icon-btn-sm" id="deleteZoneBtn" title="Удалить зону">−</button>
+              </div>
             </div>
             <div id="zonesList"></div>
           </div>
-          <div class="zones-settings-col hidden" id="zonesSettingsPanel">
-            <div class="panel-header">
-              <span>Настройки зоны</span>
-              <button class="btn btn-ghost btn-sm" id="closeZoneSettingsBtn">✕</button>
+          <div class="zones-settings-col" id="zonesSettingsPanel">
+            <div class="zones-empty hidden" id="zoneEmptyState">
+              Выберите зону слева, чтобы посмотреть статистику и привязанные камеры.
             </div>
-            <div class="s-card">
-              <div class="s-card-body">
-                <div class="s-row">
-                  <div class="s-row-name">Название</div>
-                  <input class="input input--md s-input" id="zoneSettingName" type="text" placeholder="Название зоны" />
+            <div class="zones-detail hidden" id="zoneDetailWrap">
+              <div class="zones-detail-head">
+                <div class="zones-detail-title-wrap">
+                  <h3 class="zones-detail-title" id="zoneDetailTitle">—</h3>
                 </div>
-                <div class="s-row">
-                  <div class="s-row-name">Вместимость</div>
-                  <input class="input input--md s-input" id="zoneSettingCapacity" type="number" min="0" value="0" />
-                </div>
-                <div class="s-row">
-                  <div class="s-row-name">Занятость</div>
-                  <div id="zoneOccupancyInfo" class="s-row-value">—</div>
-                </div>
-                <div class="s-row">
-                  <div class="s-row-name">Каналы</div>
-                  <div id="zoneChannelsList"></div>
+                <div class="zones-detail-actions">
+                  <button class="btn btn-ghost btn-sm" id="editZoneBtn">Редактировать</button>
                 </div>
               </div>
+
+              <div class="zone-stat-grid">
+                <div class="zone-stat-card">
+                  <div class="zone-stat-label">Занято</div>
+                  <div class="zone-stat-value" id="zoneStatOccupied">—</div>
+                  <div class="zone-stat-sub" id="zoneStatOccupiedSub">—</div>
+                </div>
+                <div class="zone-stat-card">
+                  <div class="zone-stat-label">Свободно</div>
+                  <div class="zone-stat-value" id="zoneStatFree">—</div>
+                  <div class="zone-stat-sub" id="zoneStatLoad">—</div>
+                </div>
+                <div class="zone-stat-card">
+                  <div class="zone-stat-label">Сегодня</div>
+                  <div class="zone-stat-value" id="zoneStatToday">—</div>
+                  <div class="zone-stat-sub">проездов</div>
+                </div>
+              </div>
+
+              <div class="zone-linked-wrap">
+                <div class="zone-linked-title">Привязанные камеры</div>
+                <div class="zone-linked-list" id="zoneChannelsList"></div>
+              </div>
             </div>
-            <div class="settings-actions">
-              <button class="btn btn-primary" id="saveZoneBtn">Сохранить</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal" id="editZoneModal">
+        <div class="modal-card modal-card--sm">
+          <div class="modal-head">
+            <span>Настройки зоны</span>
+            <button class="modal-close" id="editZoneModalClose">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="modal-field">
+              <label class="modal-label">Название</label>
+              <input class="input input--md" id="zoneSettingName" type="text" placeholder="Название зоны" />
             </div>
+            <div class="modal-field">
+              <label class="modal-label">Вместимость</label>
+              <input class="input input--md" id="zoneSettingCapacity" type="number" min="0" value="0" />
+            </div>
+            <div class="modal-field">
+              <label class="modal-label">Занятость</label>
+              <div id="zoneOccupancyInfo" class="modal-note">—</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" id="editZoneCancel">Отмена</button>
+            <button class="btn btn-primary" id="saveZoneBtn">Сохранить</button>
           </div>
         </div>
       </div>
