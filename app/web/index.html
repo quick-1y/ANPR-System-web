@@ -182,11 +182,12 @@
           <div class="zones-list-col">
             <div class="zones-list-head">
               <span class="zones-list-title">Зоны</span>
+              <div class="zones-list-head-actions">
+                <button class="icon-btn-sm" id="addZoneBtn" title="Создать зону">+</button>
+                <button class="icon-btn-sm" id="deleteZoneBtn" title="Удалить зону">−</button>
+              </div>
             </div>
             <div id="zonesList"></div>
-            <div class="zones-list-actions">
-              <button class="btn btn-primary" id="createZoneBtn">Создать зону</button>
-            </div>
           </div>
           <div class="zones-settings-col" id="zonesSettingsPanel">
             <div class="zones-empty hidden" id="zoneEmptyState">
@@ -199,7 +200,6 @@
                 </div>
                 <div class="zones-detail-actions">
                   <button class="btn btn-ghost btn-sm" id="editZoneBtn">Редактировать</button>
-                  <button class="btn btn-danger btn-sm" id="deleteZoneBtn">Удалить</button>
                 </div>
               </div>
 
