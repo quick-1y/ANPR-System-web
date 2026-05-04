@@ -651,6 +651,7 @@ class ChannelProcessor:
                                 client_id=client_id,
                             )
                             event["id"] = int(event_id) if int(event_id or 0) > 0 else None
+                            event["event_type"] = "created_event"
                             self._event_callback(event)
 
                         elif zone_type == "entry":
@@ -673,6 +674,7 @@ class ChannelProcessor:
                             )
                             event.update(zone_fields)
                             event["id"] = int(event_id) if int(event_id or 0) > 0 else None
+                            event["event_type"] = "created_event"
                             self._event_callback(event)
 
                         else:
@@ -692,7 +694,8 @@ class ChannelProcessor:
                                 )
                                 if updated_id:
                                     relay_event["id"] = updated_id
-                            self._event_callback(relay_event)
+                                    relay_event["event_type"] = "updated_event"
+                                    self._event_callback(relay_event)
 
                         metrics.last_event_at = event_ts_iso
                     postprocess_ms = (time.monotonic() - postprocess_started) * 1000.0

@@ -164,8 +164,7 @@ export function renderEventFeed(forceRebuild = false) {
   trimEventFeedOverflow(feed);
 }
 
-export function pushEvent(ev) {
-  applyLastPlate(ev);
+function pushCreatedEvent(ev) {
   state.allEvents.unshift(ev);
   if (state.allEvents.length > 500) state.allEvents.pop();
   renderEventFeed();
@@ -179,6 +178,19 @@ export function pushEvent(ev) {
     const row = makeJournalRow(ev);
     body.insertBefore(row, body.firstChild);
   }
+}
+
+export function handleIncomingEvent(ev) {
+  applyLastPlate(ev);
+  const eventType = String(ev.event_type || "created_event").trim().toLowerCase();
+  if (eventType === "created_event") {
+    pushCreatedEvent(ev);
+    return;
+  }
+  if (eventType === "updated_event") {
+    return;
+  }
+  pushCreatedEvent(ev);
 }
 
 export async function loadEventFeedHistory() {

@@ -2,7 +2,7 @@
 import { debugLogSource, debugLogReconnectTimer, lastDebugLogId, debugSettingsCache, setDebugLogSource, setDebugLogReconnectTimer, setLastDebugLogId, streamReconnectTimer, eventSource, setStreamReconnectTimer, setEventSource, isSuperAdmin } from './state.js';
 import { api, apiUrl, jfetch } from './api.js';
 import { scheduleVideoGridLayout } from './channels.js';
-import { pushEvent } from './events.js';
+import { handleIncomingEvent } from './events.js';
 
 function mapLogClass(level) {
   const v = String(level || "INFO").toUpperCase();
@@ -100,7 +100,7 @@ export function setupStream() {
   }
   setEventSource(new EventSource(apiUrl("/api/events/stream")));
   eventSource.onmessage = (m) => {
-    try { pushEvent(JSON.parse(m.data)); } catch (_e) {}
+    try { handleIncomingEvent(JSON.parse(m.data)); } catch (_e) {}
   };
   eventSource.onerror = () => {
     try { eventSource.close(); } catch (_e) {}
