@@ -193,6 +193,11 @@ export function handleIncomingEvent(ev) {
   pushCreatedEvent(ev);
 }
 
+
+export function pushEvent(ev) {
+  handleIncomingEvent(ev);
+}
+
 export async function loadEventFeedHistory() {
   const data = await jfetch(api("/api/events?limit=50"));
   const items = Array.isArray(data) ? data : (data.items || []);
