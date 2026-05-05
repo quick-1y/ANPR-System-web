@@ -68,6 +68,7 @@ export function makeJournalRow(ev) {
   const timeStr = ts.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) +
     " " + ts.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const tr = document.createElement("tr");
+  if (ev.id !== null && ev.id !== undefined) tr.dataset.eventId = String(ev.id);
   const listType = state.plateLookup[normalizePlate(ev.plate || "")];
   if (listType === "white") tr.classList.add("list-white");
   else if (listType === "black") tr.classList.add("list-black");

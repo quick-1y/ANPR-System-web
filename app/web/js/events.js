@@ -164,23 +164,55 @@ export function renderEventFeed(forceRebuild = false) {
   trimEventFeedOverflow(feed);
 }
 
-function pushCreatedEvent(ev) {
-  state.allEvents.unshift(ev);
-  if (state.allEvents.length > 500) state.allEvents.pop();
-  renderEventFeed();
+
+function _matchesJournalFilters(ev) {
   const needle = (document.getElementById("fltPlate").value || "").trim().toUpperCase();
   const channelId = document.getElementById("fltChannel").value;
   const plateMatch = !needle || String(ev.plate || "").toUpperCase().includes(needle);
   const chanMatch = !channelId || String(ev.channel_id || "") === channelId;
-  if (plateMatch && chanMatch) {
-    journalState.items.unshift(ev);
-    const body = document.getElementById("journalBody");
-    const row = makeJournalRow(ev);
-    body.insertBefore(row, body.firstChild);
+  return plateMatch && chanMatch;
+}
+
+function _upsertJournalTop(ev) {
+  const body = document.getElementById("journalBody");
+  if (!body) return;
+  journalState.items = [ev, ...journalState.items.filter((item) => Number(item.id) !== Number(ev.id))];
+  if (ev.id !== null && ev.id !== undefined) {
+    const oldRows = body.querySelectorAll(`tr[data-event-id="${String(ev.id)}"]`);
+    oldRows.forEach((rowItem) => rowItem.remove());
+  }
+  const row = makeJournalRow(ev);
+  body.insertBefore(row, body.firstChild);
+}
+
+async function handleUpdatedEvent(ev) {
+  const id = Number(ev.id || 0);
+  if (id <= 0) return;
+  let updated = null;
+  try {
+    updated = await jfetch(api(`/api/events/item/${id}`));
+  } catch (_err) {
+    return;
+  }
+  if (!updated) return;
+  state.allEvents = [updated, ...state.allEvents.filter((item) => Number(item.id) !== id)];
+  if (state.allEvents.length > 500) state.allEvents = state.allEvents.slice(0, 500);
+  renderEventFeed();
+  if (_matchesJournalFilters(updated)) {
+    _upsertJournalTop(updated);
   }
 }
 
-export function handleIncomingEvent(ev) {
+function pushCreatedEvent(ev) {
+  state.allEvents.unshift(ev);
+  if (state.allEvents.length > 500) state.allEvents.pop();
+  renderEventFeed();
+  if (_matchesJournalFilters(ev)) {
+    _upsertJournalTop(ev);
+  }
+}
+
+export async function handleIncomingEvent(ev) {
   applyLastPlate(ev);
   const eventType = String(ev.event_type || "created_event").trim().toLowerCase();
   if (eventType === "created_event") {
@@ -188,6 +220,7 @@ export function handleIncomingEvent(ev) {
     return;
   }
   if (eventType === "updated_event") {
+    await handleUpdatedEvent(ev);
     return;
   }
   pushCreatedEvent(ev);
@@ -195,7 +228,7 @@ export function handleIncomingEvent(ev) {
 
 
 export function pushEvent(ev) {
-  handleIncomingEvent(ev);
+  void handleIncomingEvent(ev);
 }
 
 export async function loadEventFeedHistory() {

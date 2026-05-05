@@ -100,7 +100,7 @@ export function setupStream() {
   }
   setEventSource(new EventSource(apiUrl("/api/events/stream")));
   eventSource.onmessage = (m) => {
-    try { handleIncomingEvent(JSON.parse(m.data)); } catch (_e) {}
+    try { void handleIncomingEvent(JSON.parse(m.data)); } catch (_e) {}
   };
   eventSource.onerror = () => {
     try { eventSource.close(); } catch (_e) {}
