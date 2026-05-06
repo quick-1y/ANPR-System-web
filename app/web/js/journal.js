@@ -68,13 +68,19 @@ export function makeJournalRow(ev) {
   const timeStr = ts.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) +
     " " + ts.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const tr = document.createElement("tr");
+  if (ev.id !== null && ev.id !== undefined) tr.dataset.eventId = String(ev.id);
   const listType = state.plateLookup[normalizePlate(ev.plate || "")];
   if (listType === "white") tr.classList.add("list-white");
   else if (listType === "black") tr.classList.add("list-black");
   else if (listType === "info") tr.classList.add("list-info");
   const srcText = ev.source || "";
-  const ch = state.channels.find((c) => Number(c.id) === Number(ev.channel_id));
-  const channelName = ch ? ch.name : (ev.channel || `CAM-${ev.channel_id || ""}`);
+  const entryChannel = state.channels.find((c) => Number(c.id) === Number(ev.channel_id_entry));
+  const exitChannel = state.channels.find((c) => Number(c.id) === Number(ev.channel_id_exit));
+  const legacyChannel = state.channels.find((c) => Number(c.id) === Number(ev.channel_id));
+  const channelName = [
+    entryChannel ? `Въезд: ${entryChannel.name}` : null,
+    exitChannel ? `Выезд: ${exitChannel.name}` : null,
+  ].filter(Boolean).join(" / ") || (legacyChannel ? legacyChannel.name : (ev.channel || `CAM-${ev.channel_id || ""}`));
   let zoneCell = "";
   if (ev.zone_id !== null && ev.zone_id !== undefined) {
     const zid = Number(ev.zone_id);

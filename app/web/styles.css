@@ -1531,3 +1531,22 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
 .zone-card-name { font-size: 13px; font-weight: 600; color: var(--text1); }
 .zone-card-stats { font-size: 11px; color: var(--text2); }
 .zone-card-actions { display: flex; gap: 6px; margin-top: 4px; }
+
+/* ─── Event details: separate entry/exit media ─────── */
+.event-media-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.event-media-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.015);
+  padding: 10px;
+}
+.event-media-card .event-section-title:first-child { margin-top: 0; }
+.event-modal-img--plate { min-height: 150px; }
+@media (max-width: 980px) {
+  .modal-body--event { grid-template-columns: 1fr; }
+  .event-media-grid { grid-template-columns: 1fr; }
+}

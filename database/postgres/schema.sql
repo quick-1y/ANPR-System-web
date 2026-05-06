@@ -9,15 +9,18 @@ CREATE TABLE IF NOT EXISTS zones (
 CREATE TABLE IF NOT EXISTS events (
     id            BIGSERIAL    PRIMARY KEY,
     time          TIMESTAMPTZ  NOT NULL,
-    channel_id    INTEGER,
-    plate         TEXT         NOT NULL,
-    plate_display TEXT,
-    country       TEXT,
-    confidence    DOUBLE PRECISION,
-    source        TEXT,
-    frame_path    TEXT,
-    plate_path    TEXT,
-    direction     TEXT,
+    channel_id_entry INTEGER,
+    channel_id_exit  INTEGER,
+    plate            TEXT         NOT NULL,
+    plate_display    TEXT,
+    country          TEXT,
+    confidence       DOUBLE PRECISION,
+    source           TEXT,
+    frame_path_entry TEXT,
+    plate_path_entry TEXT,
+    frame_path_exit  TEXT,
+    plate_path_exit  TEXT,
+    direction        TEXT,
     client_id     BIGINT,
     zone_id       INTEGER,
     time_entry    TIMESTAMPTZ,
@@ -28,8 +31,10 @@ CREATE INDEX IF NOT EXISTS idx_events_plate
     ON events(plate);
 CREATE INDEX IF NOT EXISTS idx_events_time_id_desc
     ON events(time DESC, id DESC);
-CREATE INDEX IF NOT EXISTS idx_events_channel_id_time_id_desc
-    ON events(channel_id, time DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_events_channel_id_entry_time_id_desc
+    ON events(channel_id_entry, time DESC, id DESC);
+CREATE INDEX IF NOT EXISTS idx_events_channel_id_exit_time_id_desc
+    ON events(channel_id_exit, time DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_events_client_id
     ON events(client_id) WHERE client_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_events_zone_active
