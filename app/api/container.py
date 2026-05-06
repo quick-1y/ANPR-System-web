@@ -155,7 +155,8 @@ class AppContainer:
     def publish_event_sync(self, event: Dict[str, Any]) -> None:
         if self.main_loop and self.main_loop.is_running():
             self.main_loop.call_soon_threadsafe(asyncio.create_task, self.event_bus.publish(event))
-        self.controller_automation.dispatch_event(event)
+        if not event.get("relay_blocked"):
+            self.controller_automation.dispatch_event(event)
 
     def restart_processor_for_settings(self) -> None:
         channels = self.channel_db.list_channels()

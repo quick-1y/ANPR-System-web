@@ -6,6 +6,8 @@
 **Database assumption:** Fresh empty database — no migration scripts required  
 **Date:** 2026-04-15
 
+> Актуализация 2026-05-06: события зон теперь хранят отдельные поля въезда и выезда: `channel_id_entry` / `channel_id_exit`, `frame_path_entry` / `frame_path_exit`, `plate_path_entry` / `plate_path_exit`. Выездной канал обновляет найденную открытую запись и поднимает её вверх по `time`; если открытого въезда нет или номер не прошёл eligibility, создаётся отдельное событие выездной попытки без вызова реле.
+
 ---
 
 ## Table of Contents

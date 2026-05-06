@@ -1307,21 +1307,38 @@
           <button class="btn btn-ghost" id="eventModalClose">Закрыть</button>
         </div>
         <div class="modal-body modal-body--event">
-          <div>
-            <div class="event-section-title">
-              <img class="ui-icon ui-icon-sm" src="/web/assets/icons/event.svg" alt="" />
-              <span>Кадр распознавания</span>
+          <div class="event-media-grid">
+            <div class="event-media-card">
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/event.svg" alt="" />
+                <span>Въезд · кадр распознавания</span>
+              </div>
+              <div class="event-modal-img">
+                <img id="eventFrameEntryImg" alt="entry frame" />
+              </div>
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/plate.svg" alt="" />
+                <span>Въезд · кадр номера</span>
+              </div>
+              <div class="event-modal-img event-modal-img--plate">
+                <img id="eventPlateEntryImg" alt="entry plate" />
+              </div>
             </div>
-            <div class="event-modal-img">
-              <img id="eventFrameImg" alt="frame" />
-            </div>
-            
-            <div class="event-section-title">
-              <img class="ui-icon ui-icon-sm" src="/web/assets/icons/plate.svg" alt="" />
-              <span>Кадр номера</span>
-            </div>
-            <div class="event-modal-img" style="min-height: 150px">
-              <img id="eventPlateImg" alt="plate" />
+            <div class="event-media-card">
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/event.svg" alt="" />
+                <span>Выезд · кадр распознавания</span>
+              </div>
+              <div class="event-modal-img">
+                <img id="eventFrameExitImg" alt="exit frame" />
+              </div>
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/plate.svg" alt="" />
+                <span>Выезд · кадр номера</span>
+              </div>
+              <div class="event-modal-img event-modal-img--plate">
+                <img id="eventPlateExitImg" alt="exit plate" />
+              </div>
             </div>
           </div>
           <div class="event-meta" id="eventMeta"></div>

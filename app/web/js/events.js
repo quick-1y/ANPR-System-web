@@ -39,10 +39,17 @@ export function setupEventFeedLayoutGuards() {
 }
 
 function resolveChannelIdFromEvent(ev) {
-  const directId = Number(ev.channel_id);
+  const directId = Number(ev.channel_id || ev.channel_id_exit || ev.channel_id_entry);
   if (Number.isFinite(directId) && directId > 0) return directId;
   const byName = state.channels.find((c) => String(c.name) === String(ev.channel));
   return byName ? Number(byName.id) : null;
+}
+
+function resolveChannelName(channelId) {
+  const id = Number(channelId);
+  if (!Number.isFinite(id) || id <= 0) return "—";
+  const chObj = state.channels.find((c) => Number(c.id) === id);
+  return chObj ? chObj.name : `CAM-${id}`;
 }
 
 function applyLastPlate(ev) {
@@ -79,8 +86,7 @@ export function renderEventFeed(forceRebuild = false) {
     const conf = Number(item.confidence || 0);
     const direction = formatDirection(item.direction);
     const key = String(item.id ?? item.time ?? "");
-    const chObj = state.channels.find((c) => Number(c.id) === Number(item.channel_id));
-    const channelName = chObj ? chObj.name : (item.channel || `CAM-${item.channel_id || ""}`);
+    const channelName = resolveChannelName(item.channel_id_exit || item.channel_id_entry || item.channel_id);
     const timeStr = new Date(item.time || Date.now()).toLocaleTimeString();
     const div = document.createElement("div");
     const normalizedPlate = normalizePlate(item.plate);
@@ -166,13 +172,20 @@ export function renderEventFeed(forceRebuild = false) {
 
 export function pushEvent(ev) {
   applyLastPlate(ev);
+  const eventId = Number(ev.id || 0);
+  if (eventId > 0) {
+    state.allEvents = state.allEvents.filter((item) => Number(item.id || 0) !== eventId);
+    journalState.items = journalState.items.filter((item) => Number(item.id || 0) !== eventId);
+    const oldRow = document.querySelector(`#journalBody tr[data-event-id="${eventId}"]`);
+    if (oldRow) oldRow.remove();
+  }
   state.allEvents.unshift(ev);
   if (state.allEvents.length > 500) state.allEvents.pop();
-  renderEventFeed();
+  renderEventFeed(true);
   const needle = (document.getElementById("fltPlate").value || "").trim().toUpperCase();
   const channelId = document.getElementById("fltChannel").value;
   const plateMatch = !needle || String(ev.plate || "").toUpperCase().includes(needle);
-  const chanMatch = !channelId || String(ev.channel_id || "") === channelId;
+  const chanMatch = !channelId || String(ev.channel_id_entry || "") === channelId || String(ev.channel_id_exit || "") === channelId || String(ev.channel_id || "") === channelId;
   if (plateMatch && chanMatch) {
     journalState.items.unshift(ev);
     const body = document.getElementById("journalBody");
@@ -225,19 +238,18 @@ export async function openEventDetails(ev) {
       payload = ev;
     }
   }
-  const ts = payload.time
-    ? new Date(payload.time).toLocaleString()
-    : "—";
-  const chObj = state.channels.find((c) => Number(c.id) === Number(payload.channel_id));
-  const channelName = chObj ? chObj.name : (payload.channel || `CAM-${payload.channel_id || ""}`);
+  const ts = payload.time ? new Date(payload.time).toLocaleString() : "—";
+  const entryChannelName = resolveChannelName(payload.channel_id_entry);
+  const exitChannelName = resolveChannelName(payload.channel_id_exit);
   const rows = [
-    ["Дата/время", ts],
-    ["Канал", channelName],
-    ["Страна", payload.country || "—"],
+    ["Последнее обновление", ts],
     ["Гос. номер", payload.plate_display || payload.plate || "—"],
+    ["Страна", payload.country || "—"],
     ["Уверенность", Number(payload.confidence || 0).toFixed(2)],
     ["Направление", formatDirection(payload.direction).plain],
     ["Источник", payload.source || "—"],
+    ["Канал въезда", entryChannelName],
+    ["Канал выезда", exitChannelName],
   ];
   if (payload.zone_id !== null && payload.zone_id !== undefined) {
     const zid = Number(payload.zone_id);
@@ -280,11 +292,15 @@ export async function openEventDetails(ev) {
     listRows.forEach(([label, value]) => meta.appendChild(_makeMetaRow(label, value)));
   }
   if (id > 0) {
-    setModalImage("eventFrameImg", apiUrl(`/api/events/item/${id}/media/frame`));
-    setModalImage("eventPlateImg", apiUrl(`/api/events/item/${id}/media/plate`));
+    setModalImage("eventFrameEntryImg", payload.frame_path_entry ? apiUrl(`/api/events/item/${id}/media/frame_entry`) : null);
+    setModalImage("eventPlateEntryImg", payload.plate_path_entry ? apiUrl(`/api/events/item/${id}/media/plate_entry`) : null);
+    setModalImage("eventFrameExitImg", payload.frame_path_exit ? apiUrl(`/api/events/item/${id}/media/frame_exit`) : null);
+    setModalImage("eventPlateExitImg", payload.plate_path_exit ? apiUrl(`/api/events/item/${id}/media/plate_exit`) : null);
   } else {
-    setModalImage("eventFrameImg", null);
-    setModalImage("eventPlateImg", null);
+    setModalImage("eventFrameEntryImg", null);
+    setModalImage("eventPlateEntryImg", null);
+    setModalImage("eventFrameExitImg", null);
+    setModalImage("eventPlateExitImg", null);
   }
   openModal("eventModal");
 }

@@ -66,8 +66,8 @@ class DataLifecycleService:
         rows = self.pg_events.delete_before(cutoff_iso)
         deleted_files = 0
         for row in rows:
-            deleted_files += int(self._safe_unlink(row.get("frame_path")))
-            deleted_files += int(self._safe_unlink(row.get("plate_path")))
+            for key in ("frame_path_entry", "plate_path_entry", "frame_path_exit", "plate_path_exit"):
+                deleted_files += int(self._safe_unlink(row.get(key)))
         return {"deleted_events": len(rows), "deleted_media_files": deleted_files}
 
     def cleanup_old_media(self) -> Dict[str, int]:
@@ -121,7 +121,7 @@ class DataLifecycleService:
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         filename = f"events_{ts}.csv"
         rows = self.pg_events.fetch_for_export(start=start, end=end, plate=plate, channel_id=channel_id)
-        fieldnames = ["id", "time", "channel_id", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction", "zone_id", "time_entry", "time_exit"]
+        fieldnames = ["id", "time", "channel_id_entry", "channel_id_exit", "plate", "plate_display", "country", "confidence", "source", "frame_path_entry", "plate_path_entry", "frame_path_exit", "plate_path_exit", "direction", "zone_id", "time_entry", "time_exit"]
         csv_buffer = io.StringIO()
         writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
@@ -134,7 +134,7 @@ class DataLifecycleService:
 
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         csv_name = f"events_{ts}.csv"
-        fieldnames = ["id", "time", "channel_id", "plate", "plate_display", "country", "confidence", "source", "frame_path", "plate_path", "direction", "zone_id", "time_entry", "time_exit"]
+        fieldnames = ["id", "time", "channel_id_entry", "channel_id_exit", "plate", "plate_display", "country", "confidence", "source", "frame_path_entry", "plate_path_entry", "frame_path_exit", "plate_path_exit", "direction", "zone_id", "time_entry", "time_exit"]
         csv_buffer = io.StringIO()
         writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
@@ -145,7 +145,7 @@ class DataLifecycleService:
         media_paths: set[Path] = set()
         if include_media:
             for row in rows:
-                for key in ("frame_path", "plate_path"):
+                for key in ("frame_path_entry", "plate_path_entry", "frame_path_exit", "plate_path_exit"):
                     raw = row.get(key)
                     if raw:
                         media_paths.add(Path(str(raw)))
