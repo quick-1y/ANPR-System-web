@@ -941,12 +941,6 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
     var(--field);
 }
 .event-modal-img--empty img { display: none; }
-.event-modal-img--empty::before {
-  content: attr(data-empty);
-  max-width: 72%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 999px;
-  background: rgba(4,6,10,0.72); color: var(--text2); font-family: var(--mono);
-  font-size: 11px; line-height: 1.35; letter-spacing: 0.06em; text-align: center; text-transform: uppercase;
-}
 
 /* ─── Event details: separate entry/exit media ─────── */
 .event-media-grid {
