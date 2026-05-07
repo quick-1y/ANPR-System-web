@@ -933,6 +933,24 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
   display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
 .event-modal-img img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ─── Event details: separate entry/exit media ─────── */
+.event-media-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.event-media-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.015);
+  padding: 10px;
+}
+.event-modal-img--plate { min-height: 150px; }
+@media (max-width: 980px) {
+  .modal-body--event { grid-template-columns: 1fr; }
+  .event-media-grid { grid-template-columns: 1fr; }
+}
 .event-meta { border: 1px solid var(--border); border-radius: 8px; background: var(--field); padding: 12px; }
 .event-meta-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -1520,7 +1538,6 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
   min-height: 0; overflow-y: auto; background: var(--bg);
   padding: 14px; gap: 12px;
 }
-.zones-settings-col.hidden { display: none; }
 .zone-card {
   background: var(--card); border: 1px solid var(--border);
   border-radius: 8px; padding: 8px 10px;
@@ -1597,7 +1614,6 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
   margin-bottom: 10px; font-family: var(--mono); letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--text2); font-size: 11px;
 }
-.zone-linked-list { display: flex; flex-direction: column; }
 .zone-linked-row {
   display: flex; align-items: center; justify-content: space-between;
   gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border);
@@ -1612,22 +1628,3 @@ tr.list-white:hover, tr.list-black:hover, tr.list-info:hover { background: rgba(
 .zone-badge.zone-badge-enter { color: var(--success); border-color: var(--success); background: var(--success-glow); }
 .zone-badge.zone-badge-exit { color: var(--accent2); border-color: var(--accent2); background: var(--accent-glow); }
 .modal-note { color: var(--text2); font-size: 12px; }
-
-/* ─── Event details: separate entry/exit media ─────── */
-.event-media-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.event-media-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: rgba(255,255,255,0.015);
-  padding: 10px;
-}
-.event-media-card .event-section-title:first-child { margin-top: 0; }
-.event-modal-img--plate { min-height: 150px; }
-@media (max-width: 980px) {
-  .modal-body--event { grid-template-columns: 1fr; }
-  .event-media-grid { grid-template-columns: 1fr; }
-}
