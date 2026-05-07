@@ -208,11 +208,16 @@ export function closeEventModal() {
 
 function setModalImage(id, url) {
   const img = document.getElementById(id);
+  if (!img) return;
+  const wrap = img.closest(".event-modal-img");
   if (!url) {
     img.removeAttribute("src");
-    img.alt = "Нет изображения";
+    img.alt = "";
+    if (wrap) wrap.classList.add("event-modal-img--empty");
     return;
   }
+  if (wrap) wrap.classList.remove("event-modal-img--empty");
+  img.alt = "";
   img.src = url;
 }
 
@@ -247,7 +252,6 @@ export async function openEventDetails(ev) {
     ["Страна", payload.country || "—"],
     ["Уверенность", Number(payload.confidence || 0).toFixed(2)],
     ["Направление", formatDirection(payload.direction).plain],
-    ["Источник", payload.source || "—"],
     ["Канал въезда", entryChannelName],
     ["Канал выезда", exitChannelName],
   ];
