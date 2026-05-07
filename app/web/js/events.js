@@ -206,13 +206,24 @@ export function closeEventModal() {
   closeModal("eventModal");
 }
 
-function setModalImage(id, url) {
+function setModalImage(id, url, emptyText) {
   const img = document.getElementById(id);
+  if (!img) return;
+  const wrap = img.closest(".event-modal-img");
   if (!url) {
     img.removeAttribute("src");
-    img.alt = "Нет изображения";
+    img.alt = emptyText || "Кадр пока недоступен";
+    if (wrap) {
+      wrap.classList.add("event-modal-img--empty");
+      wrap.dataset.empty = emptyText || "Кадр пока недоступен";
+    }
     return;
   }
+  if (wrap) {
+    wrap.classList.remove("event-modal-img--empty");
+    delete wrap.dataset.empty;
+  }
+  img.alt = "";
   img.src = url;
 }
 
@@ -247,7 +258,6 @@ export async function openEventDetails(ev) {
     ["Страна", payload.country || "—"],
     ["Уверенность", Number(payload.confidence || 0).toFixed(2)],
     ["Направление", formatDirection(payload.direction).plain],
-    ["Источник", payload.source || "—"],
     ["Канал въезда", entryChannelName],
     ["Канал выезда", exitChannelName],
   ];
@@ -292,15 +302,15 @@ export async function openEventDetails(ev) {
     listRows.forEach(([label, value]) => meta.appendChild(_makeMetaRow(label, value)));
   }
   if (id > 0) {
-    setModalImage("eventFrameEntryImg", payload.frame_path_entry ? apiUrl(`/api/events/item/${id}/media/frame_entry`) : null);
-    setModalImage("eventPlateEntryImg", payload.plate_path_entry ? apiUrl(`/api/events/item/${id}/media/plate_entry`) : null);
-    setModalImage("eventFrameExitImg", payload.frame_path_exit ? apiUrl(`/api/events/item/${id}/media/frame_exit`) : null);
-    setModalImage("eventPlateExitImg", payload.plate_path_exit ? apiUrl(`/api/events/item/${id}/media/plate_exit`) : null);
+    setModalImage("eventFrameEntryImg", payload.frame_path_entry ? apiUrl(`/api/events/item/${id}/media/frame_entry`) : null, "Въезд ещё не зафиксирован");
+    setModalImage("eventPlateEntryImg", payload.plate_path_entry ? apiUrl(`/api/events/item/${id}/media/plate_entry`) : null, "Кадр номера въезда появится после распознавания");
+    setModalImage("eventFrameExitImg", payload.frame_path_exit ? apiUrl(`/api/events/item/${id}/media/frame_exit`) : null, "Выезд ещё не зафиксирован");
+    setModalImage("eventPlateExitImg", payload.plate_path_exit ? apiUrl(`/api/events/item/${id}/media/plate_exit`) : null, "Кадр номера выезда появится после распознавания");
   } else {
-    setModalImage("eventFrameEntryImg", null);
-    setModalImage("eventPlateEntryImg", null);
-    setModalImage("eventFrameExitImg", null);
-    setModalImage("eventPlateExitImg", null);
+    setModalImage("eventFrameEntryImg", null, "Кадр въезда пока недоступен");
+    setModalImage("eventPlateEntryImg", null, "Кадр номера въезда пока недоступен");
+    setModalImage("eventFrameExitImg", null, "Кадр выезда пока недоступен");
+    setModalImage("eventPlateExitImg", null, "Кадр номера выезда пока недоступен");
   }
   openModal("eventModal");
 }
