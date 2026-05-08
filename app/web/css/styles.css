@@ -20,21 +20,29 @@
   --surface: #0e1018;
   --card: #111420;
   --field: #0a0c14;
+
   --rail-bg: #090b11;
+
   --border: #1a1e2c;
   --border2: #222840;
+
   --accent: #e8a838;
   --accent2: #f5c06a;
   --accent-glow: rgba(232, 168, 56, 0.12);
   --accent-border: rgba(232, 168, 56, 0.32);
+
   --danger: #e84040;
   --danger-glow: rgba(232, 64, 64, 0.15);
+
   --success: #2dd87b;
   --success-glow: rgba(45, 216, 123, 0.14);
+
   --warning: #f5c06a;
+
   --text1: #dce1ef;
   --text2: #8590a8;
   --text3: #4e5570;
+
   --sans: "Inter", system-ui, -apple-system, sans-serif;
   --mono: "JetBrains Mono", "Courier New", monospace;
   --radius-sm: 6px;
