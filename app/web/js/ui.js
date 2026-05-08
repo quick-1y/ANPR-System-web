@@ -138,7 +138,7 @@ export function formatDirection(directionValue) {
   if (isApproaching) {
     return {
       badgeClass: "badge-in",
-      label: "→ Приближение",
+      label: "Приближение",
       plain: "Приближение",
     };
   }
@@ -146,7 +146,7 @@ export function formatDirection(directionValue) {
   if (isReceding) {
     return {
       badgeClass: "badge-out",
-      label: "← Отдаление",
+      label: "Отдаление",
       plain: "Отдаление",
     };
   }

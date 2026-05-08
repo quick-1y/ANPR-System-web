@@ -101,6 +101,7 @@ export function renderEventFeed(forceRebuild = false) {
     div.setAttribute("tabindex", "0");
     const displayPlate = item.plate_display || item.plate || "—";
     const flagContainer = document.createElement('span');
+    flagContainer.className = 'ev-flag-wrap';
     flagContainer.innerHTML = flagHtml(item.country);
     div.appendChild(flagContainer);
     const rowTop = document.createElement('div');
