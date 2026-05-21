@@ -223,7 +223,7 @@ def build_default_settings() -> Dict[str, Any]:
         "inference": inference_defaults(),
         "debug": debug_defaults(),
         "grid": "2x2",
-        "theme": "dark",
+        "theme": "light",
         "sidebar_locked": False,
         "reconnect": reconnect_defaults(),
         "storage": storage_defaults(),

@@ -191,7 +191,7 @@ class SettingsNormalizer:
         tracking_defaults = normalized.get("tracking", {})
 
         if not normalized.get("theme"):
-            normalized["theme"] = "dark"
+            normalized["theme"] = "light"
             changed = True
 
         if "sidebar_locked" not in normalized:

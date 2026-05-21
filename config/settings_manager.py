@@ -52,7 +52,7 @@ class SettingsManager:
 
     def get_theme(self) -> str:
         with self._file_lock:
-            return self.settings.get("theme", "dark")
+            return self.settings.get("theme", "light")
 
     def save_theme(self, theme: str) -> None:
         with self._file_lock:

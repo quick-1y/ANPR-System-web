@@ -18,6 +18,30 @@ import { loadZones, initZonesTab } from './zones.js';
 import { initSystemPolling, refreshSystemResources, checkServerHealth } from './system.js';
 
 
+
+async function _inlineThemeableIcons() {
+  const icons = Array.from(document.querySelectorAll('img.ui-icon, img.ui-icon-sm, img.ttab-icon, img.btn-icon, img.backup-icon, img.auth-pass-eye, img.auth-pass-eye-off, img.cam-no-signal-icon'));
+  await Promise.all(icons.map(async (imgEl) => {
+    const src = imgEl.getAttribute('src');
+    if (!src || !src.endsWith('.svg')) return;
+    try {
+      const response = await fetch(src, { cache: 'force-cache' });
+      if (!response.ok) return;
+      const text = await response.text();
+      const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+      const svg = doc.querySelector('svg');
+      if (!svg) return;
+      const classes = Array.from(imgEl.classList.values()).join(' ');
+      if (classes) svg.setAttribute('class', classes);
+      const width = imgEl.getAttribute('width');
+      const height = imgEl.getAttribute('height');
+      if (width) svg.setAttribute('width', width);
+      if (height) svg.setAttribute('height', height);
+      imgEl.replaceWith(svg);
+    } catch (_e) {}
+  }));
+}
+
 // --- Tab navigation bindings ---
 document.querySelectorAll(".ttab").forEach((el) => (el.onclick = () => {
   switchTab(el.dataset.tab);
@@ -254,8 +278,9 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
 (async function init() {
   const apiBaseEl = document.getElementById("apiBase");
   if (apiBaseEl) apiBaseEl.value = window.location.origin;
-  try { applyTheme(localStorage.getItem("anpr_theme") || "dark"); }
-  catch (_e) { applyTheme("dark"); }
+  try { applyTheme(localStorage.getItem("anpr_theme") || "light"); }
+  catch (_e) { applyTheme("light"); }
+  await _inlineThemeableIcons();
 
   const startLoginFlow = () => {
     showLoginOverlay((user) => {
