@@ -1811,3 +1811,57 @@ tr.list-info:hover { background: rgba(56, 189, 248, 0.18); }
 .zone-badge.zone-badge-enter { color: var(--success2); border-color: var(--success-border); background: var(--success-glow); }
 .zone-badge.zone-badge-exit { color: var(--warning2); border-color: var(--warning-border); background: var(--warning-glow); }
 .modal-note { color: var(--text2); font-size: 12px; }
+
+
+
+
+/* ─── Journal redesign: unified typography and entry/exit columns ───── */
+#tab-journal .data-table {
+  table-layout: fixed;
+}
+#tab-journal .data-table th,
+#tab-journal .data-table td {
+  vertical-align: middle;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+#tab-journal .data-table th {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text2);
+  text-transform: none;
+}
+#tab-journal .data-table td {
+  color: var(--text1);
+}
+#tab-journal .data-table th.col-plate,
+#tab-journal .data-table td.col-plate { width: 140px; }
+#tab-journal .data-table th.col-country,
+#tab-journal .data-table td.col-country { width: 86px; }
+#tab-journal .data-table th.col-conf,
+#tab-journal .data-table td.col-conf { width: 96px; text-align: left; }
+#tab-journal .data-table th.col-dir,
+#tab-journal .data-table td.col-dir { width: 130px; }
+#tab-journal .data-table th.col-zone-name,
+#tab-journal .data-table td.col-zone-name { width: 150px; }
+#tab-journal .data-table th.col-entry-exit,
+#tab-journal .data-table td.col-entry-exit { width: 170px; }
+#tab-journal .journal-pass {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+}
+#tab-journal .journal-pass-channel,
+#tab-journal .journal-pass-date,
+#tab-journal .journal-pass-time {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text1);
+  font-variant-numeric: tabular-nums;
+}
