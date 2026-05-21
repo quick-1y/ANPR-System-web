@@ -73,7 +73,6 @@ export function makeJournalRow(ev) {
   if (listType === "white") tr.classList.add("list-white");
   else if (listType === "black") tr.classList.add("list-black");
   else if (listType === "info") tr.classList.add("list-info");
-  const srcText = ev.source || "";
   const entryChannel = state.channels.find((c) => Number(c.id) === Number(ev.channel_id_entry));
   const exitChannel = state.channels.find((c) => Number(c.id) === Number(ev.channel_id_exit));
   const legacyChannel = state.channels.find((c) => Number(c.id) === Number(ev.channel_id));
@@ -99,10 +98,9 @@ export function makeJournalRow(ev) {
     `<td class="col-dir"><span class="badge ${direction.badgeClass}">${direction.label}</span></td>` +
     `<td class="col-plate plate-cell">${esc(ev.plate_display || ev.plate || "")}</td>` +
     `<td class="col-conf conf-cell" style="color:${conf < 0.85 ? "var(--warning)" : "var(--success)"}">${conf.toFixed(2)}</td>` +
-    `<td class="col-source" title="${esc(srcText)}">${esc(srcText)}</td>` +
-    `<td class="col-zone col-zone-name">${esc(zoneCell)}</td>` +
-    `<td class="col-zone col-zone-time">${esc(entryCell)}</td>` +
-    `<td class="col-zone col-zone-time">${esc(exitCell)}</td>`;
+    `<td class="col-zone col-zone-name"><span class="zone-chip">${esc(zoneCell || "—")}</span></td>` +
+    `<td class="col-zone col-zone-time">${esc(entryCell || "—")}</td>` +
+    `<td class="col-zone col-zone-time">${esc(exitCell || "—")}</td>`;
   tr.onclick = () => openEventDetails(ev);
   return tr;
 }
