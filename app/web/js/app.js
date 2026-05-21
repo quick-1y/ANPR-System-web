@@ -17,6 +17,7 @@ import { initUsersPane } from './users.js';
 import { loadZones, initZonesTab } from './zones.js';
 import { initSystemPolling, refreshSystemResources, checkServerHealth } from './system.js';
 
+
 // --- Tab navigation bindings ---
 document.querySelectorAll(".ttab").forEach((el) => (el.onclick = () => {
   switchTab(el.dataset.tab);

@@ -79,6 +79,9 @@
   --row-hover: rgba(255,255,255,0.035);
   --row-active: rgba(148,163,184,0.10);
   --hover: var(--row-hover);
+  --icon-color: #475569;
+  --icon-muted: #64748B;
+  --icon-strong: #1F2937;
 }
 
 body[data-theme="light"],
@@ -140,6 +143,16 @@ body.theme-light {
   --row-hover: rgba(15, 23, 42, 0.045);
   --row-active: rgba(71, 85, 105, 0.08);
   --hover: var(--row-hover);
+  --icon-color: #475569;
+  --icon-muted: #64748B;
+  --icon-strong: #1F2937;
+}
+
+body[data-theme="dark"],
+body.theme-dark {
+  --icon-color: #D8DEE9;
+  --icon-muted: #AAB4C5;
+  --icon-strong: #F3F6FA;
 }
 
 /* ─── Reset ────────────────────────────────────────── */
@@ -276,6 +289,10 @@ body {
 .ttab-icon { font-size: 14px; line-height: 1; font-family: var(--mono); }
 
 /* Icons */
+.ui-icon, .btn-icon, .backup-icon, .auth-pass-eye, .auth-pass-eye-off, .cam-no-signal-icon, .ttab-icon {
+  color: var(--icon-color);
+}
+.ttab.active .ttab-icon, .snav-item.active .ui-icon, .snav-item.active .ui-icon-sm { color: var(--icon-strong); }
 .ui-icon { display: block; width: 16px; height: 16px; flex: 0 0 auto; object-fit: contain; }
 .ui-icon-sm { width: 14px; height: 14px; }
 .ui-icon-logo { width: 18px; height: 18px; }
