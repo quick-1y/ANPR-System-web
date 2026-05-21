@@ -1821,7 +1821,7 @@ tr.list-info:hover { background: rgba(56, 189, 248, 0.18); }
 }
 #tab-journal .data-table th,
 #tab-journal .data-table td {
-  vertical-align: top;
+  vertical-align: middle;
   font-family: var(--sans);
   font-size: 13px;
   font-weight: 500;
@@ -1848,22 +1848,20 @@ tr.list-info:hover { background: rgba(56, 189, 248, 0.18); }
 #tab-journal .data-table td.col-zone-name { width: 150px; }
 #tab-journal .data-table th.col-entry-exit,
 #tab-journal .data-table td.col-entry-exit { width: 170px; }
-#tab-journal .data-table td.col-country,
-#tab-journal .data-table td.col-zone-name,
-#tab-journal .data-table td.col-dir,
-#tab-journal .data-table td.col-conf { padding-top: 14px; }
 #tab-journal .journal-pass {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
+  min-height: 56px;
 }
-#tab-journal .journal-pass-channel {
-  font-weight: 600;
-  color: var(--text1);
-}
+#tab-journal .journal-pass-channel,
 #tab-journal .journal-pass-date,
 #tab-journal .journal-pass-time {
-  color: var(--text2);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text1);
   font-variant-numeric: tabular-nums;
 }
-#tab-journal .journal-pass-time { color: var(--text1); }
