@@ -12,6 +12,27 @@ export const journalState = {
 };
 let journalObserver = null;
 
+function formatJournalDateTime(value) {
+  if (!value) {
+    return { date: "—", time: "—" };
+  }
+  const ts = new Date(value);
+  return {
+    date: ts.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }),
+    time: ts.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+  };
+}
+
+function buildJournalPassageCell(channel, dt) {
+  const channelName = channel?.name || "—";
+  return `<div class="journal-pass">
+    <div class="journal-pass-channel">${esc(channelName)}</div>
+    <div class="journal-pass-date">${esc(dt.date)}</div>
+    <div class="journal-pass-time">${esc(dt.time)}</div>
+  </div>`;
+}
+
+
 function buildJournalParams(cursor) {
   const params = new URLSearchParams();
   params.set("limit", "100");
@@ -64,22 +85,16 @@ async function fetchJournalPage() {
 export function makeJournalRow(ev) {
   const conf = Number(ev.confidence || 0);
   const direction = formatDirection(ev.direction);
-  const ts = new Date(ev.time);
-  const timeStr = ts.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) +
-    " " + ts.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const tr = document.createElement("tr");
   if (ev.id !== null && ev.id !== undefined) tr.dataset.eventId = String(ev.id);
   const listType = state.plateLookup[normalizePlate(ev.plate || "")];
   if (listType === "white") tr.classList.add("list-white");
   else if (listType === "black") tr.classList.add("list-black");
   else if (listType === "info") tr.classList.add("list-info");
+
   const entryChannel = state.channels.find((c) => Number(c.id) === Number(ev.channel_id_entry));
   const exitChannel = state.channels.find((c) => Number(c.id) === Number(ev.channel_id_exit));
-  const legacyChannel = state.channels.find((c) => Number(c.id) === Number(ev.channel_id));
-  const channelName = [
-    entryChannel ? `Въезд: ${entryChannel.name}` : null,
-    exitChannel ? `Выезд: ${exitChannel.name}` : null,
-  ].filter(Boolean).join(" / ") || (legacyChannel ? legacyChannel.name : (ev.channel || `CAM-${ev.channel_id || ""}`));
+
   let zoneCell = "";
   if (ev.zone_id !== null && ev.zone_id !== undefined) {
     const zid = Number(ev.zone_id);
@@ -90,17 +105,17 @@ export function makeJournalRow(ev) {
       zoneCell = zoneObj ? zoneObj.name : String(zid);
     }
   }
-  const entryCell = ev.time_entry ? new Date(ev.time_entry).toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "";
-  const exitCell = ev.time_exit ? new Date(ev.time_exit).toLocaleString("ru-RU", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }) : "";
-  tr.innerHTML = `<td class="col-time">${timeStr}</td>` +
-    `<td class="col-channel">${esc(channelName)}</td>` +
+
+  const entryDt = formatJournalDateTime(ev.time_entry);
+  const exitDt = formatJournalDateTime(ev.time_exit);
+
+  tr.innerHTML = `<td class="col-plate plate-cell">${esc(ev.plate_display || ev.plate || "")}</td>` +
     `<td class="col-country">${flagHtml(ev.country)} ${esc(ev.country || "")}</td>` +
-    `<td class="col-dir"><span class="badge ${direction.badgeClass}">${direction.label}</span></td>` +
-    `<td class="col-plate plate-cell">${esc(ev.plate_display || ev.plate || "")}</td>` +
     `<td class="col-conf conf-cell" style="color:${conf < 0.85 ? "var(--warning)" : "var(--success)"}">${conf.toFixed(2)}</td>` +
-    `<td class="col-zone col-zone-name"><span class="zone-chip">${esc(zoneCell || "—")}</span></td>` +
-    `<td class="col-zone col-zone-time">${esc(entryCell || "—")}</td>` +
-    `<td class="col-zone col-zone-time">${esc(exitCell || "—")}</td>`;
+    `<td class="col-dir"><span class="badge ${direction.badgeClass}">${direction.label}</span></td>` +
+    `<td class="col-zone col-zone-name">${esc(zoneCell || "—")}</td>` +
+    `<td class="col-entry-exit">${buildJournalPassageCell(entryChannel, entryDt)}</td>` +
+    `<td class="col-entry-exit">${buildJournalPassageCell(exitChannel, exitDt)}</td>`;
   tr.onclick = () => openEventDetails(ev);
   return tr;
 }

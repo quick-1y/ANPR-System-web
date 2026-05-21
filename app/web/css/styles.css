@@ -1813,63 +1813,57 @@ tr.list-info:hover { background: rgba(56, 189, 248, 0.18); }
 .modal-note { color: var(--text2); font-size: 12px; }
 
 
-/* ─── Journal redesign: cleaner columns and parking-focused layout ───── */
+
+
+/* ─── Journal redesign: unified typography and entry/exit columns ───── */
 #tab-journal .data-table {
   table-layout: fixed;
 }
 #tab-journal .data-table th,
 #tab-journal .data-table td {
-  vertical-align: middle;
+  vertical-align: top;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
 }
 #tab-journal .data-table th {
-  font-size: 13px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--text3);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text2);
+  text-transform: none;
 }
 #tab-journal .data-table td {
-  font-size: 13px;
+  color: var(--text1);
 }
-#tab-journal .data-table th.col-time,
-#tab-journal .data-table td.col-time { width: 128px; }
-#tab-journal .data-table th.col-channel,
-#tab-journal .data-table td.col-channel { width: 170px; max-width: 170px; }
-#tab-journal .data-table th.col-country,
-#tab-journal .data-table td.col-country { width: 84px; }
-#tab-journal .data-table th.col-dir,
-#tab-journal .data-table td.col-dir { width: 110px; text-align: left; }
 #tab-journal .data-table th.col-plate,
-#tab-journal .data-table td.col-plate { width: 132px; }
+#tab-journal .data-table td.col-plate { width: 140px; }
+#tab-journal .data-table th.col-country,
+#tab-journal .data-table td.col-country { width: 86px; }
 #tab-journal .data-table th.col-conf,
-#tab-journal .data-table td.col-conf { width: 72px; text-align: right; }
+#tab-journal .data-table td.col-conf { width: 96px; text-align: left; }
+#tab-journal .data-table th.col-dir,
+#tab-journal .data-table td.col-dir { width: 130px; }
 #tab-journal .data-table th.col-zone-name,
-#tab-journal .data-table td.col-zone-name { width: 150px; text-align: left; }
-#tab-journal .data-table th.col-zone-time,
-#tab-journal .data-table td.col-zone-time {
-  width: 122px;
-  text-align: left;
-  font-family: var(--mono);
+#tab-journal .data-table td.col-zone-name { width: 150px; }
+#tab-journal .data-table th.col-entry-exit,
+#tab-journal .data-table td.col-entry-exit { width: 170px; }
+#tab-journal .data-table td.col-country,
+#tab-journal .data-table td.col-zone-name,
+#tab-journal .data-table td.col-dir,
+#tab-journal .data-table td.col-conf { padding-top: 14px; }
+#tab-journal .journal-pass {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+#tab-journal .journal-pass-channel {
+  font-weight: 600;
   color: var(--text1);
 }
-#tab-journal .data-table td.col-channel,
-#tab-journal .data-table td.col-zone-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
+#tab-journal .journal-pass-date,
+#tab-journal .journal-pass-time {
+  color: var(--text2);
+  font-variant-numeric: tabular-nums;
 }
-#tab-journal .zone-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text1);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-#tab-journal .data-table tbody tr:hover .zone-chip {
-  border-color: var(--accent-border);
-  background: var(--accent-glow);
-}
+#tab-journal .journal-pass-time { color: var(--text1); }
