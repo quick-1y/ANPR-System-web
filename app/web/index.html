@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ANPR Web</title>
-    <link rel="stylesheet" href="/web/styles.css" />
+    <link rel="stylesheet" href="/web/css/styles.css" />
     <link rel="icon" type="image/x-icon" href="/web/favicon/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/web/favicon/logo-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/web/favicon/logo-192.png" />
@@ -159,16 +159,13 @@
                 <table class="data-table" id="journalTable">
                   <thead>
                     <tr>
-                      <th class="col-time">Время</th>
-                      <th class="col-channel">Канал</th>
-                      <th class="col-country">Страна</th>
-                      <th class="col-dir">Направление</th>
                       <th class="col-plate">Номер</th>
-                      <th class="col-conf">Увер.</th>
-                      <th class="col-source">Источник</th>
+                      <th class="col-country">Страна</th>
+                      <th class="col-conf">Уверенность</th>
+                      <th class="col-dir">Направление</th>
                       <th class="col-zone col-zone-name">Зона</th>
-                      <th class="col-zone col-zone-time">Въезд</th>
-                      <th class="col-zone col-zone-time">Выезд</th>
+                      <th class="col-entry-exit">Въезд</th>
+                      <th class="col-entry-exit">Выезд</th>
                     </tr>
                   </thead>
                   <tbody id="journalBody"></tbody>
@@ -1307,21 +1304,38 @@
           <button class="btn btn-ghost" id="eventModalClose">Закрыть</button>
         </div>
         <div class="modal-body modal-body--event">
-          <div>
-            <div class="event-section-title">
-              <img class="ui-icon ui-icon-sm" src="/web/assets/icons/event.svg" alt="" />
-              <span>Кадр распознавания</span>
+          <div class="event-media-grid">
+            <div class="event-media-card">
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/event.svg" alt="" />
+                <span>Въезд · кадр распознавания</span>
+              </div>
+              <div class="event-modal-img event-modal-img--frame">
+                <img id="eventFrameEntryImg" alt="entry frame" />
+              </div>
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/plate.svg" alt="" />
+                <span>Въезд · кадр номера</span>
+              </div>
+              <div class="event-modal-img event-modal-img--plate">
+                <img id="eventPlateEntryImg" alt="entry plate" />
+              </div>
             </div>
-            <div class="event-modal-img">
-              <img id="eventFrameImg" alt="frame" />
-            </div>
-            
-            <div class="event-section-title">
-              <img class="ui-icon ui-icon-sm" src="/web/assets/icons/plate.svg" alt="" />
-              <span>Кадр номера</span>
-            </div>
-            <div class="event-modal-img" style="min-height: 150px">
-              <img id="eventPlateImg" alt="plate" />
+            <div class="event-media-card">
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/event.svg" alt="" />
+                <span>Выезд · кадр распознавания</span>
+              </div>
+              <div class="event-modal-img event-modal-img--frame">
+                <img id="eventFrameExitImg" alt="exit frame" />
+              </div>
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/plate.svg" alt="" />
+                <span>Выезд · кадр номера</span>
+              </div>
+              <div class="event-modal-img event-modal-img--plate">
+                <img id="eventPlateExitImg" alt="exit plate" />
+              </div>
             </div>
           </div>
           <div class="event-meta" id="eventMeta"></div>

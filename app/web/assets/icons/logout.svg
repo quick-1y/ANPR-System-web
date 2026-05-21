@@ -4,6 +4,6 @@
   <!-- Door handle knob -->
   <circle cx="11" cy="12" r="1" fill="#636b82"/>
   <!-- Exit arrow pointing out through the opening -->
-  <path d="M11 12h8" stroke="#e8a838" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M16 8.5l3.5 3.5-3.5 3.5" stroke="#e8a838" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M11 12h8" stroke="#334155" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M16 8.5l3.5 3.5-3.5 3.5" stroke="#334155" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

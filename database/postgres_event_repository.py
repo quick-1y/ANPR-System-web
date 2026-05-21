@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional, Sequence
 
 from common.logging import get_logger
@@ -12,9 +12,11 @@ logger = get_logger(__name__)
 _SCHEMA_SQL_PATH = Path(__file__).resolve().parents[1] / "database" / "postgres" / "schema.sql"
 
 _SELECT_COLS = (
-    "id, time, channel_id, plate, plate_display, country, confidence, source, "
-    "frame_path, plate_path, direction, client_id, zone_id, time_entry, time_exit"
+    "id, time, channel_id_entry, channel_id_exit, plate, plate_display, country, confidence, source, "
+    "frame_path_entry, plate_path_entry, frame_path_exit, plate_path_exit, direction, client_id, "
+    "zone_id, time_entry, time_exit"
 )
+
 
 class PostgresEventDatabase(PooledDatabase):
     """PostgreSQL-only хранилище событий с ленивым bootstrap схемы."""
@@ -35,54 +37,94 @@ class PostgresEventDatabase(PooledDatabase):
 
     @staticmethod
     def _to_dict(row: Any) -> dict[str, Any]:
-        return {
-            "id":            row[0],
-            "time":          row[1],
-            "channel_id":    row[2],
-            "plate":         row[3],
-            "plate_display": row[4],
-            "country":       row[5],
-            "confidence":    row[6],
-            "source":        row[7],
-            "frame_path":    row[8],
-            "plate_path":    row[9],
-            "direction":     row[10],
-            "client_id":     row[11],
-            "zone_id":       row[12],
-            "time_entry":    row[13],
-            "time_exit":     row[14],
+        event = {
+            "id": row[0],
+            "time": row[1],
+            "channel_id_entry": row[2],
+            "channel_id_exit": row[3],
+            "plate": row[4],
+            "plate_display": row[5],
+            "country": row[6],
+            "confidence": row[7],
+            "source": row[8],
+            "frame_path_entry": row[9],
+            "plate_path_entry": row[10],
+            "frame_path_exit": row[11],
+            "plate_path_exit": row[12],
+            "direction": row[13],
+            "client_id": row[14],
+            "zone_id": row[15],
+            "time_entry": row[16],
+            "time_exit": row[17],
         }
+        # Совместимый вычисляемый идентификатор последнего физического канала
+        # нужен runtime/UI-фильтрам и автоматике контроллеров, но в БД больше не хранится.
+        event["channel_id"] = event["channel_id_exit"] or event["channel_id_entry"]
+        event["frame_path"] = event["frame_path_exit"] or event["frame_path_entry"]
+        event["plate_path"] = event["plate_path_exit"] or event["plate_path_entry"]
+        return event
 
     def insert_event(
         self,
         plate: str,
-        channel_id: Optional[int] = None,
+        channel_id_entry: Optional[int] = None,
         plate_display: Optional[str] = None,
         country: Optional[str] = None,
         confidence: float = 0.0,
         source: str = "",
         time: Optional[str] = None,
-        frame_path: Optional[str] = None,
-        plate_path: Optional[str] = None,
+        frame_path_entry: Optional[str] = None,
+        plate_path_entry: Optional[str] = None,
         direction: Optional[str] = None,
         client_id: Optional[int] = None,
         zone_id: Optional[int] = None,
         time_entry: Optional[str] = None,
+        channel_id_exit: Optional[int] = None,
+        frame_path_exit: Optional[str] = None,
+        plate_path_exit: Optional[str] = None,
+        time_exit: Optional[str] = None,
+        channel_id: Optional[int] = None,
+        frame_path: Optional[str] = None,
+        plate_path: Optional[str] = None,
     ) -> int:
         self._ensure_schema()
         ts = time or datetime.now(timezone.utc).isoformat()
+        if channel_id_entry is None and channel_id is not None:
+            channel_id_entry = channel_id
+        if frame_path_entry is None and frame_path is not None:
+            frame_path_entry = frame_path
+        if plate_path_entry is None and plate_path is not None:
+            plate_path_entry = plate_path
         try:
             with self._connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
                         (
                             "INSERT INTO events "
-                            "(time, channel_id, plate, plate_display, country, confidence, source, "
-                            "frame_path, plate_path, direction, client_id, zone_id, time_entry) "
-                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"
+                            "(time, channel_id_entry, channel_id_exit, plate, plate_display, country, confidence, source, "
+                            "frame_path_entry, plate_path_entry, frame_path_exit, plate_path_exit, direction, client_id, "
+                            "zone_id, time_entry, time_exit) "
+                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"
                         ),
-                        (ts, channel_id, plate, plate_display, country, confidence, source,
-                         frame_path, plate_path, direction, client_id, zone_id, time_entry),
+                        (
+                            ts,
+                            channel_id_entry,
+                            channel_id_exit,
+                            plate,
+                            plate_display,
+                            country,
+                            confidence,
+                            source,
+                            frame_path_entry,
+                            plate_path_entry,
+                            frame_path_exit,
+                            plate_path_exit,
+                            direction,
+                            client_id,
+                            zone_id,
+                            time_entry,
+                            time_exit,
+                        ),
                     )
                     row = cursor.fetchone()
                 conn.commit()
@@ -98,35 +140,71 @@ class PostgresEventDatabase(PooledDatabase):
         zone_before_id: int,
         zone_after_id: int,
         time_exit_iso: str,
-    ) -> Optional[int]:
+        *,
+        channel_id_exit: Optional[int] = None,
+        frame_path_exit: Optional[str] = None,
+        plate_path_exit: Optional[str] = None,
+        direction: Optional[str] = None,
+        confidence: Optional[float] = None,
+        country: Optional[str] = None,
+        plate_display: Optional[str] = None,
+        source: Optional[str] = None,
+        client_id: Optional[int] = None,
+    ) -> Optional[dict[str, Any]]:
         """
-        Find the most recent open entry event for `plate` in `zone_before_id`
-        (where time_exit IS NULL), write time_exit and set zone_id = zone_after_id.
-        Returns the updated event id, or None if no open entry found.
+        Найти последнюю открытую запись въезда по номеру и зоне, записать выезд
+        и вернуть обновленное событие. Поле time также сдвигается на время выезда,
+        чтобы запись поднялась вверх в live-ленте и журнале.
         """
         self._ensure_schema()
         try:
             with self._connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        """
+                        f"""
                         UPDATE events
-                        SET time_exit = %s, zone_id = %s
+                        SET time = %s,
+                            time_exit = %s,
+                            zone_id = %s,
+                            channel_id_exit = %s,
+                            frame_path_exit = %s,
+                            plate_path_exit = %s,
+                            direction = COALESCE(%s, direction),
+                            confidence = COALESCE(%s, confidence),
+                            country = COALESCE(%s, country),
+                            plate_display = COALESCE(%s, plate_display),
+                            source = COALESCE(%s, source),
+                            client_id = COALESCE(%s, client_id)
                         WHERE id = (
                             SELECT id FROM events
                             WHERE plate = %s
                               AND zone_id = %s
                               AND time_exit IS NULL
-                            ORDER BY time DESC
+                            ORDER BY time DESC, id DESC
                             LIMIT 1
                         )
-                        RETURNING id
+                        RETURNING {_SELECT_COLS}
                         """,
-                        (time_exit_iso, zone_after_id, plate, zone_before_id),
+                        (
+                            time_exit_iso,
+                            time_exit_iso,
+                            zone_after_id,
+                            channel_id_exit,
+                            frame_path_exit,
+                            plate_path_exit,
+                            direction,
+                            confidence,
+                            country,
+                            plate_display,
+                            source,
+                            client_id,
+                            plate,
+                            zone_before_id,
+                        ),
                     )
                     row = cursor.fetchone()
                 conn.commit()
-            return int(row[0]) if row else None
+            return self._to_dict(row) if row else None
         except StorageUnavailableError:
             raise
         except Exception as exc:  # noqa: BLE001
@@ -170,16 +248,13 @@ class PostgresEventDatabase(PooledDatabase):
             filters.append("(time, id) < (%s, %s)")
             params.extend([before_ts, int(before_id)])
         if channel_id is not None:
-            filters.append("channel_id = %s")
-            params.append(int(channel_id))
+            filters.append("(channel_id_entry = %s OR channel_id_exit = %s)")
+            params.extend([int(channel_id), int(channel_id)])
         if plate:
             filters.append("plate ILIKE %s")
             params.append(f"%{plate}%")
         where = f"WHERE {' AND '.join(filters)}" if filters else ""
-        query = (
-            f"SELECT {_SELECT_COLS} "
-            f"FROM events {where} ORDER BY time DESC, id DESC LIMIT %s"
-        )
+        query = f"SELECT {_SELECT_COLS} FROM events {where} ORDER BY time DESC, id DESC LIMIT %s"
         params.append(page_limit)
         try:
             with self._connect() as conn:
@@ -194,10 +269,7 @@ class PostgresEventDatabase(PooledDatabase):
         try:
             with self._connect() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute(
-                        f"SELECT {_SELECT_COLS} FROM events WHERE id = %s",
-                        (int(event_id),),
-                    )
+                    cursor.execute(f"SELECT {_SELECT_COLS} FROM events WHERE id = %s", (int(event_id),))
                     row = cursor.fetchone()
                     return self._to_dict(row) if row else None
         except Exception as exc:  # noqa: BLE001
@@ -209,12 +281,27 @@ class PostgresEventDatabase(PooledDatabase):
             with self._connect() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(
-                        "DELETE FROM events WHERE time < %s RETURNING id, frame_path, plate_path",
+                        """
+                        DELETE FROM events
+                        WHERE time < %s
+                        RETURNING id, frame_path_entry, plate_path_entry, frame_path_exit, plate_path_exit
+                        """,
                         (cutoff_iso,),
                     )
                     rows = cursor.fetchall()
                 conn.commit()
-            return [{"id": row[0], "frame_path": row[1], "plate_path": row[2]} for row in rows]
+            return [
+                {
+                    "id": row[0],
+                    "frame_path_entry": row[1],
+                    "plate_path_entry": row[2],
+                    "frame_path_exit": row[3],
+                    "plate_path_exit": row[4],
+                    "frame_path": row[3] or row[1],
+                    "plate_path": row[4] or row[2],
+                }
+                for row in rows
+            ]
         except Exception as exc:  # noqa: BLE001
             raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
 
@@ -223,26 +310,33 @@ class PostgresEventDatabase(PooledDatabase):
         ids = sorted({int(channel_id) for channel_id in channel_ids if channel_id is not None})
         if not ids:
             return {}
-        query = (
-            "SELECT DISTINCT ON (channel_id) channel_id, plate, plate_display, time, country, confidence, direction "
-            "FROM events WHERE channel_id = ANY(%s) AND channel_id IS NOT NULL "
-            "ORDER BY channel_id, time DESC"
-        )
+        query = """
+            SELECT DISTINCT ON (channel_id) channel_id, plate, plate_display, time, country, confidence, direction
+            FROM (
+                SELECT channel_id_entry AS channel_id, plate, plate_display, time, country, confidence, direction
+                FROM events WHERE channel_id_entry = ANY(%s)
+                UNION ALL
+                SELECT channel_id_exit AS channel_id, plate, plate_display, time, country, confidence, direction
+                FROM events WHERE channel_id_exit = ANY(%s)
+            ) AS channel_events
+            WHERE channel_id IS NOT NULL
+            ORDER BY channel_id, time DESC
+        """
         try:
             with self._connect() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute(query, (ids,))
+                    cursor.execute(query, (ids, ids))
                     rows = cursor.fetchall()
         except Exception as exc:  # noqa: BLE001
             raise StorageUnavailableError(f"PostgreSQL недоступен: {exc}") from exc
         return {
             int(row[0]): {
-                "plate":         row[1],
+                "plate": row[1],
                 "plate_display": row[2],
-                "time":          row[3],
-                "country":       row[4],
-                "confidence":    row[5],
-                "direction":     row[6],
+                "time": row[3],
+                "country": row[4],
+                "confidence": row[5],
+                "direction": row[6],
             }
             for row in rows
         }
@@ -265,8 +359,8 @@ class PostgresEventDatabase(PooledDatabase):
             filters.append("time <= %s")
             params.append(end)
         if channel_id is not None:
-            filters.append("channel_id = %s")
-            params.append(int(channel_id))
+            filters.append("(channel_id_entry = %s OR channel_id_exit = %s)")
+            params.extend([int(channel_id), int(channel_id)])
         if plate:
             filters.append("plate ILIKE %s")
             params.append(f"%{plate}%")
