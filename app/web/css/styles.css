@@ -177,7 +177,7 @@ body {
   transition: width 0.22s cubic-bezier(.4,0,.2,1), box-shadow 0.22s ease;
 }
 .left-rail.rail-expanded {
-  width: 180px;
+  width: 200px;
   box-shadow: 4px 0 24px rgba(0,0,0,0.35);
 }
 .left-rail.rail-expanded .ttab {
@@ -248,7 +248,7 @@ body {
 }
 .ttab-label {
   display: inline-block;
-  font-size: 12.5px;
+  font-size: 18px;
   white-space: nowrap;
   overflow: hidden;
   max-width: 0;
@@ -256,7 +256,7 @@ body {
   transition: max-width 0.2s ease, opacity 0.18s ease;
 }
 .left-rail.rail-expanded .ttab-label {
-  max-width: 100px;
+  max-width: 150px;
   opacity: 1;
 }
 .ttab:hover {

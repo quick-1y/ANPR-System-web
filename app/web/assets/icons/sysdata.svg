@@ -3,6 +3,6 @@
 <ellipse cx="12" cy="7" rx="7.5" ry="3" stroke="#d8dce8" stroke-width="1.8" fill="none"/>
 <path d="M4.5 7v5c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3V7" stroke="#d8dce8" stroke-width="1.8"/>
 <path d="M4.5 12v5c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3v-5" stroke="#d8dce8" stroke-width="1.8"/>
-<ellipse cx="12" cy="7" rx="3.2" ry="1.2" fill="#e8a838" opacity="0.85"/>
+<ellipse cx="12" cy="7" rx="3.2" ry="1.2" fill="#334155" opacity="0.85"/>
 
 </svg>

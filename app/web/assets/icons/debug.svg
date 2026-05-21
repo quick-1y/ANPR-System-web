@@ -4,8 +4,8 @@
 <circle cx="12" cy="8" r="2" stroke="#d8dce8" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
 <rect x="8" y="9.7" width="8" height="8.8" rx="4" stroke="#d8dce8" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M6.2 11.2h2M5.8 14.1h2.4M6.2 17h2M15.8 11.2h2M15.8 14.1h2.4M15.8 17h2" stroke="#d8dce8" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M12 10.8v6.6" stroke="#e8a838" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="10.9" cy="8" r="0.8" fill="#e8a838"/>
-<circle cx="13.1" cy="8" r="0.8" fill="#e8a838"/>
+<path d="M12 10.8v6.6" stroke="#334155#" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="10.9" cy="8" r="0.8" fill="#334155"/>
+<circle cx="13.1" cy="8" r="0.8" fill="#334155"/>
 
 </svg>
