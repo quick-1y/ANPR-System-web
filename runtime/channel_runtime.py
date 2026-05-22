@@ -652,7 +652,9 @@ class ChannelProcessor:
                                 plate_path_entry=plate_path,
                                 direction=event["direction"],
                                 client_id=client_id,
+                                time_entry=event_ts_iso,
                             )
+                            event["time_entry"] = event_ts_iso
                             event["id"] = int(event_id) if int(event_id or 0) > 0 else None
                             self._event_callback(event)
 
