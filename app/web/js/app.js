@@ -12,7 +12,7 @@ import { loadControllers, createController, _doCreateController, deleteControlle
 import { applyDebugPanelVisibility, loadDebugLogHistory, setupDebugLogStream, setupStream } from './debug.js';
 import { initHelpSystem } from './help.js';
 import { initBackupBindings } from './backup.js';
-import { state, setCurrentUser } from './state.js';
+import { state, setCurrentUser, hasPermission } from './state.js';
 import { initUsersPane } from './users.js';
 import { loadZones, initZonesTab } from './zones.js';
 import { initSystemPolling, refreshSystemResources, checkServerHealth } from './system.js';

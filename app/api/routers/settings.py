@@ -101,4 +101,4 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
     if pipeline_changed:
         container.restart_processor_for_settings()
 
-    return get_global_settings(container)
+    return get_global_settings(container=container, current_user=current_user)
