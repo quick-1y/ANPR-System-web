@@ -29,12 +29,12 @@ router = APIRouter()
 
 
 @router.get("/api/data/policy")
-def get_data_policy(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("data:manage"))) -> Dict[str, Any]:
+def get_data_policy(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     return container.lifecycle.policy.to_storage()
 
 
 @router.put("/api/data/policy")
-def update_data_policy(payload: RetentionPolicyPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("data:manage"))) -> Dict[str, Any]:
+def update_data_policy(payload: RetentionPolicyPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     policy = RetentionPolicy(**payload.model_dump())
     container.lifecycle.update_policy(policy)
     container.settings.save_storage_settings(policy.to_storage())
@@ -42,7 +42,7 @@ def update_data_policy(payload: RetentionPolicyPayload, container: AppContainer 
 
 
 @router.post("/api/data/retention/run")
-def run_retention(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("data:manage"))) -> Dict[str, Any]:
+def run_retention(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     try:
         result = container.lifecycle.run_retention_cycle()
         return {"status": "ok", **result}
@@ -57,7 +57,7 @@ def export_events_csv(
     plate: Optional[str] = None,
     channel_id: Optional[int] = None,
     container: AppContainer = Depends(get_container),
-    _user: Dict[str, Any] = Depends(require_permission("data:manage")),
+    _user: Dict[str, Any] = Depends(require_permission("tab:settings")),
 ) -> Response:
     try:
         filename, payload = container.lifecycle.export_events_csv(start=start, end=end, plate=plate, channel_id=channel_id)
@@ -71,7 +71,7 @@ def export_events_csv(
 
 
 @router.post("/api/data/export/bundle")
-def export_events_bundle(payload: ExportBundlePayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("data:manage"))) -> Response:
+def export_events_bundle(payload: ExportBundlePayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Response:
     try:
         filename, body = container.lifecycle.export_events_bundle(
             start=payload.start,
@@ -91,7 +91,7 @@ def export_events_bundle(payload: ExportBundlePayload, container: AppContainer =
 # ── Database backup / restore ────────────────────────────
 
 @router.get("/api/data/backup/database")
-def backup_database(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("data:manage"))) -> Response:
+def backup_database(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Response:
     dsn = str(container.settings.get_storage_settings().get("postgres_dsn", "")).strip()
     if not dsn:
         return JSONResponse(status_code=500, content={"status": "error", "detail": "PostgreSQL DSN не настроен"})
@@ -113,7 +113,7 @@ def backup_database(container: AppContainer = Depends(get_container), _user: Dic
 async def restore_database(
     file: UploadFile = File(...),
     container: AppContainer = Depends(get_container),
-    _user: Dict[str, Any] = Depends(require_permission("data:manage")),
+    _user: Dict[str, Any] = Depends(require_permission("tab:settings")),
 ) -> JSONResponse:
     lock = get_restore_lock()
     if not lock.acquire("database_restore"):
@@ -179,7 +179,7 @@ async def restore_database(
 # ── Settings backup / restore ────────────────────────────
 
 @router.get("/api/data/backup/settings")
-def backup_settings(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("data:manage"))) -> Response:
+def backup_settings(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Response:
     try:
         settings_path = container.settings._repo.path
         filename, body = export_settings(settings_path)
@@ -199,7 +199,7 @@ def backup_settings(container: AppContainer = Depends(get_container), _user: Dic
 async def restore_settings_endpoint(
     file: UploadFile = File(...),
     container: AppContainer = Depends(get_container),
-    _user: Dict[str, Any] = Depends(require_permission("data:manage")),
+    _user: Dict[str, Any] = Depends(require_permission("tab:settings")),
 ) -> JSONResponse:
     lock = get_restore_lock()
     if not lock.acquire("settings_restore"):

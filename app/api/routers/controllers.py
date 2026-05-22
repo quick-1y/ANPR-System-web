@@ -12,12 +12,12 @@ router = APIRouter()
 
 
 @router.get("/api/controllers")
-def list_controllers(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("controllers:manage"))) -> List[Dict[str, Any]]:
+def list_controllers(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> List[Dict[str, Any]]:
     return container.controller_db.list_controllers()
 
 
 @router.post("/api/controllers")
-def create_controller(payload: ControllerPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("controllers:manage"))) -> Dict[str, Any]:
+def create_controller(payload: ControllerPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     existing = container.controller_db.list_controllers()
     new_data = payload.model_dump()
     container.validate_global_hotkeys([*existing, new_data])
@@ -25,7 +25,7 @@ def create_controller(payload: ControllerPayload, container: AppContainer = Depe
 
 
 @router.put("/api/controllers/{controller_id}")
-def update_controller(controller_id: int, payload: ControllerPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("controllers:manage"))) -> Dict[str, Any]:
+def update_controller(controller_id: int, payload: ControllerPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     existing = container.controller_db.list_controllers()
     update_data = payload.model_dump()
     others = [c for c in existing if int(c.get("id", 0)) != controller_id]
@@ -37,7 +37,7 @@ def update_controller(controller_id: int, payload: ControllerPayload, container:
 
 
 @router.delete("/api/controllers/{controller_id}")
-def delete_controller(controller_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("controllers:manage"))) -> Dict[str, str]:
+def delete_controller(controller_id: int, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, str]:
     channels_using = [
         int(ch.get("id", 0))
         for ch in container.channel_db.list_channels()
@@ -55,7 +55,7 @@ def delete_controller(controller_id: int, container: AppContainer = Depends(get_
 
 
 @router.post("/api/controllers/{controller_id}/test")
-def test_controller(controller_id: int, payload: ControllerTestPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("controllers:manage"))) -> Dict[str, Any]:
+def test_controller(controller_id: int, payload: ControllerTestPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     controller = container.controller_db.get_controller(controller_id)
     if not controller:
         raise HTTPException(status_code=404, detail="Контроллер не найден")

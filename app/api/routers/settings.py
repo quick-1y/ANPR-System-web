@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/api/countries")
-def get_available_countries(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("settings:read"))) -> List[Dict[str, str]]:
+def get_available_countries(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> List[Dict[str, str]]:
     plates = container.settings.get_plate_settings()
     config_dir = str(plates.get("config_dir") or "anpr/countries")
     loader = CountryConfigLoader(os.path.abspath(config_dir))
@@ -24,7 +24,7 @@ def get_available_countries(container: AppContainer = Depends(get_container), _u
 
 
 @router.get("/api/settings")
-def get_global_settings(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("settings:read"))) -> Dict[str, Any]:
+def get_global_settings(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     payload = {
         "grid": container.settings.get_grid(),
         "theme": container.settings.get_theme(),
@@ -41,7 +41,7 @@ def get_global_settings(container: AppContainer = Depends(get_container), _user:
 
 
 @router.put("/api/settings")
-def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("settings:write"))) -> Dict[str, Any]:
+def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     import copy
 
     old_plates = container.settings.get_plate_settings()

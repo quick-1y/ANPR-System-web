@@ -23,7 +23,7 @@
 | `POST` | `/api/auth/login` | Аутентификация (логин + пароль) -> JWT | Публичный |
 | `POST` | `/api/auth/logout` | Аудит-лог выхода; клиент удаляет токен | Авторизованный |
 | `GET` | `/api/auth/me` | Текущий пользователь (роль, разрешения) | Авторизованный |
-| `GET` | `/api/permissions/available` | Список ключей разрешений с метаданными `{key, label, group}` | *Требует users:manage* |
+| `GET` | `/api/permissions/available` | Список ключей разрешений с метаданными `{key, label, group}` | *Требует tab:settings* |
 
 Все остальные API-эндпоинты (кроме `/api/health`) требуют валидный JWT-токен в заголовке `Authorization: Bearer <token>` или query-параметре `?token=<jwt>`.
 
@@ -31,7 +31,7 @@
 - *Публичный* — без токена
 - *Авторизованный* — любой активный пользователь с валидным JWT
 - **Только superadmin** — требует роль `superadmin` (технический root-аккаунт)
-- *Требует users:manage* — доступно пользователям с разрешением `tab:settings` (или superadmin)
+- *Требует tab:settings* — доступно пользователям с разрешением `tab:settings` (или superadmin)
 
 **Детали аутентификации:**
 - `POST /api/auth/login` — брутфорс-защита: макс. 5 неудачных попыток в минуту с одного IP (`HTTP 429`). Счётчик сбрасывается при успешном входе.
@@ -39,7 +39,7 @@
 - `POST /api/auth/logout` — требует токен; фиксирует выход в аудит-лог.
 - Аутентификация только через JWT. Статические API-ключи не поддерживаются.
 
-### Users *(требует users:manage)*
+### Users *(требует tab:settings)*
 
 | Метод | Путь | Описание |
 |---|---|---|
@@ -94,7 +94,7 @@
 | `GET` | `/api/events/item/{event_id}/media/{kind}` | Медиафайл события (`kind=frame` или `plate`) |
 | `GET` | `/api/events/stream` | SSE-поток live событий (`text/event-stream`; keepalive `: ping`; auto-retry) |
 
-### Controllers *(по capability permissions)*
+### Controllers *(по разрешения permissions)*
 
 | Метод | Путь | Описание |
 |---|---|---|
@@ -129,7 +129,7 @@
 | `GET` | `/api/lists/entry-by-plate` | Найти клиента по номеру (используется обогащением событий) |
 | `GET` | `/api/lists/plates` | Все номера с типами списков (используется фильтрацией каналов) |
 
-### Settings *(по capability permissions)*
+### Settings *(по разрешения permissions)*
 
 | Метод | Путь | Описание |
 |---|---|---|
@@ -137,7 +137,7 @@
 | `PUT` | `/api/settings` | Обновить настройки (изменение параметров распознавания номеров и DSN перезапускает pipeline) |
 | `GET` | `/api/countries` | Список доступных конфигураций стран |
 
-### Data & Export *(по capability permissions)*
+### Data & Export *(по разрешения permissions)*
 
 | Метод | Путь | Описание |
 |---|---|---|
@@ -160,7 +160,7 @@
 | `GET` | `/api/storage/status` | Статус PostgreSQL |
 | `GET` | `/api/telemetry/channels` | Метрики каналов (FPS, latency, reconnect_count и др.) |
 
-### Debug *(по capability permissions)*
+### Debug *(по разрешения permissions)*
 
 | Метод | Путь | Описание |
 |---|---|---|

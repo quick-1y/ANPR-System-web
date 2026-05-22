@@ -98,3 +98,14 @@ def require_any_permission(*permissions: str):
         return current_user
 
     return _check
+
+
+def require_superadmin():
+    """Return a dependency that allows access only to superadmin."""
+
+    def _check(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+        if current_user.get("role") != "superadmin":
+            raise HTTPException(status_code=403, detail="Недостаточно прав")
+        return current_user
+
+    return _check

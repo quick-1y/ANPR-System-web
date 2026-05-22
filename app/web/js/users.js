@@ -10,7 +10,7 @@ let _selectedUserId = null;
 // --- Init ---
 
 export function initUsersPane() {
-    if (!hasPermission("users:manage")) return;
+    if (!hasPermission("tab:settings")) return;
 
     const navItem = document.getElementById("snav-users");
     if (navItem) {
@@ -232,7 +232,7 @@ function _renderPermCheckboxes(containerId, currentPerms, role) {
     if (!el) return;
     el.innerHTML = "";
     for (const p of _allPermissions) {
-        if (role === "operator" && (p.key === "tab:settings" || p.key === "users:manage")) continue;
+        if (role === "operator" && p.key === "tab:settings") continue;
         const label = document.createElement("label");
         label.style.cssText = "display:inline-flex;align-items:center;gap:5px;margin-right:12px;margin-bottom:4px;font-size:12px;cursor:pointer";
         const cb = document.createElement("input");
