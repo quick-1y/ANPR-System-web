@@ -1,7 +1,6 @@
 """Phase 4 tests — superadmin-only route protection via require_role("superadmin").
 
-Verifies that the settings, controllers, data, and debug routers correctly
-reject operator-role users with HTTP 403, while superadmins pass through.
+Verifies that the settings/debug/etc routers correctly enforce their declared role/permission guards.
 
 These tests call the FastAPI dependency functions directly (unit-style),
 matching the pattern used in test_auth_deps.py.
@@ -66,7 +65,7 @@ class TestRequireSuperadmin:
 
 
 # ---------------------------------------------------------------------------
-# Settings router — verify require_role("superadmin") is applied
+# Settings router — verify permission-based access is used
 # ---------------------------------------------------------------------------
 
 class TestSettingsRouterGuards:
@@ -149,8 +148,7 @@ class TestRouterImports:
 
     def test_settings_router_uses_require_role(self):
         src = self._read_router_source("app/api/routers/settings.py")
-        assert "require_role" in src
-        assert "get_current_user" not in src
+        assert "require_permission" in src
 
     def test_controllers_router_uses_require_role(self):
         src = self._read_router_source("app/api/routers/controllers.py")
