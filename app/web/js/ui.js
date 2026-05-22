@@ -183,7 +183,7 @@ export function openModal(id) { document.getElementById(id).classList.add("activ
 export function closeModal(id) { document.getElementById(id).classList.remove("active"); }
 
 export function applyTheme(theme) {
-  const normalized = String(theme || "dark").toLowerCase() === "light" ? "light" : "dark";
+  const normalized = String(theme || "light").toLowerCase() === "dark" ? "dark" : "light";
   document.body.setAttribute("data-theme", normalized);
   try {
     localStorage.setItem("anpr_theme", normalized);
