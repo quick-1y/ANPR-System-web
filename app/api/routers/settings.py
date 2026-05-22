@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends
 
 from app.api.container import AppContainer
-from app.api.deps import get_container, require_role
+from app.api.deps import get_container, require_permission
 from app.api.schemas import GlobalSettingsPayload
 from anpr.postprocessing.country_config import CountryConfigLoader
 from common.logging import configure_logging, get_logger
@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/api/countries")
-def get_available_countries(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> List[Dict[str, str]]:
+def get_available_countries(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> List[Dict[str, str]]:
     plates = container.settings.get_plate_settings()
     config_dir = str(plates.get("config_dir") or "anpr/countries")
     loader = CountryConfigLoader(os.path.abspath(config_dir))
@@ -24,8 +24,8 @@ def get_available_countries(container: AppContainer = Depends(get_container), _u
 
 
 @router.get("/api/settings")
-def get_global_settings(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
-    return {
+def get_global_settings(container: AppContainer = Depends(get_container), current_user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
+    body = {
         "grid": container.settings.get_grid(),
         "theme": container.settings.get_theme(),
         "sidebar_locked": container.settings.settings.get("sidebar_locked", False),
@@ -34,12 +34,14 @@ def get_global_settings(container: AppContainer = Depends(get_container), _user:
         "logging": container.settings.get_logging_config(),
         "time": container.settings.get_time_settings(),
         "plates": container.settings.get_plate_settings(),
-        "debug": container.settings.get_debug_settings(),
     }
+    if current_user.get("role") == "superadmin":
+        body["debug"] = container.settings.get_debug_settings()
+    return body
 
 
 @router.put("/api/settings")
-def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
+def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer = Depends(get_container), current_user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     import copy
 
     old_plates = container.settings.get_plate_settings()
@@ -65,7 +67,10 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
         current_plates = container.settings.settings.get("plates", {})
         current_plates.update(payload.plates.model_dump())
         container.settings.settings["plates"] = current_plates
-        container.settings.settings["debug"] = debug_payload
+
+        is_superadmin = current_user.get("role") == "superadmin"
+        if is_superadmin:
+            container.settings.settings["debug"] = debug_payload
 
         current_logging = container.settings.settings.get("logging", {})
         current_logging.update(logging_payload)
@@ -81,7 +86,8 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
         container.processor.update_reconnect_settings(reconnect_config)
     except Exception:
         logger.exception("Не удалось обновить reconnect-настройки активного processor")
-    container.processor.update_debug_settings(debug_payload)
+    if current_user.get("role") == "superadmin":
+        container.processor.update_debug_settings(debug_payload)
     configure_logging(container.settings.get_logging_config(), service_name="api")
 
     container.refresh_storage_clients()

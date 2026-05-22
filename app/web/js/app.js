@@ -350,8 +350,10 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
   await loadLists();
   await loadAllClients();
   await loadJournal();
-  if (currentUser.role === "superadmin") {
+  if (hasPermission("tab:settings")) {
     await loadGlobalSettings();
+  }
+  if (currentUser.role === "superadmin") {
     await refreshOverlayStates();
     await loadDebugLogHistory();
     setupDebugLogStream();

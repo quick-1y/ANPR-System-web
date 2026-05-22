@@ -32,6 +32,7 @@
 - *Авторизованный* — любой активный пользователь с валидным JWT
 - **Только superadmin** — требует роль `superadmin` (технический root-аккаунт)
 - *Требует tab:settings* — доступно пользователям с разрешением `tab:settings` (или superadmin)
+  - включая: `GET/PUT /api/settings`, `GET /api/countries`, `GET /api/permissions/available`, и endpoints `/api/users/*`
 
 **Детали аутентификации:**
 - `POST /api/auth/login` — брутфорс-защита: макс. 5 неудачных попыток в минуту с одного IP (`HTTP 429`). Счётчик сбрасывается при успешном входе.

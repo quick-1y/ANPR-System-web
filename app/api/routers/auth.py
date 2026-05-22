@@ -23,6 +23,7 @@ AVAILABLE_PERMISSIONS = [
     {"key": "tab:obs", "label": "Наблюдение", "group": "tabs"},
     {"key": "tab:journal", "label": "Журнал", "group": "tabs"},
     {"key": "tab:clients", "label": "Клиенты", "group": "tabs"},
+    {"key": "tab:zones", "label": "Зоны", "group": "tabs"},
     {"key": "tab:settings", "label": "Настройки", "group": "tabs"},
 ]
 

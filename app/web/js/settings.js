@@ -50,10 +50,12 @@ export async function loadGlobalSettings() {
   setVal("g_log_level", g.logging.level); setVal("g_log_retention", g.logging.retention_days);
   setVal("g_timezone", g.time.timezone); setVal("g_offset_minutes", g.time.offset_minutes);
   await renderCountryToggles(g.plates.enabled_countries || []);
-  setChk("d_metrics", g.debug.show_channel_metrics);
-  setChk("d_log", g.debug.log_panel_enabled);
-  setChk("d_video_off", g.debug.disable_video_output);
-  setDebugSettingsCache(g.debug || {});
+  if (g.debug) {
+    setChk("d_metrics", g.debug.show_channel_metrics);
+    setChk("d_log", g.debug.log_panel_enabled);
+    setChk("d_video_off", g.debug.disable_video_output);
+    setDebugSettingsCache(g.debug || {});
+  }
   applyDebugPanelVisibility();
 }
 

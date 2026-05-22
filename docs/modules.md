@@ -19,7 +19,7 @@
 | `app/api/routers/controllers.py` | CRUD аппаратных контроллеров, тест реле — **только Admin** |
 | `app/api/routers/clients.py` | CRUD клиентов, поиск, прикрепление к спискам / открепление — авторизованный |
 | `app/api/routers/lists.py` | CRUD списков (plate lists), получение участников списка, поиск по номеру, все номера с типами — авторизованный |
-| `app/api/routers/settings.py` | Глобальные настройки и логика перезапуска pipeline — **только Admin** |
+| `app/api/routers/settings.py` | Глобальные настройки и логика перезапуска pipeline — **tab:settings** (debug-параметры только superadmin) |
 | `app/api/routers/data.py` | Retention policy, экспорт, backup / restore — **только Admin** |
 | `app/api/routers/system.py` | Health check, CPU/RAM, статус БД, Web UI |
 | `app/api/routers/debug.py` | Debug-настройки, overlay state, лог-панель SSE — **только Admin** |
