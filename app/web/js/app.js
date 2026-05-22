@@ -349,7 +349,7 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
   await loadLists();
   await loadAllClients();
   await loadJournal();
-  const canManageSettings = hasPermission("tab:settings");
+  const canManageSettings = hasPermission("settings:read");
   if (canManageSettings) {
     await loadGlobalSettings();
     await refreshOverlayStates();

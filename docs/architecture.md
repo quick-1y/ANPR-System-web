@@ -118,7 +118,7 @@ Retention-политика применяется отдельно от осно
 - public — health check и login
 - authenticated — любой активный пользователь с валидным JWT
 - requires `tab:settings` — операции управления пользователями
-- superadmin only — контроллеры, глобальные настройки, backup/restore, debug и чувствительные системные операции
+- capability-права (`*:manage`, `*:read`, `*:write`) — фактический доступ к операциям API; `superadmin` имеет bypass
 
 Эта модель должна последовательно отражаться в документации и в API-описании.
 

@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 # Permissions that are not assignable to operators.
-_OPERATOR_FORBIDDEN_PERMISSIONS: frozenset[str] = frozenset({"tab:settings"})
+_OPERATOR_FORBIDDEN_PERMISSIONS: frozenset[str] = frozenset({"tab:settings", "users:manage"})
 
 
 def _strip_operator_forbidden(role: str, permissions: list[str]) -> list[str]:
@@ -28,7 +28,7 @@ def _strip_operator_forbidden(role: str, permissions: list[str]) -> list[str]:
 
 @router.get("/api/users", response_model=List[UserOut])
 def list_users(
-    current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
+    current_user: Dict[str, Any] = Depends(require_permission("users:manage")),
     container: AppContainer = Depends(get_container),
 ):
     """Return all users (admin only). Excludes the technical superadmin account."""
@@ -43,7 +43,7 @@ def list_users(
 @router.post("/api/users", response_model=UserOut, status_code=201)
 def create_user(
     body: UserCreate,
-    current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
+    current_user: Dict[str, Any] = Depends(require_permission("users:manage")),
     container: AppContainer = Depends(get_container),
 ):
     """Create a new user (admin only). The superadmin role cannot be assigned here."""
@@ -69,7 +69,7 @@ def create_user(
 @router.get("/api/users/{user_id}", response_model=UserOut)
 def get_user(
     user_id: int,
-    current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
+    current_user: Dict[str, Any] = Depends(require_permission("users:manage")),
     container: AppContainer = Depends(get_container),
 ):
     """Get a single user by ID (admin only)."""
@@ -83,7 +83,7 @@ def get_user(
 def update_user(
     user_id: int,
     body: UserUpdate,
-    current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
+    current_user: Dict[str, Any] = Depends(require_permission("users:manage")),
     container: AppContainer = Depends(get_container),
 ):
     """Update user role, permissions, or active state (admin only).
@@ -144,7 +144,7 @@ def change_password(
     Admins can change any user's password.
     Regular users can only change their own password.
     """
-    can_manage_users = current_user["role"] == "superadmin" or "tab:settings" in current_user.get("permissions", [])
+    can_manage_users = current_user["role"] == "superadmin" or "users:manage" in current_user.get("permissions", [])
     if not can_manage_users and user_id != current_user["id"]:
         raise HTTPException(status_code=403, detail="Недостаточно прав")
 
@@ -168,7 +168,7 @@ def change_password(
 @router.delete("/api/users/{user_id}", status_code=204)
 def deactivate_user(
     user_id: int,
-    current_user: Dict[str, Any] = Depends(require_permission("tab:settings")),
+    current_user: Dict[str, Any] = Depends(require_permission("users:manage")),
     container: AppContainer = Depends(get_container),
 ):
     """Deactivate a user (soft-delete). Admin cannot deactivate themselves."""

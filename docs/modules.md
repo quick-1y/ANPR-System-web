@@ -9,7 +9,7 @@
 | `app/api/main.py` | FastAPI app, middleware, роутеры, lifecycle |
 | `app/api/auth_utils.py` | JWT-утилиты: `hash_password()`, `verify_password()`, `create_access_token()`, `decode_access_token()` |
 | `app/api/container.py` | `AppContainer`: DI-контейнер всех сервисов; `build()`, `startup()`, `shutdown()` |
-| `app/api/deps.py` | FastAPI зависимости: `get_container()`, `get_current_user()`, `require_role()`, `require_permission()` |
+| `app/api/deps.py` | FastAPI зависимости: `get_container()`, `get_current_user()`, `require_permission()`, `require_any_permission()` |
 | `app/api/schemas.py` | Pydantic-модели запросов и ответов (включая `LoginRequest`, `LoginResponse`, `UserOut`, `UserCreate`, `UserUpdate`, `UserPasswordChange`) |
 | `app/api/routers/auth.py` | Auth endpoints: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/permissions/available` (admin-only, возвращает `{key,label,group}`) |
 | `app/api/routers/users.py` | User management (admin-only): list, create, get, update, change password, deactivate |

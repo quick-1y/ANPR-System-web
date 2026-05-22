@@ -24,6 +24,13 @@ AVAILABLE_PERMISSIONS = [
     {"key": "tab:journal", "label": "Журнал", "group": "tabs"},
     {"key": "tab:clients", "label": "Клиенты", "group": "tabs"},
     {"key": "tab:settings", "label": "Настройки", "group": "tabs"},
+    {"key": "users:manage", "label": "Управление пользователями", "group": "capabilities"},
+    {"key": "settings:read", "label": "Чтение глобальных настроек", "group": "capabilities"},
+    {"key": "settings:write", "label": "Изменение глобальных настроек", "group": "capabilities"},
+    {"key": "controllers:manage", "label": "Управление контроллерами", "group": "capabilities"},
+    {"key": "data:manage", "label": "Резервное копирование и ретеншн", "group": "capabilities"},
+    {"key": "debug:read", "label": "Просмотр отладочных данных", "group": "capabilities"},
+    {"key": "debug:write", "label": "Изменение отладочных настроек", "group": "capabilities"},
 ]
 
 # ---------------------------------------------------------------------------
@@ -126,6 +133,6 @@ def me(current_user: Dict[str, Any] = Depends(get_current_user)):
 
 
 @router.get("/api/permissions/available")
-def available_permissions(current_user: Dict[str, Any] = Depends(require_permission("tab:settings"))):
+def available_permissions(current_user: Dict[str, Any] = Depends(require_permission("users:manage"))):
     """Return known permission keys with labels (superadmin-only, for user management UI)."""
     return AVAILABLE_PERMISSIONS

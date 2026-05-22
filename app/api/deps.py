@@ -48,16 +48,6 @@ def get_current_user(request: Request, container: AppContainer = Depends(get_con
     return user
 
 
-def require_role(role: str):
-    """Return a dependency that checks the current user has the given role."""
-
-    def _check(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-        if current_user.get("role") != role:
-            raise HTTPException(status_code=403, detail="Недостаточно прав")
-        return current_user
-
-    return _check
-
 
 def require_permission(permission: str):
     """Return a dependency that checks the current user has a specific permission key.
@@ -89,3 +79,22 @@ def _extract_token(request: Request) -> str | None:
         return token
 
     return None
+
+
+def require_any_permission(*permissions: str):
+    """Return a dependency that checks user has at least one permission.
+
+    Superadmins implicitly pass all checks.
+    """
+
+    required = tuple(p for p in permissions if p)
+
+    def _check(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+        if current_user.get("role") == "superadmin":
+            return current_user
+        user_permissions = set(current_user.get("permissions", []))
+        if not any(permission in user_permissions for permission in required):
+            raise HTTPException(status_code=403, detail="Недостаточно прав")
+        return current_user
+
+    return _check
