@@ -194,7 +194,7 @@ body {
   box-shadow: 4px 0 24px rgba(0,0,0,0.35);
 }
 .left-rail.rail-expanded .ttab {
-  width: 156px; height: 42px;
+  width: 184px; height: 42px;
   border-radius: 11px;
 }
 .left-rail.rail-expanded .ttab.active::before { left: -1px; }
@@ -269,7 +269,7 @@ body {
   transition: max-width 0.2s ease, opacity 0.18s ease;
 }
 .left-rail.rail-expanded .ttab-label {
-  max-width: 150px;
+  max-width: 178px;
   opacity: 1;
 }
 .ttab:hover {
