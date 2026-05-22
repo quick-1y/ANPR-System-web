@@ -1,5 +1,5 @@
 // Video grid rendering, preview lifecycle, overlays, metrics
-import { state, debugSettingsCache, overlayRefreshTimer, setOverlayRefreshTimer } from './state.js';
+import { state, debugSettingsCache, overlayRefreshTimer, setOverlayRefreshTimer, isSuperAdmin } from './state.js';
 import { api, apiUrl, jfetch } from './api.js';
 import { normalizeDirectionCode, formatDirection } from './ui.js';
 
@@ -233,7 +233,7 @@ function bindPreviewLifecycle(cell, img) {
       statusDot.classList.remove("live");
       statusDot.classList.add("off");
     }
-    if (!Boolean((debugSettingsCache || {}).disable_video_output)) {
+    if (!(isSuperAdmin() && Boolean((debugSettingsCache || {}).disable_video_output))) {
       setNoSignalVisibility(cell, true, cell.dataset.statusText || "Ожидание кадра...");
     }
   });
@@ -303,7 +303,7 @@ function renderDebugOverlay(cell, ch) {
   const dirEl = overlayLayer.querySelector(".cam-direction-label");
   if (!box || !ocrEl || !dirEl) return;
 
-  const showMetrics = Boolean((debugSettingsCache || {}).show_channel_metrics);
+  const showMetrics = isSuperAdmin() && Boolean((debugSettingsCache || {}).show_channel_metrics);
   const displayRect = getPreviewDisplayRect(cell, overlayData);
   if (!bbox || bbox.length < 4 || !displayRect || !showMetrics) {
     box.style.display = "none";
@@ -388,7 +388,7 @@ function refreshVideoCellOverlayState(cell, ch) {
   const statusText = statusTextForChannel(ch);
   cell.dataset.statusText = statusText;
 
-  if (Boolean((debugSettingsCache || {}).disable_video_output)) {
+  if (isSuperAdmin() && Boolean((debugSettingsCache || {}).disable_video_output)) {
     const statusDot = cell.querySelector(".cam-status");
     if (statusDot) {
       statusDot.classList.remove("live");
@@ -413,7 +413,7 @@ function refreshVideoCellOverlayState(cell, ch) {
 }
 
 export function syncOverlayPolling() {
-  const shouldPoll = Boolean((debugSettingsCache || {}).show_channel_metrics);
+  const shouldPoll = isSuperAdmin() && Boolean((debugSettingsCache || {}).show_channel_metrics);
   if (shouldPoll && !overlayRefreshTimer) {
     refreshOverlayStates();
     setOverlayRefreshTimer(setInterval(refreshOverlayStates, 700));
@@ -466,7 +466,7 @@ function ensureCellPreviewImg(cell, channelId) {
 
 function createVideoCell(ch) {
   const statusText = statusTextForChannel(ch);
-  const videoDisabled = Boolean((debugSettingsCache || {}).disable_video_output);
+  const videoDisabled = isSuperAdmin() && Boolean((debugSettingsCache || {}).disable_video_output);
   const cell = document.createElement("div");
   cell.className = "video-cell";
   cell.dataset.channelId = String(ch.id);
@@ -508,7 +508,7 @@ function updateVideoCell(cell, ch) {
   cell.dataset.statusText = statusText;
   const label = cell.querySelector(".cam-label");
   if (label) label.textContent = ch.name;
-  if (!Boolean((debugSettingsCache || {}).disable_video_output)) {
+  if (!(isSuperAdmin() && Boolean((debugSettingsCache || {}).disable_video_output))) {
     const preview = ensureCellPreviewImg(cell, ch.id);
     const hasPreviewSignal = getCellPreviewSignal(cell, ch);
     const statusDot = cell.querySelector(".cam-status");
