@@ -308,7 +308,8 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
     return;
   }
   _applyUserUI(currentUser);
-  applyTabVisibility(currentUser.permissions || [], currentUser.role === "superadmin");
+  const userIsSuperadmin = currentUser.role === "superadmin";
+  applyTabVisibility(currentUser.permissions || [], userIsSuperadmin);
   applyDebugPanelVisibility();
   initUsersPane();
 

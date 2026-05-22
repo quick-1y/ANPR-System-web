@@ -84,12 +84,12 @@ export function switchTab(name) {
  * Hide sidebar tabs the current user is not permitted to see.
  *
  * @param {string[]} permissions - User's permission keys (e.g. ["tab:obs", "tab:journal"]).
- * @param {boolean} userIsAdmin  - Admins bypass all permission checks (see all tabs).
+ * @param {boolean} userIsSuperadmin - Superadmin bypasses all permission checks (sees all tabs).
  *
  * Called from app.js after login / page load with the resolved user object.
  * If the currently active tab becomes hidden, switches to the first visible tab.
  */
-export function applyTabVisibility(permissions, userIsAdmin) {
+export function applyTabVisibility(permissions, userIsSuperadmin) {
   const tabs = document.querySelectorAll(".ttab");
   const activeTab = getActiveTabName();
   let firstVisible = null;
@@ -99,7 +99,7 @@ export function applyTabVisibility(permissions, userIsAdmin) {
     const tabName = el.dataset.tab;
     if (!tabName) return; // skip non-tab elements (e.g. logout button)
     const permitted =
-      userIsAdmin ||
+      userIsSuperadmin ||
       (Array.isArray(permissions) && permissions.includes(`tab:${tabName}`));
     el.style.display = permitted ? "" : "none";
     if (permitted) {
