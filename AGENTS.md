@@ -331,6 +331,7 @@ ANPR-System-v0.8_web/
 | Directories | `snake_case` | camelCase | `anpr/postprocessing/` |
 | Classes / components | `PascalCase` | snake_case | `ChannelProcessor`, `ANPRPipeline` |
 | Functions / methods | `snake_case` | camelCase | `build_components()`, `process_frame()` |
+| Public functions / methods | `snake_case` (без префикса `_`) | `_name` для публичного API | `process_frame()`, `build_components()` |
 | Private methods | `_snake_case` | no prefix | `_evict_stale()`, `_run_channel()` |
 | Variables | `snake_case` | camelCase | `track_id`, `best_shots` |
 | Constants | `UPPER_SNAKE_CASE` | lowercase | `SETTINGS_VERSION`, `DEFAULT_LEVEL` |
@@ -355,6 +356,7 @@ Do:
 - use dataclasses for internal domain models, Pydantic `BaseModel` for API request validation;
 - use keyword-only arguments for optional/config params;
 - clamp config values in `__init__` with `max()`/`min()`.
+- явно разделяйте публичные и приватные функции: публичные именуются без `_`, приватные — с ведущим `_`.
 
 Don't:
 
