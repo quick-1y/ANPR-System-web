@@ -1348,11 +1348,11 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
 
 /* ─── Vision tab (merged ROI + plate size) ─────────── */
 .vision-layout { display: flex; gap: 14px; }
-.vision-left { flex: 0 0 264px; min-width: 240px; max-width: 290px; }
+.vision-left { flex: 0 0 360px; min-width: 340px; max-width: 420px; }
 .vision-right { flex: 1 1 0; min-width: 360px; }
 .vision-left .s-card { margin-bottom: 10px; }
 .vision-left .s-row-label { flex: 0 1 auto; min-width: 0; }
-.vision-left .s-input.sm { width: 50px; flex-shrink: 0; }
+.vision-left .s-input.sm { width: 68px; flex-shrink: 0; }
 
 .roi-points-list { max-height: 128px; overflow-y: auto; }
 .roi-point-row {

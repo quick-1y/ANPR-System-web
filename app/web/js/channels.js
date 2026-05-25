@@ -551,8 +551,8 @@ export async function selectChannel(id) {
   setChk("c_size_filter", c.size_filter_enabled);
   setVal("c_min_w", c.min_plate_size?.width ?? 80);
   setVal("c_min_h", c.min_plate_size?.height ?? 20);
-  setVal("c_max_w", c.max_plate_size?.width ?? 600);
-  setVal("c_max_h", c.max_plate_size?.height ?? 240);
+  setVal("c_max_w", c.max_plate_size?.width ?? 400);
+  setVal("c_max_h", c.max_plate_size?.height ?? 100);
   setVal("c_best_shots", c.best_shots ?? 3);
   setVal("c_cooldown", c.cooldown_seconds ?? 5);
   setVal("c_ocr_conf", c.ocr_min_confidence ?? 0.6);
