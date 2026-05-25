@@ -2,7 +2,7 @@ import io
 from zipfile import ZipFile
 
 from config.settings_normalizer import SettingsNormalizer
-from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
+from apps.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 
 
 class TestStorageCleanup:

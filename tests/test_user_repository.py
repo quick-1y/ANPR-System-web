@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch, call
 
 import pytest
 
-from app.api.auth_utils import hash_password
+from apps.api.auth_utils import hash_password
 from database.user_repository import UserDatabase, _row_to_dict
 
 

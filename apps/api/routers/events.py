@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
 from database.errors import StorageUnavailableError
-from app.api.container import AppContainer
-from app.api.deps import get_container, get_current_user
+from apps.api.container import AppContainer
+from apps.api.deps import get_container, get_current_user
 
 router = APIRouter()
 

@@ -1,4 +1,4 @@
-"""Tests for app/api/deps.py — get_current_user, require_role, require_permission.
+"""Tests for apps/api/deps.py — get_current_user, require_role, require_permission.
 
 Uses mocks to avoid a live FastAPI/PostgreSQL instance.
 """
@@ -10,8 +10,8 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from app.api.auth_utils import create_access_token
-from app.api.deps import get_current_user, require_role, require_permission, _extract_token
+from apps.api.auth_utils import create_access_token
+from apps.api.deps import get_current_user, require_role, require_permission, _extract_token
 
 
 # ---------------------------------------------------------------------------

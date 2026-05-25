@@ -4,9 +4,9 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.container import AppContainer
-from app.api.deps import get_container, require_role
-from app.api.schemas import ControllerPayload, ControllerTestPayload
+from apps.api.container import AppContainer
+from apps.api.deps import get_container, require_role
+from apps.api.schemas import ControllerPayload, ControllerTestPayload
 
 router = APIRouter()
 

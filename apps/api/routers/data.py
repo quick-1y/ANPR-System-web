@@ -9,11 +9,11 @@ from fastapi import APIRouter, Depends, UploadFile, File
 from fastapi.responses import JSONResponse, Response
 
 from database.errors import StorageUnavailableError
-from app.api.container import AppContainer
-from app.api.deps import get_container, require_permission
-from app.api.schemas import ExportBundlePayload, RetentionPolicyPayload
-from app.shared.data_lifecycle import RetentionPolicy
-from app.shared.backup_service import (
+from apps.api.container import AppContainer
+from apps.api.deps import get_container, require_permission
+from apps.api.schemas import ExportBundlePayload, RetentionPolicyPayload
+from apps.shared.data_lifecycle import RetentionPolicy
+from apps.shared.backup_service import (
     export_database_backup,
     export_settings,
     get_restore_lock,

@@ -1,4 +1,4 @@
-"""Tests for app/api/routers/users.py — user CRUD endpoints (Phase 5).
+"""Tests for apps/api/routers/users.py — user CRUD endpoints (Phase 5).
 
 Uses mocks — no live DB or server required.
 """
@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from app.api.auth_utils import hash_password
-from app.api.routers.users import (
+from apps.api.auth_utils import hash_password
+from apps.api.routers.users import (
     list_users,
     create_user,
     get_user,
@@ -19,7 +19,7 @@ from app.api.routers.users import (
     change_password,
     deactivate_user,
 )
-from app.api.schemas import UserCreate, UserUpdate, UserPasswordChange
+from apps.api.schemas import UserCreate, UserUpdate, UserPasswordChange
 
 
 # ---------------------------------------------------------------------------

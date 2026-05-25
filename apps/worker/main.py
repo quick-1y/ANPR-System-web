@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request
 
 from config.settings_manager import SettingsManager
 from database.errors import StorageUnavailableError
-from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
+from apps.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 from common.logging import configure_logging, get_logger
 
 logger = get_logger(__name__)

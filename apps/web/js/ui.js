@@ -86,7 +86,7 @@ export function switchTab(name) {
  * @param {string[]} permissions - User's permission keys (e.g. ["tab:obs", "tab:journal"]).
  * @param {boolean} userIsSuperadmin - Superadmin bypasses all permission checks (sees all tabs).
  *
- * Called from app.js after login / page load with the resolved user object.
+ * Called from apps.js after login / page load with the resolved user object.
  * If the currently active tab becomes hidden, switches to the first visible tab.
  */
 export function applyTabVisibility(permissions, userIsSuperadmin) {

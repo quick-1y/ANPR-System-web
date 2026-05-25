@@ -6,8 +6,8 @@ import psutil
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
-from app.api.container import AppContainer, WEB_DIR
-from app.api.deps import get_container, get_current_user
+from apps.api.container import AppContainer, WEB_DIR
+from apps.api.deps import get_container, get_current_user
 
 router = APIRouter()
 

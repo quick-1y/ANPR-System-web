@@ -17,7 +17,7 @@ from config.settings_manager import SettingsManager
 from database.postgres_event_repository import PostgresEventDatabase
 from database.zones_repository import ZoneDatabase
 from database.errors import StorageUnavailableError
-from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
+from apps.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 from common.logging import configure_logging, get_live_log_bus, get_logger
 from controllers import ControllerAutomationService, ControllerService
 from runtime.debug import DebugRegistry

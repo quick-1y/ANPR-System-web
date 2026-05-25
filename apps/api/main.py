@@ -10,19 +10,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.container import AppContainer, WEB_DIR
-from app.api.routers.auth import router as auth_router
-from app.api.routers.channels import router as channels_router
-from app.api.routers.clients import router as clients_router
-from app.api.routers.controllers import router as controllers_router
-from app.api.routers.data import router as data_router
-from app.api.routers.debug import router as debug_router
-from app.api.routers.events import router as events_router
-from app.api.routers.lists import router as lists_router
-from app.api.routers.settings import router as settings_router
-from app.api.routers.system import router as system_router
-from app.api.routers.users import router as users_router
-from app.api.routers.zones import router as zones_router
+from apps.api.container import AppContainer, WEB_DIR
+from apps.api.routers.auth import router as auth_router
+from apps.api.routers.channels import router as channels_router
+from apps.api.routers.clients import router as clients_router
+from apps.api.routers.controllers import router as controllers_router
+from apps.api.routers.data import router as data_router
+from apps.api.routers.debug import router as debug_router
+from apps.api.routers.events import router as events_router
+from apps.api.routers.lists import router as lists_router
+from apps.api.routers.settings import router as settings_router
+from apps.api.routers.system import router as system_router
+from apps.api.routers.users import router as users_router
+from apps.api.routers.zones import router as zones_router
 
 
 def _configure_thread_limits() -> None:

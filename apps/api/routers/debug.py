@@ -7,9 +7,9 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from app.api.container import AppContainer
-from app.api.deps import get_container, require_role
-from app.api.schemas import DebugPayload
+from apps.api.container import AppContainer
+from apps.api.deps import get_container, require_role
+from apps.api.schemas import DebugPayload
 
 router = APIRouter()
 

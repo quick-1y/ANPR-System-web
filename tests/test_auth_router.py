@@ -1,4 +1,4 @@
-"""Tests for app/api/routers/auth.py — login, logout, me endpoints.
+"""Tests for apps/api/routers/auth.py — login, logout, me endpoints.
 
 Uses mocks to test auth router logic without a live server or DB.
 """
@@ -11,14 +11,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from app.api.auth_utils import hash_password, create_access_token
-from app.api.routers.auth import (
+from apps.api.auth_utils import hash_password, create_access_token
+from apps.api.routers.auth import (
     login, logout, me, available_permissions,
     AVAILABLE_PERMISSIONS,
     _check_rate_limit, _record_failed_attempt, _reset_attempts,
     _failed_attempts, _MAX_FAILED_ATTEMPTS, _RATE_WINDOW_SECONDS,
 )
-from app.api.schemas import LoginRequest, UserOut
+from apps.api.schemas import LoginRequest, UserOut
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +172,7 @@ class TestAvailablePermissions:
 
     def test_operator_is_blocked(self):
         """available_permissions is superadmin-only — operators get 403."""
-        from app.api.deps import require_role
+        from apps.api.deps import require_role
         user_op = _make_user(role="operator")
         dep = require_role("superadmin")
         with pytest.raises(Exception) as exc_info:

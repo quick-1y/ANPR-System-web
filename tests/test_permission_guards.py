@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException
 
-from app.api.deps import require_permission, require_role
+from apps.api.deps import require_permission, require_role
 
 
 # ---------------------------------------------------------------------------
@@ -153,24 +153,24 @@ class TestRouterImports:
             return f.read()
 
     def test_settings_router_uses_require_role(self):
-        src = self._read_router_source("app/api/routers/settings.py")
+        src = self._read_router_source("apps/api/routers/settings.py")
         assert "require_permission" in src
 
     def test_controllers_router_uses_require_role(self):
-        src = self._read_router_source("app/api/routers/controllers.py")
+        src = self._read_router_source("apps/api/routers/controllers.py")
         assert "require_role" in src
         assert "get_current_user" not in src
 
     def test_data_router_uses_require_permission(self):
-        src = self._read_router_source("app/api/routers/data.py")
+        src = self._read_router_source("apps/api/routers/data.py")
         assert "require_permission" in src
         assert "get_current_user" not in src
 
     def test_debug_router_uses_require_role(self):
-        src = self._read_router_source("app/api/routers/debug.py")
+        src = self._read_router_source("apps/api/routers/debug.py")
         assert "require_role" in src
         assert "get_current_user" not in src
 
     def test_auth_router_available_permissions_uses_require_permission(self):
-        src = self._read_router_source("app/api/routers/auth.py")
+        src = self._read_router_source("apps/api/routers/auth.py")
         assert "require_permission" in src

@@ -4,10 +4,10 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.auth_utils import hash_password
-from app.api.container import AppContainer
-from app.api.deps import get_container, get_current_user, require_permission
-from app.api.schemas import UserCreate, UserOut, UserPasswordChange, UserUpdate
+from apps.api.auth_utils import hash_password
+from apps.api.container import AppContainer
+from apps.api.deps import get_container, get_current_user, require_permission
+from apps.api.schemas import UserCreate, UserOut, UserPasswordChange, UserUpdate
 
 from common.logging import get_logger
 

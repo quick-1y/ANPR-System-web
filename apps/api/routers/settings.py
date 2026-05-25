@@ -5,9 +5,9 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends
 
-from app.api.container import AppContainer
-from app.api.deps import get_container, require_permission
-from app.api.schemas import GlobalSettingsPayload
+from apps.api.container import AppContainer
+from apps.api.deps import get_container, require_permission
+from apps.api.schemas import GlobalSettingsPayload
 from anpr.postprocessing.country_config import CountryConfigLoader
 from common.logging import configure_logging, get_logger
 

@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from app.api.auth_utils import hash_password
+from apps.api.auth_utils import hash_password
 
 from common.logging import get_logger
 from database.base import PooledDatabase

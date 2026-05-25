@@ -1,4 +1,4 @@
-"""Tests for app/api/auth_utils.py
+"""Tests for apps/api/auth_utils.py
 
 Covers JWT creation/validation and password hashing/verification.
 """
@@ -10,7 +10,7 @@ from unittest.mock import patch
 import jwt as pyjwt
 import pytest
 
-from app.api.auth_utils import (
+from apps.api.auth_utils import (
     JWT_ALGORITHM,
     JWT_SECRET_KEY,
     create_access_token,

@@ -5,8 +5,8 @@ from typing import Any, Dict
 import jwt
 from fastapi import Depends, HTTPException, Request
 
-from app.api.auth_utils import decode_access_token
-from app.api.container import AppContainer
+from apps.api.auth_utils import decode_access_token
+from apps.api.container import AppContainer
 
 from common.logging import get_logger
 

@@ -28,7 +28,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       APP_ENV: ${APP_ENV:-docker}
       DEBUG: ${DEBUG:-false}
-    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8080
+    command: uvicorn apps.api.main:app --host 0.0.0.0 --port 8080
     expose:
       - "8080"
     volumes:
@@ -56,7 +56,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       APP_ENV: ${APP_ENV:-docker}
       DEBUG: ${DEBUG:-false}
-    command: uvicorn app.worker.main:app --host 0.0.0.0 --port 8092
+    command: uvicorn apps.worker.main:app --host 0.0.0.0 --port 8092
     expose:
       - "8092"
     volumes:
