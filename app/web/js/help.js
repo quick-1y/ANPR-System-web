@@ -53,14 +53,28 @@ function _closeHelpPopover() {
   if (_activeHelpPopover) { _activeHelpPopover.remove(); _activeHelpPopover = null; }
 }
 
+function _resolveHelpTitle(btn) {
+  const rowLabel = btn.closest(".s-row-label");
+  const rowName = rowLabel ? rowLabel.querySelector(".s-row-name") : null;
+  if (rowName && rowName.textContent) return rowName.textContent.trim();
+
+  const cardHeader = btn.closest(".s-card")?.querySelector(".s-card-header");
+  if (cardHeader && cardHeader.firstChild && cardHeader.firstChild.textContent) {
+    return cardHeader.firstChild.textContent.trim();
+  }
+
+  return "Подсказка";
+}
+
 function _showHelpPopover(btn) {
   _closeHelpPopover();
   const key = btn.getAttribute("data-help");
   const text = PARAM_HELP[key];
   if (!text) return;
+  const title = _resolveHelpTitle(btn);
   const pop = document.createElement("div");
   pop.className = "param-help-popover";
-  pop.innerHTML = '<div class="param-help-popover-title">' + btn.closest(".s-row-label").querySelector(".s-row-name").textContent + "</div>" + text.replace(/\n/g, "<br>");
+  pop.innerHTML = '<div class="param-help-popover-title">' + title + "</div>" + text.replace(/\n/g, "<br>");
   document.body.appendChild(pop);
   const r = btn.getBoundingClientRect();
   pop.style.left = r.left + "px";
