@@ -137,7 +137,7 @@ def inference_defaults() -> Dict[str, Any]:
 
 
 def plate_size_defaults() -> Dict[str, Dict[str, int]]:
-    return {"min_plate_size": {"width": 80, "height": 20}, "max_plate_size": {"width": 600, "height": 240}}
+    return {"min_plate_size": {"width": 80, "height": 20}, "max_plate_size": {"width": 400, "height": 100}}
 
 
 def direction_defaults() -> Dict[str, float | int]:

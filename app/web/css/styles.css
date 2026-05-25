@@ -1348,8 +1348,8 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
 
 /* ─── Vision tab (merged ROI + plate size) ─────────── */
 .vision-layout { display: flex; gap: 14px; }
-.vision-left { flex: 0 0 264px; min-width: 240px; max-width: 290px; }
-.vision-right { flex: 1 1 0; min-width: 360px; }
+.vision-left { flex: 0 0 340px; min-width: 320px; max-width: 380px; }
+.vision-right { flex: 1 1 0; min-width: 520px; }
 .vision-left .s-card { margin-bottom: 10px; }
 .vision-left .s-row-label { flex: 0 1 auto; min-width: 0; }
 .vision-left .s-input.sm { width: 50px; flex-shrink: 0; }
@@ -1882,3 +1882,6 @@ tr.list-info:hover { background: rgba(56, 189, 248, 0.18); }
   color: var(--text1);
   font-variant-numeric: tabular-nums;
 }
+
+
+.s-card-header--with-help { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

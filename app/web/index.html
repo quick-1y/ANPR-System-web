@@ -660,7 +660,7 @@
                   >
                     Канал</button
                   ><button class="btn btn-ghost ch-tab" data-ch-tab="vision">
-                    Зона и размер</button
+                    Зона распознавания</button
                   ><button class="btn btn-ghost ch-tab" data-ch-tab="ocr">
                     OCR</button
                   ><button class="btn btn-ghost ch-tab" data-ch-tab="plates">
@@ -864,7 +864,7 @@
                   <div class="vision-layout">
                     <div class="vision-left">
                       <div class="s-card">
-                        <div class="s-card-header">Размер номерной рамки</div>
+                        <div class="s-card-header s-card-header--with-help">Размер номерной рамки <button class="param-help-btn" data-help="plate_size_editor_hint" title="Справка">?</button></div>
                         <div class="s-card-body">
                           <div class="s-row">
                             <div class="s-row-label">
@@ -890,13 +890,10 @@
                           <div class="form-actions">
                             <button class="btn btn-ghost btn-sm" id="plateSizeResetBtn">Сбросить размеры</button>
                           </div>
-                          <div class="roi-hint">
-                            ЛКМ внутри рамки: перетащить. Тяните за края/углы для изменения размера.
-                          </div>
                         </div>
                       </div>
                       <div class="s-card">
-                        <div class="s-card-header">Зона распознавания</div>
+                        <div class="s-card-header s-card-header--with-help">Зона распознавания <button class="param-help-btn" data-help="roi_editor_hint" title="Справка">?</button></div>
                         <div class="s-card-body">
                           <div class="s-row">
                             <div class="s-row-label">
@@ -909,15 +906,11 @@
                           <div class="form-actions">
                             <button class="btn btn-ghost btn-sm" id="roiClearBtn">Очистить ROI</button>
                           </div>
-                          <div class="roi-hint">
-                            ЛКМ по линии: добавить точку. ЛКМ по точке: перетащить.
-                            ПКМ по точке: удалить.
-                          </div>
                         </div>
                       </div>
                     </div>
                     <div class="vision-right">
-                      <canvas id="roiCanvas" width="640" height="360"></canvas>
+                      <canvas id="roiCanvas" width="800" height="450"></canvas>
                       <div class="form-actions">
                         <button class="btn btn-ghost" id="roiRefreshBtn">Обновить кадр</button>
                       </div>

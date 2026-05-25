@@ -16,7 +16,17 @@ export function toCanvasPoint(point, unit, cv) {
       y: ((Number(point.y) || 0) * cv.height) / 100,
     };
   }
-  return { x: Number(point.x) || 0, y: Number(point.y) || 0 };
+  const legacyWidth = 640;
+  const legacyHeight = 360;
+  const pxX = Number(point.x) || 0;
+  const pxY = Number(point.y) || 0;
+  if (cv.width === legacyWidth && cv.height === legacyHeight) {
+    return { x: pxX, y: pxY };
+  }
+  return {
+    x: (pxX / legacyWidth) * cv.width,
+    y: (pxY / legacyHeight) * cv.height,
+  };
 }
 
 export function toPercentPoint(point, cv) {
