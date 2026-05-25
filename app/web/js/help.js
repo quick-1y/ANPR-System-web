@@ -22,6 +22,8 @@ const PARAM_HELP = {
   max_consecutive_empty_ocr: "Если OCR несколько раз подряд не возвращает текст, трек можно завершить раньше, чтобы не тратить CPU. 0 — отключить.\n\nПо умолчанию 5.",
   preview_fps_limit: "Ограничение частоты кодирования JPEG для предпросмотра (preview). Не влияет на реальный FPS камеры — ограничивает только частоту обновления превью в браузере.\n\nПо умолчанию 5.",
   roi_enabled: "Включить зону интереса (Region of Interest). Когда включено, только обнаружения с центром bbox внутри ROI-полигона обрабатываются. Детекция YOLO по-пре��нему работает по всему кадру, но результаты за пределами ROI отбрасываются.",
+  plate_size_editor: "ЛКМ внутри рамки: перетащить. Тяните за края/углы для изменения размера.",
+  roi_editor: "ЛКМ по линии: добавить точку. ЛКМ по точке: перетащить. ПКМ по точке: удалить.",
   controller_id: "Привязка аппаратного контроллера к этому каналу. При распознавании номера, прошедшего фильтр списков, на контроллер отправляется HTTP-команда для срабатывания выбранного реле.",
   controller_relay: "Какое из двух реле контроллера использовать для этого канала (Реле 1 или Реле 2). Режим работы реле (pulse / pulse_timer) настраивается в параметрах контроллера.",
   g_grid: "Сетка раскладки видеопревью на главной странице. Определяет сколько камер отображается одновременно: 1×1, 2×2, 2×3 или 3×3.",
@@ -51,14 +53,28 @@ function _closeHelpPopover() {
   if (_activeHelpPopover) { _activeHelpPopover.remove(); _activeHelpPopover = null; }
 }
 
+function _resolveHelpTitle(btn) {
+  const rowLabel = btn.closest(".s-row-label");
+  const rowName = rowLabel ? rowLabel.querySelector(".s-row-name") : null;
+  if (rowName && rowName.textContent) return rowName.textContent.trim();
+
+  const cardHeader = btn.closest(".s-card")?.querySelector(".s-card-header");
+  if (cardHeader && cardHeader.firstChild && cardHeader.firstChild.textContent) {
+    return cardHeader.firstChild.textContent.trim();
+  }
+
+  return "Подсказка";
+}
+
 function _showHelpPopover(btn) {
   _closeHelpPopover();
   const key = btn.getAttribute("data-help");
   const text = PARAM_HELP[key];
   if (!text) return;
+  const title = _resolveHelpTitle(btn);
   const pop = document.createElement("div");
   pop.className = "param-help-popover";
-  pop.innerHTML = '<div class="param-help-popover-title">' + btn.closest(".s-row-label").querySelector(".s-row-name").textContent + "</div>" + text.replace(/\n/g, "<br>");
+  pop.innerHTML = '<div class="param-help-popover-title">' + title + "</div>" + text.replace(/\n/g, "<br>");
   document.body.appendChild(pop);
   const r = btn.getBoundingClientRect();
   pop.style.left = r.left + "px";

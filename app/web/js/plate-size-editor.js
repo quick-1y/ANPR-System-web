@@ -6,7 +6,7 @@ export function setPlateSizeRedrawCallback(fn) { _redraw = fn; }
 
 export let plateSizeBoxes = {
   min: { x: 200, y: 130, width: 80, height: 20 },
-  max: { x: 100, y: 60, width: 600, height: 240 },
+  max: { x: 200, y: 175, width: 400, height: 100 },
 };
 let plateSizeDrag = null;
 
@@ -46,8 +46,8 @@ export function clampBoxInCanvas(box, cv) {
 export function defaultPlateSizeOverlay(cv) {
   const minW = Number(val("c_min_w")) || 80;
   const minH = Number(val("c_min_h")) || 20;
-  const maxW = Number(val("c_max_w")) || 600;
-  const maxH = Number(val("c_max_h")) || 240;
+  const maxW = Number(val("c_max_w")) || 400;
+  const maxH = Number(val("c_max_h")) || 100;
   return {
     min: { x: (cv.width - minW) / 2, y: (cv.height - minH) / 2 + 40, width: minW, height: minH },
     max: { x: (cv.width - maxW) / 2, y: (cv.height - maxH) / 2 - 20, width: maxW, height: maxH },
@@ -109,8 +109,8 @@ export function resetPlateSizeBoxes() {
   const cv = document.getElementById("roiCanvas");
   setVal("c_min_w", 80);
   setVal("c_min_h", 20);
-  setVal("c_max_w", 600);
-  setVal("c_max_h", 240);
+  setVal("c_max_w", 400);
+  setVal("c_max_h", 100);
   plateSizeBoxes = defaultPlateSizeOverlay(cv);
   syncPlateSizeInputsFromBoxes();
   _redraw();

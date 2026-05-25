@@ -1344,15 +1344,15 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
 .filter-actions { display: flex; gap: 7px; align-self: flex-end; }
 .form-actions { display: flex; gap: 8px; padding: 4px 0 2px; flex-wrap: wrap; }
 .roi-hint { margin-top: 8px; color: var(--text2); font-size: 11px; line-height: 1.5; }
-#roiCanvas { display: block; width: 100%; border: 1px solid var(--border2); background: #0d1018; border-radius: 8px; }
+#roiCanvas { display: block; width: min(100%, 800px); border: 1px solid var(--border2); background: #0d1018; border-radius: 8px; }
 
 /* ─── Vision tab (merged ROI + plate size) ─────────── */
 .vision-layout { display: flex; gap: 14px; }
-.vision-left { flex: 0 0 264px; min-width: 240px; max-width: 290px; }
-.vision-right { flex: 1 1 0; min-width: 360px; }
+.vision-left { flex: 0 0 360px; min-width: 340px; max-width: 420px; }
+.vision-right { flex: 1 1 800px; min-width: 800px; }
 .vision-left .s-card { margin-bottom: 10px; }
 .vision-left .s-row-label { flex: 0 1 auto; min-width: 0; }
-.vision-left .s-input.sm { width: 50px; flex-shrink: 0; }
+.vision-left .s-input.sm { width: 68px; flex-shrink: 0; }
 
 .roi-points-list { max-height: 128px; overflow-y: auto; }
 .roi-point-row {
