@@ -477,6 +477,8 @@ A change is not complete until:
 - If documentation becomes outdated because of your code change, update it accurately instead of deleting it.
 - Do not simplify README by removing diagrams or explanatory blocks just to make the diff smaller.
 - When adding or changing user-visible behavior, API, architecture, storage, or runtime flow, update `README.md` in Russian.
+- Every new feature or behavior change must include corresponding technical documentation updates in `docs/technical/` (architecture/modules/endpoints/pipeline as applicable).
+- Every user-facing change must include or update practical instructions in `docs/guides/` for relevant audiences (operator, administrator, integrator).
 
 ---
 

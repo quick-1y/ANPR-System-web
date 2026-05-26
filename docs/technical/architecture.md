@@ -125,8 +125,8 @@ Retention-политика применяется отдельно от осно
 ## Related Documents
 
 - [`diagrams.md`](diagrams.md) — схемы сервисов и pipeline
-- [`setup.md`](setup.md) — деплой и конфигурация
+- [`setup.md`](../guides/setup.md) — деплой и конфигурация
 - [`endpoints.md`](endpoints.md) — карта API
-- [`zones.md`](zones.md) — режим парковочных зон
+- [`zones.md`](../guides/zones.md) — режим парковочных зон
 - [`anpr-pipeline.md`](anpr-pipeline.md) — детали алгоритмов распознавания
 - [`modules.md`](modules.md) — обзор модулей проекта
