@@ -137,12 +137,6 @@ class SettingsManager:
         time_settings = self.get_time_settings()
         return str(time_settings.get("timezone") or "UTC")
 
-    def get_time_offset_minutes(self) -> int:
-        time_settings = self.get_time_settings()
-        try:
-            return int(time_settings.get("offset_minutes", 0))
-        except (TypeError, ValueError):
-            return 0
 
     def get_plate_settings(self) -> Dict[str, Any]:
         with self._file_lock:

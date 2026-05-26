@@ -157,6 +157,11 @@ class SettingsNormalizer:
             if key not in time_section:
                 time_section[key] = val
                 changed = True
+
+        if "offset_minutes" in time_section:
+            time_section.pop("offset_minutes", None)
+            changed = True
+
         data["time"] = time_section
         return changed
 

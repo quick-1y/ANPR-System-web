@@ -6,6 +6,21 @@ from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 
 
 class TestLoggingSettingsNormalization:
+
+    def test_normalizer_removes_offset_minutes_from_time(self):
+        normalizer = SettingsNormalizer()
+        raw = {
+            "time": {
+                "timezone": "UTC+03:00",
+                "offset_minutes": 120,
+            }
+        }
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert "offset_minutes" not in normalized["time"]
+
     def test_normalizer_removes_allowed_levels_from_logging(self):
         normalizer = SettingsNormalizer()
         raw = {

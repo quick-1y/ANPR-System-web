@@ -48,7 +48,7 @@ export async function loadGlobalSettings() {
   setVal("g_max_screenshots", g.storage.max_screenshots_mb);
   setVal("g_postgres_dsn", g.storage.postgres_dsn);
   setVal("g_log_level", g.logging.level); setVal("g_log_retention", g.logging.retention_days);
-  setVal("g_timezone", g.time.timezone); setVal("g_offset_minutes", g.time.offset_minutes);
+  setVal("g_timezone", g.time.timezone);
   await renderCountryToggles(g.plates.enabled_countries || []);
   if (g.debug) {
     setChk("d_metrics", g.debug.show_channel_metrics);
@@ -70,7 +70,7 @@ export async function saveGeneral() {
     },
     storage: { auto_cleanup_enabled: document.getElementById("g_auto_cleanup").checked, cleanup_interval_minutes: Number(val("g_cleanup_minutes")), events_retention_days: Number(val("g_events_retention")), media_retention_days: Number(val("g_media_retention")), max_screenshots_mb: Number(val("g_max_screenshots")), postgres_dsn: val("g_postgres_dsn") },
     logging: { level: val("g_log_level"), retention_days: Number(val("g_log_retention")) },
-    time: { timezone: val("g_timezone"), offset_minutes: Number(val("g_offset_minutes")) },
+    time: { timezone: val("g_timezone") },
     plates: { enabled_countries: getEnabledCountryCodes() },
     debug: { show_channel_metrics: document.getElementById("d_metrics").checked, log_panel_enabled: document.getElementById("d_log").checked, disable_video_output: document.getElementById("d_video_off").checked },
   };

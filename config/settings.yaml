@@ -1,4 +1,4 @@
-settings_version: 2
+settings_version: 3
 settings_lineage: mainline
 models:
   yolo_model_path: anpr/models/yolo/best.pt
@@ -60,5 +60,4 @@ logging:
   retention_days: 30
 time:
   timezone: UTC+00:00
-  offset_minutes: 0
 sidebar_locked: false

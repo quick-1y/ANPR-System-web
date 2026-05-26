@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from common.logging import get_logger
 
-SETTINGS_VERSION = 2
+SETTINGS_VERSION = 3
 SETTINGS_LINEAGE_KEY = "settings_lineage"
 SETTINGS_LINEAGE = "mainline"
 LOG_LEVELS = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
@@ -168,7 +168,7 @@ def time_defaults() -> Dict[str, Any]:
     hours = total // 60
     mins = total % 60
     default_zone = f"UTC{sign}{hours:02d}:{mins:02d}"
-    return {"timezone": default_zone, "offset_minutes": 0}
+    return {"timezone": default_zone}
 
 
 def logging_defaults() -> Dict[str, Any]:
