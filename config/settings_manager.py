@@ -137,12 +137,6 @@ class SettingsManager:
         time_settings = self.get_time_settings()
         return str(time_settings.get("timezone") or "UTC")
 
-    def get_time_offset_minutes(self) -> int:
-        time_settings = self.get_time_settings()
-        try:
-            return int(time_settings.get("offset_minutes", 0))
-        except (TypeError, ValueError):
-            return 0
 
     def get_plate_settings(self) -> Dict[str, Any]:
         with self._file_lock:
@@ -175,7 +169,7 @@ class SettingsManager:
             current = self.settings.get("logging", {})
             current.update(logging_config)
             current["level"] = normalize_log_level(current.get("level"))
-            current["allowed_levels"] = list(logging_defaults().get("allowed_levels", []))
+            current.pop("allowed_levels", None)
             self.settings["logging"] = current
             settings_snapshot = copy.deepcopy(self.settings)
         self._repo.save(settings_snapshot)
