@@ -80,7 +80,7 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
 
         settings_snapshot = copy.deepcopy(container.settings.settings)
 
-    container.settings._repo.save(settings_snapshot)
+    container.settings._persist(settings_snapshot)
 
     try:
         container.processor.update_reconnect_settings(reconnect_config)

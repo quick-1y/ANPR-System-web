@@ -57,3 +57,10 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON users(login);
+
+-- ── Global App Settings (single row JSONB) ──────────────────────────
+CREATE TABLE IF NOT EXISTS app_settings (
+    id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    payload JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
