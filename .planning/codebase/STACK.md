@@ -96,14 +96,15 @@
 - `detector` — Detection confidence, bbox padding
 - `inference` — Worker count, shared memory flag
 - `debug` — Channel metrics, log panel, video output toggles
-- `channels` — Per-channel detection config (ROI, motion, size filter, controller binding, list filter)
-- `controllers` — Hardware relay controller definitions
 - `reconnect` — Signal loss and periodic reconnect policies
 - `storage` — Directories, retention days, cleanup intervals
-- `tracking` — Best shots, cooldown, OCR confidence, direction tracking
 - `plates` — Country configs directory, enabled countries
 - `logging` — Level, retention days
 - `time` — Timezone, offset
+
+**Application Settings (PostgreSQL):**
+- `channels` — Per-channel detection config (ROI, motion, size filter, controller binding, list filter, zone routing)
+- `controllers` — Hardware relay controller definitions
 
 **Build:**
 - `Dockerfile` — Single-stage Python 3.13-slim image with two-phase pip install (PyTorch first, then remaining deps)
