@@ -5,6 +5,53 @@ from config.settings_normalizer import SettingsNormalizer
 from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 
 
+class TestLoggingSettingsNormalization:
+
+    def test_normalizer_removes_offset_minutes_from_time(self):
+        normalizer = SettingsNormalizer()
+        raw = {
+            "time": {
+                "timezone": "UTC+03:00",
+                "offset_minutes": 120,
+            }
+        }
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert "offset_minutes" not in normalized["time"]
+
+    def test_normalizer_removes_allowed_levels_from_logging(self):
+        normalizer = SettingsNormalizer()
+        raw = {
+            "logging": {
+                "level": "INFO",
+                "retention_days": 30,
+                "allowed_levels": ["INFO", "ERROR"],
+            }
+        }
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert "allowed_levels" not in normalized["logging"]
+
+
+
+    def test_normalizer_removes_shared_memory_from_inference(self):
+        normalizer = SettingsNormalizer()
+        raw = {
+            "inference": {
+                "workers": 2,
+                "shared_memory": True,
+            }
+        }
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert "shared_memory" not in normalized["inference"]
+
 class TestStorageCleanup:
     def test_normalizer_removes_export_dir_from_storage(self):
         normalizer = SettingsNormalizer()

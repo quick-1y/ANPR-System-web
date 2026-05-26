@@ -304,7 +304,6 @@ class LoggingPayload(BaseModel):
 
 class TimePayload(BaseModel):
     timezone: str
-    offset_minutes: int = Field(ge=-720, le=720)
 
 
 class PlatesPayload(BaseModel):

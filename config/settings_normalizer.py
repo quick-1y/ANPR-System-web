@@ -143,6 +143,11 @@ class SettingsNormalizer:
             if key not in inference:
                 inference[key] = val
                 changed = True
+
+        if "shared_memory" in inference:
+            inference.pop("shared_memory", None)
+            changed = True
+
         data["inference"] = inference
         return changed
 
@@ -157,6 +162,11 @@ class SettingsNormalizer:
             if key not in time_section:
                 time_section[key] = val
                 changed = True
+
+        if "offset_minutes" in time_section:
+            time_section.pop("offset_minutes", None)
+            changed = True
+
         data["time"] = time_section
         return changed
 
@@ -177,9 +187,8 @@ class SettingsNormalizer:
             logging_section["level"] = normalized_level
             changed = True
 
-        allowed_levels = defaults.get("allowed_levels") or []
-        if list(logging_section.get("allowed_levels") or []) != list(allowed_levels):
-            logging_section["allowed_levels"] = list(allowed_levels)
+        if "allowed_levels" in logging_section:
+            logging_section.pop("allowed_levels", None)
             changed = True
 
         data["logging"] = logging_section
