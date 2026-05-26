@@ -145,7 +145,7 @@ ANPR-System-v0.8_web/
 
 ## Связанные документы
 
-- Деплой и конфигурация: [`setup.md`](setup.md)
+- Деплой и конфигурация: [`setup.md`](../guides/setup.md)
 - Аутентификация и пользователи: [`auth.md`](auth.md)
 - API endpoints: [`endpoints.md`](endpoints.md)
 - Диаграммы: [`diagrams.md`](diagrams.md)
