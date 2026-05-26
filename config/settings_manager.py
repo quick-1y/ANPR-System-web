@@ -175,7 +175,7 @@ class SettingsManager:
             current = self.settings.get("logging", {})
             current.update(logging_config)
             current["level"] = normalize_log_level(current.get("level"))
-            current["allowed_levels"] = list(logging_defaults().get("allowed_levels", []))
+            current.pop("allowed_levels", None)
             self.settings["logging"] = current
             settings_snapshot = copy.deepcopy(self.settings)
         self._repo.save(settings_snapshot)
