@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from common.logging import get_logger
 
-SETTINGS_VERSION = 1
+SETTINGS_VERSION = 2
 SETTINGS_LINEAGE_KEY = "settings_lineage"
 SETTINGS_LINEAGE = "mainline"
 LOG_LEVELS = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
@@ -172,7 +172,7 @@ def time_defaults() -> Dict[str, Any]:
 
 
 def logging_defaults() -> Dict[str, Any]:
-    return {"level": "ALL", "retention_days": 30, "allowed_levels": list(LOG_LEVELS)}
+    return {"level": "ALL", "retention_days": 30}
 
 
 def debug_defaults() -> Dict[str, Any]:

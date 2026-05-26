@@ -5,6 +5,24 @@ from config.settings_normalizer import SettingsNormalizer
 from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 
 
+class TestLoggingSettingsNormalization:
+    def test_normalizer_removes_allowed_levels_from_logging(self):
+        normalizer = SettingsNormalizer()
+        raw = {
+            "logging": {
+                "level": "INFO",
+                "retention_days": 30,
+                "allowed_levels": ["INFO", "ERROR"],
+            }
+        }
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert "allowed_levels" not in normalized["logging"]
+
+
+
 class TestStorageCleanup:
     def test_normalizer_removes_export_dir_from_storage(self):
         normalizer = SettingsNormalizer()
