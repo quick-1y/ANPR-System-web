@@ -183,15 +183,15 @@ def debug_defaults() -> Dict[str, Any]:
     }
 
 
-def channel_defaults(tracking: Dict[str, Any]) -> Dict[str, Any]:
+def channel_defaults() -> Dict[str, Any]:
     size_defaults = plate_size_defaults()
     return {
-        "best_shots": int(tracking.get("best_shots", 3)),
-        "cooldown_seconds": int(tracking.get("cooldown_seconds", 5)),
-        "ocr_min_confidence": float(tracking.get("ocr_min_confidence", 0.6)),
-        "max_ocr_attempts": int(tracking.get("max_ocr_attempts", 15)),
+        "best_shots": 3,
+        "cooldown_seconds": 5,
+        "ocr_min_confidence": 0.6,
+        "max_ocr_attempts": 15,
         "max_consecutive_empty_ocr": 5,
-        "direction": dict(tracking.get("direction", direction_defaults())),
+        "direction": direction_defaults(),
         "roi_enabled": True,
         "region": {"unit": "px", "points": [point.copy() for point in DEFAULT_ROI_POINTS]},
         "detection_mode": "motion",
@@ -227,13 +227,6 @@ def build_default_settings() -> Dict[str, Any]:
         "sidebar_locked": False,
         "reconnect": reconnect_defaults(),
         "storage": storage_defaults(),
-        "tracking": {
-            "best_shots": 3,
-            "cooldown_seconds": 5,
-            "ocr_min_confidence": 0.6,
-            "max_ocr_attempts": 15,
-            "direction": direction_defaults(),
-        },
         "plates": plate_defaults(),
         "logging": logging_defaults(),
         "time": time_defaults(),

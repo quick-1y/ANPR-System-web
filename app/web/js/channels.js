@@ -545,7 +545,7 @@ export async function selectChannel(id) {
   setVal("c_motion_threshold", c.motion_threshold ?? 0.01);
   setVal("c_motion_frame_stride", c.motion_frame_stride ?? 1);
   setVal("c_motion_activation", c.motion_activation_frames ?? 3);
-  setVal("c_motion_release", c.motion_release_frames ?? 6);
+  setVal("c_motion_release", c.motion_release_frames ?? 100);
   setVal("c_detector_stride", c.detector_frame_stride ?? 2);
   setChk("c_adaptive_stride", c.adaptive_stride_enabled ?? true);
   setChk("c_size_filter", c.size_filter_enabled);

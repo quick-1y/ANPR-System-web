@@ -117,7 +117,7 @@ class ChannelConfigPayload(BaseModel):
     motion_threshold: float = Field(default=0.01, ge=0.0, le=1.0)
     motion_frame_stride: int = Field(default=1, ge=1, le=30)
     motion_activation_frames: int = Field(default=3, ge=1, le=120)
-    motion_release_frames: int = Field(default=6, ge=1, le=120)
+    motion_release_frames: int = Field(default=100, ge=1, le=120)
     detector_frame_stride: int = Field(default=2, ge=1, le=30)
     adaptive_stride_enabled: bool = True
     size_filter_enabled: bool = True

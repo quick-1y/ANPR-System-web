@@ -13,7 +13,6 @@ from config.settings_schema import (
     SETTINGS_VERSION,
     debug_defaults,
     detector_defaults,
-    direction_defaults,
     inference_defaults,
     logging_defaults,
     model_defaults,
@@ -188,8 +187,6 @@ class SettingsNormalizer:
     def normalize_with_meta(self, data: dict) -> tuple[dict, bool]:
         normalized = copy.deepcopy(data)
         normalized, changed = run_settings_migrations(normalized, SETTINGS_VERSION)
-        tracking_defaults = normalized.get("tracking", {})
-
         if not normalized.get("theme"):
             normalized["theme"] = "light"
             changed = True
@@ -197,18 +194,6 @@ class SettingsNormalizer:
         if "sidebar_locked" not in normalized:
             normalized["sidebar_locked"] = False
             changed = True
-
-        dir_defaults = direction_defaults()
-        direction_settings = tracking_defaults.get("direction")
-        if direction_settings is None:
-            tracking_defaults["direction"] = dir_defaults
-            normalized["tracking"] = tracking_defaults
-            changed = True
-        else:
-            for key, value in dir_defaults.items():
-                if key not in direction_settings:
-                    direction_settings[key] = value
-                    changed = True
 
         if self._fill_reconnect_defaults(normalized, reconnect_defaults()):
             changed = True

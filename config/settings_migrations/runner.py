@@ -9,7 +9,6 @@ from config.settings_schema import (
     SETTINGS_LINEAGE,
     SETTINGS_LINEAGE_KEY,
     SETTINGS_VERSION,
-    direction_defaults,
     normalize_region_config,
 )
 
@@ -18,13 +17,6 @@ def _apply_legacy_compat(data: Dict[str, Any]) -> Dict[str, Any]:
     """Подтягивает legacy-конфиг (исторические форматы ROI/direction) к текущему виду полей."""
 
     upgraded = dict(data)
-    tracking = dict(upgraded.get("tracking") or {})
-    current_direction = dict(tracking.get("direction") or {})
-    for key, value in direction_defaults().items():
-        current_direction.setdefault(key, value)
-    tracking["direction"] = current_direction
-    upgraded["tracking"] = tracking
-
     channels = list(upgraded.get("channels") or [])
     for channel in channels:
         if not isinstance(channel, dict):

@@ -67,7 +67,7 @@ def _row_to_dict(row: Any) -> Dict[str, Any]:
 
 def _normalize(data: Dict[str, Any]) -> Dict[str, Any]:
     """Apply defaults and normalize all channel fields before storing."""
-    defaults = channel_defaults({})
+    defaults = channel_defaults()
     result = dict(defaults)
     result.update(data)
 
