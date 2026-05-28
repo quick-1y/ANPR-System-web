@@ -8,9 +8,7 @@ import copy
 from typing import Any, Dict
 
 from common.logging import get_logger
-from config.settings_migrations import run_settings_migrations
 from config.settings_schema import (
-    SETTINGS_VERSION,
     debug_defaults,
     detector_defaults,
     inference_defaults,
@@ -198,7 +196,7 @@ class SettingsNormalizer:
 
     def normalize_with_meta(self, data: dict) -> tuple[dict, bool]:
         normalized = copy.deepcopy(data)
-        normalized, changed = run_settings_migrations(normalized, SETTINGS_VERSION)
+        changed = False
 
         for obsolete_key in ("grid", "theme", "sidebar_locked", "tracking"):
             if obsolete_key in normalized:

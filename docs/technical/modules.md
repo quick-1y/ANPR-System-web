@@ -90,9 +90,8 @@
 |---|---|
 | `config/settings_manager.py` | `SettingsManager`: оркестрация глобальных настроек (тема, grid, reconnect, storage, logging и др.); каналы и контроллеры хранятся в БД |
 | `config/settings_repository.py` | Чтение и запись `settings.yaml` с file lock |
-| `config/settings_normalizer.py` | Нормализация, дефолты, upgrade legacy-конфигов |
+| `config/settings_normalizer.py` | Нормализация и заполнение дефолтов |
 | `config/settings_schema.py` | Схема и дефолты всех секций |
-| `config/settings_migrations/` | Миграции формата настроек |
 | `config/settings.yaml` | Рабочая runtime-конфигурация |
 
 ## `common/` — общие утилиты

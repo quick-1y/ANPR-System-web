@@ -1,5 +1,3 @@
-settings_version: 5
-settings_lineage: mainline
 models:
   yolo_model_path: anpr/models/yolo/best.pt
   ocr_model_path: anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth
