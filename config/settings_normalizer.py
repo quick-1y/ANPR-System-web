@@ -13,7 +13,6 @@ from config.settings_schema import (
     SETTINGS_VERSION,
     debug_defaults,
     detector_defaults,
-    direction_defaults,
     inference_defaults,
     logging_defaults,
     model_defaults,
@@ -73,6 +72,9 @@ class SettingsNormalizer:
             if key not in storage:
                 storage[key] = val
                 changed = True
+        if "export_dir" in storage:
+            storage.pop("export_dir", None)
+            changed = True
         data["storage"] = storage
         return changed
 
@@ -197,27 +199,11 @@ class SettingsNormalizer:
     def normalize_with_meta(self, data: dict) -> tuple[dict, bool]:
         normalized = copy.deepcopy(data)
         normalized, changed = run_settings_migrations(normalized, SETTINGS_VERSION)
-        tracking_defaults = normalized.get("tracking", {})
 
-        if not normalized.get("theme"):
-            normalized["theme"] = "light"
-            changed = True
-
-        if "sidebar_locked" not in normalized:
-            normalized["sidebar_locked"] = False
-            changed = True
-
-        dir_defaults = direction_defaults()
-        direction_settings = tracking_defaults.get("direction")
-        if direction_settings is None:
-            tracking_defaults["direction"] = dir_defaults
-            normalized["tracking"] = tracking_defaults
-            changed = True
-        else:
-            for key, value in dir_defaults.items():
-                if key not in direction_settings:
-                    direction_settings[key] = value
-                    changed = True
+        for obsolete_key in ("grid", "theme", "sidebar_locked", "tracking"):
+            if obsolete_key in normalized:
+                normalized.pop(obsolete_key, None)
+                changed = True
 
         if self._fill_reconnect_defaults(normalized, reconnect_defaults()):
             changed = True

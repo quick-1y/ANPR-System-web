@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from common.logging import get_logger
 
-SETTINGS_VERSION = 4
+SETTINGS_VERSION = 5
 SETTINGS_LINEAGE_KEY = "settings_lineage"
 SETTINGS_LINEAGE = "mainline"
 LOG_LEVELS = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
@@ -124,7 +124,7 @@ def storage_defaults() -> Dict[str, Any]:
 
 
 def plate_defaults() -> Dict[str, Any]:
-    return {"config_dir": "anpr/countries", "enabled_countries": ["RU", "UA", "BY", "KZ"]}
+    return {"enabled_countries": ["RU", "UA", "BY", "KZ"]}
 
 
 def model_defaults() -> Dict[str, Any]:
@@ -222,18 +222,8 @@ def build_default_settings() -> Dict[str, Any]:
         "detector": detector_defaults(),
         "inference": inference_defaults(),
         "debug": debug_defaults(),
-        "grid": "2x2",
-        "theme": "light",
-        "sidebar_locked": False,
         "reconnect": reconnect_defaults(),
         "storage": storage_defaults(),
-        "tracking": {
-            "best_shots": 3,
-            "cooldown_seconds": 5,
-            "ocr_min_confidence": 0.6,
-            "max_ocr_attempts": 15,
-            "direction": direction_defaults(),
-        },
         "plates": plate_defaults(),
         "logging": logging_defaults(),
         "time": time_defaults(),

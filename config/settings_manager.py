@@ -40,25 +40,6 @@ class SettingsManager:
     def _default(self) -> Dict[str, Any]:
         return build_default_settings()
 
-    def get_grid(self) -> str:
-        with self._file_lock:
-            return self.settings.get("grid", "2x2")
-
-    def save_grid(self, grid: str) -> None:
-        with self._file_lock:
-            self.settings["grid"] = grid
-            settings_snapshot = copy.deepcopy(self.settings)
-        self._repo.save(settings_snapshot)
-
-    def get_theme(self) -> str:
-        with self._file_lock:
-            return self.settings.get("theme", "light")
-
-    def save_theme(self, theme: str) -> None:
-        with self._file_lock:
-            self.settings["theme"] = theme
-            settings_snapshot = copy.deepcopy(self.settings)
-        self._repo.save(settings_snapshot)
 
     def get_reconnect(self) -> Dict[str, Any]:
         with self._file_lock:
