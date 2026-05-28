@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from common.logging import get_logger
 
-SETTINGS_VERSION = 3
+SETTINGS_VERSION = 4
 SETTINGS_LINEAGE_KEY = "settings_lineage"
 SETTINGS_LINEAGE = "mainline"
 LOG_LEVELS = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
@@ -133,7 +133,7 @@ def model_defaults() -> Dict[str, Any]:
 
 def inference_defaults() -> Dict[str, Any]:
     cpu_count = os.cpu_count() or 1
-    return {"workers": max(1, cpu_count - 1), "shared_memory": True}
+    return {"workers": max(1, cpu_count - 1)}
 
 
 def plate_size_defaults() -> Dict[str, Dict[str, int]]:

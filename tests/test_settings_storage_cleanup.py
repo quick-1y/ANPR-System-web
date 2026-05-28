@@ -38,6 +38,20 @@ class TestLoggingSettingsNormalization:
 
 
 
+    def test_normalizer_removes_shared_memory_from_inference(self):
+        normalizer = SettingsNormalizer()
+        raw = {
+            "inference": {
+                "workers": 2,
+                "shared_memory": True,
+            }
+        }
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert "shared_memory" not in normalized["inference"]
+
 class TestStorageCleanup:
     def test_normalizer_removes_export_dir_from_storage(self):
         normalizer = SettingsNormalizer()

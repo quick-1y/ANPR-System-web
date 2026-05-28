@@ -143,6 +143,11 @@ class SettingsNormalizer:
             if key not in inference:
                 inference[key] = val
                 changed = True
+
+        if "shared_memory" in inference:
+            inference.pop("shared_memory", None)
+            changed = True
+
         data["inference"] = inference
         return changed
 

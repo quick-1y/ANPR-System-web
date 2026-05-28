@@ -1,4 +1,4 @@
-settings_version: 3
+settings_version: 4
 settings_lineage: mainline
 models:
   yolo_model_path: anpr/models/yolo/best.pt
@@ -14,7 +14,6 @@ detector:
   min_padding_pixels: 2
 inference:
   workers: 2
-  shared_memory: true
 debug:
   show_channel_metrics: true
   log_panel_enabled: true
