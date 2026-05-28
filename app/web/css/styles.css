@@ -1499,6 +1499,11 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
 /* ─── General settings: narrower cards ─────────────── */
 #sp-general .s-card { max-width: 560px; }
 
+#generalSettingsTabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+#sp-general .general-group { display: none; }
+#sp-general .general-group.active { display: block; }
+
+
 /* ─── Readonly inputs ──────────────────────────────── */
 .s-input[readonly] { opacity: 0.5; cursor: not-allowed; }
 
