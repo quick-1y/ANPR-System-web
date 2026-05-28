@@ -8,9 +8,6 @@ from typing import Any, Dict, Optional
 
 from common.logging import get_logger
 
-SETTINGS_VERSION = 5
-SETTINGS_LINEAGE_KEY = "settings_lineage"
-SETTINGS_LINEAGE = "mainline"
 LOG_LEVELS = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 SUPPORTED_CONTROLLER_TYPES = ("DTWONDER2CH",)
 
@@ -215,8 +212,6 @@ def channel_defaults(tracking: Dict[str, Any]) -> Dict[str, Any]:
 
 def build_default_settings() -> Dict[str, Any]:
     return {
-        "settings_version": SETTINGS_VERSION,
-        SETTINGS_LINEAGE_KEY: SETTINGS_LINEAGE,
         "models": model_defaults(),
         "ocr": ocr_defaults(),
         "detector": detector_defaults(),
