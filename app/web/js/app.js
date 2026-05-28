@@ -50,8 +50,19 @@ document.querySelectorAll(".ttab").forEach((el) => (el.onclick = () => {
 }));
 document.querySelectorAll(".snav-item").forEach((el) => (el.onclick = () => switchSettings(el.dataset.sp)));
 document.querySelectorAll(".ch-tab").forEach((el) => (el.onclick = () => switchChannelSettingsTab(el.dataset.chTab)));
+document.querySelectorAll(".general-tab").forEach((el) => (el.onclick = () => switchGeneralSettingsTab(el.dataset.generalTab)));
 document.getElementById("gridSelect").onchange = () => { clearExpandMode(); scheduleVideoGridLayout(true); };
 
+
+
+function switchGeneralSettingsTab(tabName) {
+  document.querySelectorAll('.general-tab').forEach((el) => {
+    el.classList.toggle('active', el.dataset.generalTab === tabName);
+  });
+  document.querySelectorAll('#sp-general .general-group').forEach((el) => {
+    el.classList.toggle('active', el.dataset.generalGroup === tabName);
+  });
+}
 initJournalBindings();
 
 // --- List modals ---

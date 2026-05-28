@@ -1499,6 +1499,11 @@ textarea.s-input, textarea.input { min-height: 76px; height: auto; padding: 8px 
 /* ─── General settings: narrower cards ─────────────── */
 #sp-general .s-card { max-width: 560px; }
 
+#generalSettingsTabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+#sp-general .general-group { display: none; }
+#sp-general .general-group.active { display: block; }
+
+
 /* ─── Readonly inputs ──────────────────────────────── */
 .s-input[readonly] { opacity: 0.5; cursor: not-allowed; }
 
@@ -1881,4 +1886,21 @@ tr.list-info:hover { background: rgba(56, 189, 248, 0.18); }
   line-height: 1.35;
   color: var(--text1);
   font-variant-numeric: tabular-nums;
+}
+
+
+/* ─── Users settings: permissions list ─────────────── */
+.user-permissions-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 0;
+}
+.user-permission-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
 }

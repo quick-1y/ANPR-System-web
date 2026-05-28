@@ -415,8 +415,16 @@
         </div>
         <div class="settings-content">
           <div class="settings-pane active" id="sp-general">
+            <div class="general-settings-tabs" id="generalSettingsTabs">
+              <button class="btn btn-ghost ch-tab general-tab active" data-general-tab="interface">Интерфейс</button>
+              <button class="btn btn-ghost ch-tab general-tab" data-general-tab="reconnect">Переподключение</button>
+              <button class="btn btn-ghost ch-tab general-tab" data-general-tab="storage">Хранение</button>
+              <button class="btn btn-ghost ch-tab general-tab" data-general-tab="logging">Логи</button>
+              <button class="btn btn-ghost ch-tab general-tab" data-general-tab="time">Время</button>
+              <button class="btn btn-ghost ch-tab general-tab" data-general-tab="plates">Номера</button>
+            </div>
             <!-- Интерфейс -->
-            <div class="s-card">
+            <div class="s-card general-group active" data-general-group="interface">
               <div class="s-card-header">Интерфейс</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -452,7 +460,7 @@
             </div>
 
             <!-- Переподключение -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="reconnect">
               <div class="s-card-header">Переподключение</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -494,7 +502,7 @@
             </div>
 
             <!-- Скриншоты и медиа -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="storage">
               <div class="s-card-header">Скриншоты и медиа</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -515,7 +523,7 @@
             </div>
 
             <!-- Логи -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="logging">
               <div class="s-card-header">Логи</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -539,7 +547,7 @@
             </div>
 
             <!-- Автоочистка данных -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="storage">
               <div class="s-card-header">Автоочистка данных</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -570,7 +578,7 @@
             <input type="hidden" id="g_postgres_dsn" />
 
             <!-- Отображение времени -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="time">
               <div class="s-card-header">Отображение времени</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -611,7 +619,7 @@
             </div>
 
             <!-- Номера -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="plates">
               <div class="s-card-header">Распознавание номеров</div>
               <div class="s-card-body">
                 <div class="s-row" style="flex-direction:column;align-items:stretch;gap:6px">
@@ -1198,7 +1206,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label"><div class="s-row-name">Доступные вкладки</div></div>
-                      <div id="newUserPermissions" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 0"></div>
+                      <div id="newUserPermissions" class="user-permissions-list"></div>
                     </div>
                   </div>
                 </div>
@@ -1227,7 +1235,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label"><div class="s-row-name">Доступные вкладки</div></div>
-                      <div id="editUserPermissions" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 0"></div>
+                      <div id="editUserPermissions" class="user-permissions-list"></div>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label"><div class="s-row-name">Активен</div></div>

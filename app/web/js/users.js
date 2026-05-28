@@ -234,7 +234,7 @@ function _renderPermCheckboxes(containerId, currentPerms, role) {
     for (const p of _allPermissions) {
         if (role === "operator" && p.key === "tab:settings") continue;
         const label = document.createElement("label");
-        label.style.cssText = "display:inline-flex;align-items:center;gap:5px;margin-right:12px;margin-bottom:4px;font-size:12px;cursor:pointer";
+        label.className = "user-permission-item";
         const cb = document.createElement("input");
         cb.type = "checkbox";
         cb.value = p.key;
