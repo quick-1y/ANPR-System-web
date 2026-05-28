@@ -9,7 +9,6 @@ from typing import Any, Dict
 
 from common.logging import get_logger
 from config.settings_schema import (
-    SETTINGS_VERSION,
     debug_defaults,
     detector_defaults,
     inference_defaults,

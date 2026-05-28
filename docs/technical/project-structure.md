@@ -56,7 +56,6 @@ ANPR-System-v0.8_web/
 ├── common/                        # Общие утилиты
 │   └── logging.py
 ├── config/                        # Управление настройками
-│   ├── settings_migrations/
 │   ├── settings.yaml
 │   ├── settings_manager.py
 │   ├── settings_normalizer.py
@@ -126,7 +125,7 @@ ANPR-System-v0.8_web/
 Потоковое выполнение каналов. Здесь живут поток канала, preview cache, event bus и debug state.
 
 ### `config/`
-Центральная точка управления настройками, их нормализацией, миграцией и сохранением.
+Центральная точка управления настройками, их нормализацией и сохранением.
 
 ### `database/`
 Слой доступа к данным: события, каналы, контроллеры, списки и клиенты (номера), SQL-схема PostgreSQL. Каждый репозиторий наследует `PooledDatabase` и выполняет lazy bootstrap своей схемы.
