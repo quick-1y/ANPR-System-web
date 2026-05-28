@@ -64,12 +64,6 @@ class TestRowToDict:
         result = _row_to_dict(row)
         assert result["password_changed_at"] == changed_at
 
-    def test_password_changed_at_defaults_to_none_for_legacy_rows(self):
-        """8-element rows (pre-Phase 6) map password_changed_at to None."""
-        row = (1, "superadmin", "$2b$hash", "superadmin", ["tab:obs"], True, "2024-01-01", "2024-01-01")
-        result = _row_to_dict(row)
-        assert result["password_changed_at"] is None
-
     def test_parses_json_string_permissions(self):
         row = (1, "op", "hash", "operator", '["tab:obs"]', True, "2024-01-01", "2024-01-01", None)
         result = _row_to_dict(row)
@@ -147,7 +141,7 @@ def _mock_conn(fetchone=None, fetchall=None, rowcount=1):
 class TestFindByLogin:
     def test_returns_user_dict_when_found(self):
         db = _make_db()
-        row = (1, "superadmin", "$2b$hash", "superadmin", [], True, "2024-01-01", "2024-01-01")
+        row = (1, "superadmin", "$2b$hash", "superadmin", [], True, "2024-01-01", "2024-01-01", None)
         conn, cursor = _mock_conn(fetchone=row)
         with patch.object(db, "_connect", return_value=conn):
             result = db.find_by_login("superadmin")
@@ -170,7 +164,7 @@ class TestFindByLogin:
 class TestFindById:
     def test_returns_user_dict_when_found(self):
         db = _make_db()
-        row = (5, "operator1", "$2b$hash", "operator", ["tab:obs"], True, "2024-01-01", "2024-01-01")
+        row = (5, "operator1", "$2b$hash", "operator", ["tab:obs"], True, "2024-01-01", "2024-01-01", None)
         conn, cursor = _mock_conn(fetchone=row)
         with patch.object(db, "_connect", return_value=conn):
             result = db.find_by_id(5)
@@ -194,8 +188,8 @@ class TestListAll:
     def test_returns_list_of_users(self):
         db = _make_db()
         rows = [
-            (1, "superadmin", "$2b$h1", "superadmin", [], True, "2024-01-01", "2024-01-01"),
-            (2, "op1", "$2b$h2", "operator", ["tab:obs"], True, "2024-01-01", "2024-01-01"),
+            (1, "superadmin", "$2b$h1", "superadmin", [], True, "2024-01-01", "2024-01-01", None),
+            (2, "op1", "$2b$h2", "operator", ["tab:obs"], True, "2024-01-01", "2024-01-01", None),
         ]
         conn, cursor = _mock_conn(fetchall=rows)
         with patch.object(db, "_connect", return_value=conn):
@@ -219,7 +213,7 @@ class TestListAll:
 class TestCreateUser:
     def test_returns_created_user(self):
         db = _make_db()
-        row = (3, "newuser", "$2b$hash", "operator", ["tab:obs", "tab:journal"], True, "2024-01-01", "2024-01-01")
+        row = (3, "newuser", "$2b$hash", "operator", ["tab:obs", "tab:journal"], True, "2024-01-01", "2024-01-01", None)
         conn, cursor = _mock_conn(fetchone=row)
         with patch.object(db, "_connect", return_value=conn):
             result = db.create_user("newuser", "$2b$hash", "operator", ["tab:obs", "tab:journal"])
@@ -228,7 +222,7 @@ class TestCreateUser:
 
     def test_sql_contains_insert(self):
         db = _make_db()
-        row = (3, "u", "h", "operator", [], True, "2024-01-01", "2024-01-01")
+        row = (3, "u", "h", "operator", [], True, "2024-01-01", "2024-01-01", None)
         conn, cursor = _mock_conn(fetchone=row)
         with patch.object(db, "_connect", return_value=conn):
             db.create_user("u", "h")
@@ -243,7 +237,7 @@ class TestCreateUser:
 class TestUpdateUser:
     def test_updates_role(self):
         db = _make_db()
-        row = (1, "superadmin", "h", "operator", [], True, "2024-01-01", "2024-01-01")
+        row = (1, "superadmin", "h", "operator", [], True, "2024-01-01", "2024-01-01", None)
         conn, cursor = _mock_conn(fetchone=row)
         with patch.object(db, "_connect", return_value=conn):
             result = db.update_user(1, role="operator")
@@ -253,7 +247,7 @@ class TestUpdateUser:
 
     def test_updates_permissions(self):
         db = _make_db()
-        row = (1, "op", "h", "operator", ["tab:obs"], True, "2024-01-01", "2024-01-01")
+        row = (1, "op", "h", "operator", ["tab:obs"], True, "2024-01-01", "2024-01-01", None)
         conn, cursor = _mock_conn(fetchone=row)
         with patch.object(db, "_connect", return_value=conn):
             result = db.update_user(1, permissions=["tab:obs"])
@@ -262,7 +256,7 @@ class TestUpdateUser:
 
     def test_noop_when_no_fields(self):
         db = _make_db()
-        row = (1, "op", "h", "operator", [], True, "2024-01-01", "2024-01-01")
+        row = (1, "op", "h", "operator", [], True, "2024-01-01", "2024-01-01", None)
         conn, cursor = _mock_conn(fetchone=row)
         with patch.object(db, "_connect", return_value=conn):
             with patch.object(db, "find_by_id", return_value=_row_to_dict(row)):

@@ -27,7 +27,7 @@ def _row_to_dict(row: Any) -> Dict[str, Any]:
         "is_active": row[5],
         "created_at": row[6],
         "updated_at": row[7],
-        "password_changed_at": row[8] if len(row) > 8 else None,
+        "password_changed_at": row[8],
     }
 
 
