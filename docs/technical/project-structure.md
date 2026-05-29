@@ -151,3 +151,4 @@ ANPR-System-v0.8_web/
 - Описание модулей: [`modules.md`](modules.md)
 - Технологический стек: [`technology-stack.md`](technology-stack.md)
 - ANPR pipeline: [`anpr-pipeline.md`](anpr-pipeline.md)
+- Roadmap inference-настроек: [`inference-roadmap.md`](inference-roadmap.md)
