@@ -14,7 +14,6 @@ from config.settings_schema import (
     logging_defaults,
     model_defaults,
     normalize_log_level,
-    ocr_defaults,
     plate_defaults,
     reconnect_defaults,
     storage_defaults,
@@ -103,20 +102,6 @@ class SettingsNormalizer:
         data["models"] = models
         return changed
 
-    def _fill_ocr_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        if "ocr" not in data:
-            data["ocr"] = defaults
-            return True
-
-        changed = False
-        ocr = data.get("ocr", {})
-        for key, val in defaults.items():
-            if key not in ocr:
-                ocr[key] = val
-                changed = True
-        data["ocr"] = ocr
-        return changed
-
     def _fill_detector_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
         if "detector" not in data:
             data["detector"] = defaults
@@ -178,7 +163,7 @@ class SettingsNormalizer:
         normalized = copy.deepcopy(data)
         changed = False
 
-        for obsolete_key in ("grid", "theme", "sidebar_locked", "tracking", "inference"):
+        for obsolete_key in ("grid", "theme", "sidebar_locked", "tracking", "inference", "ocr"):
             if obsolete_key in normalized:
                 normalized.pop(obsolete_key, None)
                 changed = True
@@ -186,8 +171,6 @@ class SettingsNormalizer:
         if self._fill_reconnect_defaults(normalized, reconnect_defaults()):
             changed = True
         if self._fill_model_defaults(normalized, model_defaults()):
-            changed = True
-        if self._fill_ocr_defaults(normalized, ocr_defaults()):
             changed = True
         if self._fill_detector_defaults(normalized, detector_defaults()):
             changed = True

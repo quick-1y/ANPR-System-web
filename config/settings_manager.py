@@ -13,7 +13,6 @@ from config.settings_schema import (
     logging_defaults,
     model_defaults,
     normalize_log_level,
-    ocr_defaults,
     plate_defaults,
     reconnect_defaults,
     storage_defaults,
@@ -173,13 +172,6 @@ class SettingsManager:
                 settings_snapshot = copy.deepcopy(self.settings)
                 self._repo.save(settings_snapshot)
             return copy.deepcopy(self.settings.get("models", {}))
-
-    def get_ocr_settings(self) -> Dict[str, Any]:
-        with self._file_lock:
-            if self._normalizer._fill_ocr_defaults(self.settings, ocr_defaults()):
-                settings_snapshot = copy.deepcopy(self.settings)
-                self._repo.save(settings_snapshot)
-            return copy.deepcopy(self.settings.get("ocr", {}))
 
     def get_detector_settings(self) -> Dict[str, Any]:
         with self._file_lock:

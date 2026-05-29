@@ -105,7 +105,6 @@ class AppContainer:
 
         model_config = AnprModelConfig.from_settings(
             self.settings.get_model_settings(),
-            self.settings.get_ocr_settings(),
             self.settings.get_detector_settings(),
         )
         return ChannelProcessor(

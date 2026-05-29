@@ -12,6 +12,7 @@ import torch
 import torch.ao.quantization.quantize_fx as quantize_fx
 from torch.ao.quantization import QConfigMapping
 
+from anpr.model_config import OCR_ALPHABET, OCR_IMAGE_HEIGHT, OCR_IMAGE_WIDTH
 from anpr.recognition.crnn import CRNN
 from common.logging import get_logger
 
@@ -26,9 +27,9 @@ class CRNNRecognizer:
         model_path: str,
         device: torch.device,
         *,
-        ocr_height: int = 32,
-        ocr_width: int = 128,
-        ocr_alphabet: str = "",
+        ocr_height: int = OCR_IMAGE_HEIGHT,
+        ocr_width: int = OCR_IMAGE_WIDTH,
+        ocr_alphabet: str = OCR_ALPHABET,
     ) -> None:
         target_device = device
         if device.type != "cpu":

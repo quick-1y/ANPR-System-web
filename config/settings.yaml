@@ -2,10 +2,6 @@ models:
   yolo_model_path: anpr/models/yolo/best.pt
   ocr_model_path: anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth
   device: cpu
-ocr:
-  img_height: 32
-  img_width: 128
-  alphabet: 0123456789ABCEHKMOPTXY
 detector:
   confidence_threshold: 0.5
   bbox_padding_ratio: 0.08

@@ -142,10 +142,6 @@ def direction_defaults() -> Dict[str, float | int]:
     }
 
 
-def ocr_defaults() -> Dict[str, Any]:
-    return {"img_height": 32, "img_width": 128, "alphabet": "0123456789ABCEHKMOPTXY"}
-
-
 def detector_defaults() -> Dict[str, Any]:
     return {"confidence_threshold": 0.5, "bbox_padding_ratio": 0.08, "min_padding_pixels": 2}
 
@@ -207,7 +203,6 @@ def channel_defaults(tracking: Dict[str, Any]) -> Dict[str, Any]:
 def build_default_settings() -> Dict[str, Any]:
     return {
         "models": model_defaults(),
-        "ocr": ocr_defaults(),
         "detector": detector_defaults(),
         "debug": debug_defaults(),
         "reconnect": reconnect_defaults(),
