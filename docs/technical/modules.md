@@ -51,7 +51,7 @@
 | `anpr/detection/yolo_detector.py` | `YOLODetector`: YOLOv8 + tracking; fallback; size filter; bbox padding |
 | `anpr/detection/motion_detector.py` | `MotionDetector`: motion gate и гистерезис по счётчикам кадров |
 | `anpr/preprocessing/plate_preprocessor.py` | `PlatePreprocessor`: CLAHE, морфология, перспективная коррекция, выравнивание |
-| `anpr/model_config.py` | `AnprModelConfig`: пути YOLO/OCR-моделей, device, detector-настройки и фиксированный OCR-контракт модели (32×128, алфавит) |
+| `anpr/model_config.py` | `AnprModelConfig`: пути YOLO/OCR-моделей, device, фиксированный OCR-контракт (32×128, алфавит) и фиксированный detector-контракт |
 | `anpr/recognition/crnn_recognizer.py` | `CRNNRecognizer`: INT8 CRNN; `recognize_batch()`; CTC decode |
 | `anpr/recognition/crnn.py` | Архитектура CRNN (Conv + RNN backbone) |
 | `anpr/pipeline/anpr_pipeline.py` | `ANPRPipeline`, `TrackAggregator`, `TrackDirectionEstimator` |
@@ -89,7 +89,7 @@
 
 | Файл / директория | Ответственность |
 |---|---|
-| `config/settings_manager.py` | `SettingsManager`: оркестрация глобальных настроек (models, detector, reconnect, storage, plates, logging, time, debug); каналы и контроллеры хранятся в БД |
+| `config/settings_manager.py` | `SettingsManager`: оркестрация глобальных настроек (models, reconnect, storage, plates, logging, time, debug); каналы и контроллеры хранятся в БД |
 | `config/settings_repository.py` | Чтение и запись `settings.yaml` с file lock |
 | `config/settings_normalizer.py` | Нормализация и заполнение дефолтов |
 | `config/settings_schema.py` | Схема и дефолты всех секций |

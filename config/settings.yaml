@@ -2,10 +2,6 @@ models:
   yolo_model_path: anpr/models/yolo/best.pt
   ocr_model_path: anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth
   device: cpu
-detector:
-  confidence_threshold: 0.5
-  bbox_padding_ratio: 0.08
-  min_padding_pixels: 2
 debug:
   show_channel_metrics: true
   log_panel_enabled: true

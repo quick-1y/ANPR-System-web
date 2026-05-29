@@ -103,10 +103,7 @@ class AppContainer:
         from runtime.channel_runtime import ChannelProcessor
         from anpr.model_config import AnprModelConfig
 
-        model_config = AnprModelConfig.from_settings(
-            self.settings.get_model_settings(),
-            self.settings.get_detector_settings(),
-        )
+        model_config = AnprModelConfig.from_settings(self.settings.get_model_settings())
         return ChannelProcessor(
             event_callback=self.publish_event_sync,
             plate_settings=self.settings.get_plate_settings(),

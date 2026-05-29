@@ -52,6 +52,26 @@ class TestLoggingSettingsNormalization:
         assert changed is True
         assert "ocr" not in normalized
 
+    def test_normalizer_removes_obsolete_detector_section(self):
+        normalizer = SettingsNormalizer()
+        raw = {
+            "detector": {
+                "confidence_threshold": 0.5,
+                "bbox_padding_ratio": 0.08,
+                "min_padding_pixels": 2,
+            }
+        }
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert "detector" not in normalized
+
+    def test_default_settings_do_not_include_detector_contract(self):
+        defaults = build_default_settings()
+
+        assert "detector" not in defaults
+
     def test_default_settings_do_not_include_ocr_contract(self):
         defaults = build_default_settings()
 
