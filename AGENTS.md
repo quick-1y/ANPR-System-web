@@ -401,16 +401,14 @@ Don't:
 - PostgreSQL schema bootstrap is lazy (on first write) and idempotent (`CREATE TABLE IF NOT EXISTS`).
 - `schema.sql` is also mounted as Docker init script for fresh databases.
 - Database schema changes must be implemented directly in `database/postgres/schema.sql` and the relevant repositories. Do not create DB migration modules, legacy compatibility layers, or transitional upgrade paths for database changes — in this project context, functional development assumes a fresh database and migration code only adds unnecessary clutter.
-- Settings schema changes require version bump and migration path (see Settings Schema Versioning below).
+- Settings schema changes are applied directly to the current development schema; backward compatibility with old local configs is not required unless explicitly requested.
 - Preserve backward compatibility for API responses unless the task explicitly allows a breaking change.
 
-### Settings Schema Versioning Rules
+### Settings Schema Development Rules
 
-- Any change to `config/settings.yaml` schema (new parameter, removed/renamed field, changed structure or value format) requires bumping the settings schema version.
-- When bumping the schema version, always add or update the upgrade/migration path for old configs to the new version.
-- Do not add new settings parameters without accounting for the versioning/compatibility mechanism.
-- Do not add, rename, or remove settings fields without updating the compatibility/upgrade path.
-- A task is not complete if the settings schema changed but the migration path was not updated.
+- During active development, `config/settings.yaml` schema changes are direct-only: update the current defaults, normalizer, manager accessors, docs, and examples in place.
+- Do not bump a settings schema version or add migration code unless a user explicitly asks for compatibility with older configs.
+- Do not leave obsolete settings in defaults, docs, examples, or UI after removing/renaming fields.
 
 ---
 
@@ -464,9 +462,8 @@ A change is not complete until:
 2. tests are added or updated where needed;
 3. `README.md` is updated if user-visible behavior, API, architecture, storage, or runtime flow changed (in Russian);
 4. file placement and naming follow this document;
-5. settings schema version is bumped if settings were changed;
-6. settings migration path is updated if schema version was bumped;
-7. assumptions, risks, and follow-up work are documented.
+5. settings defaults, normalizer, docs, and examples are updated if the settings schema changed;
+6. assumptions, risks, and follow-up work are documented.
 
 ---
 
@@ -532,7 +529,7 @@ The agent should pause and ask a human when:
 - tests fail for reasons unrelated to the task and the cause is unclear;
 - the task requires secrets, production access, or product-policy decisions;
 - the safest path depends on a tradeoff the user has not chosen;
-- the change involves auth logic, settings schema version bumps, or database schema changes.
+- the change involves auth logic, database schema changes, or compatibility requirements for older settings files.
 
 ---
 
