@@ -10,8 +10,6 @@ detector:
   confidence_threshold: 0.5
   bbox_padding_ratio: 0.08
   min_padding_pixels: 2
-inference:
-  workers: 2
 debug:
   show_channel_metrics: true
   log_panel_enabled: true

@@ -10,7 +10,6 @@ from config.settings_schema import (
     build_default_settings,
     debug_defaults,
     detector_defaults,
-    inference_defaults,
     logging_defaults,
     model_defaults,
     normalize_log_level,
@@ -188,13 +187,6 @@ class SettingsManager:
                 settings_snapshot = copy.deepcopy(self.settings)
                 self._repo.save(settings_snapshot)
             return copy.deepcopy(self.settings.get("detector", {}))
-
-    def get_inference_settings(self) -> Dict[str, Any]:
-        with self._file_lock:
-            if self._normalizer._fill_inference_defaults(self.settings, inference_defaults()):
-                settings_snapshot = copy.deepcopy(self.settings)
-                self._repo.save(settings_snapshot)
-            return copy.deepcopy(self.settings.get("inference", {}))
 
     def refresh(self) -> None:
         raw_settings = self._repo.load()

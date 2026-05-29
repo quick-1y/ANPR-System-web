@@ -11,7 +11,6 @@ from common.logging import get_logger
 from config.settings_schema import (
     debug_defaults,
     detector_defaults,
-    inference_defaults,
     logging_defaults,
     model_defaults,
     normalize_log_level,
@@ -132,25 +131,6 @@ class SettingsNormalizer:
         data["detector"] = detector
         return changed
 
-    def _fill_inference_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        if "inference" not in data:
-            data["inference"] = defaults
-            return True
-
-        changed = False
-        inference = data.get("inference", {})
-        for key, val in defaults.items():
-            if key not in inference:
-                inference[key] = val
-                changed = True
-
-        if "shared_memory" in inference:
-            inference.pop("shared_memory", None)
-            changed = True
-
-        data["inference"] = inference
-        return changed
-
     def _fill_time_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
         if "time" not in data:
             data["time"] = defaults
@@ -198,7 +178,7 @@ class SettingsNormalizer:
         normalized = copy.deepcopy(data)
         changed = False
 
-        for obsolete_key in ("grid", "theme", "sidebar_locked", "tracking"):
+        for obsolete_key in ("grid", "theme", "sidebar_locked", "tracking", "inference"):
             if obsolete_key in normalized:
                 normalized.pop(obsolete_key, None)
                 changed = True
@@ -210,8 +190,6 @@ class SettingsNormalizer:
         if self._fill_ocr_defaults(normalized, ocr_defaults()):
             changed = True
         if self._fill_detector_defaults(normalized, detector_defaults()):
-            changed = True
-        if self._fill_inference_defaults(normalized, inference_defaults()):
             changed = True
         if self._fill_storage_defaults(normalized, storage_defaults()):
             changed = True

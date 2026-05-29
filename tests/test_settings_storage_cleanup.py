@@ -36,9 +36,7 @@ class TestLoggingSettingsNormalization:
         assert changed is True
         assert "allowed_levels" not in normalized["logging"]
 
-
-
-    def test_normalizer_removes_shared_memory_from_inference(self):
+    def test_normalizer_removes_obsolete_inference_section(self):
         normalizer = SettingsNormalizer()
         raw = {
             "inference": {
@@ -50,7 +48,8 @@ class TestLoggingSettingsNormalization:
         normalized, changed = normalizer.normalize_with_meta(raw)
 
         assert changed is True
-        assert "shared_memory" not in normalized["inference"]
+        assert "inference" not in normalized
+
 
 class TestStorageCleanup:
     def test_normalizer_removes_export_dir_from_storage(self):
@@ -153,8 +152,10 @@ class TestInMemoryExports:
                     "country": "RU",
                     "confidence": 0.9,
                     "source": "rtsp",
-                    "frame_path": str(media_file),
-                    "plate_path": "",
+                    "frame_path_entry": str(media_file),
+                    "plate_path_entry": "",
+                    "frame_path_exit": "",
+                    "plate_path_exit": "",
                     "direction": "in",
                 }
             ]

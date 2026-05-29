@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
@@ -128,11 +127,6 @@ def model_defaults() -> Dict[str, Any]:
     return {"yolo_model_path": "anpr/models/yolo/best.pt", "ocr_model_path": "anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth", "device": "cpu"}
 
 
-def inference_defaults() -> Dict[str, Any]:
-    cpu_count = os.cpu_count() or 1
-    return {"workers": max(1, cpu_count - 1)}
-
-
 def plate_size_defaults() -> Dict[str, Dict[str, int]]:
     return {"min_plate_size": {"width": 80, "height": 20}, "max_plate_size": {"width": 400, "height": 100}}
 
@@ -215,7 +209,6 @@ def build_default_settings() -> Dict[str, Any]:
         "models": model_defaults(),
         "ocr": ocr_defaults(),
         "detector": detector_defaults(),
-        "inference": inference_defaults(),
         "debug": debug_defaults(),
         "reconnect": reconnect_defaults(),
         "storage": storage_defaults(),
