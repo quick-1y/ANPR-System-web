@@ -2,6 +2,7 @@ import io
 from zipfile import ZipFile
 
 from config.settings_normalizer import SettingsNormalizer
+from config.settings_schema import build_default_settings
 from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 
 
@@ -36,9 +37,47 @@ class TestLoggingSettingsNormalization:
         assert changed is True
         assert "allowed_levels" not in normalized["logging"]
 
+    def test_normalizer_removes_obsolete_ocr_section(self):
+        normalizer = SettingsNormalizer()
+        raw = {
+            "ocr": {
+                "img_height": 32,
+                "img_width": 128,
+                "alphabet": "0123456789ABCEHKMOPTXY",
+            }
+        }
 
+        normalized, changed = normalizer.normalize_with_meta(raw)
 
-    def test_normalizer_removes_shared_memory_from_inference(self):
+        assert changed is True
+        assert "ocr" not in normalized
+
+    def test_normalizer_removes_obsolete_detector_section(self):
+        normalizer = SettingsNormalizer()
+        raw = {
+            "detector": {
+                "confidence_threshold": 0.5,
+                "bbox_padding_ratio": 0.08,
+                "min_padding_pixels": 2,
+            }
+        }
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert "detector" not in normalized
+
+    def test_default_settings_do_not_include_detector_contract(self):
+        defaults = build_default_settings()
+
+        assert "detector" not in defaults
+
+    def test_default_settings_do_not_include_ocr_contract(self):
+        defaults = build_default_settings()
+
+        assert "ocr" not in defaults
+
+    def test_normalizer_removes_obsolete_inference_section(self):
         normalizer = SettingsNormalizer()
         raw = {
             "inference": {
@@ -50,7 +89,8 @@ class TestLoggingSettingsNormalization:
         normalized, changed = normalizer.normalize_with_meta(raw)
 
         assert changed is True
-        assert "shared_memory" not in normalized["inference"]
+        assert "inference" not in normalized
+
 
 class TestStorageCleanup:
     def test_normalizer_removes_export_dir_from_storage(self):
@@ -153,8 +193,10 @@ class TestInMemoryExports:
                     "country": "RU",
                     "confidence": 0.9,
                     "source": "rtsp",
-                    "frame_path": str(media_file),
-                    "plate_path": "",
+                    "frame_path_entry": str(media_file),
+                    "plate_path_entry": "",
+                    "frame_path_exit": "",
+                    "plate_path_exit": "",
                     "direction": "in",
                 }
             ]

@@ -317,9 +317,6 @@ class DebugPayload(BaseModel):
 
 
 class GlobalSettingsPayload(BaseModel):
-    grid: str
-    theme: str
-    sidebar_locked: bool = False
     reconnect: ReconnectPayload
     storage: StoragePayload
     logging: LoggingPayload

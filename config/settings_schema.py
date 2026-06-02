@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 from common.logging import get_logger
 
-SETTINGS_VERSION = 4
-SETTINGS_LINEAGE_KEY = "settings_lineage"
-SETTINGS_LINEAGE = "mainline"
 LOG_LEVELS = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 SUPPORTED_CONTROLLER_TYPES = ("DTWONDER2CH",)
 
@@ -124,16 +120,11 @@ def storage_defaults() -> Dict[str, Any]:
 
 
 def plate_defaults() -> Dict[str, Any]:
-    return {"config_dir": "anpr/countries", "enabled_countries": ["RU", "UA", "BY", "KZ"]}
+    return {"enabled_countries": ["RU", "UA", "BY", "KZ"]}
 
 
 def model_defaults() -> Dict[str, Any]:
     return {"yolo_model_path": "anpr/models/yolo/best.pt", "ocr_model_path": "anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth", "device": "cpu"}
-
-
-def inference_defaults() -> Dict[str, Any]:
-    cpu_count = os.cpu_count() or 1
-    return {"workers": max(1, cpu_count - 1)}
 
 
 def plate_size_defaults() -> Dict[str, Dict[str, int]]:
@@ -149,14 +140,6 @@ def direction_defaults() -> Dict[str, float | int]:
         "jitter_pixels": 1.0,
         "min_area_change_ratio": 0.02,
     }
-
-
-def ocr_defaults() -> Dict[str, Any]:
-    return {"img_height": 32, "img_width": 128, "alphabet": "0123456789ABCEHKMOPTXY"}
-
-
-def detector_defaults() -> Dict[str, Any]:
-    return {"confidence_threshold": 0.5, "bbox_padding_ratio": 0.08, "min_padding_pixels": 2}
 
 
 def time_defaults() -> Dict[str, Any]:
@@ -215,25 +198,10 @@ def channel_defaults(tracking: Dict[str, Any]) -> Dict[str, Any]:
 
 def build_default_settings() -> Dict[str, Any]:
     return {
-        "settings_version": SETTINGS_VERSION,
-        SETTINGS_LINEAGE_KEY: SETTINGS_LINEAGE,
         "models": model_defaults(),
-        "ocr": ocr_defaults(),
-        "detector": detector_defaults(),
-        "inference": inference_defaults(),
         "debug": debug_defaults(),
-        "grid": "2x2",
-        "theme": "light",
-        "sidebar_locked": False,
         "reconnect": reconnect_defaults(),
         "storage": storage_defaults(),
-        "tracking": {
-            "best_shots": 3,
-            "cooldown_seconds": 5,
-            "ocr_min_confidence": 0.6,
-            "max_ocr_attempts": 15,
-            "direction": direction_defaults(),
-        },
         "plates": plate_defaults(),
         "logging": logging_defaults(),
         "time": time_defaults(),

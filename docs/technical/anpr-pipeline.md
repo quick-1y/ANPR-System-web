@@ -22,7 +22,7 @@
 | **YOLODetector** | YOLOv8 с CUDA → CPU fallback; tracking fallback при потере трека; padding bbox перед кропом |
 | **MotionDetector** | Абсолютная разность кадров → порог → гистерезис (счётчики активации/деактивации) |
 | **PlatePreprocessor** | CLAHE + морфология → поиск четырёх точек → перспективная коррекция → выравнивание по HoughLines / min-area-rect |
-| **CRNNRecognizer** | INT8-квантованная CRNN (32×128, grayscale); CTC-decode: argmax по шагам, удаление повторов, confidence = exp(mean(max logits)) |
+| **CRNNRecognizer** | INT8-квантованная CRNN; контракт модели зафиксирован в `anpr/model_config.py`: вход 32×128 grayscale и алфавит `0123456789ABCEHKMOPTXY`; CTC-decode: argmax по шагам, удаление повторов, confidence = exp(mean(max logits)) |
 | **TrackAggregator** | Скользящий буфер (text, confidence) на трек; взвешенное голосование с порогом quorum; TTL-вытеснение; **бюджет OCR-попыток** (`max_ocr_attempts`); финализация трека при консенсусе или исчерпании бюджета; fallback на лучшего кандидата; одноразовое событие «Нечитаемо» |
 | **TrackDirectionEstimator** | История center_y и площади bbox на трек; APPROACHING = center_y ↓ + area ↑; RECEDING = center_y ↑ + area ↓; confidence = tanh(score) × density |
 | **PlatePostProcessor** | Нормализация (uppercase, Ё→Е, strip) → коррекции по стране → валидация против regex-форматов YAML-конфигов |
@@ -112,6 +112,8 @@
 **Результат**: 1 событие «Нечитаемо». Без бюджета эта же ситуация генерировала бы событие на каждом кадре.
 
 ### Конфигурация OCR и детектора
+
+Контракты OCR-модели (`32×128`, grayscale, алфавит `0123456789ABCEHKMOPTXY`) и YOLO detector (`confidence_threshold=0.5`, `bbox_padding_ratio=0.08`, `min_padding_pixels=2`) больше не хранятся в `settings.yaml`: эти значения захардкожены в `anpr/model_config.py`, потому что менять их безопасно только вместе с проверенными/переобученными моделями. В настройках остаются runtime-параметры OCR-агрегации и per-channel параметры запуска detector.
 
 | Параметр | Тип | По умолчанию | Диапазон | Описание |
 |---|---|---|---|---|

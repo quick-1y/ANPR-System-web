@@ -34,8 +34,6 @@ function getEnabledCountryCodes() {
 
 export async function loadGlobalSettings() {
   const g = await jfetch(api("/api/settings"));
-  setVal("g_grid", g.grid); setVal("g_theme", g.theme); applyTheme(g.theme);
-  setChk("g_sidebar_locked", g.sidebar_locked); applySidebarLocked(!!g.sidebar_locked);
   setChk("g_sl_enabled", g.reconnect.signal_loss.enabled);
   setVal("g_frame_timeout", g.reconnect.signal_loss.frame_timeout_seconds);
   setVal("g_retry_interval", g.reconnect.signal_loss.retry_interval_seconds);
@@ -62,8 +60,6 @@ export async function loadGlobalSettings() {
 export async function saveGeneral() {
   applyTheme(val("g_theme"));
   const payload = {
-    grid: val("g_grid"), theme: val("g_theme"),
-    sidebar_locked: document.getElementById("g_sidebar_locked").checked,
     reconnect: {
       signal_loss: { enabled: document.getElementById("g_sl_enabled").checked, frame_timeout_seconds: Number(val("g_frame_timeout")), retry_interval_seconds: Number(val("g_retry_interval")) },
       periodic: { enabled: document.getElementById("g_periodic_enabled").checked, interval_minutes: Number(val("g_periodic_minutes")) },

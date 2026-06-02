@@ -8,17 +8,11 @@ import copy
 from typing import Any, Dict
 
 from common.logging import get_logger
-from config.settings_migrations import run_settings_migrations
 from config.settings_schema import (
-    SETTINGS_VERSION,
     debug_defaults,
-    detector_defaults,
-    direction_defaults,
-    inference_defaults,
     logging_defaults,
     model_defaults,
     normalize_log_level,
-    ocr_defaults,
     plate_defaults,
     reconnect_defaults,
     storage_defaults,
@@ -73,6 +67,9 @@ class SettingsNormalizer:
             if key not in storage:
                 storage[key] = val
                 changed = True
+        if "export_dir" in storage:
+            storage.pop("export_dir", None)
+            changed = True
         data["storage"] = storage
         return changed
 
@@ -102,53 +99,6 @@ class SettingsNormalizer:
                 models[key] = val
                 changed = True
         data["models"] = models
-        return changed
-
-    def _fill_ocr_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        if "ocr" not in data:
-            data["ocr"] = defaults
-            return True
-
-        changed = False
-        ocr = data.get("ocr", {})
-        for key, val in defaults.items():
-            if key not in ocr:
-                ocr[key] = val
-                changed = True
-        data["ocr"] = ocr
-        return changed
-
-    def _fill_detector_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        if "detector" not in data:
-            data["detector"] = defaults
-            return True
-
-        changed = False
-        detector = data.get("detector", {})
-        for key, val in defaults.items():
-            if key not in detector:
-                detector[key] = val
-                changed = True
-        data["detector"] = detector
-        return changed
-
-    def _fill_inference_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        if "inference" not in data:
-            data["inference"] = defaults
-            return True
-
-        changed = False
-        inference = data.get("inference", {})
-        for key, val in defaults.items():
-            if key not in inference:
-                inference[key] = val
-                changed = True
-
-        if "shared_memory" in inference:
-            inference.pop("shared_memory", None)
-            changed = True
-
-        data["inference"] = inference
         return changed
 
     def _fill_time_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
@@ -196,38 +146,16 @@ class SettingsNormalizer:
 
     def normalize_with_meta(self, data: dict) -> tuple[dict, bool]:
         normalized = copy.deepcopy(data)
-        normalized, changed = run_settings_migrations(normalized, SETTINGS_VERSION)
-        tracking_defaults = normalized.get("tracking", {})
+        changed = False
 
-        if not normalized.get("theme"):
-            normalized["theme"] = "light"
-            changed = True
-
-        if "sidebar_locked" not in normalized:
-            normalized["sidebar_locked"] = False
-            changed = True
-
-        dir_defaults = direction_defaults()
-        direction_settings = tracking_defaults.get("direction")
-        if direction_settings is None:
-            tracking_defaults["direction"] = dir_defaults
-            normalized["tracking"] = tracking_defaults
-            changed = True
-        else:
-            for key, value in dir_defaults.items():
-                if key not in direction_settings:
-                    direction_settings[key] = value
-                    changed = True
+        for obsolete_key in ("grid", "theme", "sidebar_locked", "tracking", "inference", "ocr", "detector"):
+            if obsolete_key in normalized:
+                normalized.pop(obsolete_key, None)
+                changed = True
 
         if self._fill_reconnect_defaults(normalized, reconnect_defaults()):
             changed = True
         if self._fill_model_defaults(normalized, model_defaults()):
-            changed = True
-        if self._fill_ocr_defaults(normalized, ocr_defaults()):
-            changed = True
-        if self._fill_detector_defaults(normalized, detector_defaults()):
-            changed = True
-        if self._fill_inference_defaults(normalized, inference_defaults()):
             changed = True
         if self._fill_storage_defaults(normalized, storage_defaults()):
             changed = True

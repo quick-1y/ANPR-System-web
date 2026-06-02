@@ -129,4 +129,5 @@ Retention-политика применяется отдельно от осно
 - [`endpoints.md`](endpoints.md) — карта API
 - [`zones.md`](../guides/zones.md) — режим парковочных зон
 - [`anpr-pipeline.md`](anpr-pipeline.md) — детали алгоритмов распознавания
+- [`../roadmap/inference.md`](../roadmap/inference.md) — возможный будущий дизайн inference workers и shared memory
 - [`modules.md`](modules.md) — обзор модулей проекта

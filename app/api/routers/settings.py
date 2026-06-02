@@ -18,7 +18,7 @@ router = APIRouter()
 @router.get("/api/countries")
 def get_available_countries(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> List[Dict[str, str]]:
     plates = container.settings.get_plate_settings()
-    config_dir = str(plates.get("config_dir") or "anpr/countries")
+    config_dir = "anpr/countries"
     loader = CountryConfigLoader(os.path.abspath(config_dir))
     return loader.available_configs()
 
@@ -26,9 +26,6 @@ def get_available_countries(container: AppContainer = Depends(get_container), _u
 @router.get("/api/settings")
 def get_global_settings(container: AppContainer = Depends(get_container), current_user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     body = {
-        "grid": container.settings.get_grid(),
-        "theme": container.settings.get_theme(),
-        "sidebar_locked": container.settings.settings.get("sidebar_locked", False),
         "reconnect": container.settings.get_reconnect(),
         "storage": container.settings.get_storage_settings(),
         "logging": container.settings.get_logging_config(),
@@ -52,9 +49,6 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
     logging_payload = payload.logging.model_dump()
 
     with container.settings._file_lock:
-        container.settings.settings["grid"] = payload.grid
-        container.settings.settings["theme"] = payload.theme
-        container.settings.settings["sidebar_locked"] = payload.sidebar_locked
         container.settings.settings["reconnect"] = reconnect_config
 
         current_storage = container.settings.settings.get("storage", {})

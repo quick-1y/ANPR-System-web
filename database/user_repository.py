@@ -27,7 +27,7 @@ def _row_to_dict(row: Any) -> Dict[str, Any]:
         "is_active": row[5],
         "created_at": row[6],
         "updated_at": row[7],
-        "password_changed_at": row[8] if len(row) > 8 else None,
+        "password_changed_at": row[8],
     }
 
 
@@ -49,9 +49,6 @@ class UserDatabase(PooledDatabase):
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON users(login);
     """
 
-    _MIGRATE_ADD_PASSWORD_CHANGED_AT = """
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ DEFAULT NULL;
-    """
 
     _SEED_SUPERADMIN = """
     INSERT INTO users (login, password, role, permissions, is_active)
@@ -63,16 +60,8 @@ class UserDatabase(PooledDatabase):
         return self._SCHEMA
 
     def _ensure_schema(self) -> None:
-        """Create table, run migrations, and seed default superadmin if the table is empty."""
+        """Create table and seed default superadmin if the table is empty."""
         super()._ensure_schema()
-        # Phase 6 migration: add password_changed_at for existing installs
-        try:
-            with self._connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(self._MIGRATE_ADD_PASSWORD_CHANGED_AT)
-                    conn.commit()
-        except Exception:
-            logger.exception("Ошибка при миграции users (password_changed_at)")
         self._seed_default_superadmin()
 
     def _seed_default_superadmin(self) -> None:
