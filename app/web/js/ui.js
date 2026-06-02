@@ -185,9 +185,19 @@ export function closeModal(id) { document.getElementById(id).classList.remove("a
 export function applyTheme(theme) {
   const normalized = String(theme || "light").toLowerCase() === "dark" ? "dark" : "light";
   document.body.setAttribute("data-theme", normalized);
+
+  const themeSelect = document.getElementById("g_theme");
+  if (themeSelect && themeSelect.value !== normalized) {
+    themeSelect.value = normalized;
+  }
+
   try {
     localStorage.setItem("anpr_theme", normalized);
   } catch (_e) {}
+}
+
+export function getCurrentTheme() {
+  return document.body.getAttribute("data-theme") === "dark" ? "dark" : "light";
 }
 
 export function updateTopbarDateTime() {
