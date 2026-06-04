@@ -111,3 +111,9 @@
 | `Dockerfile` | Сборка приложения |
 | `docker-compose.yml` | Компоновка сервисов `nginx`, `api`, `retention_worker`, `postgres` |
 | `pyproject.toml` | Python-зависимости проекта (Poetry) |
+
+## Типографика Web UI
+
+- Основные типографические токены Web UI находятся в `app/web/css/styles.css`: `--sans`, `--mono`, `--font-size-caption`, `--font-size-meta`, `--font-size-control`, `--font-size-body`, `--font-size-title`.
+- Для экранной читаемости используется системный sans-serif стек, а Inter оставлен только как локальный asset и не является первым шрифтом интерфейса. Это предотвращает синтетическое жирное начертание Inter Regular и визуальное слипание букв.
+- Новые элементы интерфейса должны наследовать `font: inherit` или использовать существующие классы `.input`, `.btn`, `.s-row-*`, `.panel-header`, чтобы сохранять единый увеличенный масштаб текста.

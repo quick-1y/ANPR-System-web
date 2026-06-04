@@ -69,8 +69,14 @@
   --control-border: #374151;
   --focus-ring: rgba(148, 163, 184, 0.24);
 
-  --sans: "Inter", system-ui, -apple-system, sans-serif;
-  --mono: "JetBrains Mono", "Courier New", monospace;
+  --sans: "Aptos", "Segoe UI Variable", "Segoe UI", "Roboto", "Noto Sans", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", "Roboto Mono", "JetBrains Mono", "Courier New", monospace;
+  --font-size-caption: 12px;
+  --font-size-meta: 13px;
+  --font-size-control: 15px;
+  --font-size-body: 16px;
+  --font-size-title: 22px;
+  --line-height-readable: 1.5;
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 14px;
@@ -166,7 +172,11 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   overflow: hidden;
-  font-size: 15px;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-readable);
+  letter-spacing: 0.004em;
+  text-rendering: optimizeLegibility;
+  font-synthesis-weight: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -1903,4 +1913,177 @@ tr.list-info:hover { background: rgba(56, 189, 248, 0.18); }
   gap: 6px;
   font-size: 12px;
   cursor: pointer;
+}
+
+/* ─── Readability pass: larger, clearer UI typography ─────────── */
+button,
+input,
+select,
+textarea,
+table {
+  font: inherit;
+}
+
+.topbar-title {
+  font-size: var(--font-size-title);
+  font-weight: 650;
+}
+
+.topbar-time { font-size: 18px; }
+.topbar-date { font-size: var(--font-size-meta); }
+.load-stat-val { font-size: var(--font-size-meta); }
+
+.ttab-label,
+.ch-item-name,
+.lists-main-title,
+.zone-card-name,
+.zone-linked-name,
+.picker-item-label,
+.s-row-name {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.input,
+.api-input,
+.grid-select,
+.filter-input,
+.s-input,
+.auth-input {
+  --input-height: 38px;
+  --input-padding-x: 12px;
+  font-size: var(--font-size-control);
+  line-height: 1.35;
+}
+
+.input--sm,
+.btn-sm {
+  min-height: 34px;
+}
+
+.input--md {
+  --input-height: 38px;
+}
+
+.input--lg {
+  --input-height: 42px;
+}
+
+.btn,
+.icon-btn,
+.icon-btn-sm,
+.entry-edit-btn,
+.entry-delete-btn,
+.ch-tab,
+.topbar-pill,
+.topbar-server-pill,
+.topbar-load-stat,
+.badge,
+.type-badge,
+.zone-badge,
+.list-item-count,
+.user-role-badge,
+.user-status-badge {
+  font-size: var(--font-size-meta);
+  line-height: 1.35;
+}
+
+.btn,
+.btn-sm,
+.entry-edit-btn,
+.entry-delete-btn,
+.ch-tab {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.load-stat-label,
+.obs-label,
+.filter-label,
+.snav-label,
+.zone-stat-label,
+.zone-linked-title,
+.zones-list-title,
+.event-meta-row span,
+.status-line,
+.log-meta,
+.s-row-desc,
+.hint-text,
+.roi-hint,
+.modal-note,
+.modal-error,
+.auth-error,
+.app-toast,
+.picker-empty,
+.inline-code {
+  font-size: var(--font-size-caption);
+  line-height: 1.45;
+  letter-spacing: 0.03em;
+}
+
+.load-stat-label,
+.topbar-server-pill,
+.topbar-pill,
+.obs-label,
+.filter-label,
+.snav-label,
+.zone-stat-label,
+.zone-linked-title,
+.zones-list-title,
+.badge,
+.type-badge,
+.zone-badge,
+.user-role-badge,
+.user-status-badge {
+  letter-spacing: 0.06em;
+}
+
+.panel-header,
+.s-card-header,
+#tab-journal .data-table th,
+#tab-journal .data-table td,
+#tab-journal .journal-pass-channel,
+#tab-journal .journal-pass-date,
+#tab-journal .journal-pass-time,
+.data-table th,
+.data-table td,
+.picker-item-label,
+.s-row-name,
+.s-row-desc,
+.modal-confirm-text,
+.custom-lists-container label,
+.user-permission-item {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.plate-cell,
+.conf-cell,
+.event-meta-row b,
+.zone-stat-sub {
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.s-row-desc,
+.modal-note,
+.roi-hint,
+.picker-item-sub,
+.zone-card-meta,
+.custom-lists-container label,
+.user-permission-item {
+  color: var(--text2);
+}
+
+/* Inline fragments are still produced by several legacy JS templates. */
+[style*="font-size:9px"],
+[style*="font-size: 9px"],
+[style*="font-size:10px"],
+[style*="font-size: 10px"],
+[style*="font-size:11px"],
+[style*="font-size: 11px"],
+[style*="font-size:12px"],
+[style*="font-size: 12px"] {
+  font-size: var(--font-size-caption) !important;
+  line-height: 1.4 !important;
 }
