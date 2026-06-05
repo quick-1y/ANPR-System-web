@@ -91,6 +91,49 @@ class TestLoggingSettingsNormalization:
         assert changed is True
         assert "inference" not in normalized
 
+    def test_default_settings_include_graphite_minimal_interface(self):
+        defaults = build_default_settings()
+
+        assert defaults["interface"] == {
+            "style": "graphite-minimal",
+            "theme": "light",
+            "sidebar_locked": False,
+        }
+
+    def test_normalizer_adds_and_clamps_interface_settings(self):
+        normalizer = SettingsNormalizer()
+        raw = {
+            "interface": {
+                "style": "unknown",
+                "theme": "blue",
+                "sidebar_locked": 1,
+            }
+        }
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert normalized["interface"] == {
+            "style": "graphite-minimal",
+            "theme": "light",
+            "sidebar_locked": True,
+        }
+
+    def test_normalizer_accepts_aurora_style(self):
+        normalizer = SettingsNormalizer()
+        raw = build_default_settings()
+        raw["interface"] = {
+            "style": "aurora",
+            "theme": "dark",
+            "sidebar_locked": False,
+        }
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is False
+        assert normalized["interface"]["style"] == "aurora"
+        assert normalized["interface"]["theme"] == "dark"
+
 
 class TestStorageCleanup:
     def test_normalizer_removes_export_dir_from_storage(self):

@@ -1,7 +1,7 @@
 // Global settings panel, country toggles
 import { setDebugSettingsCache, debugSettingsCache } from './state.js';
 import { api, jfetch } from './api.js';
-import { val, setVal, setChk, applyTheme, showToast, applySidebarLocked } from './ui.js';
+import { val, setVal, setChk, applyStyle, applyTheme, showToast, applySidebarLocked } from './ui.js';
 import { scheduleVideoGridLayout, syncOverlayPolling } from './channels.js';
 import { applyDebugPanelVisibility } from './debug.js';
 
@@ -46,6 +46,14 @@ export async function loadGlobalSettings() {
   setVal("g_max_screenshots", g.storage.max_screenshots_mb);
   setVal("g_postgres_dsn", g.storage.postgres_dsn);
   setVal("g_log_level", g.logging.level); setVal("g_log_retention", g.logging.retention_days);
+  if (g.interface) {
+    setVal("g_style", g.interface.style);
+    setVal("g_theme", g.interface.theme);
+    setChk("g_sidebar_locked", g.interface.sidebar_locked);
+    applyStyle(g.interface.style);
+    applyTheme(g.interface.theme);
+    applySidebarLocked(g.interface.sidebar_locked);
+  }
   setVal("g_timezone", g.time.timezone);
   await renderCountryToggles(g.plates.enabled_countries || []);
   if (g.debug) {
@@ -58,6 +66,7 @@ export async function loadGlobalSettings() {
 }
 
 export async function saveGeneral() {
+  applyStyle(val("g_style"));
   applyTheme(val("g_theme"));
   const payload = {
     reconnect: {
@@ -66,6 +75,7 @@ export async function saveGeneral() {
     },
     storage: { auto_cleanup_enabled: document.getElementById("g_auto_cleanup").checked, cleanup_interval_minutes: Number(val("g_cleanup_minutes")), events_retention_days: Number(val("g_events_retention")), media_retention_days: Number(val("g_media_retention")), max_screenshots_mb: Number(val("g_max_screenshots")), postgres_dsn: val("g_postgres_dsn") },
     logging: { level: val("g_log_level"), retention_days: Number(val("g_log_retention")) },
+    interface: { style: val("g_style"), theme: val("g_theme"), sidebar_locked: document.getElementById("g_sidebar_locked").checked },
     time: { timezone: val("g_timezone") },
     plates: { enabled_countries: getEnabledCountryCodes() },
     debug: { show_channel_metrics: document.getElementById("d_metrics").checked, log_panel_enabled: document.getElementById("d_log").checked, disable_video_output: document.getElementById("d_video_off").checked },

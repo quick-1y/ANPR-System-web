@@ -31,9 +31,12 @@
 | `app/web/js/zones.js` | Вкладка «Зоны»: список зон с вместимостью и занятостью, создание, настройки, удаление с предупреждением о привязанных каналах |
 | `app/web/js/state.js` | Глобальное состояние SPA; `state.currentUser`, `state.allClients`, `state.listMembers`, `state.lists`, `state.plateLookup` и др.; `setCurrentUser()`, `isAdmin()`, `hasPermission(key)` |
 | `app/web/js/clients.js` | Модуль клиентов: таблица всех клиентов, карточка клиента (просмотр/редактирование/удаление), прикрепление к списку, отвязка, поиск с дебаунсом |
-| `app/web/js/app.js` | Точка входа: проверка JWT при старте, показ login overlay, инициализация после аутентификации, `applyTabVisibility()` после получения пользователя, logout; вызывает `initUsersPane()` для admin |
+| `app/web/js/app.js` | Точка входа: проверка JWT при старте, показ login overlay, инициализация после аутентификации, применение стиля/темы интерфейса, `applyTabVisibility()` после получения пользователя, logout; вызывает `initUsersPane()` для admin |
 | `app/web/js/users.js` | Управление пользователями (Settings → Пользователи, admin-only): список, создание, редактирование, смена пароля, деактивация |
 | `app/web/js/backup.js` | Backup/restore с JWT Bearer-заголовками |
+| `app/web/css/styles.css` | Общие layout/component-правила web UI; импортирует изолированные CSS-токены стилей из `app/web/css/themes/` |
+| `app/web/css/themes/graphite-minimal.css` | Дефолтный стиль Graphite Minimal со светлой и тёмной темами |
+| `app/web/css/themes/aurora.css` | Заглушка второго стиля Aurora со светлой и тёмной темами для дальнейшей отдельной доработки |
 | `app/web/` | Прочая статика web UI: JS-модули, CSS, иконки, изображения, флаги |
 
 ## `runtime/` — выполнение каналов

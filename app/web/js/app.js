@@ -1,7 +1,7 @@
 // Application entry point — initialization, DOM bindings, timers
 import { eventSource, debugLogSource, overlayRefreshTimer, eventFeedRenderFrame, eventFeedRenderScheduled, setEventFeedRenderScheduled, setEventFeedRenderFrame } from './state.js';
 import { api, getToken, setToken, isTokenExpired, getCurrentUser, showLoginOverlay, logoutRequest } from './api.js';
-import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, applyTabVisibility, showToast, getCurrentTheme } from './ui.js';
+import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyStyle, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, applyTabVisibility, showToast, getCurrentTheme } from './ui.js';
 import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVideoGridDragDrop, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate, clearExpandMode, updateZoneChannelTypeState } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
 import { loadJournal, initJournalScroll, initJournalBindings } from './journal.js';
@@ -228,6 +228,7 @@ document.getElementById("ctrlR1Mode").onchange = () => updateRelayTimerState(1);
 document.getElementById("c_controller_id").onchange = updateChannelControllerBindingState;
 document.getElementById("c_list_filter_mode").onchange = updateCustomListsVisibility;
 document.getElementById("saveDebugBtn").onclick = saveGeneral;
+document.getElementById("g_style").onchange = () => applyStyle(val("g_style"));
 document.getElementById("g_theme").onchange = () => applyTheme(val("g_theme"));
 document.getElementById("g_sidebar_locked").onchange = () => applySidebarLocked(document.getElementById("g_sidebar_locked").checked);
 document.getElementById("themeToggleBtn").onclick = () => {
@@ -293,6 +294,8 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
 (async function init() {
   const apiBaseEl = document.getElementById("apiBase");
   if (apiBaseEl) apiBaseEl.value = window.location.origin;
+  try { applyStyle(localStorage.getItem("anpr_style") || "graphite-minimal"); }
+  catch (_e) { applyStyle("graphite-minimal"); }
   try { applyTheme(localStorage.getItem("anpr_theme") || "light"); }
   catch (_e) { applyTheme("light"); }
   await _inlineThemeableIcons();

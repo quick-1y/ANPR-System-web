@@ -182,6 +182,22 @@ export function showToast(message, duration = 2000) {
 export function openModal(id) { document.getElementById(id).classList.add("active"); }
 export function closeModal(id) { document.getElementById(id).classList.remove("active"); }
 
+export function applyStyle(style) {
+  const normalized = String(style || "graphite-minimal").toLowerCase() === "aurora"
+    ? "aurora"
+    : "graphite-minimal";
+  document.body.setAttribute("data-app-style", normalized);
+
+  const styleSelect = document.getElementById("g_style");
+  if (styleSelect && styleSelect.value !== normalized) {
+    styleSelect.value = normalized;
+  }
+
+  try {
+    localStorage.setItem("anpr_style", normalized);
+  } catch (_e) {}
+}
+
 export function applyTheme(theme) {
   const normalized = String(theme || "light").toLowerCase() === "dark" ? "dark" : "light";
   document.body.setAttribute("data-theme", normalized);

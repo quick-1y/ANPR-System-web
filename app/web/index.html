@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/web/favicon/logo-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/web/favicon/logo-180.png" />    
   </head>
-  <body>
+  <body data-app-style="graphite-minimal" data-theme="light">
     <div class="app-shell">
       <aside class="left-rail" id="leftRail">
         <div class="rail-nav">
@@ -437,6 +437,16 @@
                     <option selected>2x2</option>
                     <option>2x3</option>
                     <option>3x3</option>
+                  </select>
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_style">?</button>
+                    <div class="s-row-name">Стиль приложения</div>
+                  </div>
+                  <select class="input input--md s-input input--select" id="g_style">
+                    <option value="graphite-minimal">Graphite Minimal</option>
+                    <option value="aurora">Aurora</option>
                   </select>
                 </div>
                 <div class="s-row">
