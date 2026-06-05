@@ -29,6 +29,7 @@ def get_global_settings(container: AppContainer = Depends(get_container), curren
         "reconnect": container.settings.get_reconnect(),
         "storage": container.settings.get_storage_settings(),
         "logging": container.settings.get_logging_config(),
+        "interface": container.settings.get_interface_settings(),
         "time": container.settings.get_time_settings(),
         "plates": container.settings.get_plate_settings(),
     }
@@ -47,6 +48,7 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
     reconnect_config = payload.reconnect.model_dump()
     debug_payload = payload.debug.model_dump()
     logging_payload = payload.logging.model_dump()
+    interface_payload = payload.interface.model_dump()
 
     with container.settings._file_lock:
         container.settings.settings["reconnect"] = reconnect_config
@@ -58,6 +60,7 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
         container.settings.settings["storage"] = current_storage
 
         container.settings.settings["time"] = payload.time.model_dump()
+        container.settings.settings["interface"] = interface_payload
         current_plates = container.settings.settings.get("plates", {})
         current_plates.update(payload.plates.model_dump())
         container.settings.settings["plates"] = current_plates

@@ -24,7 +24,7 @@
 | Тип | Использование |
 |---|---|
 | Python 3.13 | Backend, API, runtime каналов, ML inference |
-| HTML / CSS / JavaScript | Статический web frontend; типографика построена на системных шрифтах без bundled web fonts |
+| HTML / CSS / JavaScript | Статический web frontend; типографика построена на системных шрифтах без bundled web fonts; стили интерфейса разделены на CSS-токены в `app/web/css/themes/` |
 | YAML | Глобальные runtime-настройки (`config/settings.yaml`); каналы и контроллеры хранятся в PostgreSQL |
 | SQL | Схема PostgreSQL и запросы репозиториев |
 | Mermaid | Архитектурные и процессные диаграммы в документации |

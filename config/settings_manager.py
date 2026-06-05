@@ -9,6 +9,7 @@ from config.settings_repository import SettingsRepository
 from config.settings_schema import (
     build_default_settings,
     debug_defaults,
+    interface_defaults,
     logging_defaults,
     model_defaults,
     normalize_log_level,
@@ -126,6 +127,24 @@ class SettingsManager:
     def save_plate_settings(self, plate_settings: Dict[str, Any]) -> None:
         with self._file_lock:
             self.settings["plates"] = plate_settings
+            settings_snapshot = copy.deepcopy(self.settings)
+        self._repo.save(settings_snapshot)
+
+
+    def get_interface_settings(self) -> Dict[str, Any]:
+        with self._file_lock:
+            if self._normalizer._fill_interface_defaults(self.settings, interface_defaults()):
+                settings_snapshot = copy.deepcopy(self.settings)
+                self._repo.save(settings_snapshot)
+            return copy.deepcopy(self.settings.get("interface", {}))
+
+    def save_interface_settings(self, interface_settings: Dict[str, Any]) -> None:
+        with self._file_lock:
+            current = self.settings.get("interface", {})
+            current.update(interface_settings)
+            self.settings["interface"] = current
+            normalized, _ = self._normalizer.normalize_with_meta(self.settings)
+            self.settings = normalized
             settings_snapshot = copy.deepcopy(self.settings)
         self._repo.save(settings_snapshot)
 
