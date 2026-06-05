@@ -225,6 +225,7 @@ function setModalImage(id, url) {
 function _makeMetaRow(label, value) {
   const row = document.createElement('div');
   row.className = 'event-meta-row';
+  if (label === 'Гос. номер') row.classList.add('event-meta-row--plate');
   const labelEl = document.createElement('span');
   labelEl.textContent = label;
   const valueEl = document.createElement('b');
