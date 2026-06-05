@@ -1,7 +1,7 @@
 // Global settings panel, country toggles
 import { setDebugSettingsCache, debugSettingsCache } from './state.js';
 import { api, jfetch } from './api.js';
-import { val, setVal, setChk, applyTheme, showToast, applySidebarLocked } from './ui.js';
+import { val, setVal, setChk, applyTheme, applyUiStyle, getCurrentUiStyle, getCurrentTheme, showToast, applySidebarLocked } from './ui.js';
 import { scheduleVideoGridLayout, syncOverlayPolling } from './channels.js';
 import { applyDebugPanelVisibility } from './debug.js';
 
@@ -47,6 +47,16 @@ export async function loadGlobalSettings() {
   setVal("g_postgres_dsn", g.storage.postgres_dsn);
   setVal("g_log_level", g.logging.level); setVal("g_log_retention", g.logging.retention_days);
   setVal("g_timezone", g.time.timezone);
+  const uiSettings = g.ui || {};
+  const uiStyle = uiSettings.style || getCurrentUiStyle();
+  const uiTheme = uiSettings.theme || getCurrentTheme();
+  const uiGrid = uiSettings.grid || "2x2";
+  applyUiStyle(uiStyle);
+  applyTheme(uiTheme);
+  setVal("g_grid", uiGrid);
+  setVal("gridSelect", uiGrid);
+  setChk("g_sidebar_locked", Boolean(uiSettings.sidebar_locked));
+  applySidebarLocked(Boolean(uiSettings.sidebar_locked));
   await renderCountryToggles(g.plates.enabled_countries || []);
   if (g.debug) {
     setChk("d_metrics", g.debug.show_channel_metrics);
@@ -58,6 +68,7 @@ export async function loadGlobalSettings() {
 }
 
 export async function saveGeneral() {
+  applyUiStyle(val("g_ui_style"));
   applyTheme(val("g_theme"));
   const payload = {
     reconnect: {
@@ -68,6 +79,7 @@ export async function saveGeneral() {
     logging: { level: val("g_log_level"), retention_days: Number(val("g_log_retention")) },
     time: { timezone: val("g_timezone") },
     plates: { enabled_countries: getEnabledCountryCodes() },
+    ui: { style: val("g_ui_style"), theme: val("g_theme"), grid: val("g_grid"), sidebar_locked: document.getElementById("g_sidebar_locked").checked },
     debug: { show_channel_metrics: document.getElementById("d_metrics").checked, log_panel_enabled: document.getElementById("d_log").checked, disable_video_output: document.getElementById("d_video_off").checked },
   };
   const updated = await jfetch(api("/api/settings"), "PUT", payload);
@@ -81,7 +93,8 @@ export async function saveGeneral() {
   });
   applyDebugPanelVisibility();
   syncOverlayPolling();
-  scheduleVideoGridLayout(true);
   applySidebarLocked(document.getElementById("g_sidebar_locked").checked);
+  setVal("gridSelect", val("g_grid"));
+  scheduleVideoGridLayout(true);
   showToast("Настройки сохранены");
 }

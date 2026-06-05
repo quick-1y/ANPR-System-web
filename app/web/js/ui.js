@@ -1,4 +1,4 @@
-// UI utilities — tabs, sidebar, toast, modals, datetime, flags, theme
+// UI utilities — tabs, sidebar, toast, modals, datetime, flags, theme, visual style
 
 export function flagByCountry(code) {
   const normalized = String(code || "")
@@ -181,6 +181,32 @@ export function showToast(message, duration = 2000) {
 
 export function openModal(id) { document.getElementById(id).classList.add("active"); }
 export function closeModal(id) { document.getElementById(id).classList.remove("active"); }
+
+
+const UI_STYLES = new Set(["graphite", "modern"]);
+
+export function normalizeUiStyle(style) {
+  const normalized = String(style || "graphite").toLowerCase();
+  return UI_STYLES.has(normalized) ? normalized : "graphite";
+}
+
+export function applyUiStyle(style) {
+  const normalized = normalizeUiStyle(style);
+  document.body.setAttribute("data-ui-style", normalized);
+
+  const styleSelect = document.getElementById("g_ui_style");
+  if (styleSelect && styleSelect.value !== normalized) {
+    styleSelect.value = normalized;
+  }
+
+  try {
+    localStorage.setItem("anpr_ui_style", normalized);
+  } catch (_e) {}
+}
+
+export function getCurrentUiStyle() {
+  return normalizeUiStyle(document.body.getAttribute("data-ui-style"));
+}
 
 export function applyTheme(theme) {
   const normalized = String(theme || "light").toLowerCase() === "dark" ? "dark" : "light";

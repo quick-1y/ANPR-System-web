@@ -316,12 +316,20 @@ class DebugPayload(BaseModel):
     disable_video_output: bool = False
 
 
+class UiPayload(BaseModel):
+    style: str = Field(default="graphite", pattern="^(graphite|modern)$")
+    theme: str = Field(default="light", pattern="^(light|dark)$")
+    grid: str = Field(default="2x2", pattern="^(1x1|2x2|2x3|3x3)$")
+    sidebar_locked: bool = False
+
+
 class GlobalSettingsPayload(BaseModel):
     reconnect: ReconnectPayload
     storage: StoragePayload
     logging: LoggingPayload
     time: TimePayload
     plates: PlatesPayload
+    ui: UiPayload = Field(default_factory=UiPayload)
     debug: DebugPayload
 
 

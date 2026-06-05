@@ -31,6 +31,7 @@ def get_global_settings(container: AppContainer = Depends(get_container), curren
         "logging": container.settings.get_logging_config(),
         "time": container.settings.get_time_settings(),
         "plates": container.settings.get_plate_settings(),
+        "ui": container.settings.get_ui_settings(),
     }
     if current_user.get("role") == "superadmin":
         body["debug"] = container.settings.get_debug_settings()
@@ -58,6 +59,7 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
         container.settings.settings["storage"] = current_storage
 
         container.settings.settings["time"] = payload.time.model_dump()
+        container.settings.settings["ui"] = payload.ui.model_dump()
         current_plates = container.settings.settings.get("plates", {})
         current_plates.update(payload.plates.model_dump())
         container.settings.settings["plates"] = current_plates

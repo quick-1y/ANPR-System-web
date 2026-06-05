@@ -209,3 +209,51 @@ class TestInMemoryExports:
             names = set(archive.namelist())
             assert any(name.endswith(".csv") for name in names)
             assert "media/frame.jpg" in names
+
+
+class TestUiSettingsNormalization:
+    def test_default_settings_include_graphite_ui_style(self):
+        defaults = build_default_settings()
+
+        assert defaults["ui"] == {
+            "style": "graphite",
+            "theme": "light",
+            "grid": "2x2",
+            "sidebar_locked": False,
+        }
+
+    def test_normalizer_fills_missing_ui_defaults(self):
+        normalizer = SettingsNormalizer()
+        raw = {}
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert normalized["ui"]["style"] == "graphite"
+        assert normalized["ui"]["theme"] == "light"
+        assert normalized["ui"]["grid"] == "2x2"
+        assert normalized["ui"]["sidebar_locked"] is False
+
+    def test_normalizer_preserves_valid_modern_ui_style(self):
+        normalizer = SettingsNormalizer()
+        raw = {"ui": {"style": "modern", "theme": "dark", "grid": "3x3", "sidebar_locked": True}}
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert normalized["ui"]["style"] == "modern"
+        assert normalized["ui"]["theme"] == "dark"
+        assert normalized["ui"]["grid"] == "3x3"
+        assert normalized["ui"]["sidebar_locked"] is True
+
+    def test_normalizer_resets_invalid_ui_values(self):
+        normalizer = SettingsNormalizer()
+        raw = {"ui": {"style": "unknown", "theme": "blue", "grid": "4x4", "sidebar_locked": ""}}
+
+        normalized, changed = normalizer.normalize_with_meta(raw)
+
+        assert changed is True
+        assert normalized["ui"]["style"] == "graphite"
+        assert normalized["ui"]["theme"] == "light"
+        assert normalized["ui"]["grid"] == "2x2"
+        assert normalized["ui"]["sidebar_locked"] is False

@@ -158,6 +158,10 @@ def logging_defaults() -> Dict[str, Any]:
     return {"level": "ALL", "retention_days": 30}
 
 
+def ui_defaults() -> Dict[str, Any]:
+    return {"style": "graphite", "theme": "light", "grid": "2x2", "sidebar_locked": False}
+
+
 def debug_defaults() -> Dict[str, Any]:
     return {
         "show_channel_metrics": False,
@@ -205,4 +209,5 @@ def build_default_settings() -> Dict[str, Any]:
         "plates": plate_defaults(),
         "logging": logging_defaults(),
         "time": time_defaults(),
+        "ui": ui_defaults(),
     }

@@ -16,6 +16,7 @@ from config.settings_schema import (
     reconnect_defaults,
     storage_defaults,
     time_defaults,
+    ui_defaults,
 )
 
 
@@ -149,6 +150,20 @@ class SettingsManager:
             current["level"] = normalize_log_level(current.get("level"))
             current.pop("allowed_levels", None)
             self.settings["logging"] = current
+            settings_snapshot = copy.deepcopy(self.settings)
+        self._repo.save(settings_snapshot)
+
+
+    def get_ui_settings(self) -> Dict[str, Any]:
+        with self._file_lock:
+            if self._normalizer._fill_ui_defaults(self.settings, ui_defaults()):
+                settings_snapshot = copy.deepcopy(self.settings)
+                self._repo.save(settings_snapshot)
+            return copy.deepcopy(self.settings.get("ui", {}))
+
+    def save_ui_settings(self, ui_settings: Dict[str, Any]) -> None:
+        with self._file_lock:
+            self.settings["ui"] = ui_settings
             settings_snapshot = copy.deepcopy(self.settings)
         self._repo.save(settings_snapshot)
 
