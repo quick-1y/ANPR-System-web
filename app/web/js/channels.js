@@ -70,7 +70,7 @@ export function drawPreview() {
     ctx.lineWidth = 2;
     ctx.strokeRect(b.x, b.y, b.width, b.height);
     ctx.fillStyle = color;
-    ctx.font = "bold 11px sans-serif";
+    ctx.font = "600 13px system-ui, -apple-system, Segoe UI, sans-serif";
     ctx.fillText(label + " " + Math.round(b.width) + "\u00d7" + Math.round(b.height), b.x + 4, b.y - 4);
   });
   ctx.fillStyle = "rgba(124,107,250,0.15)";
@@ -94,7 +94,7 @@ export function drawPreview() {
     ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 9px sans-serif";
+    ctx.font = "600 12px system-ui, -apple-system, Segoe UI, sans-serif";
     ctx.fillText(String(i + 1), p.x + 7, p.y - 4);
   });
 }

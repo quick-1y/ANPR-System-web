@@ -10,7 +10,7 @@ export async function renderCountryToggles(enabledCodes) {
   if (!container) return;
   let countries = [];
   try { countries = await jfetch(api("/api/countries")); }
-  catch (_e) { container.innerHTML = '<span style="color:var(--text3);font-size:12px">Не удалось загрузить список стран</span>'; return; }
+  catch (_e) { container.innerHTML = '<span style="color:var(--text3);font-size:var(--font-sm)">Не удалось загрузить список стран</span>'; return; }
   const enabled = new Set((enabledCodes || []).map(c => c.toUpperCase()));
   container.innerHTML = "";
   for (const c of countries) {
@@ -18,7 +18,7 @@ export async function renderCountryToggles(enabledCodes) {
     row.className = "s-row"; row.style.paddingLeft = "0";
     const label = document.createElement("div");
     label.className = "s-row-label"; label.style.flex = "1";
-    label.innerHTML = '<span class="s-row-name">' + c.name + '</span> <span style="color:var(--text3);font-size:11px;margin-left:4px">' + c.code + '</span>';
+    label.innerHTML = '<span class="s-row-name">' + c.name + '</span> <span style="color:var(--text3);font-size:var(--font-xs);margin-left:4px">' + c.code + '</span>';
     const toggle = document.createElement("input");
     toggle.type = "checkbox"; toggle.dataset.countryCode = c.code; toggle.checked = enabled.has(c.code.toUpperCase());
     row.appendChild(label); row.appendChild(toggle); container.appendChild(row);
