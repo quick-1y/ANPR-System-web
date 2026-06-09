@@ -343,15 +343,22 @@ body[data-app-style="aurora"] .auth-btn {
 }
 body[data-app-style="aurora"] .btn-primary,
 body[data-app-style="aurora"] .auth-btn {
-  background: linear-gradient(135deg, #0891b2 0%, #7c3aed 56%, #db2777 100%);
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 14px 34px rgba(124, 58, 237, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  color: var(--text1);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.94));
+  border-color: rgba(148, 163, 184, 0.24);
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 body[data-app-style="aurora"] .btn-primary:hover,
 body[data-app-style="aurora"] .auth-btn:hover {
-  background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 56%, #ec4899 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 18px 42px rgba(124, 58, 237, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(51, 65, 85, 0.96));
+  border-color: var(--accent-border);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(2, 6, 23, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+body[data-app-style="aurora"] .btn-primary:active,
+body[data-app-style="aurora"] .auth-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 8px 18px rgba(2, 6, 23, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 body[data-app-style="aurora"] .btn-secondary,
 body[data-app-style="aurora"] .btn-ghost,
