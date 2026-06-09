@@ -207,6 +207,13 @@ export function applyTheme(theme) {
     themeSelect.value = normalized;
   }
 
+  const themeToggle = document.getElementById("themeToggleBtn");
+  if (themeToggle) {
+    themeToggle.textContent = normalized === "dark" ? "☀" : "☾";
+    themeToggle.title = normalized === "dark" ? "Включить светлую тему" : "Включить тёмную тему";
+    themeToggle.setAttribute("aria-label", themeToggle.title);
+  }
+
   try {
     localStorage.setItem("anpr_theme", normalized);
   } catch (_e) {}
