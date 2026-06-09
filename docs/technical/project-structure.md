@@ -29,6 +29,8 @@ ANPR-System-v0.8_web/
 │   │   ├── backup_service.py
 │   │   └── data_lifecycle.py
 │   ├── web/                       # Статический frontend
+│   │   ├── css/                   # Общие CSS и style tokens
+│   │   │   └── themes/            # Изолированные стили Graphite Minimal и Aurora
 │   │   ├── js/                    # JS-модули SPA
 │   │   │   ├── api.js
 │   │   │   ├── app.js

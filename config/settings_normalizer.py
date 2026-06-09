@@ -10,6 +10,7 @@ from typing import Any, Dict
 from common.logging import get_logger
 from config.settings_schema import (
     debug_defaults,
+    interface_defaults,
     logging_defaults,
     model_defaults,
     normalize_log_level,
@@ -120,6 +121,45 @@ class SettingsNormalizer:
         data["time"] = time_section
         return changed
 
+
+    def _fill_interface_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
+        if "interface" not in data:
+            data["interface"] = defaults
+            return True
+
+        changed = False
+        interface_section = data.get("interface", {})
+        if not isinstance(interface_section, dict):
+            interface_section = {}
+            changed = True
+
+        for key, val in defaults.items():
+            if key not in interface_section:
+                interface_section[key] = val
+                changed = True
+
+        normalized_style = str(interface_section.get("style") or defaults["style"]).strip().lower()
+        if normalized_style not in ("graphite-minimal", "aurora"):
+            normalized_style = defaults["style"]
+        if interface_section.get("style") != normalized_style:
+            interface_section["style"] = normalized_style
+            changed = True
+
+        normalized_theme = str(interface_section.get("theme") or defaults["theme"]).strip().lower()
+        if normalized_theme not in ("light", "dark"):
+            normalized_theme = defaults["theme"]
+        if interface_section.get("theme") != normalized_theme:
+            interface_section["theme"] = normalized_theme
+            changed = True
+
+        normalized_sidebar_locked = bool(interface_section.get("sidebar_locked", defaults["sidebar_locked"]))
+        if interface_section.get("sidebar_locked") != normalized_sidebar_locked:
+            interface_section["sidebar_locked"] = normalized_sidebar_locked
+            changed = True
+
+        data["interface"] = interface_section
+        return changed
+
     def _fill_logging_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
         if "logging" not in data:
             data["logging"] = defaults
@@ -162,6 +202,8 @@ class SettingsNormalizer:
         if self._fill_plate_defaults(normalized, plate_defaults()):
             changed = True
         if self._fill_time_defaults(normalized, time_defaults()):
+            changed = True
+        if self._fill_interface_defaults(normalized, interface_defaults()):
             changed = True
         if self._fill_logging_defaults(normalized, logging_defaults()):
             changed = True

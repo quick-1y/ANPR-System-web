@@ -154,7 +154,7 @@ export function openListPickerModal() {
   items.innerHTML = '';
 
   if (!state.lists?.length) {
-    items.innerHTML = '<p style="padding:8px;color:var(--text3);font-size:12px;">Нет доступных списков</p>';
+    items.innerHTML = '<p style="padding:8px;color:var(--text3);font-size:var(--font-sm);">Нет доступных списков</p>';
   } else {
     state.lists.forEach((l) => {
       const row = document.createElement('div');

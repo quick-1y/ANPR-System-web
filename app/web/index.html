@@ -441,6 +441,16 @@
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_style">?</button>
+                    <div class="s-row-name">Стиль приложения</div>
+                  </div>
+                  <select class="input input--md s-input input--select" id="g_style">
+                    <option value="graphite-minimal">Graphite Minimal</option>
+                    <option value="aurora">Aurora</option>
+                  </select>
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
                     <button class="param-help-btn" data-help="g_theme">?</button>
                     <div class="s-row-name">Тема оформления</div>
                   </div>
@@ -1210,7 +1220,7 @@
                     </div>
                   </div>
                 </div>
-                <div id="createUserError" style="color:var(--danger);font-size:12px;min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
+                <div id="createUserError" style="color:var(--danger);font-size:var(--font-sm);min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
                 <div class="form-actions">
                   <button class="btn btn-ghost" id="cancelCreateUserBtn">Отмена</button>
                   <button class="btn btn-primary" id="confirmCreateUserBtn">Создать</button>
@@ -1243,7 +1253,7 @@
                     </div>
                   </div>
                 </div>
-                <div id="editUserError" style="color:var(--danger);font-size:12px;min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
+                <div id="editUserError" style="color:var(--danger);font-size:var(--font-sm);min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
                 <div class="form-actions">
                   <button class="btn btn-ghost" id="changeUserPasswordBtn">Сменить пароль</button>
                   <div style="flex:1"></div>

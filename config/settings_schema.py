@@ -154,6 +154,14 @@ def time_defaults() -> Dict[str, Any]:
     return {"timezone": default_zone}
 
 
+def interface_defaults() -> Dict[str, Any]:
+    return {
+        "style": "graphite-minimal",
+        "theme": "light",
+        "sidebar_locked": False,
+    }
+
+
 def logging_defaults() -> Dict[str, Any]:
     return {"level": "ALL", "retention_days": 30}
 
@@ -200,6 +208,7 @@ def build_default_settings() -> Dict[str, Any]:
     return {
         "models": model_defaults(),
         "debug": debug_defaults(),
+        "interface": interface_defaults(),
         "reconnect": reconnect_defaults(),
         "storage": storage_defaults(),
         "plates": plate_defaults(),

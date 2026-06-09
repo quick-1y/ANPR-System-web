@@ -27,6 +27,10 @@ plates:
   - BY
   - KZ
   - RU
+interface:
+  style: graphite-minimal
+  theme: light
+  sidebar_locked: false
 logging:
   level: ALL
   retention_days: 30
