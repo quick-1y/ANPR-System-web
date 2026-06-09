@@ -139,30 +139,6 @@ body[data-app-style="aurora"] .app-shell {
   padding: 14px;
 }
 
-body[data-app-style="aurora"] .left-rail,
-body[data-app-style="aurora"] .topbar,
-body[data-app-style="aurora"] .obs-toolbar,
-body[data-app-style="aurora"] .obs-debug-panel,
-body[data-app-style="aurora"] .obs-right,
-body[data-app-style="aurora"] .filter-card,
-body[data-app-style="aurora"] .data-table-wrap,
-body[data-app-style="aurora"] .s-card,
-body[data-app-style="aurora"] .lists-sidebar,
-body[data-app-style="aurora"] .settings-nav,
-body[data-app-style="aurora"] .clients-main,
-body[data-app-style="aurora"] .zone-card,
-body[data-app-style="aurora"] .zone-linked-wrap,
-body[data-app-style="aurora"] .zone-stat-card,
-body[data-app-style="aurora"] .auth-card,
-body[data-app-style="aurora"] .modal-card,
-body[data-app-style="aurora"] .dialog,
-body[data-app-style="aurora"] .list-item,
-body[data-app-style="aurora"] .picker-item,
-body[data-app-style="aurora"] .video-cell {
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-}
-
 body[data-app-style="aurora"] .left-rail {
   width: 76px;
   border: 1px solid var(--border);
@@ -176,58 +152,6 @@ body[data-app-style="aurora"] .left-rail.rail-expanded {
 body[data-app-style="aurora"] .left-rail::after {
   inset: 10px 0 10px auto;
   background: linear-gradient(180deg, transparent, rgba(34, 211, 238, 0.55), transparent);
-}
-body[data-app-style="aurora"] .rail-brand {
-  width: 100%;
-  min-height: 72px;
-  padding: 12px 0 10px 13px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid var(--border);
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
-}
-body[data-app-style="aurora"] .rail-brand-mark {
-  width: 48px;
-  height: 48px;
-  flex: 0 0 48px;
-  border-radius: 18px;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  font-weight: 850;
-  letter-spacing: -0.05em;
-  background:
-    linear-gradient(135deg, rgba(34, 211, 238, 0.95), rgba(124, 58, 237, 0.96) 54%, rgba(244, 63, 94, 0.92));
-  box-shadow: 0 12px 30px rgba(124, 58, 237, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.34);
-}
-body[data-app-style="aurora"] .rail-brand-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 148px;
-  opacity: 0;
-  transform: translateX(-8px);
-  transition: opacity var(--t), transform var(--t);
-}
-body[data-app-style="aurora"] .left-rail.rail-expanded .rail-brand-copy {
-  opacity: 1;
-  transform: translateX(0);
-}
-body[data-app-style="aurora"] .rail-brand-title {
-  font-size: 18px;
-  font-weight: 850;
-  line-height: 1;
-  letter-spacing: 0.02em;
-}
-body[data-app-style="aurora"] .rail-brand-subtitle {
-  margin-top: 5px;
-  color: var(--text3);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 body[data-app-style="aurora"] .rail-nav { gap: 8px; padding: 14px 0 14px 13px; }
 body[data-app-style="aurora"] .rail-bottom.has-user { padding: 10px 0 12px 13px; }
@@ -273,14 +197,6 @@ body[data-app-style="aurora"] .topbar {
   border-bottom: 1px solid var(--border);
   border-radius: 30px 30px 0 0;
   padding: 0 22px;
-}
-body[data-app-style="aurora"] .topbar-heading { display: flex; flex-direction: column; gap: 2px; }
-body[data-app-style="aurora"] .topbar-kicker {
-  color: var(--accent2);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 body[data-app-style="aurora"] .topbar-title {
   font-size: clamp(24px, 2.15vw, 34px);
@@ -532,12 +448,8 @@ body[data-app-style="aurora"] .app-toast {
     border-radius: 24px;
   }
   body[data-app-style="aurora"] .left-rail.rail-expanded { width: auto; }
-  body[data-app-style="aurora"] .rail-brand { width: auto; min-width: 72px; border-bottom: 0; border-right: 1px solid var(--border); }
   body[data-app-style="aurora"] .rail-nav { flex-direction: row; overflow-x: auto; padding: 12px; }
   body[data-app-style="aurora"] .rail-bottom { width: auto; margin: 0 10px 0 auto; }
-  body[data-app-style="aurora"] .ttab-label,
-  body[data-app-style="aurora"] .left-rail.rail-expanded .ttab-label,
-  body[data-app-style="aurora"] .rail-brand-copy { display: none; }
   body[data-app-style="aurora"] .main-shell { min-height: calc(100dvh - 108px); }
   body[data-app-style="aurora"] .topbar { grid-template-columns: 1fr; height: auto; min-height: 74px; padding: 14px 16px; }
   body[data-app-style="aurora"] .topbar-right { justify-content: flex-start; flex-wrap: wrap; }
