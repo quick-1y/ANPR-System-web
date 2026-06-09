@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 from common.logging import get_logger
 
-SETTINGS_VERSION = 1
-SETTINGS_LINEAGE_KEY = "settings_lineage"
-SETTINGS_LINEAGE = "mainline"
 LOG_LEVELS = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 SUPPORTED_CONTROLLER_TYPES = ("DTWONDER2CH",)
 
@@ -124,20 +120,15 @@ def storage_defaults() -> Dict[str, Any]:
 
 
 def plate_defaults() -> Dict[str, Any]:
-    return {"config_dir": "anpr/countries", "enabled_countries": ["RU", "UA", "BY", "KZ"]}
+    return {"enabled_countries": ["RU", "UA", "BY", "KZ"]}
 
 
 def model_defaults() -> Dict[str, Any]:
     return {"yolo_model_path": "anpr/models/yolo/best.pt", "ocr_model_path": "anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth", "device": "cpu"}
 
 
-def inference_defaults() -> Dict[str, Any]:
-    cpu_count = os.cpu_count() or 1
-    return {"workers": max(1, cpu_count - 1), "shared_memory": True}
-
-
 def plate_size_defaults() -> Dict[str, Dict[str, int]]:
-    return {"min_plate_size": {"width": 80, "height": 20}, "max_plate_size": {"width": 600, "height": 240}}
+    return {"min_plate_size": {"width": 80, "height": 20}, "max_plate_size": {"width": 400, "height": 100}}
 
 
 def direction_defaults() -> Dict[str, float | int]:
@@ -151,14 +142,6 @@ def direction_defaults() -> Dict[str, float | int]:
     }
 
 
-def ocr_defaults() -> Dict[str, Any]:
-    return {"img_height": 32, "img_width": 128, "alphabet": "0123456789ABCEHKMOPTXY"}
-
-
-def detector_defaults() -> Dict[str, Any]:
-    return {"confidence_threshold": 0.5, "bbox_padding_ratio": 0.08, "min_padding_pixels": 2}
-
-
 def time_defaults() -> Dict[str, Any]:
     now = datetime.now().astimezone()
     offset = now.utcoffset() or timedelta()
@@ -168,11 +151,19 @@ def time_defaults() -> Dict[str, Any]:
     hours = total // 60
     mins = total % 60
     default_zone = f"UTC{sign}{hours:02d}:{mins:02d}"
-    return {"timezone": default_zone, "offset_minutes": 0}
+    return {"timezone": default_zone}
+
+
+def interface_defaults() -> Dict[str, Any]:
+    return {
+        "style": "graphite-minimal",
+        "theme": "light",
+        "sidebar_locked": False,
+    }
 
 
 def logging_defaults() -> Dict[str, Any]:
-    return {"level": "ALL", "retention_days": 30, "allowed_levels": list(LOG_LEVELS)}
+    return {"level": "ALL", "retention_days": 30}
 
 
 def debug_defaults() -> Dict[str, Any]:
@@ -215,25 +206,11 @@ def channel_defaults(tracking: Dict[str, Any]) -> Dict[str, Any]:
 
 def build_default_settings() -> Dict[str, Any]:
     return {
-        "settings_version": SETTINGS_VERSION,
-        SETTINGS_LINEAGE_KEY: SETTINGS_LINEAGE,
         "models": model_defaults(),
-        "ocr": ocr_defaults(),
-        "detector": detector_defaults(),
-        "inference": inference_defaults(),
         "debug": debug_defaults(),
-        "grid": "2x2",
-        "theme": "dark",
-        "sidebar_locked": False,
+        "interface": interface_defaults(),
         "reconnect": reconnect_defaults(),
         "storage": storage_defaults(),
-        "tracking": {
-            "best_shots": 3,
-            "cooldown_seconds": 5,
-            "ocr_min_confidence": 0.6,
-            "max_ocr_attempts": 15,
-            "direction": direction_defaults(),
-        },
         "plates": plate_defaults(),
         "logging": logging_defaults(),
         "time": time_defaults(),

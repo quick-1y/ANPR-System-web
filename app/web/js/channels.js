@@ -70,7 +70,7 @@ export function drawPreview() {
     ctx.lineWidth = 2;
     ctx.strokeRect(b.x, b.y, b.width, b.height);
     ctx.fillStyle = color;
-    ctx.font = "bold 11px sans-serif";
+    ctx.font = "600 13px system-ui, -apple-system, Segoe UI, sans-serif";
     ctx.fillText(label + " " + Math.round(b.width) + "\u00d7" + Math.round(b.height), b.x + 4, b.y - 4);
   });
   ctx.fillStyle = "rgba(124,107,250,0.15)";
@@ -94,7 +94,7 @@ export function drawPreview() {
     ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#fff";
-    ctx.font = "bold 9px sans-serif";
+    ctx.font = "600 12px system-ui, -apple-system, Segoe UI, sans-serif";
     ctx.fillText(String(i + 1), p.x + 7, p.y - 4);
   });
 }
@@ -551,8 +551,8 @@ export async function selectChannel(id) {
   setChk("c_size_filter", c.size_filter_enabled);
   setVal("c_min_w", c.min_plate_size?.width ?? 80);
   setVal("c_min_h", c.min_plate_size?.height ?? 20);
-  setVal("c_max_w", c.max_plate_size?.width ?? 600);
-  setVal("c_max_h", c.max_plate_size?.height ?? 240);
+  setVal("c_max_w", c.max_plate_size?.width ?? 400);
+  setVal("c_max_h", c.max_plate_size?.height ?? 100);
   setVal("c_best_shots", c.best_shots ?? 3);
   setVal("c_cooldown", c.cooldown_seconds ?? 5);
   setVal("c_ocr_conf", c.ocr_min_confidence ?? 0.6);

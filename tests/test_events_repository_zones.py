@@ -46,14 +46,15 @@ def _mock_conn(fetchone=None, fetchall=None, rowcount=1):
 
 
 def _make_row(
-    id=1, time="2024-01-01T12:00:00Z", channel_id=2, plate="A123BC",
-    plate_display="A123BC", country="RU", confidence=0.95, source="cam",
-    frame_path=None, plate_path=None, direction="in", client_id=None,
-    zone_id=None, time_entry=None, time_exit=None,
+    id=1, time="2024-01-01T12:00:00Z", channel_id_entry=2, channel_id_exit=None,
+    plate="A123BC", plate_display="A123BC", country="RU", confidence=0.95, source="cam",
+    frame_path_entry=None, plate_path_entry=None, frame_path_exit=None, plate_path_exit=None,
+    direction="in", client_id=None, zone_id=None, time_entry=None, time_exit=None,
 ):
     return (
-        id, time, channel_id, plate, plate_display, country, confidence, source,
-        frame_path, plate_path, direction, client_id, zone_id, time_entry, time_exit,
+        id, time, channel_id_entry, channel_id_exit, plate, plate_display, country, confidence, source,
+        frame_path_entry, plate_path_entry, frame_path_exit, plate_path_exit, direction, client_id,
+        zone_id, time_entry, time_exit,
     )
 
 
@@ -99,9 +100,10 @@ class TestToDict:
         row = _make_row()
         result = PostgresEventDatabase._to_dict(row)
         expected = {
-            "id", "time", "channel_id", "plate", "plate_display", "country",
-            "confidence", "source", "frame_path", "plate_path", "direction",
-            "client_id", "zone_id", "time_entry", "time_exit",
+            "id", "time", "channel_id_entry", "channel_id_exit", "channel_id", "plate",
+            "plate_display", "country", "confidence", "source", "frame_path_entry",
+            "plate_path_entry", "frame_path_exit", "plate_path_exit", "frame_path",
+            "plate_path", "direction", "client_id", "zone_id", "time_entry", "time_exit",
         }
         assert set(result.keys()) == expected
 
@@ -117,7 +119,7 @@ class TestInsertEventZoneFields:
         with patch.object(db, "_connect", return_value=conn):
             result = db.insert_event(
                 plate="A123BC",
-                channel_id=1,
+                channel_id_entry=1,
                 zone_id=2,
                 time_entry="2024-06-01T09:00:00Z",
             )
@@ -131,11 +133,11 @@ class TestInsertEventZoneFields:
         db = _make_db()
         conn, cursor = _mock_conn(fetchone=(5,))
         with patch.object(db, "_connect", return_value=conn):
-            db.insert_event(plate="X100YZ", channel_id=1)
+            db.insert_event(plate="X100YZ", channel_id_entry=1)
         _, params = cursor.execute.call_args[0]
-        # Last two params are zone_id and time_entry — both should be None
-        assert params[-2] is None  # zone_id
-        assert params[-1] is None  # time_entry
+        assert params[-3] is None  # zone_id
+        assert params[-2] is None  # time_entry
+        assert params[-1] is None  # time_exit
 
     def test_insert_sql_includes_zone_columns(self):
         db = _make_db()
@@ -152,9 +154,10 @@ class TestInsertEventZoneFields:
         with patch.object(db, "_connect", return_value=conn):
             db.insert_event(plate="Z999ZZ")
         sql = cursor.execute.call_args[0][0]
-        # 'channel' text column was removed; only channel_id remains
-        assert "channel_id" in sql
-        # should not have a bare 'channel,' entry (only channel_id)
+        # 'channel' text column was removed; entry/exit channel columns remain.
+        assert "channel_id_entry" in sql
+        assert "channel_id_exit" in sql
+        # should not have a bare 'channel,' entry (only channel_id_*)
         import re
         assert not re.search(r'\bINSERT INTO events\b.*\bchannel\b(?!_id)', sql)
 
@@ -171,54 +174,62 @@ class TestInsertEventZoneFields:
 # ---------------------------------------------------------------------------
 
 class TestFindActiveEntryAndWriteExit:
-    def test_returns_updated_id_when_found(self):
+    def test_returns_updated_event_when_found(self):
         db = _make_db()
-        conn, cursor = _mock_conn(fetchone=(77,))
+        row = _make_row(id=77, zone_id=0, time_exit="2024-06-01T11:00:00Z", channel_id_exit=9)
+        conn, cursor = _mock_conn(fetchone=row)
         with patch.object(db, "_connect", return_value=conn):
-            result = db.find_active_entry_and_write_exit("A123BC", 2, "2024-06-01T11:00:00Z")
-        assert result == 77
+            result = db.find_active_entry_and_write_exit("A123BC", 2, 0, "2024-06-01T11:00:00Z", channel_id_exit=9)
+        assert result["id"] == 77
+        assert result["channel_id_exit"] == 9
+        assert result["zone_id"] == 0
 
     def test_returns_none_when_no_open_entry(self):
         db = _make_db()
         conn, cursor = _mock_conn(fetchone=None)
         with patch.object(db, "_connect", return_value=conn):
-            result = db.find_active_entry_and_write_exit("ZZZZZZ", 1, "2024-06-01T11:00:00Z")
+            result = db.find_active_entry_and_write_exit("ZZZZZZ", 1, 0, "2024-06-01T11:00:00Z")
         assert result is None
 
-    def test_sql_sets_time_exit_and_zone_id_zero(self):
+    def test_sql_sets_exit_fields_and_zone_id(self):
         db = _make_db()
-        conn, cursor = _mock_conn(fetchone=(5,))
+        conn, cursor = _mock_conn(fetchone=_make_row(id=5))
         with patch.object(db, "_connect", return_value=conn):
-            db.find_active_entry_and_write_exit("A123BC", 3, "2024-06-01T15:00:00Z")
+            db.find_active_entry_and_write_exit("A123BC", 3, 0, "2024-06-01T15:00:00Z")
         sql = cursor.execute.call_args[0][0]
+        assert "time = %s" in sql
         assert "time_exit = %s" in sql
-        assert "zone_id = 0" in sql
+        assert "zone_id = %s" in sql
+        assert "channel_id_exit = %s" in sql
+        assert "frame_path_exit = %s" in sql
+        assert "plate_path_exit = %s" in sql
 
     def test_sql_subquery_filters_plate_zone_and_open(self):
         db = _make_db()
-        conn, cursor = _mock_conn(fetchone=(5,))
+        conn, cursor = _mock_conn(fetchone=_make_row(id=5))
         with patch.object(db, "_connect", return_value=conn):
-            db.find_active_entry_and_write_exit("B456DE", 4, "2024-06-01T15:00:00Z")
+            db.find_active_entry_and_write_exit("B456DE", 4, 0, "2024-06-01T15:00:00Z")
         sql = cursor.execute.call_args[0][0]
         assert "plate = %s" in sql
         assert "zone_id = %s" in sql
         assert "time_exit IS NULL" in sql
-        assert "ORDER BY time DESC" in sql
+        assert "ORDER BY time DESC, id DESC" in sql
         assert "LIMIT 1" in sql
 
-    def test_params_order_time_exit_plate_zone_id(self):
+    def test_params_include_exit_values_and_lookup_values(self):
         db = _make_db()
-        conn, cursor = _mock_conn(fetchone=(1,))
+        conn, cursor = _mock_conn(fetchone=_make_row(id=1))
         with patch.object(db, "_connect", return_value=conn):
-            db.find_active_entry_and_write_exit("C789FG", 7, "2024-06-02T08:00:00Z")
+            db.find_active_entry_and_write_exit("C789FG", 7, 0, "2024-06-02T08:00:00Z", channel_id_exit=5)
         _, params = cursor.execute.call_args[0]
-        assert params == ("2024-06-02T08:00:00Z", "C789FG", 7)
+        assert params[0:4] == ("2024-06-02T08:00:00Z", "2024-06-02T08:00:00Z", 0, 5)
+        assert params[-2:] == ("C789FG", 7)
 
     def test_commits_after_update(self):
         db = _make_db()
-        conn, cursor = _mock_conn(fetchone=(3,))
+        conn, cursor = _mock_conn(fetchone=_make_row(id=3))
         with patch.object(db, "_connect", return_value=conn):
-            db.find_active_entry_and_write_exit("A1", 1, "2024-01-01T00:00:00Z")
+            db.find_active_entry_and_write_exit("A1", 1, 0, "2024-01-01T00:00:00Z")
         conn.commit.assert_called_once()
 
 

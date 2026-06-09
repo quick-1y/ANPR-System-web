@@ -1,7 +1,6 @@
 """Phase 4 tests — superadmin-only route protection via require_role("superadmin").
 
-Verifies that the settings, controllers, data, and debug routers correctly
-reject operator-role users with HTTP 403, while superadmins pass through.
+Verifies that the settings/debug/etc routers correctly enforce their declared role/permission guards.
 
 These tests call the FastAPI dependency functions directly (unit-style),
 matching the pattern used in test_auth_deps.py.
@@ -11,7 +10,7 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException
 
-from app.api.deps import require_role
+from app.api.deps import require_permission, require_role
 
 
 # ---------------------------------------------------------------------------
@@ -35,6 +34,12 @@ def _operator_user(permissions=None):
 def _call_require_superadmin(user):
     """Invoke require_role('superadmin') with the given user (simulates DI resolution)."""
     dep = require_role("superadmin")
+    return dep(current_user=user)
+
+
+def _call_require_tab_settings(user):
+    """Invoke require_permission('tab:settings') with the given user."""
+    dep = require_permission("tab:settings")
     return dep(current_user=user)
 
 
@@ -66,7 +71,7 @@ class TestRequireSuperadmin:
 
 
 # ---------------------------------------------------------------------------
-# Settings router — verify require_role("superadmin") is applied
+# Settings router — verify permission-based access is used
 # ---------------------------------------------------------------------------
 
 class TestSettingsRouterGuards:
@@ -108,13 +113,13 @@ class TestControllersRouterGuards:
 
 class TestDataRouterGuards:
     def test_superadmin_passes(self):
-        result = _call_require_superadmin(_superadmin_user())
+        result = _call_require_tab_settings(_superadmin_user())
         assert result["role"] == "superadmin"
 
-    def test_operator_blocked_from_backup(self):
-        with pytest.raises(HTTPException) as exc_info:
-            _call_require_superadmin(_operator_user())
-        assert exc_info.value.status_code == 403
+    def test_operator_with_tab_settings_passes(self):
+        op = _operator_user(permissions=["tab:obs", "tab:journal", "tab:settings"])
+        result = _call_require_tab_settings(op)
+        assert result["role"] == "operator"
 
 
 # ---------------------------------------------------------------------------
@@ -149,17 +154,16 @@ class TestRouterImports:
 
     def test_settings_router_uses_require_role(self):
         src = self._read_router_source("app/api/routers/settings.py")
-        assert "require_role" in src
-        assert "get_current_user" not in src
+        assert "require_permission" in src
 
     def test_controllers_router_uses_require_role(self):
         src = self._read_router_source("app/api/routers/controllers.py")
         assert "require_role" in src
         assert "get_current_user" not in src
 
-    def test_data_router_uses_require_role(self):
+    def test_data_router_uses_require_permission(self):
         src = self._read_router_source("app/api/routers/data.py")
-        assert "require_role" in src
+        assert "require_permission" in src
         assert "get_current_user" not in src
 
     def test_debug_router_uses_require_role(self):

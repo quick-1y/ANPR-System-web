@@ -103,11 +103,7 @@ class AppContainer:
         from runtime.channel_runtime import ChannelProcessor
         from anpr.model_config import AnprModelConfig
 
-        model_config = AnprModelConfig.from_settings(
-            self.settings.get_model_settings(),
-            self.settings.get_ocr_settings(),
-            self.settings.get_detector_settings(),
-        )
+        model_config = AnprModelConfig.from_settings(self.settings.get_model_settings())
         return ChannelProcessor(
             event_callback=self.publish_event_sync,
             plate_settings=self.settings.get_plate_settings(),
@@ -155,7 +151,8 @@ class AppContainer:
     def publish_event_sync(self, event: Dict[str, Any]) -> None:
         if self.main_loop and self.main_loop.is_running():
             self.main_loop.call_soon_threadsafe(asyncio.create_task, self.event_bus.publish(event))
-        self.controller_automation.dispatch_event(event)
+        if not event.get("relay_blocked"):
+            self.controller_automation.dispatch_event(event)
 
     def restart_processor_for_settings(self) -> None:
         channels = self.channel_db.list_channels()

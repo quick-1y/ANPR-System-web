@@ -297,6 +297,12 @@ class StoragePayload(BaseModel):
     max_screenshots_mb: int = Field(ge=128, le=1024 * 1024)
 
 
+class InterfacePayload(BaseModel):
+    style: str = Field(default="graphite-minimal", pattern="^(graphite-minimal|aurora)$")
+    theme: str = Field(default="light", pattern="^(light|dark)$")
+    sidebar_locked: bool = False
+
+
 class LoggingPayload(BaseModel):
     level: str = Field(pattern="^(ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     retention_days: int = Field(ge=1, le=3650)
@@ -304,7 +310,6 @@ class LoggingPayload(BaseModel):
 
 class TimePayload(BaseModel):
     timezone: str
-    offset_minutes: int = Field(ge=-720, le=720)
 
 
 class PlatesPayload(BaseModel):
@@ -318,12 +323,10 @@ class DebugPayload(BaseModel):
 
 
 class GlobalSettingsPayload(BaseModel):
-    grid: str
-    theme: str
-    sidebar_locked: bool = False
     reconnect: ReconnectPayload
     storage: StoragePayload
     logging: LoggingPayload
+    interface: InterfacePayload
     time: TimePayload
     plates: PlatesPayload
     debug: DebugPayload

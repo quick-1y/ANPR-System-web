@@ -80,9 +80,18 @@ def get_event_media(event_id: int, kind: str, container: AppContainer = Depends(
     event = _fetch_event_by_id(container, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Событие не найдено")
-    if kind not in {"frame", "plate"}:
-        raise HTTPException(status_code=400, detail="kind должен быть frame или plate")
-    media_path = str(event.get("frame_path" if kind == "frame" else "plate_path") or "").strip()
+    media_fields = {
+        "frame": "frame_path",
+        "plate": "plate_path",
+        "frame_entry": "frame_path_entry",
+        "plate_entry": "plate_path_entry",
+        "frame_exit": "frame_path_exit",
+        "plate_exit": "plate_path_exit",
+    }
+    field = media_fields.get(kind)
+    if field is None:
+        raise HTTPException(status_code=400, detail="kind должен быть frame, plate, frame_entry, plate_entry, frame_exit или plate_exit")
+    media_path = str(event.get(field) or "").strip()
     if not media_path:
         raise HTTPException(status_code=404, detail="Изображение для события отсутствует")
     path_obj = Path(media_path)

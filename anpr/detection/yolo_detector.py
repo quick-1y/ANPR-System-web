@@ -9,6 +9,11 @@ import numpy as np
 import torch
 from ultralytics import YOLO
 
+from anpr.model_config import (
+    BBOX_PADDING_RATIO,
+    DETECTION_CONFIDENCE_THRESHOLD,
+    MIN_PADDING_PIXELS,
+)
 from common.logging import get_logger
 
 logger = get_logger(__name__)
@@ -24,9 +29,9 @@ class YOLODetector:
         min_plate_size: Optional[Dict[str, int]] = None,
         max_plate_size: Optional[Dict[str, int]] = None,
         size_filter_enabled: bool = True,
-        detection_confidence_threshold: float = 0.5,
-        bbox_padding_ratio: float = 0.08,
-        min_padding_pixels: int = 2,
+        detection_confidence_threshold: float = DETECTION_CONFIDENCE_THRESHOLD,
+        bbox_padding_ratio: float = BBOX_PADDING_RATIO,
+        min_padding_pixels: int = MIN_PADDING_PIXELS,
         yolo_model: Optional[YOLO] = None,
     ) -> None:
         if yolo_model is not None:

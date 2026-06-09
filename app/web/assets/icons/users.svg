@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-label="users">
 
-<circle cx="8.7" cy="8.4" r="2" stroke="#636b82" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M4.9 16.3c.5-1.9 2.2-3.3 4.3-3.3 1.4 0 2.7.6 3.5 1.5" stroke="#636b82" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="8.7" cy="8.4" r="0.9" fill="#e8a838"/>
+<circle cx="8.7" cy="8.4" r="2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M4.9 16.3c.5-1.9 2.2-3.3 4.3-3.3 1.4 0 2.7.6 3.5 1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="8.7" cy="8.4" r="0.9" fill="currentColor"/>
 
-<circle cx="15.1" cy="9.2" r="2.4" stroke="#d8dce8" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M9.7 18.2c.7-2.4 2.9-4 5.4-4 2.5 0 4.7 1.6 5.4 4" stroke="#d8dce8" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="15.1" cy="9.2" r="2.4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M9.7 18.2c.7-2.4 2.9-4 5.4-4 2.5 0 4.7 1.6 5.4 4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
 
 </svg>

@@ -119,7 +119,7 @@ export async function openClientPickerModal(listId) {
   const renderPickerItems = (clients) => {
     items.innerHTML = '';
     if (!clients.length) {
-      items.innerHTML = '<p style="padding:8px;color:var(--text3);font-size:12px;">Клиенты не найдены</p>';
+      items.innerHTML = '<p style="padding:8px;color:var(--text3);font-size:var(--font-sm);">Клиенты не найдены</p>';
       return;
     }
     clients.forEach((c) => {

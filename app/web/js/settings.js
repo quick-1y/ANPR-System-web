@@ -1,7 +1,7 @@
 // Global settings panel, country toggles
 import { setDebugSettingsCache, debugSettingsCache } from './state.js';
 import { api, jfetch } from './api.js';
-import { val, setVal, setChk, applyTheme, showToast, applySidebarLocked } from './ui.js';
+import { val, setVal, setChk, applyStyle, applyTheme, showToast, applySidebarLocked } from './ui.js';
 import { scheduleVideoGridLayout, syncOverlayPolling } from './channels.js';
 import { applyDebugPanelVisibility } from './debug.js';
 
@@ -10,7 +10,7 @@ export async function renderCountryToggles(enabledCodes) {
   if (!container) return;
   let countries = [];
   try { countries = await jfetch(api("/api/countries")); }
-  catch (_e) { container.innerHTML = '<span style="color:var(--text3);font-size:12px">Не удалось загрузить список стран</span>'; return; }
+  catch (_e) { container.innerHTML = '<span style="color:var(--text3);font-size:var(--font-sm)">Не удалось загрузить список стран</span>'; return; }
   const enabled = new Set((enabledCodes || []).map(c => c.toUpperCase()));
   container.innerHTML = "";
   for (const c of countries) {
@@ -18,7 +18,7 @@ export async function renderCountryToggles(enabledCodes) {
     row.className = "s-row"; row.style.paddingLeft = "0";
     const label = document.createElement("div");
     label.className = "s-row-label"; label.style.flex = "1";
-    label.innerHTML = '<span class="s-row-name">' + c.name + '</span> <span style="color:var(--text3);font-size:11px;margin-left:4px">' + c.code + '</span>';
+    label.innerHTML = '<span class="s-row-name">' + c.name + '</span> <span style="color:var(--text3);font-size:var(--font-xs);margin-left:4px">' + c.code + '</span>';
     const toggle = document.createElement("input");
     toggle.type = "checkbox"; toggle.dataset.countryCode = c.code; toggle.checked = enabled.has(c.code.toUpperCase());
     row.appendChild(label); row.appendChild(toggle); container.appendChild(row);
@@ -34,8 +34,6 @@ function getEnabledCountryCodes() {
 
 export async function loadGlobalSettings() {
   const g = await jfetch(api("/api/settings"));
-  setVal("g_grid", g.grid); setVal("g_theme", g.theme); applyTheme(g.theme);
-  setChk("g_sidebar_locked", g.sidebar_locked); applySidebarLocked(!!g.sidebar_locked);
   setChk("g_sl_enabled", g.reconnect.signal_loss.enabled);
   setVal("g_frame_timeout", g.reconnect.signal_loss.frame_timeout_seconds);
   setVal("g_retry_interval", g.reconnect.signal_loss.retry_interval_seconds);
@@ -48,27 +46,37 @@ export async function loadGlobalSettings() {
   setVal("g_max_screenshots", g.storage.max_screenshots_mb);
   setVal("g_postgres_dsn", g.storage.postgres_dsn);
   setVal("g_log_level", g.logging.level); setVal("g_log_retention", g.logging.retention_days);
-  setVal("g_timezone", g.time.timezone); setVal("g_offset_minutes", g.time.offset_minutes);
+  if (g.interface) {
+    setVal("g_style", g.interface.style);
+    setVal("g_theme", g.interface.theme);
+    setChk("g_sidebar_locked", g.interface.sidebar_locked);
+    applyStyle(g.interface.style);
+    applyTheme(g.interface.theme);
+    applySidebarLocked(g.interface.sidebar_locked);
+  }
+  setVal("g_timezone", g.time.timezone);
   await renderCountryToggles(g.plates.enabled_countries || []);
-  setChk("d_metrics", g.debug.show_channel_metrics);
-  setChk("d_log", g.debug.log_panel_enabled);
-  setChk("d_video_off", g.debug.disable_video_output);
-  setDebugSettingsCache(g.debug || {});
+  if (g.debug) {
+    setChk("d_metrics", g.debug.show_channel_metrics);
+    setChk("d_log", g.debug.log_panel_enabled);
+    setChk("d_video_off", g.debug.disable_video_output);
+    setDebugSettingsCache(g.debug || {});
+  }
   applyDebugPanelVisibility();
 }
 
 export async function saveGeneral() {
+  applyStyle(val("g_style"));
   applyTheme(val("g_theme"));
   const payload = {
-    grid: val("g_grid"), theme: val("g_theme"),
-    sidebar_locked: document.getElementById("g_sidebar_locked").checked,
     reconnect: {
       signal_loss: { enabled: document.getElementById("g_sl_enabled").checked, frame_timeout_seconds: Number(val("g_frame_timeout")), retry_interval_seconds: Number(val("g_retry_interval")) },
       periodic: { enabled: document.getElementById("g_periodic_enabled").checked, interval_minutes: Number(val("g_periodic_minutes")) },
     },
     storage: { auto_cleanup_enabled: document.getElementById("g_auto_cleanup").checked, cleanup_interval_minutes: Number(val("g_cleanup_minutes")), events_retention_days: Number(val("g_events_retention")), media_retention_days: Number(val("g_media_retention")), max_screenshots_mb: Number(val("g_max_screenshots")), postgres_dsn: val("g_postgres_dsn") },
     logging: { level: val("g_log_level"), retention_days: Number(val("g_log_retention")) },
-    time: { timezone: val("g_timezone"), offset_minutes: Number(val("g_offset_minutes")) },
+    interface: { style: val("g_style"), theme: val("g_theme"), sidebar_locked: document.getElementById("g_sidebar_locked").checked },
+    time: { timezone: val("g_timezone") },
     plates: { enabled_countries: getEnabledCountryCodes() },
     debug: { show_channel_metrics: document.getElementById("d_metrics").checked, log_panel_enabled: document.getElementById("d_log").checked, disable_video_output: document.getElementById("d_video_off").checked },
   };

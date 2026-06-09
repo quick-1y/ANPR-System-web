@@ -624,6 +624,7 @@ class ChannelProcessor:
                         event = {
                             "time": event_ts_iso,
                             "channel_id": channel_id,
+                            "channel_id_entry": channel_id,
                             "plate": plate,
                             "plate_display": detection.get("plate_display") or plate,
                             "country": detection.get("country"),
@@ -631,6 +632,8 @@ class ChannelProcessor:
                             "source": str(channel.get("source", "")),
                             "frame_path": frame_path,
                             "plate_path": plate_path,
+                            "frame_path_entry": frame_path,
+                            "plate_path_entry": plate_path,
                             "direction": detection.get("direction", "UNKNOWN"),
                             "client_id": client_id,
                         }
@@ -639,17 +642,19 @@ class ChannelProcessor:
                             # Branch A: no zone — current behavior unchanged
                             event_id = self._events_db.insert_event(
                                 plate=plate,
-                                channel_id=channel_id,
+                                channel_id_entry=channel_id,
                                 plate_display=event["plate_display"],
                                 country=event["country"],
                                 confidence=event["confidence"],
                                 source=event["source"],
                                 time=event_ts_iso,
-                                frame_path=frame_path,
-                                plate_path=plate_path,
+                                frame_path_entry=frame_path,
+                                plate_path_entry=plate_path,
                                 direction=event["direction"],
                                 client_id=client_id,
+                                time_entry=event_ts_iso,
                             )
+                            event["time_entry"] = event_ts_iso
                             event["id"] = int(event_id) if int(event_id or 0) > 0 else None
                             self._event_callback(event)
 
@@ -659,14 +664,14 @@ class ChannelProcessor:
                             zone_fields = {"zone_id": zone_after, "time_entry": event_ts_iso} if zone_eligible else {}
                             event_id = self._events_db.insert_event(
                                 plate=plate,
-                                channel_id=channel_id,
+                                channel_id_entry=channel_id,
                                 plate_display=event["plate_display"],
                                 country=event["country"],
                                 confidence=event["confidence"],
                                 source=event["source"],
                                 time=event_ts_iso,
-                                frame_path=frame_path,
-                                plate_path=plate_path,
+                                frame_path_entry=frame_path,
+                                plate_path_entry=plate_path,
                                 direction=event["direction"],
                                 client_id=client_id,
                                 **zone_fields,
@@ -678,21 +683,59 @@ class ChannelProcessor:
                         else:
                             # Branch C: exit channel — find event by zone_before, write zone_after
                             zone_eligible = self._resolve_zone_eligibility(channel, plate)
-                            relay_event = {
-                                "time": event_ts_iso,
+                            exit_event = {
+                                **event,
                                 "channel_id": channel_id,
-                                "plate": plate,
-                                "plate_display": event["plate_display"],
-                                "direction": event["direction"],
-                                "client_id": client_id,
+                                "channel_id_entry": None,
+                                "channel_id_exit": channel_id,
+                                "frame_path": frame_path,
+                                "plate_path": plate_path,
+                                "frame_path_entry": None,
+                                "plate_path_entry": None,
+                                "frame_path_exit": frame_path,
+                                "plate_path_exit": plate_path,
+                                "zone_id": zone_after,
+                                "time_exit": event_ts_iso,
                             }
+                            updated_event = None
                             if zone_eligible:
-                                updated_id = self._events_db.find_active_entry_and_write_exit(
-                                    plate, zone_before, zone_after, event_ts_iso
+                                updated_event = self._events_db.find_active_entry_and_write_exit(
+                                    plate,
+                                    zone_before,
+                                    zone_after,
+                                    event_ts_iso,
+                                    channel_id_exit=channel_id,
+                                    frame_path_exit=frame_path,
+                                    plate_path_exit=plate_path,
+                                    direction=event["direction"],
+                                    confidence=event["confidence"],
+                                    country=event["country"],
+                                    plate_display=event["plate_display"],
+                                    source=event["source"],
+                                    client_id=client_id,
                                 )
-                                if updated_id:
-                                    relay_event["id"] = updated_id
-                            self._event_callback(relay_event)
+                            if updated_event:
+                                updated_event["channel_id"] = channel_id
+                                self._event_callback(updated_event)
+                            else:
+                                event_id = self._events_db.insert_event(
+                                    plate=plate,
+                                    channel_id_exit=channel_id,
+                                    plate_display=event["plate_display"],
+                                    country=event["country"],
+                                    confidence=event["confidence"],
+                                    source=event["source"],
+                                    time=event_ts_iso,
+                                    frame_path_exit=frame_path,
+                                    plate_path_exit=plate_path,
+                                    direction=event["direction"],
+                                    client_id=client_id,
+                                    zone_id=zone_after,
+                                    time_exit=event_ts_iso,
+                                )
+                                exit_event["id"] = int(event_id) if int(event_id or 0) > 0 else None
+                                exit_event["relay_blocked"] = True
+                                self._event_callback(exit_event)
 
                         metrics.last_event_at = event_ts_iso
                     postprocess_ms = (time.monotonic() - postprocess_started) * 1000.0

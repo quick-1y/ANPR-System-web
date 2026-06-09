@@ -77,13 +77,13 @@ export async function loadUsers() {
 // --- Helpers ---
 
 const _ROLE_BADGES = {
-    superadmin: '<span style="font-size:9px;color:var(--accent2);margin-left:4px;font-family:var(--mono)">СА</span>',
-    admin:      '<span style="font-size:9px;color:var(--accent2);margin-left:4px;font-family:var(--mono)">АДМ</span>',
-    operator:   '<span style="font-size:9px;color:var(--text3);margin-left:4px;font-family:var(--mono)">ОПЕ</span>',
+    superadmin: '<span style="font-size:var(--font-xs);color:var(--accent2);margin-left:4px;font-family:var(--mono)">СА</span>',
+    admin:      '<span style="font-size:var(--font-xs);color:var(--accent2);margin-left:4px;font-family:var(--mono)">АДМ</span>',
+    operator:   '<span style="font-size:var(--font-xs);color:var(--text3);margin-left:4px;font-family:var(--mono)">ОПЕ</span>',
 };
 
 function _roleBadge(role) {
-    return _ROLE_BADGES[role] ?? `<span style="font-size:9px;color:var(--text3);margin-left:4px;font-family:var(--mono)">${_esc(role)}</span>`;
+    return _ROLE_BADGES[role] ?? `<span style="font-size:var(--font-xs);color:var(--text3);margin-left:4px;font-family:var(--mono)">${_esc(role)}</span>`;
 }
 
 // --- User list ---
@@ -100,7 +100,7 @@ function _renderUserList() {
         const roleBadge = _roleBadge(u.role);
         const inactiveTag = u.is_active
             ? ""
-            : '<span style="font-size:9px;color:var(--danger);margin-left:4px;font-family:var(--mono)">НЕАКТ</span>';
+            : '<span style="font-size:var(--font-xs);color:var(--danger);margin-left:4px;font-family:var(--mono)">НЕАКТ</span>';
 
         item.innerHTML = `<span class="ch-item-name">${_esc(u.login)}</span>${roleBadge}${inactiveTag}`;
         item.onclick = () => _selectUser(u.id);
@@ -234,7 +234,7 @@ function _renderPermCheckboxes(containerId, currentPerms, role) {
     for (const p of _allPermissions) {
         if (role === "operator" && p.key === "tab:settings") continue;
         const label = document.createElement("label");
-        label.style.cssText = "display:inline-flex;align-items:center;gap:5px;margin-right:12px;margin-bottom:4px;font-size:12px;cursor:pointer";
+        label.className = "user-permission-item";
         const cb = document.createElement("input");
         cb.type = "checkbox";
         cb.value = p.key;

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ANPR Web</title>
-    <link rel="stylesheet" href="/web/styles.css" />
+    <link rel="stylesheet" href="/web/css/styles.css" />
     <link rel="icon" type="image/x-icon" href="/web/favicon/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/web/favicon/logo-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/web/favicon/logo-192.png" />
@@ -37,7 +37,7 @@
 
           <div class="ttab" data-tab="clients" title="Клиенты">
             <span class="ttab-icon-wrap">
-              <img class="ttab-icon ui-icon" src="/web/assets/icons/lists.svg" alt="" />
+              <img class="ttab-icon ui-icon" src="/web/assets/icons/clients.svg" alt="" />
             </span>
             <span class="ttab-label">Клиенты</span>
           </div>
@@ -159,16 +159,13 @@
                 <table class="data-table" id="journalTable">
                   <thead>
                     <tr>
-                      <th class="col-time">Время</th>
-                      <th class="col-channel">Канал</th>
-                      <th class="col-country">Страна</th>
-                      <th class="col-dir">Направление</th>
                       <th class="col-plate">Номер</th>
-                      <th class="col-conf">Увер.</th>
-                      <th class="col-source">Источник</th>
+                      <th class="col-country">Страна</th>
+                      <th class="col-conf">Уверенность</th>
+                      <th class="col-dir">Направление</th>
                       <th class="col-zone col-zone-name">Зона</th>
-                      <th class="col-zone col-zone-time">Въезд</th>
-                      <th class="col-zone col-zone-time">Выезд</th>
+                      <th class="col-entry-exit">Въезд</th>
+                      <th class="col-entry-exit">Выезд</th>
                     </tr>
                   </thead>
                   <tbody id="journalBody"></tbody>
@@ -180,40 +177,79 @@
       <div class="tab-pane" id="tab-zones">
         <div class="zones-layout">
           <div class="zones-list-col">
-            <div class="panel-header">
-              <span>Зоны</span>
-              <button class="btn btn-primary btn-sm" id="createZoneBtn">+ Создать зону</button>
+            <div class="zones-list-head">
+              <span class="zones-list-title">Зоны</span>
+              <div class="zones-list-head-actions">
+                <button class="icon-btn-sm" id="addZoneBtn" title="Создать зону">+</button>
+                <button class="icon-btn-sm" id="deleteZoneBtn" title="Удалить зону">−</button>
+              </div>
             </div>
             <div id="zonesList"></div>
           </div>
-          <div class="zones-settings-col hidden" id="zonesSettingsPanel">
-            <div class="panel-header">
-              <span>Настройки зоны</span>
-              <button class="btn btn-ghost btn-sm" id="closeZoneSettingsBtn">✕</button>
+          <div class="zones-settings-col" id="zonesSettingsPanel">
+            <div class="zones-empty hidden" id="zoneEmptyState">
+              Выберите зону слева, чтобы посмотреть статистику и привязанные камеры.
             </div>
-            <div class="s-card">
-              <div class="s-card-body">
-                <div class="s-row">
-                  <div class="s-row-name">Название</div>
-                  <input class="input input--md s-input" id="zoneSettingName" type="text" placeholder="Название зоны" />
+            <div class="zones-detail hidden" id="zoneDetailWrap">
+              <div class="zones-detail-head">
+                <div class="zones-detail-title-wrap">
+                  <h3 class="zones-detail-title" id="zoneDetailTitle">—</h3>
                 </div>
-                <div class="s-row">
-                  <div class="s-row-name">Вместимость</div>
-                  <input class="input input--md s-input" id="zoneSettingCapacity" type="number" min="0" value="0" />
-                </div>
-                <div class="s-row">
-                  <div class="s-row-name">Занятость</div>
-                  <div id="zoneOccupancyInfo" class="s-row-value">—</div>
-                </div>
-                <div class="s-row">
-                  <div class="s-row-name">Каналы</div>
-                  <div id="zoneChannelsList"></div>
+                <div class="zones-detail-actions">
+                  <button class="btn btn-ghost btn-sm" id="editZoneBtn">Редактировать</button>
                 </div>
               </div>
+
+              <div class="zone-stat-grid">
+                <div class="zone-stat-card">
+                  <div class="zone-stat-label">Занято</div>
+                  <div class="zone-stat-value" id="zoneStatOccupied">—</div>
+                  <div class="zone-stat-sub" id="zoneStatOccupiedSub">—</div>
+                </div>
+                <div class="zone-stat-card">
+                  <div class="zone-stat-label">Свободно</div>
+                  <div class="zone-stat-value" id="zoneStatFree">—</div>
+                  <div class="zone-stat-sub" id="zoneStatLoad">—</div>
+                </div>
+                <div class="zone-stat-card">
+                  <div class="zone-stat-label">Сегодня</div>
+                  <div class="zone-stat-value" id="zoneStatToday">—</div>
+                  <div class="zone-stat-sub">проездов</div>
+                </div>
+              </div>
+
+              <div class="zone-linked-wrap">
+                <div class="zone-linked-title">Привязанные камеры</div>
+                <div class="zone-linked-list" id="zoneChannelsList"></div>
+              </div>
             </div>
-            <div class="settings-actions">
-              <button class="btn btn-primary" id="saveZoneBtn">Сохранить</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal" id="editZoneModal">
+        <div class="modal-card modal-card--sm">
+          <div class="modal-head">
+            <span>Настройки зоны</span>
+            <button class="modal-close" id="editZoneModalClose">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="modal-field">
+              <label class="modal-label">Название</label>
+              <input class="input input--md" id="zoneSettingName" type="text" placeholder="Название зоны" />
             </div>
+            <div class="modal-field">
+              <label class="modal-label">Вместимость</label>
+              <input class="input input--md" id="zoneSettingCapacity" type="number" min="0" value="0" />
+            </div>
+            <div class="modal-field">
+              <label class="modal-label">Занятость</label>
+              <div id="zoneOccupancyInfo" class="modal-note">—</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" id="editZoneCancel">Отмена</button>
+            <button class="btn btn-primary" id="saveZoneBtn">Сохранить</button>
           </div>
         </div>
       </div>
@@ -379,8 +415,16 @@
         </div>
         <div class="settings-content">
           <div class="settings-pane active" id="sp-general">
+            <div class="general-settings-tabs" id="generalSettingsTabs">
+              <button class="btn btn-ghost ch-tab general-tab active" data-general-tab="interface">Интерфейс</button>
+              <button class="btn btn-ghost ch-tab general-tab" data-general-tab="reconnect">Переподключение</button>
+              <button class="btn btn-ghost ch-tab general-tab" data-general-tab="storage">Хранение</button>
+              <button class="btn btn-ghost ch-tab general-tab" data-general-tab="logging">Логи</button>
+              <button class="btn btn-ghost ch-tab general-tab" data-general-tab="time">Время</button>
+              <button class="btn btn-ghost ch-tab general-tab" data-general-tab="plates">Номера</button>
+            </div>
             <!-- Интерфейс -->
-            <div class="s-card">
+            <div class="s-card general-group active" data-general-group="interface">
               <div class="s-card-header">Интерфейс</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -393,6 +437,16 @@
                     <option selected>2x2</option>
                     <option>2x3</option>
                     <option>3x3</option>
+                  </select>
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_style">?</button>
+                    <div class="s-row-name">Стиль приложения</div>
+                  </div>
+                  <select class="input input--md s-input input--select" id="g_style">
+                    <option value="graphite-minimal">Graphite Minimal</option>
+                    <option value="aurora">Aurora</option>
                   </select>
                 </div>
                 <div class="s-row">
@@ -416,7 +470,7 @@
             </div>
 
             <!-- Переподключение -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="reconnect">
               <div class="s-card-header">Переподключение</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -458,7 +512,7 @@
             </div>
 
             <!-- Скриншоты и медиа -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="storage">
               <div class="s-card-header">Скриншоты и медиа</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -479,7 +533,7 @@
             </div>
 
             <!-- Логи -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="logging">
               <div class="s-card-header">Логи</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -503,7 +557,7 @@
             </div>
 
             <!-- Автоочистка данных -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="storage">
               <div class="s-card-header">Автоочистка данных</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -534,7 +588,7 @@
             <input type="hidden" id="g_postgres_dsn" />
 
             <!-- Отображение времени -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="time">
               <div class="s-card-header">Отображение времени</div>
               <div class="s-card-body">
                 <div class="s-row">
@@ -571,18 +625,11 @@
                     <option value="UTC+12:00">UTC+12:00</option>
                   </select>
                 </div>
-                <div class="s-row">
-                  <div class="s-row-label">
-                    <button class="param-help-btn" data-help="g_offset_minutes">?</button>
-                    <div class="s-row-name">Дополнительное смещение (мин)</div>
-                  </div>
-                  <input class="input input--sm s-input sm" id="g_offset_minutes" type="number" />
-                </div>
               </div>
             </div>
 
             <!-- Номера -->
-            <div class="s-card">
+            <div class="s-card general-group" data-general-group="plates">
               <div class="s-card-header">Распознавание номеров</div>
               <div class="s-card-body">
                 <div class="s-row" style="flex-direction:column;align-items:stretch;gap:6px">
@@ -624,7 +671,7 @@
                   >
                     Канал</button
                   ><button class="btn btn-ghost ch-tab" data-ch-tab="vision">
-                    Зона и размер</button
+                    Зона распознавания</button
                   ><button class="btn btn-ghost ch-tab" data-ch-tab="ocr">
                     OCR</button
                   ><button class="btn btn-ghost ch-tab" data-ch-tab="plates">
@@ -828,7 +875,7 @@
                   <div class="vision-layout">
                     <div class="vision-left">
                       <div class="s-card">
-                        <div class="s-card-header">Размер номерной рамки</div>
+                        <div class="s-card-header">Размер номерной рамки <button class="param-help-btn" data-help="plate_size_editor">?</button></div>
                         <div class="s-card-body">
                           <div class="s-row">
                             <div class="s-row-label">
@@ -854,13 +901,10 @@
                           <div class="form-actions">
                             <button class="btn btn-ghost btn-sm" id="plateSizeResetBtn">Сбросить размеры</button>
                           </div>
-                          <div class="roi-hint">
-                            ЛКМ внутри рамки: перетащить. Тяните за края/углы для изменения размера.
-                          </div>
                         </div>
                       </div>
                       <div class="s-card">
-                        <div class="s-card-header">Зона распознавания</div>
+                        <div class="s-card-header">Зона распознавания <button class="param-help-btn" data-help="roi_editor">?</button></div>
                         <div class="s-card-body">
                           <div class="s-row">
                             <div class="s-row-label">
@@ -873,15 +917,11 @@
                           <div class="form-actions">
                             <button class="btn btn-ghost btn-sm" id="roiClearBtn">Очистить ROI</button>
                           </div>
-                          <div class="roi-hint">
-                            ЛКМ по линии: добавить точку. ЛКМ по точке: перетащить.
-                            ПКМ по точке: удалить.
-                          </div>
                         </div>
                       </div>
                     </div>
                     <div class="vision-right">
-                      <canvas id="roiCanvas" width="640" height="360"></canvas>
+                      <canvas id="roiCanvas" width="800" height="450"></canvas>
                       <div class="form-actions">
                         <button class="btn btn-ghost" id="roiRefreshBtn">Обновить кадр</button>
                       </div>
@@ -1176,11 +1216,11 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label"><div class="s-row-name">Доступные вкладки</div></div>
-                      <div id="newUserPermissions" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 0"></div>
+                      <div id="newUserPermissions" class="user-permissions-list"></div>
                     </div>
                   </div>
                 </div>
-                <div id="createUserError" style="color:var(--danger);font-size:12px;min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
+                <div id="createUserError" style="color:var(--danger);font-size:var(--font-sm);min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
                 <div class="form-actions">
                   <button class="btn btn-ghost" id="cancelCreateUserBtn">Отмена</button>
                   <button class="btn btn-primary" id="confirmCreateUserBtn">Создать</button>
@@ -1205,7 +1245,7 @@
                     </div>
                     <div class="s-row">
                       <div class="s-row-label"><div class="s-row-name">Доступные вкладки</div></div>
-                      <div id="editUserPermissions" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 0"></div>
+                      <div id="editUserPermissions" class="user-permissions-list"></div>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label"><div class="s-row-name">Активен</div></div>
@@ -1213,7 +1253,7 @@
                     </div>
                   </div>
                 </div>
-                <div id="editUserError" style="color:var(--danger);font-size:12px;min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
+                <div id="editUserError" style="color:var(--danger);font-size:var(--font-sm);min-height:16px;padding:2px 0 6px;font-family:var(--mono)"></div>
                 <div class="form-actions">
                   <button class="btn btn-ghost" id="changeUserPasswordBtn">Сменить пароль</button>
                   <div style="flex:1"></div>
@@ -1268,21 +1308,38 @@
           <button class="btn btn-ghost" id="eventModalClose">Закрыть</button>
         </div>
         <div class="modal-body modal-body--event">
-          <div>
-            <div class="event-section-title">
-              <img class="ui-icon ui-icon-sm" src="/web/assets/icons/event.svg" alt="" />
-              <span>Кадр распознавания</span>
+          <div class="event-media-grid">
+            <div class="event-media-card">
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/event.svg" alt="" />
+                <span>Въезд · кадр распознавания</span>
+              </div>
+              <div class="event-modal-img event-modal-img--frame">
+                <img id="eventFrameEntryImg" alt="entry frame" />
+              </div>
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/plate.svg" alt="" />
+                <span>Въезд · кадр номера</span>
+              </div>
+              <div class="event-modal-img event-modal-img--plate">
+                <img id="eventPlateEntryImg" alt="entry plate" />
+              </div>
             </div>
-            <div class="event-modal-img">
-              <img id="eventFrameImg" alt="frame" />
-            </div>
-            
-            <div class="event-section-title">
-              <img class="ui-icon ui-icon-sm" src="/web/assets/icons/plate.svg" alt="" />
-              <span>Кадр номера</span>
-            </div>
-            <div class="event-modal-img" style="min-height: 150px">
-              <img id="eventPlateImg" alt="plate" />
+            <div class="event-media-card">
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/event.svg" alt="" />
+                <span>Выезд · кадр распознавания</span>
+              </div>
+              <div class="event-modal-img event-modal-img--frame">
+                <img id="eventFrameExitImg" alt="exit frame" />
+              </div>
+              <div class="event-section-title">
+                <img class="ui-icon ui-icon-sm" src="/web/assets/icons/plate.svg" alt="" />
+                <span>Выезд · кадр номера</span>
+              </div>
+              <div class="event-modal-img event-modal-img--plate">
+                <img id="eventPlateExitImg" alt="exit plate" />
+              </div>
             </div>
           </div>
           <div class="event-meta" id="eventMeta"></div>

@@ -8,17 +8,12 @@ import copy
 from typing import Any, Dict
 
 from common.logging import get_logger
-from config.settings_migrations import run_settings_migrations
 from config.settings_schema import (
-    SETTINGS_VERSION,
     debug_defaults,
-    detector_defaults,
-    direction_defaults,
-    inference_defaults,
+    interface_defaults,
     logging_defaults,
     model_defaults,
     normalize_log_level,
-    ocr_defaults,
     plate_defaults,
     reconnect_defaults,
     storage_defaults,
@@ -73,6 +68,9 @@ class SettingsNormalizer:
             if key not in storage:
                 storage[key] = val
                 changed = True
+        if "export_dir" in storage:
+            storage.pop("export_dir", None)
+            changed = True
         data["storage"] = storage
         return changed
 
@@ -104,48 +102,6 @@ class SettingsNormalizer:
         data["models"] = models
         return changed
 
-    def _fill_ocr_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        if "ocr" not in data:
-            data["ocr"] = defaults
-            return True
-
-        changed = False
-        ocr = data.get("ocr", {})
-        for key, val in defaults.items():
-            if key not in ocr:
-                ocr[key] = val
-                changed = True
-        data["ocr"] = ocr
-        return changed
-
-    def _fill_detector_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        if "detector" not in data:
-            data["detector"] = defaults
-            return True
-
-        changed = False
-        detector = data.get("detector", {})
-        for key, val in defaults.items():
-            if key not in detector:
-                detector[key] = val
-                changed = True
-        data["detector"] = detector
-        return changed
-
-    def _fill_inference_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
-        if "inference" not in data:
-            data["inference"] = defaults
-            return True
-
-        changed = False
-        inference = data.get("inference", {})
-        for key, val in defaults.items():
-            if key not in inference:
-                inference[key] = val
-                changed = True
-        data["inference"] = inference
-        return changed
-
     def _fill_time_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
         if "time" not in data:
             data["time"] = defaults
@@ -157,7 +113,51 @@ class SettingsNormalizer:
             if key not in time_section:
                 time_section[key] = val
                 changed = True
+
+        if "offset_minutes" in time_section:
+            time_section.pop("offset_minutes", None)
+            changed = True
+
         data["time"] = time_section
+        return changed
+
+
+    def _fill_interface_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
+        if "interface" not in data:
+            data["interface"] = defaults
+            return True
+
+        changed = False
+        interface_section = data.get("interface", {})
+        if not isinstance(interface_section, dict):
+            interface_section = {}
+            changed = True
+
+        for key, val in defaults.items():
+            if key not in interface_section:
+                interface_section[key] = val
+                changed = True
+
+        normalized_style = str(interface_section.get("style") or defaults["style"]).strip().lower()
+        if normalized_style not in ("graphite-minimal", "aurora"):
+            normalized_style = defaults["style"]
+        if interface_section.get("style") != normalized_style:
+            interface_section["style"] = normalized_style
+            changed = True
+
+        normalized_theme = str(interface_section.get("theme") or defaults["theme"]).strip().lower()
+        if normalized_theme not in ("light", "dark"):
+            normalized_theme = defaults["theme"]
+        if interface_section.get("theme") != normalized_theme:
+            interface_section["theme"] = normalized_theme
+            changed = True
+
+        normalized_sidebar_locked = bool(interface_section.get("sidebar_locked", defaults["sidebar_locked"]))
+        if interface_section.get("sidebar_locked") != normalized_sidebar_locked:
+            interface_section["sidebar_locked"] = normalized_sidebar_locked
+            changed = True
+
+        data["interface"] = interface_section
         return changed
 
     def _fill_logging_defaults(self, data: Dict[str, Any], defaults: Dict[str, Any]) -> bool:
@@ -177,9 +177,8 @@ class SettingsNormalizer:
             logging_section["level"] = normalized_level
             changed = True
 
-        allowed_levels = defaults.get("allowed_levels") or []
-        if list(logging_section.get("allowed_levels") or []) != list(allowed_levels):
-            logging_section["allowed_levels"] = list(allowed_levels)
+        if "allowed_levels" in logging_section:
+            logging_section.pop("allowed_levels", None)
             changed = True
 
         data["logging"] = logging_section
@@ -187,44 +186,24 @@ class SettingsNormalizer:
 
     def normalize_with_meta(self, data: dict) -> tuple[dict, bool]:
         normalized = copy.deepcopy(data)
-        normalized, changed = run_settings_migrations(normalized, SETTINGS_VERSION)
-        tracking_defaults = normalized.get("tracking", {})
+        changed = False
 
-        if not normalized.get("theme"):
-            normalized["theme"] = "dark"
-            changed = True
-
-        if "sidebar_locked" not in normalized:
-            normalized["sidebar_locked"] = False
-            changed = True
-
-        dir_defaults = direction_defaults()
-        direction_settings = tracking_defaults.get("direction")
-        if direction_settings is None:
-            tracking_defaults["direction"] = dir_defaults
-            normalized["tracking"] = tracking_defaults
-            changed = True
-        else:
-            for key, value in dir_defaults.items():
-                if key not in direction_settings:
-                    direction_settings[key] = value
-                    changed = True
+        for obsolete_key in ("grid", "theme", "sidebar_locked", "tracking", "inference", "ocr", "detector"):
+            if obsolete_key in normalized:
+                normalized.pop(obsolete_key, None)
+                changed = True
 
         if self._fill_reconnect_defaults(normalized, reconnect_defaults()):
             changed = True
         if self._fill_model_defaults(normalized, model_defaults()):
-            changed = True
-        if self._fill_ocr_defaults(normalized, ocr_defaults()):
-            changed = True
-        if self._fill_detector_defaults(normalized, detector_defaults()):
-            changed = True
-        if self._fill_inference_defaults(normalized, inference_defaults()):
             changed = True
         if self._fill_storage_defaults(normalized, storage_defaults()):
             changed = True
         if self._fill_plate_defaults(normalized, plate_defaults()):
             changed = True
         if self._fill_time_defaults(normalized, time_defaults()):
+            changed = True
+        if self._fill_interface_defaults(normalized, interface_defaults()):
             changed = True
         if self._fill_logging_defaults(normalized, logging_defaults()):
             changed = True

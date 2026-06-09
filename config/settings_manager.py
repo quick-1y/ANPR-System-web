@@ -9,12 +9,10 @@ from config.settings_repository import SettingsRepository
 from config.settings_schema import (
     build_default_settings,
     debug_defaults,
-    detector_defaults,
-    inference_defaults,
+    interface_defaults,
     logging_defaults,
     model_defaults,
     normalize_log_level,
-    ocr_defaults,
     plate_defaults,
     reconnect_defaults,
     storage_defaults,
@@ -40,25 +38,6 @@ class SettingsManager:
     def _default(self) -> Dict[str, Any]:
         return build_default_settings()
 
-    def get_grid(self) -> str:
-        with self._file_lock:
-            return self.settings.get("grid", "2x2")
-
-    def save_grid(self, grid: str) -> None:
-        with self._file_lock:
-            self.settings["grid"] = grid
-            settings_snapshot = copy.deepcopy(self.settings)
-        self._repo.save(settings_snapshot)
-
-    def get_theme(self) -> str:
-        with self._file_lock:
-            return self.settings.get("theme", "dark")
-
-    def save_theme(self, theme: str) -> None:
-        with self._file_lock:
-            self.settings["theme"] = theme
-            settings_snapshot = copy.deepcopy(self.settings)
-        self._repo.save(settings_snapshot)
 
     def get_reconnect(self) -> Dict[str, Any]:
         with self._file_lock:
@@ -137,12 +116,6 @@ class SettingsManager:
         time_settings = self.get_time_settings()
         return str(time_settings.get("timezone") or "UTC")
 
-    def get_time_offset_minutes(self) -> int:
-        time_settings = self.get_time_settings()
-        try:
-            return int(time_settings.get("offset_minutes", 0))
-        except (TypeError, ValueError):
-            return 0
 
     def get_plate_settings(self) -> Dict[str, Any]:
         with self._file_lock:
@@ -154,6 +127,24 @@ class SettingsManager:
     def save_plate_settings(self, plate_settings: Dict[str, Any]) -> None:
         with self._file_lock:
             self.settings["plates"] = plate_settings
+            settings_snapshot = copy.deepcopy(self.settings)
+        self._repo.save(settings_snapshot)
+
+
+    def get_interface_settings(self) -> Dict[str, Any]:
+        with self._file_lock:
+            if self._normalizer._fill_interface_defaults(self.settings, interface_defaults()):
+                settings_snapshot = copy.deepcopy(self.settings)
+                self._repo.save(settings_snapshot)
+            return copy.deepcopy(self.settings.get("interface", {}))
+
+    def save_interface_settings(self, interface_settings: Dict[str, Any]) -> None:
+        with self._file_lock:
+            current = self.settings.get("interface", {})
+            current.update(interface_settings)
+            self.settings["interface"] = current
+            normalized, _ = self._normalizer.normalize_with_meta(self.settings)
+            self.settings = normalized
             settings_snapshot = copy.deepcopy(self.settings)
         self._repo.save(settings_snapshot)
 
@@ -175,7 +166,7 @@ class SettingsManager:
             current = self.settings.get("logging", {})
             current.update(logging_config)
             current["level"] = normalize_log_level(current.get("level"))
-            current["allowed_levels"] = list(logging_defaults().get("allowed_levels", []))
+            current.pop("allowed_levels", None)
             self.settings["logging"] = current
             settings_snapshot = copy.deepcopy(self.settings)
         self._repo.save(settings_snapshot)
@@ -199,27 +190,6 @@ class SettingsManager:
                 settings_snapshot = copy.deepcopy(self.settings)
                 self._repo.save(settings_snapshot)
             return copy.deepcopy(self.settings.get("models", {}))
-
-    def get_ocr_settings(self) -> Dict[str, Any]:
-        with self._file_lock:
-            if self._normalizer._fill_ocr_defaults(self.settings, ocr_defaults()):
-                settings_snapshot = copy.deepcopy(self.settings)
-                self._repo.save(settings_snapshot)
-            return copy.deepcopy(self.settings.get("ocr", {}))
-
-    def get_detector_settings(self) -> Dict[str, Any]:
-        with self._file_lock:
-            if self._normalizer._fill_detector_defaults(self.settings, detector_defaults()):
-                settings_snapshot = copy.deepcopy(self.settings)
-                self._repo.save(settings_snapshot)
-            return copy.deepcopy(self.settings.get("detector", {}))
-
-    def get_inference_settings(self) -> Dict[str, Any]:
-        with self._file_lock:
-            if self._normalizer._fill_inference_defaults(self.settings, inference_defaults()):
-                settings_snapshot = copy.deepcopy(self.settings)
-                self._repo.save(settings_snapshot)
-            return copy.deepcopy(self.settings.get("inference", {}))
 
     def refresh(self) -> None:
         raw_settings = self._repo.load()
