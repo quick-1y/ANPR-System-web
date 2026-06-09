@@ -10,9 +10,16 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/web/favicon/logo-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/web/favicon/logo-180.png" />    
   </head>
-  <body data-app-style="graphite-minimal" data-theme="light">
+  <body>
     <div class="app-shell">
       <aside class="left-rail" id="leftRail">
+        <div class="rail-brand" aria-label="ANPR System">
+          <div class="rail-brand-mark">AN</div>
+          <div class="rail-brand-copy">
+            <span class="rail-brand-title">ANPR</span>
+            <span class="rail-brand-subtitle">Control Center</span>
+          </div>
+        </div>
         <div class="rail-nav">
           <div class="ttab active" data-tab="obs" title="Наблюдение">
             <span class="ttab-icon-wrap">
@@ -62,7 +69,10 @@
       <div class="main-shell">
         <div class="topbar">
           <div class="topbar-left">
-            <div class="topbar-title" id="topbarTitle">Наблюдение</div>
+            <div class="topbar-heading">
+              <span class="topbar-kicker">Командный центр</span>
+              <div class="topbar-title" id="topbarTitle">Наблюдение</div>
+            </div>
           </div>
           <div class="topbar-center">
             <div class="topbar-datetime-block">

@@ -36,7 +36,7 @@
 | `app/web/js/backup.js` | Backup/restore с JWT Bearer-заголовками |
 | `app/web/css/styles.css` | Общие layout/component-правила web UI; импортирует изолированные CSS-токены стилей из `app/web/css/themes/` |
 | `app/web/css/themes/graphite-minimal.css` | Дефолтный стиль Graphite Minimal со светлой и тёмной темами |
-| `app/web/css/themes/aurora.css` | Заглушка второго стиля Aurora со светлой и тёмной темами для дальнейшей отдельной доработки |
+| `app/web/css/themes/aurora.css` | Стиль Aurora с современным визуальным слоем, светлой и тёмной темами и отдельными layout-надстройками |
 | `app/web/` | Прочая статика web UI: JS-модули, CSS, иконки, изображения, флаги |
 
 ## `runtime/` — выполнение каналов
