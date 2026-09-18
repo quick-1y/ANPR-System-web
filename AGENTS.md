@@ -454,6 +454,24 @@ See `docs/roadmap/configuration-architecture.md` (section 5) for how this policy
 - Treat database dumps and settings backups as sensitive: they contain per-object credentials. Keep the `tab:settings` permission requirement on backup endpoints.
 - Never log or return a full `channels.source` URL or `controllers.password` in API responses.
 
+### Authorization Model — UNDECIDED, redesign pending
+
+**The target authorization architecture has not been chosen yet.** Tabs, navigation visibility and access control are being redesigned as a whole in the final phase of `docs/roadmap/configuration-architecture.md` (phase 11), which starts with its own audit. Do not treat any model as approved, and do not lock the codebase into one ahead of that decision.
+
+Known defects in the current implementation (documented in that roadmap, sections 2.7 and P18/P19):
+
+- `tab:settings` is the only permission the backend checks at all, and it now guards data export, database backup/restore, retention runs and user management — none of which is "is a tab visible";
+- `tab:obs`, `tab:journal`, `tab:clients` and `tab:zones` are never checked server-side; they hide tabs while the underlying endpoints stay open;
+- 46 endpoints are guarded by `Depends(get_current_user)` alone, including `DELETE /api/channels/{id}` and channel config writes;
+- `change_password` tests `"tab:settings" in permissions` inline in the handler body.
+
+Rules to follow in the meantime:
+
+- **Do not copy these patterns into new code**, and do not add new `require_permission("tab:settings")` call sites — the count is fixed at 18 and is a tracked invariant.
+- **Pick an endpoint's protection from who owns the data**, not from which UI screen calls it. Do not widen an administrative endpoint so a non-administrative feature can read one field from it — add or use the endpoint that owns that field.
+- New endpoints declare an **access level** (`public`, `self`, `admin-config`, `admin-data`, `admin-users`, `admin-debug`, `admin-devices`) through an adapter dependency in `app/api/deps.py`, rather than naming a permission directly. The adapters currently resolve to whatever the existing mechanism does for that area; phase 11 re-points them once. See section 4.11 of the roadmap.
+- **User preferences** (theme, style, sidebar state, timezone, later locale) are level `self` and require **no permission at all** — identity is the authorization. A user with an empty permission set must still be able to change their own theme. This holds regardless of which model phase 11 picks.
+
 ### Human Approval Required Before
 
 - deleting data or files;
