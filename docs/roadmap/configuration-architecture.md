@@ -1,0 +1,1251 @@
+# Roadmap: архитектура конфигурации и настроек
+
+Статус: **план, не реализовано**. Документ описывает целевую архитектуру хранения конфигурации ANPR System и пошаговый план перехода. До выполнения фаз ниже текущим runtime-контрактом остаётся `config/settings.yaml` + `.env`.
+
+Дата аудита: 2026-09-18. Редакция 3: приняты все решения (O-1…O-12); открытых архитектурных вопросов не осталось. Разделы 12 и 13 содержат единый реестр источников истины и сквозную проверку согласованности. Ветка: `dev`.
+
+Связанные документы: [`docs/guides/setup.md`](../guides/setup.md), [`docs/technical/architecture.md`](../technical/architecture.md), [`docs/technical/auth.md`](../technical/auth.md), [`AGENTS.md`](../../AGENTS.md), [`.planning/codebase/CONCERNS.md`](../../.planning/codebase/CONCERNS.md).
+
+---
+
+## 1. Что было проверено
+
+| Область | Файлы |
+|---|---|
+| Переменные окружения | `.env`, `.env.example`, `docker-compose.yml`, `Dockerfile` |
+| YAML-конфигурация | `config/settings.yaml`, `config/settings_schema.py`, `config/settings_normalizer.py`, `config/settings_repository.py`, `config/settings_manager.py` |
+| Конфигурация стран | `anpr/countries/*.yaml`, `anpr/postprocessing/country_config.py` |
+| Схема БД | `database/postgres/schema.sql`, `database/*_repository.py` (инлайновые `_SCHEMA`) |
+| Bootstrap | `app/api/main.py`, `app/api/container.py`, `app/worker/main.py` |
+| API-контракты | `app/api/schemas.py`, `app/api/routers/settings.py`, `.../data.py`, `.../debug.py`, `.../auth.py` |
+| Auth-конфигурация | `app/api/auth_utils.py`, `app/api/deps.py`, `database/user_repository.py` |
+| Runtime | `runtime/channel_runtime.py`, `runtime/debug.py`, `common/logging.py`, `common/cors.py`, `app/shared/data_lifecycle.py`, `app/shared/backup_service.py` |
+| Frontend | `app/web/index.html`, `app/web/js/{app,ui,settings,api,journal,events,debug,video-grid}.js`, `app/web/css/themes/*` |
+| Работа со временем | все места генерации и форматирования меток времени на бэкенде и фронтенде (см. 2.6) |
+| Инфраструктура | `nginx/default.conf`, `pyproject.toml` |
+
+---
+
+## 2. Инвентаризация текущей конфигурации
+
+### 2.1 Переменные окружения
+
+| Переменная | В `.env` | В `.env.example` | Читается кодом | Где | Комментарий |
+|---|---|---|---|---|---|
+| `JWT_SECRET_KEY` | да | да | да | `app/api/auth_utils.py:15` | Секрет; дефолт `anpr-default-secret-change-me` подставляется молча |
+| `JWT_EXPIRATION_MINUTES` | да | да | да | `app/api/auth_utils.py:17` | Читается на import-time модуля |
+| `POSTGRES_DSN` | да | да | да | `config/settings_manager.py:88` | Читается внутри YAML-слоя и подмешивается в секцию `storage` |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | да | да | нет (Python) | `docker-compose.yml` | Нужны только контейнеру `postgres` |
+| `POSTGRES_PORT` | **нет** | **нет** | нет | `docker-compose.yml` | Используется с дефолтом `5432`, но не описана в шаблоне |
+| `SETTINGS_PATH` | да | да | да | `config/settings_repository.py:15` | Исчезает вместе с YAML |
+| `HTTP_PORT` | да | да | нет | `docker-compose.yml` (порт nginx) | Инфраструктурный параметр публикации |
+| `CORS_ALLOWED_ORIGINS` | **нет** | да | да | `app/api/main.py:50` | Дрейф между `.env` и шаблоном |
+| `OMP_NUM_THREADS` | да | да | да | `app/api/main.py:31` + нативные библиотеки | Также зашита в `Dockerfile` ENV |
+| `MKL_NUM_THREADS` / `OPENBLAS_NUM_THREADS` | да | да | нет (Python) | нативные библиотеки, `Dockerfile` | Потребляются MKL/OpenBLAS напрямую |
+| `APP_ENV` | да | да | **нет** | — | Мёртвая переменная: пробрасывается compose, не читается нигде |
+| `DEBUG` | да | да | **нет** | — | Мёртвая переменная; дублирует секцию `debug` в YAML |
+| `LOG_LEVEL` | да | да | **нет** | — | Мёртвая переменная; дублирует `logging.level` в YAML |
+| `TZ` | нет | нет | — | не задана | Контейнер работает в UTC по умолчанию; зависимость неявная (см. 2.6) |
+
+### 2.2 `config/settings.yaml`
+
+| Секция / ключ | Дефолт в коде | Значение в файле | Доступен в UI | Кто потребляет | Требует перезапуск |
+|---|---|---|---|---|---|
+| `models.yolo_model_path` | `anpr/models/yolo/best.pt` | совпадает | нет | `AnprModelConfig` | да (пересборка processor) |
+| `models.ocr_model_path` | `.../crnn_ocr_model_int8_fx.pth` | совпадает | нет | `AnprModelConfig` | да |
+| `models.device` | `cpu` | `cpu` | нет | `AnprModelConfig.device` | да |
+| `debug.show_channel_metrics` | `False` | `true` | да (superadmin) | `DebugRegistry`, frontend | нет |
+| `debug.log_panel_enabled` | `False` | `false` | да (superadmin) | frontend | нет |
+| `debug.disable_video_output` | `False` | `false` | да (superadmin) | `ChannelProcessor` (серверный эффект) | нет |
+| `reconnect.signal_loss.*` | `enabled=True, 5, 5` | совпадает | да | `ChannelProcessor` (hot-reload) | нет |
+| `reconnect.periodic.enabled` | **`False`** | **`true`** | да | `ChannelProcessor` | нет |
+| `reconnect.periodic.interval_minutes` | `60` | `60` | да | `ChannelProcessor` | нет |
+| `storage.screenshots_dir` | `data/screenshots` | совпадает | нет | `ChannelProcessor`, `DataLifecycleService` | да |
+| `storage.logs_dir` | `logs` | совпадает | нет | `configure_logging` | нет (реконфигурация) |
+| `storage.auto_cleanup_enabled` | `True` | `true` | да | `RetentionPolicy` (worker) | да для worker |
+| `storage.cleanup_interval_minutes` | `30` | `30` | да | `RetentionPolicy` (worker) | да для worker |
+| `storage.events_retention_days` | `30` | `30` | да | `RetentionPolicy` (worker) | да для worker |
+| `storage.media_retention_days` | `14` | `14` | да | `RetentionPolicy` (worker) | да для worker |
+| `storage.max_screenshots_mb` | `4096` | `4096` | да | `RetentionPolicy` (worker) | да для worker |
+| `storage.postgres_dsn` | — (из env) | отсутствует в файле | **да, но запись игнорируется** | `AppContainer`, репозитории | — |
+| `plates.enabled_countries` | **`[RU, UA, BY, KZ]`** | **`[BY, KZ, RU]`** | да | pipeline постобработки | да (restart processor) |
+| `interface.style` | **`graphite-minimal`** | **`aurora`** | да | frontend (`data-app-style`) | нет |
+| `interface.theme` | **`light`** | **`dark`** | да | frontend (`data-theme`) | нет |
+| `interface.sidebar_locked` | `False` | `false` | да | frontend | нет |
+| `logging.level` | `ALL` | `ALL` | да | `configure_logging` | нет |
+| `logging.retention_days` | `30` | `30` | да | `_cleanup_old_logs` | нет |
+| `time.timezone` | **вычисляется из зоны ОС хоста** | `UTC+00:00` | да | **никто** | — |
+
+### 2.3 PostgreSQL
+
+| Таблица | DDL | Содержит конфигурацию |
+|---|---|---|
+| `channels` | `database/channel_repository.py:157` | 31 колонка настроек канала: ROI, motion/stride, OCR-пороги, привязки контроллера и зоны, фильтры списков |
+| `controllers` | `database/controller_repository.py:76` | Адрес, пароль, тип, JSONB-конфигурация реле (режим, таймер, hotkey) |
+| `users` | `database/user_repository.py:37` | `role`, `permissions` (JSONB) — конфигурация доступа. **Колонки предпочтений нет** |
+| `lists` / `clients` | `database/lists_repository.py:43` | Бизнес-данные, не конфигурация |
+| `zones` / `events` | `database/postgres/schema.sql` | Бизнес-данные; все метки времени — `TIMESTAMPTZ` |
+| — | — | **Таблицы настроек приложения не существует** |
+
+### 2.4 Конфигурация на стороне браузера
+
+| Механизм | Ключ | Назначение | Конфликтует с сервером |
+|---|---|---|---|
+| `localStorage` | `anpr_token` | JWT | нет |
+| `localStorage` | `anpr_theme` | Тема | **да** — `interface.theme` |
+| `localStorage` | `anpr_style` | Визуальный стиль | **да** — `interface.style` |
+| `localStorage` | `anpr_channel_order` | Порядок плиток видеосетки | нет (серверного аналога нет) |
+| **Cookies** | — | **не используются нигде в проекте** | — |
+
+Проверка подтвердила: ни `document.cookie` на фронтенде, ни `set_cookie`/`Set-Cookie` на бэкенде в проекте не встречаются. Аутентификация построена на JWT в `localStorage`, который передаётся заголовком `Authorization: Bearer` и параметром `?token=` для SSE и MJPEG. Cookie в системе сейчас нет ни одной.
+
+Кроме этого: размер видеосетки (`gridSelect`, дефолт `2x2`) зашит в `index.html` и не сохраняется между перезагрузками; список часовых поясов (27 `<option>`) зашит в `index.html`; списки стилей и тем зашиты одновременно в `index.html`, `config/settings_normalizer.py`, `app/api/schemas.py` и `app/web/js/ui.js`.
+
+### 2.5 Константы в коде, которые фактически являются настройками
+
+| Значение | Место | Природа |
+|---|---|---|
+| `OCR_IMAGE_HEIGHT/WIDTH`, `OCR_ALPHABET` | `anpr/model_config.py` | Настоящая константа (контракт весов модели) |
+| `DETECTION_CONFIDENCE_THRESHOLD = 0.5`, `BBOX_PADDING_RATIO`, `MIN_PADDING_PIXELS` | `anpr/model_config.py` | Дефолт качества распознавания — кандидат на операционную настройку |
+| `_DEFAULT_SUPERADMIN_LOGIN/PASSWORD = "superadmin"/"1234"` | `database/user_repository.py:15` | **Секрет развёртывания, зашитый в код** |
+| `_MAX_FAILED_ATTEMPTS = 5`, `_RATE_WINDOW_SECONDS = 60` | `app/api/routers/auth.py` | Политика безопасности — операционная настройка |
+| Минимальная длина пароля `4` | `app/api/schemas.py` (валидаторы) | Политика безопасности |
+| `JWT_ALGORITHM = "HS256"` | `app/api/auth_utils.py` | Настоящая константа |
+| `min_size=2, max_size=10` пула | `database/base.py:26` | Инфраструктурный параметр — кандидат на env |
+| `ThreadPoolExecutor(max_workers=2)` | `runtime/channel_runtime.py:97` | Инфраструктурный параметр |
+| `CLEANUP_INTERVAL_SECONDS = 3600` | `common/logging.py` | Операционный дефолт |
+| `AVAILABLE_PERMISSIONS` | `app/api/routers/auth.py` | Настоящая константа (контракт кода) |
+| `SUPPORTED_CONTROLLER_TYPES` | `config/settings_schema.py` | Настоящая константа (контракт драйверов) |
+| `DEFAULT_ROI_POINTS` | `config/settings_schema.py` | Дефолт, корректно зашит в код |
+
+### 2.6 Аудит источников отображаемого времени (к решению O-4)
+
+Проверено каждое место, где время создаётся, хранится, передаётся и отображается.
+
+| Слой | Источник времени | Таймзона | Файл |
+|---|---|---|---|
+| Метка времени события | `datetime.now(timezone.utc)` | **UTC**, aware | `runtime/channel_runtime.py:605` |
+| Запись события в БД | `time or datetime.now(timezone.utc).isoformat()` | **UTC**, aware | `database/postgres_event_repository.py:91` |
+| Хранение | колонки `TIMESTAMPTZ` (`time`, `time_entry`, `time_exit`, `created_at`, …) | **UTC** внутри PostgreSQL | `database/postgres/schema.sql` |
+| Метки JWT (`iat`, `exp`) | `datetime.now(timezone.utc)` | **UTC** | `app/api/auth_utils.py:36,43` |
+| Retention cutoff | `datetime.now(timezone.utc) - timedelta(...)` | **UTC** | `app/shared/data_lifecycle.py:65` |
+| Имена файлов бэкапов и экспорта | `datetime.now(timezone.utc).strftime(...)` | **UTC** | `app/shared/{backup_service,data_lifecycle}.py` |
+| Содержимое CSV-экспорта | значения `time` как есть из БД | **UTC**, без указания зоны в файле | `app/shared/data_lifecycle.py:127-136` |
+| Имена файлов логов и ротация по часу | `datetime.now().astimezone()` | **зона ОС контейнера** (сейчас UTC, т.к. `TZ` не задана) | `common/logging.py:78,84` |
+| Очистка старых логов | `datetime.now().astimezone()` | **зона ОС контейнера** | `common/logging.py:134` |
+| Часы в топбаре | `new Date()` — **часы рабочей станции оператора** | зона браузера, формат `ru-RU` | `app/web/js/ui.js:230-232` |
+| Журнал событий (дата и время) | `new Date(<ISO из API>)` | зона браузера, формат `ru-RU` | `app/web/js/journal.js:19-22` |
+| Лента событий | `toLocaleTimeString()` / `toLocaleString()` **без указания локали** | зона **и локаль** браузера | `app/web/js/events.js:90,248,271,272` |
+| Debug-панель | `toLocaleTimeString()` без локали | зона и локаль браузера | `app/web/js/debug.js:21` |
+| Фильтры журнала по датам | `<input type="datetime-local">` → `new Date(value).toISOString()` | значение трактуется **в зоне браузера** | `app/web/js/journal.js:45-46,151-152` |
+
+**Выводы аудита.**
+
+1. **Слой хранения уже корректен и однозначен.** Весь бэкенд пишет aware-UTC, БД хранит `TIMESTAMPTZ`, API отдаёт ISO-8601 со смещением. Менять модель хранения не нужно и нельзя.
+2. **Отображаемое время берётся не из системы, а с рабочей станции оператора.** Часы в топбаре показывают время клиентского компьютера. Если его часы сбиты, оператор видит одно время, а события записываются с другим — для системы контроля доступа это дефект, а не косметика.
+3. **Единой зоны отображения нет.** Каждый оператор видит журнал в зоне своего браузера. Один и тот же проезд у двух операторов в разных зонах отображается разным временем, что делает журнал непригодным как согласованный аудит-след.
+4. **Фильтры журнала молча смещаются.** `datetime-local` трактуется в зоне браузера, поэтому «с 08:00 до 18:00» у разных операторов выбирает разные диапазоны данных.
+5. **Форматирование непоследовательно даже внутри фронтенда.** Журнал принудительно использует `ru-RU`, а лента событий и debug-панель — локаль браузера. На рабочей станции с английской локалью часть интерфейса переключается на английский формат даты.
+6. **Экспорт CSV отдаёт UTC без указания зоны.** Оператор, открывший файл, не может определить, в какой зоне приведено время.
+7. **Логи привязаны к зоне ОС контейнера** — единственное место, зависящее от системной зоны. Сейчас это UTC только потому, что `TZ` не задана ни в `Dockerfile`, ни в `docker-compose.yml`. Установка `TZ` кем-либо сместит имена файлов логов и границы ротации, не затронув всё остальное.
+8. **`time.timezone` не пригоден к повторному использованию в текущем виде.** Причины: (а) значение хранится как фиксированное смещение `UTC±HH:MM`, которое не выражает переход на летнее время — для зон с DST (например, Украина, входящая в список поддерживаемых стран) метки будут смещены на час половину года; (б) дефолт вычисляется динамически из зоны ОС хоста в момент вызова `time_defaults()`, то есть «значение по умолчанию» различается между машинами и невоспроизводимо; (в) секция `time` не описывает, к чему относится зона — к хранению, логам или отображению.
+
+**Решение по O-4: переиспользовать замысел, но не значение.** Настройка сохраняется как функциональность, но переносится в `interface.display_timezone` с доменом IANA-идентификаторов (`Europe/Minsk`, `Europe/Kyiv`, `Europe/Moscow`, `Asia/Almaty`, `UTC`, …) вместо фиксированных смещений, со статическим дефолтом `UTC`. Секция `time` упраздняется. Полная модель — в 4.9.
+
+---
+
+## 3. Выявленные проблемы
+
+### P1. Нет единого источника истины для внешнего вида (подтверждённый баг)
+
+Тема разрешается тремя независимыми слоями без определённого приоритета:
+
+1. **До авторизации** — `app/web/js/app.js:297-299`: `localStorage.anpr_style || "graphite-minimal"`, `localStorage.anpr_theme || "light"`. Сервер не опрашивается, потому что все настроечные эндпоинты требуют JWT.
+2. **После авторизации** — `app/web/js/settings.js:50-54` внутри `loadGlobalSettings()` перезаписывает тему значением `interface.theme` из YAML (`dark`, стиль `aurora`).
+3. **Переключатель темы в топбаре** — `app/web/js/app.js:234-238` меняет `data-theme` и пишет в `localStorage`, но **не отправляет ничего на сервер**. Следующая перезагрузка страницы откатит выбор на значение из YAML.
+
+Наблюдаемое поведение: логин-экран светлый (код-дефолт), приложение тёмное (YAML), ручное переключение живёт до перезагрузки. Именно этот симптом был отправной точкой аудита.
+
+### P2. Внешний вид привязан к праву `tab:settings` (второй баг темы)
+
+`GET /api/settings` защищён `require_permission("tab:settings")` (`app/api/routers/settings.py:27`), а `app/web/js/app.js:369` вызывает `loadGlobalSettings()` только при наличии этого права. Оператор без доступа к настройкам **никогда не получает** `interface.*` и остаётся на код-дефолтах. Настроенная администратором тема инстанса не применяется к части пользователей — тема де-факто зависит от роли.
+
+### P3. Дефолты в коде расходятся со значениями в файле
+
+`interface.style` (`graphite-minimal` против `aurora`), `interface.theme` (`light` против `dark`), `reconnect.periodic.enabled` (`False` против `true`), `plates.enabled_countries` (`[RU,UA,BY,KZ]` против `[BY,KZ,RU]`). Поведение чистой установки и поведение текущего репозитория различаются, а «дефолт» не документирован ни там, ни там. Полное разрешение — в 4.10.
+
+### P4. Дефолты настроек канала продублированы в четырёх местах и конфликтуют
+
+| Параметр | `config/settings_schema.py` | `app/api/schemas.py` | DDL `channels` | fallback в `_row_to_dict` |
+|---|---|---|---|---|
+| `motion_release_frames` | `100` | **`6`** | `100` | — |
+| `max_plate_size` | **`400×100`** | `600×240` | `600×240` | `600×240` |
+| `show_channel_metrics` (debug) | `False` | **`True`** | — | `True` (`runtime/debug.py`) |
+
+Каждый слой заполняет пропуски своим значением, поэтому результат зависит от того, каким путём пришли данные: создание канала через API, чтение из БД или нормализация. Разрешение — в 4.10.
+
+### P5. Мёртвые настройки
+
+- `time.timezone` — хранится, нормализуется, валидируется, отображается в UI (27 опций), сохраняется, и **не используется ни одной строкой кода** (см. 2.6). По решению O-4 заменяется работающим механизмом, а не просто удаляется.
+- `APP_ENV`, `DEBUG`, `LOG_LEVEL` — пробрасываются compose, не читаются Python-кодом.
+- `SettingsManager.save_screenshot_dir`, `save_logs_dir`, `get_timezone`, `save_interface_settings`, `save_plate_settings`, `save_time_settings`, `save_reconnect`, `save_logging_config` — **ни одного вызова** вне самого модуля.
+
+### P6. Фантомный элемент управления: DSN в UI
+
+`storage.postgres_dsn` подмешивается в ответ `GET /api/settings` из переменной окружения (`config/settings_manager.py:88`), отображается в UI как редактируемое поле `g_postgres_dsn`, отправляется в `PUT /api/settings` — и молча отбрасывается (`sanitized_storage.pop("postgres_dsn")`). При этом `put_global_settings` сравнивает старый и новый DSN, чтобы решить, нужен ли перезапуск processor — сравнение всегда даёт равенство. Пользователь видит поле, редактирование которого не даёт ничего.
+
+### P7. Документированный API записи настроек мёртв, реальная запись идёт через приватные атрибуты
+
+`AGENTS.md` требует: «New settings sections require … get/save methods in `config/settings_manager.py`» и «Do not bypass `SettingsNormalizer`». Фактически `app/api/routers/settings.py:50-85` берёт `container.settings._file_lock`, мутирует `container.settings.settings` напрямую и вызывает `container.settings._repo.save(...)`, минуя и публичные `save_*`, и нормализатор (кроме ручного вызова `normalize_log_level`). Правило нарушено в единственном месте, где оно должно применяться.
+
+### P8. Два независимых пути записи retention-политики
+
+`PUT /api/settings` (секция `storage`) и `PUT /api/data/policy` (`app/api/routers/data.py:65-68`, через `save_storage_settings`) пишут одни и те же ключи разными способами. Порядок вызовов определяет результат; UI использует оба.
+
+### P9. API и worker имеют независимые копии настроек без инвалидации
+
+`AppContainer.build()` и `WorkerContainer.build()` создают по своему `SettingsManager`, каждый со своим in-memory кэшем поверх одного и того же файла. Изменение retention-политики через API **не доходит до retention-worker** до его перезапуска: `RetentionScheduler._loop` читает `self._lifecycle.policy`, зафиксированный на старте. Это фундаментальное ограничение файлового хранилища в многопроцессной топологии compose.
+
+### P10. Runtime-мутируемый файл под контролем версий, `.gitignore` отсутствует
+
+- `.gitignore` в репозитории **отсутствует**. `.env` с `JWT_SECRET_KEY` и `POSTGRES_PASSWORD` не отслеживается, но и не игнорируется — один `git add -A` от попадания секретов в историю. `AGENTS.md:231` утверждает, что `.env` gitignored — это не так.
+- `config/settings.yaml` **отслеживается git** и при этом перезаписывается приложением при каждом сохранении настроек и при любой нормализации на старте (`_normalize_and_persist_if_changed`). Любое изменение настроек в UI делает рабочее дерево грязным.
+- `.idea/` также не игнорируется.
+
+Это напрямую влияет на стратегию отката: политика «откат = возврат проекта к рабочей ревизии git» (раздел 5) работает корректно только тогда, когда рабочее дерево не засоряется runtime-артефактами.
+
+### P11. Дрейф схемы БД
+
+`database/postgres/schema.sql` (монтируется как `docker-entrypoint-initdb.d/01-schema.sql`) содержит только `zones`, `events`, `users`. Таблицы `channels`, `controllers`, `lists`, `clients` создаются лениво из инлайновых `_SCHEMA` в репозиториях. Итог: два источника DDL, инициализация контейнера создаёт неполную схему, а `AGENTS.md:75` называет `schema.sql` источником истины.
+
+### P12. Глобальные настройки там, где нужны пользовательские
+
+`interface.sidebar_locked`, `interface.theme`, `interface.style`, `debug.log_panel_enabled`, `debug.show_channel_metrics` по смыслу являются персональными предпочтениями оператора, но хранятся одним значением на весь инстанс. Два оператора не могут иметь разные темы; смена темы одним меняет её всем (после перезагрузки страницы).
+
+### P13. Секрет по умолчанию не проверяется
+
+`JWT_SECRET_KEY` молча падает на `anpr-default-secret-change-me`, если переменная не задана (`app/api/auth_utils.py:15`). Пароль первого суперадмина `1234` зашит в код. Ни одна из ситуаций не приводит ни к предупреждению на старте, ни к отказу запуска в production-режиме.
+
+### P14. Дублирование перечислений между слоями
+
+Допустимые значения `style`, `theme`, уровня логирования, типа контроллера, `direction filter`, `list filter mode` и списка таймзон перечислены одновременно в `config/settings_schema.py`, `config/settings_normalizer.py`, `app/api/schemas.py` (regex-паттерны), DDL-дефолтах, `app/web/index.html` (`<option>`) и `app/web/js/ui.js`. Добавление третьей темы требует правок в пяти файлах.
+
+### P15. i18n отсутствует полностью
+
+Ни `language`, ни `locale` в системе нет: весь UI — жёстко зашитые русские строки в `index.html` и JS, формат даты — `toLocaleDateString("ru-RU")`, сообщения об ошибках API — русские литералы. Настройка языка не «лежит не там» — её просто нет. Заводить её сейчас означало бы создать вторую мёртвую настройку.
+
+### P16. Отображаемое время не является свойством системы (см. 2.6)
+
+Часы в интерфейсе показывают время рабочей станции оператора, журнал и лента рендерятся в зоне браузера, фильтры по датам трактуются в зоне браузера, экспорт отдаёт UTC без пометки, а логи привязаны к зоне ОС контейнера. Единой зоны отображения у приложения нет, при этом настройка, которая должна была ею управлять, не подключена ни к чему.
+
+### P17. Тема протекает между пользователями на общей рабочей станции
+
+Выход из системы (`app/web/js/app.js:342-348`) вызывает `logoutRequest()`, `setToken(null)` и `location.reload()`. `setToken(null)` удаляет только ключ `anpr_token`; `anpr_theme` и `anpr_style` остаются в `localStorage`. На общем посту охраны следующий оператор входит и до завершения загрузки настроек видит тему предыдущего пользователя, а при отсутствии права `tab:settings` (P2) — остаётся в ней навсегда.
+
+---
+
+## 4. Целевая архитектура
+
+### 4.1 Классификация конфигурации
+
+Каждое значение относится ровно к одному классу. Класс определяет хранилище, права на изменение и момент загрузки.
+
+| Класс | Название | Хранилище | Кто меняет | Когда загружается | Эффект изменения |
+|---|---|---|---|---|---|
+| **D** | Deployment / инфраструктура | `.env` (+ `docker-compose.yml`) | инженер развёртывания | один раз при старте процесса, типизированно и с валидацией | требуется перезапуск контейнера |
+| **A** | Application / операционные | таблица `app_settings` | superadmin / admin через UI | при обращении, кэш с инвалидацией по `revision` | применяется без перезапуска либо с явной пометкой «требуется перезапуск» |
+| **U** | User preference | `users.preferences` (JSONB) | сам пользователь | после аутентификации | немедленно, только для этого пользователя |
+| **C** | Constant | константы в коде | разработчик | при импорте модуля | требуется релиз |
+| **L** | Local / device | `localStorage` браузера | пользователь неявно | при загрузке страницы | немедленно, только на этом устройстве |
+
+Правила принадлежности:
+
+- **D** — «без этого значения приложение не может стартовать или не может установить базовую инфраструктуру»: секреты, DSN, порты, точки монтирования, лимиты нативных потоков, CORS (применяется при конструировании middleware), пути к артефактам модели внутри образа.
+- **A** — «администратор должен иметь возможность изменить это во время эксплуатации без выпуска релиза, и значение одинаково для всего инстанса»: политика retention, логика переподключения, уровень логирования, список поддерживаемых стран, политики безопасности (включая TTL JWT), зона отображения времени, серверные debug-флаги, дефолт внешнего вида инстанса. Сюда же относится вся конфигурация каналов и контроллеров, которая уже хранится в собственных таблицах.
+- **U** — «значение связано с личностью, а не с инстансом или устройством»: тема, стиль, закреплённый сайдбар, видимость debug-панели и метрик, персональное переопределение зоны времени.
+- **C** — «изменение требует одновременного изменения кода или артефактов»: контракт весов модели (алфавит, размеры входа OCR), алгоритм JWT, реестр прав, реестр типов контроллеров, дефолтная геометрия ROI, дефолты всех ключей классов A и U.
+- **L** — «значение зависит от физического устройства или является ускорителем загрузки»: размер видеосетки, порядок плиток, кэш внешнего вида до первого ответа сервера.
+
+### 4.2 Правила источника истины и приоритета
+
+**Правило 1. У каждого значения ровно один источник истины.** Остальные слои могут быть только (а) кэшем с явной инвалидацией или (б) документированным bootstrap-fallback.
+
+**Правило 2. Разрешены только три формы многослойности, каждая с явным порядком:**
+
+| Форма | Порядок | Применимо к |
+|---|---|---|
+| Пользовательское предпочтение поверх дефолта инстанса | `users.preferences` → `app_settings` → константа | класс **U** |
+| Операционная настройка поверх кода | `app_settings` → константа | класс **A** |
+| Bootstrap-fallback до доступности БД | `.env` → константа, затем **однократное** переключение на `app_settings` | только `logging.level` |
+
+**Правило 3.** Класс **D** никогда не пересекается с классом **A**. Единственное исключение — `LOG_LEVEL`, и оно документировано: env определяет уровень логирования от момента запуска процесса до первого успешного чтения `app_settings`; далее источником истины становится БД, а env-значение не применяется до следующего запуска.
+
+**Правило 4. Точное правило для клиентского хранилища (`localStorage`, cookies, память вкладки).**
+
+1. Клиентское хранилище **никогда не является источником истины** ни для одного значения, у которого есть серверный владелец.
+2. Оно допустимо ровно в двух ролях:
+   - **кэш быстрой загрузки** — копия значения, уже полученного от сервера, применяемая синхронно до прихода ответа, чтобы избежать мигания интерфейса;
+   - **состояние устройства (класс L)** — значение, у которого серверного владельца нет по определению, потому что оно зависит от конкретного экрана или рабочего места.
+3. Любой успешный ответ сервера **безусловно перезаписывает** кэш. Расхождение всегда разрешается в пользу сервера, а не «последней записи».
+4. Кэш, относящийся к личности пользователя, **обязан очищаться при выходе и при входе под другой учётной записью** и хранится под ключом, привязанным к идентификатору пользователя (см. 4.3). Это прямое требование, закрывающее P17.
+5. **Cookies в этом проекте не вводятся.** Обоснование: в системе нет ни одной cookie, аутентификация построена на JWT в `localStorage` с заголовком `Authorization`, поэтому cookie для темы стала бы единственной cookie в приложении и потребовала бы отдельных решений по `SameSite`, `Secure` и взаимодействию с уже выстроенным CORS/CSRF-контуром, не давая ничего сверх возможностей `localStorage`. Cookie имела бы преимущество только при серверном рендеринге страницы (возможность выбрать тему до отдачи HTML), которого здесь нет — `index.html` статичен и отдаётся `StaticFiles`.
+6. Отключённое или недоступное клиентское хранилище (приватное окно, политика браузера) **не должно ломать приложение**: любой доступ оборачивается в `try/catch`, а отсутствие кэша означает лишь ожидание ответа сервера.
+
+**Правило 5.** Если значение никем не потребляется — оно либо подключается к реальному потребителю, либо удаляется. Хранить настройку «на будущее» запрещено; зарезервированные ключи помечаются явным флагом `reserved` в реестре и не появляются в UI.
+
+### 4.3 Архитектура персональной темы (решение O-7)
+
+#### Источник истины
+
+**`users.preferences` в PostgreSQL — единственный источник истины для персональных настроек внешнего вида.** `localStorage` используется исключительно как кэш быстрой загрузки по правилу 4. Cookies не используются (правило 4.5).
+
+Обоснование выбора против альтернатив:
+
+| Вариант | Оценка |
+|---|---|
+| Только `localStorage` | Отклонён: предпочтение не переезжает между рабочими местами, теряется при очистке браузера и протекает между пользователями общей станции (P17) |
+| Cookie как источник истины | Отклонён: см. правило 4.5 — новый механизм без выигрыша, с дополнительными решениями по `SameSite`/`Secure` |
+| `users.preferences` + `localStorage` как кэш | **Выбран**: один серверный владелец, предпочтение следует за учётной записью на любом рабочем месте, кэш убирает мигание при загрузке |
+
+#### Порядок разрешения
+
+```text
+Тема:  users.preferences.theme  →  app_settings['interface.default_theme']  →  'light'
+Стиль: users.preferences.style  →  app_settings['interface.default_style']  →  'graphite-minimal'
+```
+
+Тот же порядок применяется к `sidebar_locked` и к персональному переопределению зоны времени (4.9).
+
+#### Поведение по сценариям
+
+| Сценарий | Что происходит |
+|---|---|
+| **Первый запуск, предпочтений нет** | Применяется дефолт инстанса; если и он не задан — код-константы: стиль **Graphite Minimal**, тема **light** |
+| **Логин-экран (пользователь ещё не известен)** | Синхронно применяется обезличенный кэш `anpr_appearance_instance`, затем выполняется `GET /api/public/appearance` и результат применяется и перезаписывает кэш. Персональные предпочтения на логин-экране не применяются никогда |
+| **Вход выполнен** | `GET /api/me/preferences` возвращает разрешённые значения; они применяются и кладутся в кэш `anpr_appearance_user:<user_id>` |
+| **Пользователь переключил тему** | `PATCH /api/me/preferences` — запись в БД; кэш обновляется после успешного ответа. При ошибке сети изменение откатывается в интерфейсе и показывается уведомление: молчаливое расхождение с сервером недопустимо |
+| **Перезагрузка страницы** | Кэш применяется синхронно (без мигания), затем подтверждается ответом сервера. Выбор сохраняется, потому что он лежит в БД, а не в браузере |
+| **Выход из системы** | Удаляются `anpr_token` и **все** ключи `anpr_appearance_user:*`; интерфейс возвращается к дефолту инстанса |
+| **Вход другого пользователя на той же станции** | Ключ кэша привязан к `user_id`, а при выходе персональные ключи уже удалены, поэтому чужая тема не наследуется ни на мгновение |
+| **Пользователь без права `tab:settings`** | Получает и дефолт инстанса, и свои предпочтения: разрешение внешнего вида выполняется в bootstrap и не зависит от `loadGlobalSettings()` |
+| **`localStorage` недоступен** | Приложение работает; отсутствует только подавление мигания на время первого запроса |
+
+#### Ответы на контрольные вопросы
+
+| Вопрос | Ответ |
+|---|---|
+| Дефолт темы и стиля | `light` и `graphite-minimal` — константы `INTERFACE_DEFAULTS` в `config/registry.py` (класс **C**) |
+| Дефолт инстанса | `app_settings['interface.default_theme']`, `['interface.default_style']` — правит admin (класс **A**) |
+| Предпочтение пользователя | `users.preferences.theme`, `.style`, `.sidebar_locked` (класс **U**) |
+| Чем управляется логин-экран | публичным `GET /api/public/appearance` плюс обезличенный кэш |
+| Чем управляется приложение после входа | `GET /api/me/preferences` |
+| Если предпочтения нет | наследуется дефолт инстанса, затем код-константа |
+| Источник истины | предпочтение пользователя, когда задано; иначе дефолт инстанса. `localStorage` — только кэш |
+
+Эта модель закрывает P1 (единый порядок и сохранение выбора), P2 (независимость от прав), P12 (персональность) и P17 (отсутствие протечки между пользователями).
+
+### 4.4 Целевое размещение всех значений
+
+#### Класс D — `.env`
+
+| Значение | Переменная | Изменение относительно текущего состояния |
+|---|---|---|
+| Секрет JWT | `JWT_SECRET_KEY` | без изменений; добавляется fail-fast проверка |
+| DSN PostgreSQL | `POSTGRES_DSN` | читается типизированным env-слоем, а не YAML-слоем; удаляется из API и UI |
+| Учётные данные контейнера БД | `POSTGRES_DB/USER/PASSWORD/PORT` | `POSTGRES_PORT` добавляется в `.env.example` |
+| Публикуемый порт | `HTTP_PORT` | без изменений |
+| CORS allow-list | `CORS_ALLOWED_ORIGINS` | добавляется в `.env` (сейчас только в шаблоне) |
+| Лимиты нативных потоков | `OMP/MKL/OPENBLAS_NUM_THREADS` | без изменений |
+| Каталог скриншотов | `ANPR_MEDIA_DIR` | **переезд из `storage.screenshots_dir`** |
+| Каталог логов | `ANPR_LOGS_DIR` | **переезд из `storage.logs_dir`** |
+| Путь к весам YOLO | `ANPR_YOLO_MODEL_PATH` | **переезд из `models.yolo_model_path`** |
+| Путь к весам OCR | `ANPR_OCR_MODEL_PATH` | **переезд из `models.ocr_model_path`** |
+| Устройство инференса | `ANPR_DEVICE` | **переезд из `models.device`** |
+| Пароль первичного суперадмина | `BOOTSTRAP_SUPERADMIN_PASSWORD` | **переезд из константы `"1234"`** |
+| Bootstrap-уровень логирования | `LOG_LEVEL` | **начинает читаться** (сейчас мёртвая) |
+| Границы пула БД | `POSTGRES_POOL_MIN` / `POSTGRES_POOL_MAX` | **переезд из `database/base.py:26`** |
+| Режим окружения | `APP_ENV` | **начинает читаться**: значение `production` включает строгие проверки |
+| Системная зона контейнера | `TZ=UTC` | **фиксируется явно** в `Dockerfile`, чтобы логи не зависели от хоста (4.9) |
+| Путь к YAML | `SETTINGS_PATH` | **удаляется** вместе с `settings.yaml` |
+| Флаг `DEBUG` | — | **удаляется**: дублирует класс A |
+
+#### Класс A — таблица `app_settings`
+
+| Ключ | Откуда переезжает | Применяется без перезапуска |
+|---|---|---|
+| `reconnect.signal_loss.enabled/frame_timeout_seconds/retry_interval_seconds` | `settings.yaml` | да (`update_reconnect_settings`) |
+| `reconnect.periodic.enabled/interval_minutes` | `settings.yaml` | да |
+| `retention.auto_cleanup_enabled` | `storage.auto_cleanup_enabled` | да, после propagation в worker |
+| `retention.cleanup_interval_minutes` | `storage.cleanup_interval_minutes` | да |
+| `retention.events_retention_days` | `storage.events_retention_days` | да |
+| `retention.media_retention_days` | `storage.media_retention_days` | да |
+| `retention.max_screenshots_mb` | `storage.max_screenshots_mb` | да |
+| `logging.level` | `logging.level` | да |
+| `logging.retention_days` | `logging.retention_days` | да |
+| `plates.enabled_countries` | `plates.enabled_countries` | нет — требует перезапуска processor (флаг в реестре) |
+| `interface.default_theme` / `interface.default_style` | `interface.theme` / `interface.style` | да |
+| **`interface.display_timezone`** | **`time.timezone`, с заменой домена значений** | да (4.9) |
+| `debug.video_output_enabled` | `debug.disable_video_output` (инвертируется) | да |
+| `auth.token_ttl_minutes` | env `JWT_EXPIRATION_MINUTES` | да, для новых токенов |
+| `auth.login_rate_limit_attempts` / `auth.login_rate_limit_window_seconds` | константы `app/api/routers/auth.py` | да |
+| `detection.confidence_threshold` | `anpr/model_config.py` | нет — требует перезапуска processor |
+
+Конфигурация каналов (`channels`) и контроллеров (`controllers`) относится к классу A и уже хранится в собственных таблицах — переносить её в `app_settings` не требуется, требуется лишь свести её дефолты к реестру (задача 3.1).
+
+#### Класс U — `users.preferences`
+
+| Ключ | Откуда переезжает |
+|---|---|
+| `theme` | `interface.theme` (был глобальным) плюс `localStorage.anpr_theme` |
+| `style` | `interface.style` (был глобальным) плюс `localStorage.anpr_style` |
+| `sidebar_locked` | `interface.sidebar_locked` (был глобальным) |
+| `debug_panel_enabled` | `debug.log_panel_enabled` |
+| `channel_metrics_visible` | `debug.show_channel_metrics` |
+| `timezone` | новый ключ; `"auto"` означает «зона инстанса» (4.9) |
+
+#### Класс C — константы кода
+
+`OCR_ALPHABET`, `OCR_IMAGE_HEIGHT/WIDTH`, `BBOX_PADDING_RATIO`, `MIN_PADDING_PIXELS`, `JWT_ALGORITHM`, `AVAILABLE_PERMISSIONS`, `SUPPORTED_CONTROLLER_TYPES`, `DEFAULT_ROI_POINTS`, минимальная длина пароля, допустимые значения перечислений, дефолты всех ключей классов A и U.
+
+#### Класс L — `localStorage`
+
+| Ключ | Роль |
+|---|---|
+| `anpr_token` | JWT сессии |
+| `anpr_channel_order` | порядок плиток видеосетки — состояние устройства |
+| `anpr_grid_size` | новый: размер видеосетки, сейчас теряется при перезагрузке |
+| `anpr_appearance_instance` | кэш обезличенного дефолта инстанса (для логин-экрана) |
+| `anpr_appearance_user:<user_id>` | кэш предпочтений конкретного пользователя; удаляется при выходе |
+
+Ключи `anpr_theme` и `anpr_style` удаляются.
+
+### 4.5 Отклонения от исходно предложенного разделения
+
+| # | Предложение | Уточнение | Обоснование |
+|---|---|---|---|
+| 1 | «model configuration → БД» | `models.*` → **env (класс D)** | Это пути к артефактам внутри образа плюс селектор оборудования. Смена пути без наличия весов в образе ломает запуск; выбор устройства зависит от хоста, а не от продукта. Порог распознавания (`detection.confidence_threshold`) — действительно класс A и выносится в БД отдельно. |
+| 2 | «language / locale → БД» | **не заводить сейчас**; зарезервировать `users.preferences.locale` и `app_settings['interface.default_locale']` с флагом `reserved` | В системе нет слоя локализации (P15). Настройка без потребителя воспроизвела бы ситуацию с `time.timezone`. |
+| 3 | «ports / host binding → env, где уместно» | `HTTP_PORT` остаётся в env; порты uvicorn **остаются в `docker-compose.yml`** как часть команды | Порты процессов внутри compose-сети — часть топологии развёртывания; вынос их в env создаёт значение, способное рассинхронизироваться с `command` и healthcheck. |
+| 4 | «operational settings → БД» (включая каталоги) | `screenshots_dir`, `logs_dir` → **env (класс D)** | Это точки монтирования volume (`media_data:/app/data`, `logs_data:/app/logs`). Значение, изменённое администратором в UI на немонтированный путь, тихо уводит запись данных в слой контейнера и приводит к потере при пересоздании. |
+| 5 | «JWT configuration → env» | секрет и алгоритм — env и код; **TTL токена → БД (класс A)** | Секрет — материал шифрования, TTL — политика безопасности, которую администратор должен менять во время эксплуатации. Решение подтверждено требованием «security policies such as JWT TTL» в постановке. |
+
+### 4.6 Схема БД
+
+```sql
+-- Операционная конфигурация: одна строка на конечный ключ
+CREATE TABLE IF NOT EXISTS app_settings (
+    key        TEXT        PRIMARY KEY,
+    value      JSONB       NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by BIGINT      REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Счётчик ревизий для инвалидации кэша между процессами (api и retention_worker)
+CREATE TABLE IF NOT EXISTS app_settings_revision (
+    id         SMALLINT    PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    revision   BIGINT      NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO app_settings_revision (id) VALUES (1) ON CONFLICT DO NOTHING;
+
+-- Пользовательские предпочтения
+ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
+```
+
+Решения по схеме:
+
+- **Строка на ключ, а не один JSONB-документ.** Даёт частичную запись без потери чужих изменений, аудит (`updated_by`, `updated_at`) на уровне значения и корректную работу при параллельных запросах из разных вкладок.
+- **Ключи с точками** (`retention.events_retention_days`) отражают структуру реестра и позволяют читать поддерево одним запросом.
+- **Отсутствующий ключ не является ошибкой** — значение берётся из реестра дефолтов. Поэтому таблица не требует предварительного заполнения, новая настройка не требует DDL, а чистая установка сразу работает на дефолтах без шага инициализации данных.
+- **Инвалидация через счётчик ревизий**: каждая запись инкрементирует `revision`; читающие процессы кэшируют значения и раз в N секунд выполняют `SELECT revision`. `LISTEN/NOTIFY` рассматривался и отложен — он требует выделенного соединения вне пула.
+- **DDL добавляется напрямую** в `database/postgres/schema.sql` и в репозитории, без миграционных модулей (раздел 5). `ALTER TABLE ... IF NOT EXISTS` для `users.preferences` идемпотентен и применяется при ленивом bootstrap схемы — это не механизм миграции версий, а часть определения схемы.
+
+### 4.7 Изменения API
+
+| Эндпоинт | Действие | Право |
+|---|---|---|
+| `GET /api/public/appearance` | **новый**. Возвращает `{default_theme, default_style}`. Без аутентификации, без секретов | публичный |
+| `GET /api/me/preferences` | **новый**. Разрешённые значения плюс `source` для каждого ключа | любой аутентифицированный |
+| `PATCH /api/me/preferences` | **новый**. Частичное обновление, валидация по реестру | любой аутентифицированный, только свои |
+| `GET /api/system/time` | **новый**. Возвращает `{server_utc, display_timezone, timezone_configured}`, где `display_timezone` — зона, **разрешённая для вызывающего пользователя** (с учётом его переопределения), а `timezone_configured` показывает, задавал ли администратор зону явно (4.9) | любой аутентифицированный |
+| `GET /api/settings` | Пересобирается: `reconnect`, `retention`, `logging`, `plates`, `interface` (дефолты инстанса и `display_timezone`), `auth`, `debug`. Убираются `storage.postgres_dsn`, `storage.*_dir`, `time`, `models` | `tab:settings` |
+| `PUT /api/settings` | Переводится на `PATCH`-семантику по ключам реестра; запись через сервис, а не через приватные атрибуты. Возвращает `requires_restart: [...]` | `tab:settings` |
+| `GET /api/settings/schema` | **новый**. Допустимые значения перечислений и список таймзон из реестра | аутентифицированный |
+| `PUT /api/data/policy` | **удаляется** (дублирует секцию retention) | — |
+| `GET/PUT /api/debug/settings` | Остаётся только серверный флаг `video_output_enabled`; персональные флаги переезжают в `/api/me/preferences` | superadmin |
+| `GET /api/data/backup/settings` | Меняет формат: JSON-дамп `app_settings` вместо файла YAML | `tab:settings` |
+| `POST /api/data/backup/settings/restore` | Принимает только JSON-дамп текущего формата, валидирует по реестру, пишет в БД. Приём YAML не реализуется | `tab:settings` |
+| Экспорт событий (CSV/ZIP) | Время форматируется в зоне отображения, зона указывается в заголовке колонки и в имени файла (4.9) | `tab:settings` |
+
+### 4.8 Изменения frontend
+
+1. `app/web/js/appearance.js` (новый) — единственный владелец разрешения темы и стиля по правилу из 4.3, включая кэш-ключи и их очистку при выходе.
+2. `app/web/js/datetime.js` (новый) — единственный владелец форматирования дат и времени по модели 4.9.
+3. `app/web/js/app.js` — bootstrap вызывает `GET /api/public/appearance` до показа логин-оверлея; при выходе удаляются персональные кэш-ключи; `applyStyle` и `applyTheme` больше не пишут в `localStorage` самостоятельно.
+4. `app/web/js/settings.js` — секция «Интерфейс» делится на «Дефолт инстанса» (требует `tab:settings`) и «Мои предпочтения» (доступна всем).
+5. `app/web/js/ui.js` — переключатель темы вызывает `PATCH /api/me/preferences`; часы топбара переводятся на серверное время; форматирование переносится в `datetime.js`.
+6. `app/web/js/{journal,events,debug}.js` — единое форматирование через `datetime.js`, единая локаль, фильтры журнала трактуются в зоне отображения.
+7. Удаляются поле `g_postgres_dsn` и поля каталогов; `g_timezone` пересобирается на IANA-значения из `GET /api/settings/schema`.
+8. Размер видеосетки сохраняется в `localStorage` (класс L).
+
+### 4.9 Архитектура отображаемого времени и таймзон (решение O-4)
+
+#### Четыре слоя и решение по каждому
+
+| Слой | Роль в системе | Решение |
+|---|---|---|
+| **Системная зона ОС** (контейнер, хост) | не должна влиять ни на что | Фиксируется `TZ=UTC` в `Dockerfile`. Код не имеет права принимать решения на основе зоны ОС; `datetime.now()` без `tz` запрещён (проверяется тестом-инвариантом) |
+| **Зона хранения** | метки событий, аудит, retention | **Всегда UTC.** Уже реализовано корректно (2.6) и закрепляется как инвариант: запись только `datetime.now(timezone.utc)`, хранение только `TIMESTAMPTZ`, передача только ISO-8601 со смещением |
+| **Зона приложения (инстанса)** | как время выглядит для всех, кто работает с этой установкой | **Основной слой отображения.** `app_settings['interface.display_timezone']`, класс A, домен — IANA-идентификаторы, дефолт `UTC` |
+| **Зона пользователя** | опциональное личное переопределение | `users.preferences.timezone`, класс U. Значение `"auto"` (по умолчанию) означает «использовать зону инстанса». Явная зона задаётся только сознательно |
+| **Зона браузера** | аварийный резерв | Используется, только если зону отображения не удалось получить (например, БД недоступна и `SettingsService` работает в degraded-режиме), и в этом случае интерфейс явно помечает показанную зону рядом со временем. На логин-экране время не отображается, поэтому до входа зона не требуется |
+
+#### Почему зона инстанса, а не зона браузера
+
+Установка ANPR физически привязана к объекту: камеры, шлагбаумы и пост охраны находятся в одном месте. Журнал проездов — аудит-след, и один и тот же проезд обязан выглядеть одинаково у всех, кто его просматривает, включая удалённого администратора. Если оставить зону браузера, два оператора увидят для одного события разное время, а фильтры «с 08:00 до 18:00» выберут разные наборы данных (P16). Поэтому зона инстанса — основной слой, а персональное переопределение существует только для удалённых администраторов и по умолчанию выключено (`auto`).
+
+#### Порядок разрешения
+
+```text
+display_timezone = users.preferences.timezone (если задана и ≠ 'auto')
+                 → app_settings['interface.display_timezone']
+                 → 'UTC'
+```
+
+#### Домен значений
+
+IANA-идентификаторы (`Europe/Minsk`, `Europe/Kyiv`, `Europe/Moscow`, `Asia/Almaty`, `UTC`, …), а не фиксированные смещения `UTC±HH:MM`. Причина — переходы на летнее время: для зон с DST фиксированное смещение даёт ошибку в один час на половину года, а среди поддерживаемых стран такие зоны есть. Список для UI отдаёт `GET /api/settings/schema`, а не хардкод из 27 `<option>`.
+
+#### Значение по умолчанию и обязательность явной настройки (решение O-11)
+
+**Код-дефолт — `UTC`.** Обоснование:
+
+1. **Воспроизводимость.** Текущий дефолт вычисляется из зоны ОС хоста в момент вызова, поэтому «значение по умолчанию» различается между машиной разработчика, CI и сервером. Любой дефолт, зависящий от среды, — это тот же дефект, который устраняется. Дефолт обязан быть статической константой.
+2. **Отсутствие скрытого преобразования.** `UTC` совпадает с зоной хранения, поэтому до явной настройки интерфейс показывает ровно то, что лежит в базе. Любой другой код-дефолт создавал бы молчаливое смещение между данными и их отображением — самый опасный класс ошибок для аудит-следа.
+3. **Отказ от угадывания региона в коде.** Выбор конкретной региональной зоны — свойство конкретной установки, а не продукта. Зашивать её в код означало бы принять продуктовое решение за все будущие развёртывания.
+
+**Однако `UTC` по умолчанию не должен молча выглядеть как осознанная настройка.** Схема «строка на ключ» (4.6) даёт это различие бесплатно: строка в `app_settings` появляется только при явной записи администратором.
+
+| Состояние | Признак | Поведение |
+|---|---|---|
+| Зона никогда не настраивалась | строки `interface.display_timezone` в `app_settings` нет | применяется `UTC`; `timezone_configured = false`; в разделе настроек показывается заметное уведомление «зона отображения не настроена»; рядом со временем в журнале и на часах выводится метка зоны |
+| Администратор явно выбрал зону (в том числе `UTC`) | строка присутствует | применяется выбранная зона; `timezone_configured = true`; уведомление не показывается |
+
+Метка зоны в заголовке журнала, в заголовке колонки времени при экспорте и в имени файла экспорта выводится **всегда**, независимо от состояния настройки: для аудит-данных метка времени без указания зоны неполна.
+
+Требование постановки выполняется: зона отображения задаётся администратором в UI в любой момент после установки, согласно фактическому региону развёртывания, и вступает в силу без перезапуска.
+
+#### Что меняется в каждом слое
+
+| Компонент | Сейчас | Становится |
+|---|---|---|
+| Часы в топбаре | часы рабочей станции оператора | серверное UTC-время, полученное один раз через `GET /api/system/time`, далее тикающее локально с вычисленной поправкой и отрисованное в зоне отображения |
+| Журнал, лента, debug-панель | зона и локаль браузера, форматирование в трёх разных стилях | единое форматирование через `datetime.js` с `Intl.DateTimeFormat` и явным `timeZone` |
+| Фильтры журнала (`datetime-local`) | значение трактуется в зоне браузера | значение трактуется в зоне отображения, затем конвертируется в UTC для API |
+| CSV/ZIP-экспорт | UTC без пометки | время в зоне отображения, зона указана в заголовке колонки и в имени файла |
+| Имена файлов логов и ротация | зона ОС контейнера | явный UTC (закрепляется `TZ=UTC` и заменой `datetime.now().astimezone()` на aware-UTC) |
+| Хранение и API | UTC | без изменений — закрепляется тестом-инвариантом |
+
+#### Технические требования
+
+- Бэкенду нужен доступ к базе IANA для форматирования экспорта: `zoneinfo` в Python 3.13 использует системную базу, которой **нет на машинах разработки под Windows** — проверено, `ZoneInfo('Europe/Minsk')` там падает с `ZoneInfoNotFoundError`. Поэтому в `pyproject.toml` добавляется зависимость `tzdata`, а в образ — пакет `tzdata`. Без этого тесты зоны не пройдут локально, а экспорт упадёт в некоторых сборках.
+- Фронтенду внешняя библиотека не нужна: `Intl.DateTimeFormat` с параметром `timeZone` поддерживает IANA-зоны нативно.
+- Валидация значения выполняется по реестру и через попытку построить `ZoneInfo`; некорректная зона отклоняется на записи, а не при отображении.
+
+### 4.10 Разрешение всех конфликтующих дефолтов
+
+**Правило разрешения.** `AGENTS.md` уже называет `config/settings_schema.py` источником истины для значений по умолчанию («Settings schema | `config/settings_schema.py` | Default values and settings structure»). Оба явно принятых решения (`max_plate_size = 400×100`, `motion_release_frames = 100`) совпадают именно с этим модулем, поэтому правило применяется единообразно: **при расхождении побеждает значение из `config/settings_schema.py`**, а остальные слои приводятся к нему. После фазы 3 источником станет `config/registry.py`, унаследовавший эти значения.
+
+| # | Параметр | Конфликтующие значения | **Решение** | Что правится |
+|---|---|---|---|---|
+| 1 | `motion_release_frames` | `100` (schema, DDL) против `6` (pydantic) | **`100`** (решение пользователя) | дефолт в `app/api/schemas.py` |
+| 2 | `max_plate_size` | `400×100` (schema) против `600×240` (DDL, pydantic, fallback) | **`400×100`** (решение пользователя) | DDL `channels`, `app/api/schemas.py`, fallback в `_row_to_dict` |
+| 3 | `debug.show_channel_metrics` | `False` (schema) против `True` (pydantic, `DebugSettings.from_dict`) и `true` (yaml) | **`False`** — debug-функция должна быть выключена, пока её не включили | `app/api/schemas.py`, `runtime/debug.py` |
+| 4 | `reconnect.periodic.enabled` | `False` (schema, pydantic) против `true` (yaml) | **`False`** | значение в `app_settings` берётся из реестра |
+| 5 | `plates.enabled_countries` | `[RU, UA, BY, KZ]` (schema) против `[BY, KZ, RU]` (yaml) | **`[RU, UA, BY, KZ]`** — все четыре конфигурации присутствуют в `anpr/countries/` | реестр |
+| 6 | `interface.style` | `graphite-minimal` (schema) против `aurora` (yaml) | **`graphite-minimal`** (подтверждено решением по теме) | реестр |
+| 7 | `interface.theme` | `light` (schema) против `dark` (yaml) | **`light`** | реестр |
+| 8 | `time.timezone` | динамически вычисляемая зона ОС хоста против `UTC+00:00` в файле | **упраздняется**; `interface.display_timezone` получает статический дефолт **`UTC`** | реестр, 4.9 |
+| 9 | `min_plate_size` | `80×20` во всех слоях | конфликта нет, значение сохраняется | — |
+| 10 | Дефолты retention (`30/30/14/4096`) | совпадают в schema и `RetentionPolicyPayload` | конфликта нет | — |
+| 11 | `direction_defaults` | единственный источник | конфликта нет | — |
+
+Отдельно фиксируется: изменение дефолта `max_plate_size` на `400×100` затрагивает только вновь создаваемые каналы — существующие строки `channels` сохраняют свои значения. Поскольку фильтр размера включён по умолчанию (`size_filter_enabled = True`), задача 3.1 включает проверку того, что при типичных разрешениях кадра и близком расположении камеры номер не отбраковывается как «слишком большой»; результат проверки фиксируется в описании параметра в реестре.
+
+### 4.11 Где живут секреты: инфраструктурные против пообъектных
+
+Правило «секреты хранятся в окружении» относится **только к инфраструктурным секретам**, без которых процесс не может стартовать или установить базовое подключение. Оно не означает, что любое чувствительное значение обязано лежать в `.env`. Различие обязательно к соблюдению, иначе правило будет применено ошибочно при следующем изменении.
+
+| Тип секрета | Примеры | Где хранится | Почему |
+|---|---|---|---|
+| **Инфраструктурный** | `JWT_SECRET_KEY`, `POSTGRES_DSN` и пароль БД, `BOOTSTRAP_SUPERADMIN_PASSWORD` | **`.env`, класс D** | Требуются до того, как приложение способно прочитать что-либо из БД. Существуют в единственном экземпляре на развёртывание и меняются только при переразвёртывании или ротации |
+| **Пообъектный (учётные данные оборудования)** | пароль контроллера (`controllers.password`), учётные данные RTSP внутри `channels.source` | **PostgreSQL, класс A** | Принадлежат конкретной записи оборудования, существуют во множестве экземпляров, добавляются и меняются операторами во время эксплуатации через UI. Вынос их в `.env` сделал бы добавление камеры операцией переразвёртывания |
+| **Производный от пользователя** | bcrypt-хеши паролей (`users.password`) | **PostgreSQL** | Часть пользовательских данных; в конфигурации не участвуют |
+
+Следствия, обязательные к учёту:
+
+- Дамп базы данных и бэкап настроек содержат пообъектные секреты. Эндпоинты бэкапа уже требуют права `tab:settings`; при изменениях фазы 9 это ограничение сохраняется, а файлы дампов трактуются как чувствительные.
+- Логи и ответы API не должны содержать ни `controllers.password`, ни строку `channels.source` целиком с учётными данными.
+- Утверждения в `AGENTS.md` о том, что учётные данные RTSP и пароли контроллеров лежат в `config/settings.yaml`, устарели: эти значения давно в PostgreSQL. Исправляется в рамках финальной правки `AGENTS.md` и задачи 10.1.
+
+---
+
+## 5. Стратегия перехода (решение O-5)
+
+**Миграционные модули не создаются.** Проект находится в активной разработке; поддержка обновления произвольных старых версий не является требованием. Переход выполняется как прямая замена архитектуры, а не как миграция.
+
+Из этого следуют жёсткие правила для всех фаз ниже:
+
+1. **Никакого модуля импорта `settings.yaml`.** Ранее предлагавшийся однократный импорт исключён из плана полностью.
+2. **Никаких слоёв совместимости** со старыми форматами настроек и старыми версиями API, вводимых только ради прежних dev-версий. Приём YAML в restore не реализуется.
+3. **Чистая инициализация вместо миграции.** Новая установка работает сразу: отсутствующий ключ в `app_settings` означает дефолт реестра, поэтому наполнение таблицы не требуется. Единственное, что нужно на старте, — идемпотентное создание схемы (`CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... IF NOT EXISTS`), которое является частью определения схемы, а не механизмом версионирования.
+4. **Текущие значения переносятся вручную.** Значения, заданные в существующем `config/settings.yaml` конкретной dev-установки, при переходе вводятся заново через UI либо принимаются равными новым дефолтам. Список значений, которые администратору следует зафиксировать до перехода (`interface.*`, `plates.enabled_countries`, `reconnect.*`, retention), включается в задачу 9.3 как часть процедуры, а не как код.
+5. **Откат — возврат всего проекта к заведомо рабочей ревизии git**, а не обратная миграция. Соответственно фаза 0 (`.gitignore`, вывод `settings.yaml` из-под контроля версий) выполняется первой: откат через git надёжен только при чистом рабочем дереве.
+6. **Порядок фаз остаётся обязательным**, потому что он продиктован зависимостями кода, а не совместимостью данных: `settings.yaml` сейчас одновременно является источником bootstrap-значений (`get_logging_config` вызывается до создания репозиториев) и хранилищем операционных настроек, поэтому сначала строится env-слой, затем реестр и таблица, затем переключаются потребители, и только после этого YAML-слой удаляется.
+
+Эта политика не означает небрежного отношения к необратимым изменениям: удаление YAML-слоя (фаза 9) выполняется отдельным PR после подтверждённой работы фаз 4–8, а каждая задача остаётся независимо ревьюируемой. Политика зафиксирована в `AGENTS.md` в разделе «Development And Rollback Policy».
+
+---
+
+## 6. Roadmap
+
+### Фаза 0. Гигиена репозитория и секретов (блокирующая, независимая)
+
+Выполняется первой: от неё зависит и безопасность секретов, и надёжность отката через git.
+
+#### Задача 0.1. Добавить `.gitignore`
+
+- **Цель**: исключить попадание секретов и runtime-артефактов в историю git и обеспечить чистое рабочее дерево для отката.
+- **Файлы**: новый `.gitignore`.
+- **Что меняется**: игнорируются `.env`, `.idea/`, `__pycache__/`, `*.pyc`, `.pytest_cache/`, `data/`, `logs/`.
+- **Зависимости**: нет.
+- **Особенности перехода**: проверить `git log --all -- .env` на предмет уже попавших секретов; при обнаружении — ротация `JWT_SECRET_KEY` и пароля БД.
+- **Валидация**: `git check-ignore -v .env .idea` возвращает правило; `git status` чист на свежем клоне после `docker compose up`.
+- **Критерий готовности**: `.env` и `.idea/` не появляются в `git status`; утверждение `AGENTS.md:231` больше не противоречит факту.
+
+#### Задача 0.2. Синхронизировать `.env` и `.env.example`
+
+- **Цель**: шаблон описывает ровно те переменные, которые читает система.
+- **Файлы**: `.env.example`, `docs/guides/setup.md`.
+- **Что меняется**: добавляются `CORS_ALLOWED_ORIGINS` (в `.env`) и `POSTGRES_PORT`; `APP_ENV`, `DEBUG`, `LOG_LEVEL`, `SETTINGS_PATH` помечаются с указанием фазы, в которой они исчезнут или начнут читаться.
+- **Зависимости**: 0.1.
+- **Валидация**: тест, сверяющий имена в `.env.example` с множеством имён, читаемых кодом, плюс явный allow-list инфраструктурных переменных.
+- **Критерий готовности**: тест синхронизации проходит; мёртвые переменные явно помечены.
+
+#### Задача 0.3. Вывести `config/settings.yaml` из-под контроля версий
+
+- **Цель**: runtime-мутируемый файл не должен отслеживаться git до момента своего удаления в фазе 9.
+- **Файлы**: `config/settings.yaml` → `config/settings.yaml.example`, `.gitignore`, `docker-compose.yml`, `docs/guides/setup.md`.
+- **Что меняется**: отслеживается только пример; фактический файл создаётся при первом запуске (`SettingsRepository._load` уже это умеет).
+- **Зависимости**: 0.1.
+- **Особенности перехода**: bind-mount `./config:/app/config` сохраняется до фазы 9, файл на хосте не трогается.
+- **Валидация**: сохранение настроек через UI не меняет `git status`.
+- **Критерий готовности**: рабочее дерево остаётся чистым при эксплуатации, откат через git предсказуем.
+
+#### Задача 0.4. Fail-fast проверки секретов при старте
+
+- **Цель**: сделать невозможным незаметный запуск production со слабым секретом.
+- **Файлы**: новый `config/env_settings.py`, `app/api/main.py`, `app/worker/main.py`, `database/user_repository.py`.
+- **Что меняется**: при `APP_ENV=production` запуск прерывается, если `JWT_SECRET_KEY` равен дефолту или короче 32 байт, либо не задан `BOOTSTRAP_SUPERADMIN_PASSWORD`; иначе пишется `WARNING`. Пароль первичного суперадмина берётся из env, константа `_DEFAULT_SUPERADMIN_PASSWORD` удаляется.
+- **Зависимости**: 0.2.
+- **Особенности перехода**: seed выполняется только при пустой таблице `users`, поэтому существующие установки не затрагиваются.
+- **Валидация**: тесты — production плюс дефолтный секрет даёт `SystemExit`; dev даёт предупреждение и продолжает запуск; seed использует пароль из env.
+- **Критерий готовности**: `APP_ENV` читается; секрет по умолчанию в production невозможен.
+
+---
+
+### Фаза 1. Реестр конфигурации и env-слой
+
+#### Задача 1.1. Реестр конфигурации
+
+- **Цель**: единый машинночитаемый источник классов, дефолтов, типов и правил валидации.
+- **Файлы**: новый `config/registry.py`.
+- **Что меняется**: для каждого ключа описываются `key`, `class` (D/A/U/C/L), `type`, `default`, `choices`/`validator`, `requires_restart`, `owner`, `reserved`, `description`. Дефолты берутся из `config/settings_schema.py` с применением решений 4.10. Реестр становится источником для pydantic-схем, DDL-дефолтов и опций UI.
+- **Зависимости**: нет.
+- **Валидация**: тест полноты — каждый ключ текущего `build_default_settings()` и каждая читаемая переменная окружения присутствуют либо в реестре, либо в списке осознанно удаляемых; тест, что ни один ключ не помечен `reserved` без причины в описании.
+- **Критерий готовности**: реестр покрывает всю инвентаризацию раздела 2, включая решения 4.10.
+
+#### Задача 1.2. Типизированный env-слой
+
+- **Цель**: единственная точка чтения переменных окружения с валидацией на старте.
+- **Файлы**: `config/env_settings.py`, `app/api/main.py`, `app/api/container.py`, `app/worker/main.py`, `app/api/auth_utils.py`, `database/base.py`.
+- **Что меняется**: `EnvConfig` читает и приводит типы всех переменных класса D один раз; прямые `os.getenv` в коде приложения заменяются обращением к нему.
+- **Зависимости**: 1.1, 0.4.
+- **Особенности перехода**: модуль обязан импортироваться без БД и без побочных эффектов — `_configure_thread_limits()` в `app/api/main.py` выполняется на import-time, поэтому fail-fast проверки вызываются явно на старте, а не при импорте.
+- **Валидация**: тесты приведения типов и ошибок валидации; тест-инвариант на отсутствие `os.getenv` вне `config/env_settings.py`.
+- **Критерий готовности**: ни один модуль приложения не читает окружение напрямую.
+
+#### Задача 1.3. Таблица `app_settings` и репозиторий
+
+- **Цель**: хранилище операционной конфигурации в БД.
+- **Файлы**: новый `database/settings_repository.py`, `database/postgres/schema.sql`.
+- **Что меняется**: DDL из 4.6; репозиторий с `get_all()`, `get_many(prefix)`, `set_many(dict, updated_by)`, `delete(key)`, `revision()`. Записи выполняются в одной транзакции с инкрементом `revision`.
+- **Зависимости**: 1.1.
+- **Особенности перехода**: таблица создаётся пустой и остаётся пустой до первой записи администратора — наполнение не требуется.
+- **Валидация**: тесты — частичная запись не затирает чужие ключи; `revision` растёт ровно на 1 на транзакцию; параллельные записи не теряются.
+- **Критерий готовности**: таблица есть в `schema.sql` и создаётся лениво; тесты проходят.
+
+#### Задача 1.4. Устранить дрейф `schema.sql` и инлайновых DDL
+
+- **Цель**: один источник DDL, чтобы новые таблицы не унаследовали P11.
+- **Файлы**: `database/postgres/schema.sql`, `database/{channel,controller,lists,user}_repository.py`, `database/base.py`, `AGENTS.md`.
+- **Что меняется**: `schema.sql` дополняется всеми таблицами; согласованность с инлайновыми `_SCHEMA` закрепляется тестом-сверкой, чтобы сохранить ленивый bootstrap и одновременно давать полный init-скрипт для Docker.
+- **Зависимости**: 1.3.
+- **Валидация**: тест, поднимающий схему обоими путями и сравнивающий `information_schema`.
+- **Критерий готовности**: `docker-entrypoint-initdb.d` создаёт полную схему.
+
+---
+
+### Фаза 2. Сервис настроек
+
+#### Задача 2.1. `SettingsService` поверх БД и реестра
+
+- **Цель**: единая точка чтения и записи настроек класса A, корректная в нескольких процессах.
+- **Файлы**: новый `config/settings_service.py`.
+- **Что меняется**: чтение — `get(key)` и `get_section(prefix)` с наложением дефолтов реестра; кэш в памяти, инвалидируемый при изменении `revision`. Запись — `update(mapping, updated_by)` с валидацией по реестру и возвратом списка ключей, требующих перезапуска.
+- **Зависимости**: 1.1, 1.3.
+- **Валидация**: тесты — дефолт при пустой таблице; переопределение из БД; инвалидация при внешнем инкременте `revision`; отказ при значении вне `choices`; отсутствие обращений к БД на каждое чтение внутри окна кэша.
+- **Критерий готовности**: при недоступной БД чтение возвращает последний кэш или дефолты реестра, не выбрасывая исключение.
+
+#### Задача 2.2. Propagation настроек в retention-worker
+
+- **Цель**: закрыть P9.
+- **Файлы**: `app/worker/main.py`, `app/shared/data_lifecycle.py`.
+- **Что меняется**: `RetentionScheduler._loop` перечитывает политику через `SettingsService` на каждой итерации и обновляет `DataLifecycleService.update_policy`; интервал сна пересчитывается от актуального значения.
+- **Зависимости**: 2.1.
+- **Валидация**: тест — изменение `retention.cleanup_interval_minutes` в БД меняет поведение планировщика в пределах одного цикла; тест поведения при недоступной БД.
+- **Критерий готовности**: worker не требует перезапуска после изменения политики.
+
+---
+
+### Фаза 3. Единый источник дефолтов
+
+#### Задача 3.1. Свести дефолты канала к реестру и применить решения 4.10
+
+- **Цель**: закрыть P4 и зафиксировать `max_plate_size = 400×100`, `motion_release_frames = 100`.
+- **Файлы**: `config/registry.py`, `config/settings_schema.py`, `app/api/schemas.py`, `database/channel_repository.py` (`_SCHEMA`, `_row_to_dict`, `_normalize`), `runtime/debug.py`.
+- **Что меняется**: дефолты объявляются один раз в реестре; pydantic-поля и DDL-дефолты приводятся к нему; fallback в `_row_to_dict` убирается; `DebugSettings.from_dict` приводится к `show_channel_metrics = False`.
+- **Зависимости**: 1.1.
+- **Особенности перехода**: существующие строки `channels` не изменяются — меняются только значения по умолчанию для новых каналов.
+- **Валидация**: тест-сверка «реестр ↔ pydantic ↔ DDL» для каждого поля; регрессионный тест создания канала без опциональных полей; проверка, что при `size_filter_enabled = True` и типичном разрешении кадра порог `400×100` не отбраковывает корректные номера (результат фиксируется в описании параметра).
+- **Критерий готовности**: ни одного расхождения из таблицы 4.10 не осталось; тест-сверка проходит.
+
+#### Задача 3.2. Свести перечисления к одному источнику
+
+- **Цель**: закрыть P14.
+- **Файлы**: `config/registry.py`, `app/api/schemas.py`, `app/api/routers/settings.py`, `app/web/index.html`, `app/web/js/`.
+- **Что меняется**: добавляется `GET /api/settings/schema`, отдающий допустимые значения и список таймзон; UI строит `<select>` по ответу; regex-паттерны pydantic генерируются из `choices`.
+- **Зависимости**: 3.1.
+- **Валидация**: тест, что каждое `choices` реестра присутствует в ответе; проверка заполнения всех селектов UI.
+- **Критерий готовности**: добавление новой темы, уровня логирования или зоны требует правки одного файла.
+
+---
+
+### Фаза 4. Перенос операционных настроек в БД
+
+#### Задача 4.1. `reconnect` → `app_settings`
+
+- **Цель**: перенести первую группу и отработать шаблон.
+- **Файлы**: `app/api/routers/settings.py`, `app/api/container.py`.
+- **Что меняется**: чтение и запись через `SettingsService`; `update_reconnect_settings` вызывается после записи.
+- **Зависимости**: 2.1.
+- **Валидация**: тесты роутера; тест применения к работающему processor без перезапуска.
+- **Критерий готовности**: `reconnect` не читается из YAML.
+
+#### Задача 4.2. `retention` → `app_settings`, удаление дублирующего пути записи
+
+- **Цель**: перенести политику и закрыть P8.
+- **Файлы**: `app/api/routers/settings.py`, `app/api/routers/data.py`, `app/web/js/backup.js`, `app/shared/data_lifecycle.py`, `docs/technical/endpoints.md`.
+- **Что меняется**: `retention.*` в БД; `PUT /api/data/policy` удаляется, `GET /api/data/policy` остаётся read-only; `RetentionPolicy.from_storage` заменяется на `from_settings`.
+- **Зависимости**: 4.1, 2.2.
+- **Особенности перехода**: удаление эндпоинта фиксируется в `docs/technical/endpoints.md`; период депрекации не вводится (раздел 5).
+- **Валидация**: `tests/test_data_router.py` обновляется; тест единственного пути записи.
+- **Критерий готовности**: один путь записи; worker получает изменения.
+
+#### Задача 4.3. `logging` → `app_settings` с env как bootstrap
+
+- **Цель**: перенести уровень и retention логов, задокументировав единственный двухслойный случай.
+- **Файлы**: `common/logging.py`, `app/api/container.py`, `app/worker/main.py`, `config/env_settings.py`.
+- **Что меняется**: на старте уровень берётся из `LOG_LEVEL`; после инициализации репозиториев выполняется повторная конфигурация значениями из БД. `logs_dir` берётся из env.
+- **Зависимости**: 2.1, 1.2.
+- **Валидация**: тест — ранние сообщения по env-уровню, последующие по уровню из БД; тест применения без перезапуска.
+- **Критерий готовности**: приоритет `env → БД` реализован и задокументирован.
+
+#### Задача 4.4. `plates.enabled_countries` → `app_settings` с явным `requires_restart`
+
+- **Цель**: перенести настройку, требующую перезапуска processor.
+- **Файлы**: `app/api/routers/settings.py`, `app/api/container.py`, `app/web/js/settings.js`.
+- **Что меняется**: значение в БД с дефолтом `[RU, UA, BY, KZ]` (4.10); `PUT /api/settings` возвращает `requires_restart`, UI показывает это; перезапуск processor инициируется по факту изменения ключа.
+- **Зависимости**: 4.1.
+- **Валидация**: тест, что изменение списка вызывает ровно один перезапуск; тест, что не-restart-ключ его не вызывает.
+- **Критерий готовности**: пользователь видит, какие изменения требуют перезапуска.
+
+#### Задача 4.5. Заменить `time.timezone` на `interface.display_timezone` (серверная часть)
+
+- **Цель**: превратить зону отображения в работающую настройку (решение O-4, модель 4.9).
+- **Файлы**: `config/registry.py`, `app/api/routers/settings.py`, `app/api/schemas.py`, `pyproject.toml`, `Dockerfile`, `app/shared/data_lifecycle.py`, `common/logging.py`, новый эндпоинт в `app/api/routers/system.py`.
+- **Что меняется**:
+  - ключ `interface.display_timezone` класса A с доменом IANA и статическим дефолтом `UTC`; секция `time` и `TimePayload` упраздняются;
+  - в `pyproject.toml` добавляется `tzdata`, в `Dockerfile` — пакет `tzdata` и `ENV TZ=UTC`;
+  - валидация значения через построение `ZoneInfo` при записи;
+  - `GET /api/system/time` возвращает `{server_utc, display_timezone, timezone_configured}`, где зона разрешена для вызывающего пользователя, а `timezone_configured` вычисляется по наличию строки ключа в `app_settings`;
+  - CSV/ZIP-экспорт форматирует время в зоне отображения и указывает зону в заголовке колонки и имени файла;
+  - `common/logging.py` переводится с `datetime.now().astimezone()` на aware-UTC.
+- **Зависимости**: 2.1, 3.2.
+- **Особенности перехода**: старые значения формата `UTC+03:00` не конвертируются — настройка задаётся заново в UI (раздел 5).
+- **Валидация**: тест, что `ZoneInfo('Europe/Kyiv')` доступна и в CI, и на машине разработчика (проверка наличия `tzdata`); тест отказа на некорректной зоне; тест, что экспорт за период с переходом на летнее время даёт корректные локальные метки; тест, что `timezone_configured` равен `false` при отсутствии строки в `app_settings` и `true` после явной записи, **в том числе когда записано значение `UTC`**; тест-инвариант, что в коде нет `datetime.now()` без `tz` и нет `astimezone()` без явной зоны.
+- **Критерий готовности**: зона отображения хранится, валидируется и реально влияет на экспорт и на ответ `/api/system/time`; ненастроенное состояние отличимо от явно выбранного `UTC`.
+
+---
+
+### Фаза 5. Deployment-конфигурация в окружение
+
+#### Задача 5.1. `models.*` → env
+
+- **Цель**: перенести пути к артефактам и селектор устройства в класс D.
+- **Файлы**: `config/env_settings.py`, `app/api/container.py`, `anpr/model_config.py`, `.env.example`, `Dockerfile`, `docs/guides/setup.md`.
+- **Что меняется**: `AnprModelConfig.from_settings` заменяется на `from_env(EnvConfig)`; `DETECTION_CONFIDENCE_THRESHOLD` выносится в `app_settings` как `detection.confidence_threshold` с `requires_restart=true`.
+- **Зависимости**: 1.2, 2.1.
+- **Валидация**: `tests/test_model_config.py` обновляется; тест понятной ошибки на старте при отсутствующем файле весов.
+- **Критерий готовности**: секция `models` в YAML не читается.
+
+#### Задача 5.2. Каталоги данных → env
+
+- **Цель**: привязать пути к точкам монтирования.
+- **Файлы**: `config/env_settings.py`, `app/api/container.py`, `app/worker/main.py`, `runtime/channel_runtime.py`, `common/logging.py`, `docker-compose.yml`, `.env.example`.
+- **Что меняется**: `ANPR_MEDIA_DIR` и `ANPR_LOGS_DIR`; `storage.screenshots_dir` и `storage.logs_dir` удаляются; мёртвые `save_screenshot_dir` и `save_logs_dir` удаляются.
+- **Зависимости**: 1.2, 4.3.
+- **Валидация**: тест, что processor и lifecycle пишут в один каталог; проверка сохранности медиа при пересоздании контейнера.
+- **Критерий готовности**: путь хранения невозможно изменить через UI.
+
+#### Задача 5.3. Убрать DSN из API и UI
+
+- **Цель**: закрыть P6.
+- **Файлы**: `config/settings_manager.py`, `app/api/routers/settings.py`, `app/api/schemas.py`, `app/web/index.html`, `app/web/js/settings.js`, `app/api/container.py`.
+- **Что меняется**: `postgres_dsn` исчезает из ответа, payload и UI; `_resolve_dsn` берёт значение из `EnvConfig`.
+- **Зависимости**: 1.2.
+- **Валидация**: `tests/test_container_concurrency.py`, `tests/test_data_router.py` обновляются; тест, что `GET /api/settings` не содержит строки подключения.
+- **Критерий готовности**: DSN не покидает окружение.
+
+#### Задача 5.4. Границы пула и размеры исполнителей → env
+
+- **Цель**: сделать настраиваемыми инфраструктурные лимиты.
+- **Файлы**: `database/base.py`, `runtime/channel_runtime.py`, `config/env_settings.py`, `.env.example`.
+- **Что меняется**: `POSTGRES_POOL_MIN`/`POSTGRES_POOL_MAX` (2/10), `ANPR_IO_POOL_WORKERS` (2).
+- **Зависимости**: 1.2.
+- **Валидация**: тест чтения дефолтов.
+- **Критерий готовности**: лимиты задаются окружением, дефолты не изменились.
+
+---
+
+### Фаза 6. Пользовательские предпочтения
+
+#### Задача 6.1. Колонка `users.preferences` и репозиторий
+
+- **Цель**: хранилище класса U — источник истины для персональной темы.
+- **Файлы**: `database/user_repository.py`, `database/postgres/schema.sql`, `config/registry.py`.
+- **Что меняется**: `ALTER TABLE ... ADD COLUMN IF NOT EXISTS preferences JSONB NOT NULL DEFAULT '{}'`; методы `get_preferences(user_id)` и `merge_preferences(user_id, patch)`; `_row_to_dict` дополняется полем.
+- **Зависимости**: 1.1.
+- **Особенности перехода**: idempotent DDL — существующие пользователи получают `{}` и наследуют дефолты инстанса. Бэкап базы данных определяет колонки через `information_schema`, поэтому новая колонка попадает в дамп автоматически; при этом дамп нового формата не восстанавливается в старую схему — ограничение фиксируется в `docs/technical/endpoints.md`.
+- **Валидация**: тесты частичного слияния, отбрасывания неизвестных ключей и валидации по реестру.
+- **Критерий готовности**: предпочтения сохраняются, читаются и наследуют дефолты.
+
+#### Задача 6.2. Эндпоинты `/api/me/preferences`
+
+- **Цель**: дать пользователю менять свои настройки независимо от права `tab:settings`.
+- **Файлы**: новый `app/api/routers/preferences.py`, `app/api/schemas.py`, `app/api/main.py`, `docs/technical/endpoints.md`.
+- **Что меняется**: `GET` возвращает разрешённые значения с полем `source` (`user` / `instance` / `default`); `PATCH` принимает частичный патч и пишет только предпочтения текущего пользователя.
+- **Зависимости**: 6.1, 2.1.
+- **Валидация**: тесты — пользователь не может изменить чужие предпочтения; невалидное значение даёт 422; `source` корректно отражает слой; оператор без `tab:settings` успешно читает и пишет свои предпочтения.
+- **Критерий готовности**: эндпоинты задокументированы и покрыты тестами.
+
+#### Задача 6.3. Перенос `sidebar_locked`, персональных debug-флагов и персональной зоны времени
+
+- **Цель**: закрыть P12 для флагов без серверного эффекта.
+- **Файлы**: `app/web/js/{ui,settings,debug,app}.js`, `app/api/routers/debug.py`, `app/api/schemas.py`, `runtime/debug.py`, `config/registry.py`.
+- **Что меняется**: `sidebar_locked`, `debug_panel_enabled`, `channel_metrics_visible`, `timezone` (`auto` по умолчанию) становятся предпочтениями пользователя; в `app_settings` остаётся только `debug.video_output_enabled`.
+- **Зависимости**: 6.2, 4.5.
+- **Валидация**: тест, что `show_channel_metrics` больше не влияет на серверный `DebugRegistry`, а `video_output_enabled` влияет; проверка независимости debug-панелей двух пользователей.
+- **Критерий готовности**: серверные и клиентские debug-флаги разделены.
+
+---
+
+### Фаза 7. Внешний вид и время в интерфейсе
+
+#### Задача 7.1. Публичный эндпоинт внешнего вида
+
+- **Цель**: дать логин-экрану серверный источник дефолта (первая половина P1).
+- **Файлы**: `app/api/routers/system.py` или новый `public.py`, `app/api/main.py`, `docs/technical/endpoints.md`.
+- **Что меняется**: `GET /api/public/appearance` без аутентификации возвращает `{default_theme, default_style}` из кэша `SettingsService`.
+- **Зависимости**: 2.1.
+- **Особенности перехода**: при недоступной БД возвращаются код-дефолты со статусом 200, чтобы логин-экран не ломался; обращения к БД в горячем пути нет.
+- **Валидация**: тест доступности без токена; тест, что ответ не содержит иных ключей; тест поведения при недоступной БД.
+- **Критерий готовности**: неаутентифицированный клиент получает дефолтную тему и ничего сверх этого.
+
+#### Задача 7.2. Модуль разрешения внешнего вида на frontend
+
+- **Цель**: единственный владелец темы и стиля на клиенте по модели 4.3.
+- **Файлы**: новый `app/web/js/appearance.js`, `app/web/js/{app,ui,settings}.js`.
+- **Что меняется**: реализуется порядок разрешения; вводятся кэш-ключи `anpr_appearance_instance` и `anpr_appearance_user:<user_id>`; ключи `anpr_theme` и `anpr_style` удаляются; `applyStyle`/`applyTheme` становятся чистыми применителями к DOM; все обращения к хранилищу обёрнуты в `try/catch`.
+- **Зависимости**: 7.1, 6.2.
+- **Валидация**: тесты сценариев из 4.3 — вход даёт тему пользователя; отсутствие предпочтения даёт дефолт инстанса; смена дефолта администратором меняет тему пользователя без предпочтения; отключённый `localStorage` не ломает загрузку.
+- **Критерий готовности**: между логин-экраном и приложением нет смены темы при отсутствии личного предпочтения.
+
+#### Задача 7.3. Сохранение выбора темы и очистка при выходе
+
+- **Цель**: закрыть остаток P1 (выбор переживает перезагрузку) и P17 (нет протечки между пользователями).
+- **Файлы**: `app/web/js/{app,ui,appearance,api}.js`.
+- **Что меняется**: переключатель темы вызывает `PATCH /api/me/preferences` и обновляет кэш только после успешного ответа, при ошибке откатывает состояние и показывает уведомление; выход удаляет `anpr_token` и все ключи `anpr_appearance_user:*`.
+- **Зависимости**: 7.2.
+- **Валидация**: тест — переключение, перезагрузка, выбор сохранён; тест — вход пользователем A, выход, вход пользователем B: тема B, ни на одном кадре не тема A; тест отката при ошибке сети.
+- **Критерий готовности**: выбор темы переживает перезагрузку и не наследуется другим пользователем.
+
+#### Задача 7.4. Отвязать внешний вид от права `tab:settings`
+
+- **Цель**: закрыть P2.
+- **Файлы**: `app/web/js/app.js`, `app/web/js/settings.js`, `app/api/routers/settings.py`.
+- **Что меняется**: разрешение внешнего вида выполняется в bootstrap для всех пользователей; секция «Интерфейс» делится на дефолты инстанса (требуют `tab:settings`) и мои предпочтения (доступны всем).
+- **Зависимости**: 7.2, 6.3.
+- **Валидация**: тест — оператор без `tab:settings` получает тему инстанса и может задать свою; тест, что он не может изменить дефолт инстанса (403).
+- **Критерий готовности**: тема не зависит от роли и набора прав.
+
+#### Задача 7.5. Единое отображение времени в интерфейсе
+
+- **Цель**: закрыть P16 — сделать зону отображения реально работающей на фронтенде (модель 4.9).
+- **Файлы**: новый `app/web/js/datetime.js`, `app/web/js/{ui,journal,events,debug,app}.js`, `app/web/index.html`.
+- **Что меняется**:
+  - `datetime.js` — единственный форматтер, использующий `Intl.DateTimeFormat` с явными `timeZone` и локалью;
+  - часы топбара переводятся на серверное время: однократный `GET /api/system/time`, вычисление поправки к локальным часам, локальный тик с этой поправкой и периодическая ресинхронизация;
+  - журнал, лента событий и debug-панель переводятся на `datetime.js` — исчезает расхождение локалей между `ru-RU` и локалью браузера;
+  - значения `datetime-local` в фильтрах журнала трактуются в зоне отображения и конвертируются в UTC для API;
+  - селект зоны в настройках заполняется из `GET /api/settings/schema`, хардкод 27 `<option>` удаляется;
+  - при `timezone_configured = false` в разделе настроек показывается уведомление «зона отображения не настроена»; метка зоны выводится в заголовке журнала и рядом с часами;
+  - если зона отображения недоступна, интерфейс использует зону браузера и явно помечает это рядом со временем.
+- **Зависимости**: 4.5, 7.2, 3.2.
+- **Валидация**: тест, что изменение зоны меняет отображение журнала без перезагрузки страницы; тест, что фильтр «с 08:00 до 18:00» даёт одинаковый диапазон при разных зонах браузера; тест корректности отображения события, записанного в период перехода на летнее время; проверка, что при сбитых часах рабочей станции топбар показывает серверное время.
+- **Критерий готовности**: все отображаемые времена приходят из одной зоны, заданной настройкой; зона браузера более не влияет на данные.
+
+---
+
+### Фаза 8. Политики аутентификации в БД
+
+#### Задача 8.1. TTL токена → `app_settings`
+
+- **Цель**: дать администратору управлять временем жизни сессии во время эксплуатации.
+- **Файлы**: `app/api/auth_utils.py`, `app/api/routers/auth.py`, `app/api/container.py`, `config/registry.py`.
+- **Что меняется**: модульная константа `JWT_EXPIRATION_MINUTES` удаляется (сейчас читается на import-time); TTL берётся из `SettingsService` при создании токена; в реестре задаётся нижняя граница, чтобы исключить случайную деградацию.
+- **Зависимости**: 2.1.
+- **Особенности перехода**: уже выданные токены не затрагиваются — проверка `exp` не меняется.
+- **Валидация**: `tests/test_auth_utils.py`, `tests/test_auth_router.py` обновляются; тест, что изменение TTL влияет только на новые токены; тест отказа на значении ниже границы.
+- **Критерий готовности**: TTL меняется через UI и действует со следующего входа.
+
+#### Задача 8.2. Лимиты защиты от подбора → `app_settings`
+
+- **Цель**: сделать политику rate-limit настраиваемой.
+- **Файлы**: `app/api/routers/auth.py`, `config/registry.py`.
+- **Что меняется**: `_MAX_FAILED_ATTEMPTS` и `_RATE_WINDOW_SECONDS` читаются из кэша сервиса при каждой проверке.
+- **Зависимости**: 2.1.
+- **Валидация**: существующие тесты rate-limit параметризуются; тест применения без перезапуска.
+- **Критерий готовности**: политика настраивается; дефолты не изменились (5 попыток за 60 секунд).
+
+---
+
+### Фаза 9. Чистый переход: удаление YAML-слоя
+
+Фаза выполняется отдельным PR после подтверждённой работы фаз 4–8. Миграционных модулей не создаётся (раздел 5).
+
+#### Задача 9.1. Перевод backup/restore настроек на БД
+
+- **Цель**: резервная копия настроек перестаёт быть копией файла.
+- **Файлы**: `app/shared/backup_service.py`, `app/api/routers/data.py`, `app/web/js/backup.js`, `docs/technical/endpoints.md`.
+- **Что меняется**: `export_settings` отдаёт JSON-дамп `app_settings`; `restore_settings` валидирует дамп по реестру и пишет через `SettingsService`; `validate_settings_yaml` удаляется. Приём YAML не реализуется.
+- **Зависимости**: фазы 4–8.
+- **Особенности перехода**: старые YAML-бэкапы становятся неприменимы — это осознанное следствие политики раздела 5.
+- **Валидация**: `tests/test_backup_service_sql.py` обновляется; тест цикла export → изменение → restore; тест отказа на дампе с неизвестными ключами; тест, что `app_settings` не входит в `_BACKUP_TABLES` и восстановление базы данных не перезаписывает конфигурацию инстанса.
+- **Критерий готовности**: восстановление настроек не обращается к файловой системе.
+
+#### Задача 9.2. Удаление YAML-слоя
+
+- **Цель**: убрать источник конфигурации, ставший избыточным.
+- **Файлы**: удаляются `config/settings_manager.py`, `config/settings_normalizer.py`, `config/settings_repository.py`, `config/settings.yaml.example`; правятся `app/api/container.py`, `app/worker/main.py`, `app/api/routers/{settings,data,debug}.py`, `docker-compose.yml` (убираются `SETTINGS_PATH` и bind-mount `./config`), `.env.example`, `.gitignore`.
+- **Что меняется**: `SETTINGS_PATH` и `SettingsManager` исчезают. `config/settings_schema.py` не удаляется целиком: из него импортируют `database/channel_repository.py` (`channel_defaults`, `direction_defaults`, `normalize_region_config`), `app/api/schemas.py` (`SUPPORTED_CONTROLLER_TYPES`, `normalize_hotkey`) и `controllers/`; модуль сокращается до нормализаторов. PyYAML остаётся зависимостью — он нужен для `anpr/countries/*.yaml`.
+- **Зависимости**: 9.1.
+- **Особенности перехода**: точка невозврата; откат выполняется возвратом проекта к предыдущей рабочей ревизии git.
+- **Валидация**: полный прогон `pytest`; тест-инвариант на отсутствие упоминаний `settings.yaml`, `SETTINGS_PATH` и `SettingsManager`; развёртывание с нуля.
+- **Критерий готовности**: система работает без файла настроек; `docker-compose.yml` не монтирует `./config`.
+
+#### Задача 9.3. Проверка чистой установки и фиксация процедуры отката
+
+- **Цель**: убедиться, что новая архитектура работает без каких-либо унаследованных данных, и задокументировать порядок перехода и отката.
+- **Файлы**: `docs/guides/setup.md`, `README.md`.
+- **Что меняется**: в руководство добавляются (а) порядок первого запуска на чистой БД, (б) перечень значений, которые администратору следует зафиксировать до перехода и ввести заново через UI (`interface.*`, зона отображения, `plates.enabled_countries`, `reconnect.*`, retention), (в) процедура отката — возврат всего проекта к известной рабочей ревизии git с пересозданием контейнеров.
+- **Зависимости**: 9.2.
+- **Валидация**: развёртывание с нуля на пустом volume; проверка, что приложение стартует и работает при полностью пустой таблице `app_settings`; проверка, что откат к предыдущей ревизии восстанавливает работоспособность.
+- **Критерий готовности**: чистая установка и откат описаны и воспроизведены на практике.
+
+---
+
+### Фаза 10. Документация и инварианты
+
+#### Задача 10.1. Обновить документацию конфигурации
+
+- **Цель**: документация описывает новую модель.
+- **Файлы**: `docs/guides/setup.md`, `docs/technical/{architecture,auth,endpoints,project-structure}.md`, `README.md`, `AGENTS.md`, `.planning/codebase/{ARCHITECTURE,STACK,STRUCTURE,CONCERNS}.md`, `docs/roadmap/README.md`.
+- **Что меняется**: добавляется раздел «Классификация конфигурации» с таблицей D/A/U/C/L, правилами приоритета, моделью темы и моделью времени; удаляются утверждения про `settings.yaml` как источник истины, про `.env` как gitignored (верно только после 0.1) и про RTSP-пароли в YAML (они в PostgreSQL: `channels.source`, `controllers.password`); правила `AGENTS.md` про добавление секций настроек заменяются правилом «новый ключ добавляется в `config/registry.py`».
+- **Зависимости**: 9.3.
+- **Валидация**: сверка каждого утверждения о конфигурации с кодом; проверка, что для каждого ключа реестра документация отвечает на семь вопросов из постановки.
+- **Критерий готовности**: ни один документ не описывает YAML как действующий механизм.
+
+#### Задача 10.2. Тесты-инварианты архитектуры конфигурации
+
+- **Цель**: не допустить повторного расползания настроек.
+- **Файлы**: новый `tests/test_config_architecture.py`.
+- **Что меняется**: тесты — (а) `os.getenv`/`os.environ` не встречаются вне `config/env_settings.py`; (б) каждый ключ реестра имеет класс, тип, дефолт и описание; (в) `.env.example` покрывает все переменные класса D; (г) дефолты канала совпадают между реестром, pydantic и DDL; (д) ни один ключ не объявлен в двух классах; (е) каждый ключ класса A либо потребляется кодом, либо помечен `reserved`; (ж) в коде нет `datetime.now()` без `tz` и `astimezone()` без явной зоны; (з) фронтенд не содержит прямых обращений к `localStorage` вне `appearance.js`, `api.js` и модулей класса L; (и) в коде нет модулей миграции конфигурации и чтения YAML-настроек.
+- **Зависимости**: 10.1.
+- **Валидация**: каждый инвариант проверяется намеренным нарушением.
+- **Критерий готовности**: инварианты выполняются в CI.
+
+---
+
+## 7. Требования к тестированию
+
+| Уровень | Что проверяется | Где |
+|---|---|---|
+| Реестр | полнота, уникальность класса, наличие дефолтов и описаний, корректность решений 4.10 | `tests/test_config_architecture.py` |
+| Env-слой | приведение типов, fail-fast в production, отсутствие прямых `os.getenv` | новый `tests/test_env_settings.py` |
+| Репозиторий настроек | частичная запись, инкремент ревизии, конкурентная запись | новый `tests/test_settings_repository.py` |
+| Сервис настроек | наложение дефолтов, инвалидация по ревизии, поведение при недоступной БД | новый `tests/test_settings_service.py` |
+| Предпочтения | порядок «пользователь → инстанс → константа», изоляция между пользователями, 403 на чужие | новый `tests/test_preferences_resolution.py`, `tests/test_preferences_router.py` |
+| Тема (сценарии) | сохранение после перезагрузки; отсутствие наследования между пользователями; независимость от `tab:settings`; недоступный `localStorage` | `tests/test_preferences_router.py` плюс ручной чек-лист |
+| Время и зоны | доступность `tzdata`; отказ на некорректной зоне; корректность в период перехода на летнее время; совпадение диапазона фильтра при разных зонах браузера; серверное время в топбаре | новый `tests/test_timezone.py` |
+| Инварианты времени | отсутствие `datetime.now()` без `tz`; хранение только в UTC | `tests/test_config_architecture.py` |
+| Propagation | изменение retention доходит до worker без перезапуска | `tests/test_data_lifecycle_cleanup.py` |
+| API | новые эндпоинты, удаление `PUT /api/data/policy`, отсутствие DSN в ответе | `tests/test_data_router.py`, `tests/test_permission_guards.py` |
+| Согласованность дефолтов | реестр ↔ pydantic ↔ DDL, включая `400×100` и `100` | `tests/test_container_validation.py` |
+| Чистая установка | старт с пустой `app_settings`, отсутствие модулей миграции | `tests/test_config_architecture.py` плюс ручная проверка 9.3 |
+| Регресс | полный `pytest` после каждой фазы | весь каталог `tests/` |
+
+**Ручной чек-лист перед закрытием фазы 7** (воспроизведение исходных жалоб): чистый браузер → логин-экран в теме инстанса → вход → тема не меняется при отсутствии личного предпочтения → переключение темы → перезагрузка → выбор сохранён → выход → тема инстанса → вход другим пользователем на той же станции → его собственная тема, чужая не мелькает → оператор без `tab:settings` получает тему инстанса и может задать свою → смена зоны отображения → журнал, лента и часы показывают одно и то же время → приватное окно с запрещённым хранилищем работает.
+
+---
+
+## 8. Риски и зависимости
+
+| Риск | Вероятность | Влияние | Митигация |
+|---|---|---|---|
+| Секреты уже попали в историю git | средняя | высокое | Проверка `git log --all -- .env` в задаче 0.1; при подтверждении — ротация `JWT_SECRET_KEY` (инвалидирует все сессии) и пароля БД |
+| Недоступность БД делает приложение незапускаемым из-за конфигурации | средняя | высокое | `SettingsService` возвращает дефолты реестра и логирует degraded-режим; bootstrap-логирование работает на env-значении; `/api/public/appearance` отвечает код-дефолтами |
+| Потеря текущих значений настроек при переходе | **высокая** | среднее | Осознанное следствие политики раздела 5: миграции нет. Митигация процедурная — задача 9.3 требует зафиксировать текущие значения до перехода и ввести их заново через UI |
+| Отсутствие `tzdata` на машине разработки или в образе | высокая | среднее | Явная зависимость `tzdata` в `pyproject.toml` и пакет в `Dockerfile`; тест доступности зоны в `tests/test_timezone.py` (проверено: на Windows без `tzdata` `ZoneInfo` падает) |
+| Дефолт `max_plate_size = 400×100` отбраковывает крупные номера при близкой камере | средняя | среднее | Проверка в задаче 3.1 при типичных разрешениях; затрагивает только новые каналы, существующие сохраняют свои значения; параметр остаётся настраиваемым на канал |
+| Рост нагрузки на БД из-за чтения настроек в горячем пути | низкая | среднее | Кэш в памяти плюс проверка ревизии не чаще раза в N секунд; настройки не читаются в цикле обработки кадров |
+| Ломающие изменения API (`PUT /api/data/policy`, формат бэкапа настроек, исчезновение DSN, удаление секции `time`) | высокая | **низкое** | Подтверждено (O-6): внешних потребителей нет, эти контракты используются только собственным фронтендом. Изменения фиксируются в `docs/technical/endpoints.md`, UI обновляется в тех же задачах, слои совместимости и периоды депрекации не вводятся |
+| Зона отображения осталась ненастроенной, оператор считает показанное время местным | средняя | среднее | Ненастроенное состояние отличимо от явного выбора (4.9); UI показывает уведомление и всегда выводит метку зоны рядом со временем и в экспорте |
+| Одновременное редактирование настроек из двух сессий | средняя | низкое | Запись по ключам вместо документа; `updated_at` и `updated_by` дают диагностику |
+| Разрастание объёма фаз 4–9 в один PR | высокая | среднее | Каждая задача — отдельный PR; фаза 9 обязательно отдельным PR после проверки фаз 4–8 |
+| Мигание темы до ответа сервера | средняя | низкое | Кэш применяется синхронно, затем перезаписывается ответом |
+| Откат через git осложнён грязным рабочим деревом | средняя | среднее | Фаза 0 выполняется первой: `.gitignore` и вывод `settings.yaml` из-под контроля версий делают откат предсказуемым |
+
+Внешние зависимости отсутствуют. Порядок фаз: 0 независима; 1 → 2 → {3, 4, 5} → 6 → 7; 8 идёт параллельно 6–7 после 2; 9 требует 4–8; 10 требует 9. Задача 7.5 дополнительно требует 4.5.
+
+---
+
+## 9. Принятые решения
+
+### 9.1 Принятые решения
+
+| # | Вопрос | Решение | Где отражено |
+|---|---|---|---|
+| O-1 | Дефолт `motion_release_frames` | **`100`** | 4.10 (#1), задача 3.1 |
+| O-2 | Дефолт `max_plate_size` | **`400×100`** | 4.10 (#2), задача 3.1 |
+| O-3 | Дефолт `plates.enabled_countries` | **`[RU, UA, BY, KZ]`**; общее правило — при конфликте побеждает `config/settings_schema.py` | 4.10 (#5 и правило) |
+| O-4 | Судьба `time.timezone` | Замысел сохраняется, значение — нет: ключ заменяется на `interface.display_timezone` с IANA-доменом и статическим дефолтом `UTC`; зона отображения становится работающей настройкой | 2.6, 4.9, задачи 4.5 и 7.5 |
+| O-5 | Миграционные модули | **Не создаются.** Импорт YAML исключён; переход прямой; откат — возврат к рабочей ревизии git | Раздел 5, фаза 9, `AGENTS.md` |
+| O-7 | Персональная тема | **Персональная, источник истины — `users.preferences` в PostgreSQL**; `localStorage` только кэш; cookies не вводятся | 4.2 (правило 4), 4.3, фазы 6–7 |
+| O-8 | TTL JWT в БД | **Да**, класс A, право у `superadmin`, нижняя граница в реестре | 4.4, задача 8.1 |
+| O-9 | Ключи локали | Резервируются с флагом `reserved`, в UI не появляются | 4.5 (#2), задача 1.1 |
+| O-10 | `app_settings` в бэкапе базы данных | **Нет**: иначе восстановление БД молча перезаписало бы конфигурацию инстанса. Настройки восстанавливаются только своим эндпоинтом | Задача 9.1 |
+| O-6 | Внешние потребители `PUT /api/data/policy`, `GET /api/settings` и текущего формата бэкапа настроек | **Отсутствуют.** Эти контракты используются только собственным фронтендом, поэтому они рефакторятся свободно. Слои совместимости и периоды депрекации ради гипотетических будущих внешних потребителей не вводятся | Раздел 5, задачи 4.2, 5.3, 9.1, раздел 8 |
+| O-11 | Архитектура и дефолт зоны отображения | **Зона инстанса — основной слой отображения**, домен IANA, код-дефолт **`UTC`** как единственное воспроизводимое и не вносящее скрытого смещения значение; ненастроенное состояние отличимо от явного выбора и подсвечивается в UI; фактическая региональная зона задаётся администратором в любой момент после установки | 4.9, задачи 4.5, 7.5, 9.3 |
+| O-12 | Дефолтный внешний вид | **Стиль Graphite Minimal, тема Light** — для новой установки и для пользователя без личного предпочтения | 4.3, 4.10 (#6, #7), задача 1.1 |
+
+### 9.2 Эксплуатационные вопросы (архитектурных не осталось)
+
+Открытых архитектурных вопросов нет: все решения, влияющие на целевую архитектуру и на состав задач, приняты и зафиксированы в 9.1.
+
+Ниже — вопросы эксплуатации, которые решаются в момент выполнения соответствующих задач и не меняют архитектуру:
+
+| Вопрос | Когда решается |
+|---|---|
+| Какую конкретную региональную зону выбрать для этой установки (например `Europe/Minsk`) | Администратором через UI после перехода; порядок описан в задаче 9.3 |
+| Попадали ли секреты в историю git и требуется ли ротация `JWT_SECRET_KEY` и пароля БД | Проверкой `git log --all -- .env` в задаче 0.1 |
+| Проходит ли порог `max_plate_size = 400×100` на фактических разрешениях камер установки | Проверкой в задаче 3.1; при необходимости корректируется на уровне конкретного канала, дефолт остаётся `400×100` |
+
+---
+
+## 10. Результаты ревизии плана
+
+Проверка roadmap на пропущенные зависимости, риски перехода и краевые случаи.
+
+1. **Конфигурации стран остаются в YAML, и это верно.** `anpr/countries/*.yaml` — не настройки, а продуктовые данные: regex-форматы номеров, таблицы коррекции символов, стоп-слова. Они версионируются вместе с кодом распознавания и меняются только вместе с логикой валидации. Класс **C** в формате файла. PyYAML остаётся зависимостью и после фазы 9. В `app_settings` живёт только список *включённых* кодов стран.
+2. **`users.preferences` и бэкапы совместимы односторонне.** `export_database_backup` определяет колонки через `information_schema`, а `restore_database_backup` — по ключам первой строки дампа, поэтому старый дамп восстанавливается в новую схему за счёт `NOT NULL DEFAULT '{}'`. Обратное неверно. Ограничение фиксируется в задаче 6.1 и в `docs/technical/endpoints.md`.
+3. **Публичный эндпоинт внешнего вида — новая неаутентифицированная поверхность.** Требования зафиксированы в задаче 7.1: ответ из кэша без похода в БД, код-дефолты при недоступной БД, ничего кроме двух значений.
+4. **`_configure_thread_limits()` выполняется на import-time `app/api/main.py`**, до создания `AppContainer`. Поэтому `config/env_settings.py` обязан импортироваться без БД и без побочных эффектов, а fail-fast проверки вызываются явно на старте — учтено в задаче 1.2.
+5. **`config/settings_schema.py` имеет потребителей вне слоя настроек** (`database/channel_repository.py`, `app/api/schemas.py`, `controllers/`), поэтому в задаче 9.2 он сокращается, а не удаляется. Сцепление `config/` с `controllers/` через `SUPPORTED_CONTROLLER_TYPES` этим рефакторингом не устраняется и остаётся отдельным техдолгом.
+6. **`nginx/default.conf` не параметризован** — это осознанно: файл монтируется read-only и является частью развёртывания. При изменении `client_max_body_size` проверять лимиты загрузки бэкапов в `app/api/routers/data.py`.
+7. **Фазы 7 недостаточно покрыть автотестами.** Обе исходные жалобы (тема и время) проявляются в последовательности загрузки страницы, поэтому ручной чек-лист раздела 7 обязателен, включая приватное окно и станцию со сбитыми часами.
+8. **Отказ от миграции имеет процедурное последствие**, а не только техническое: текущие значения настроек конкретной установки будут потеряны при переходе. Это принято сознательно (раздел 5), но требует, чтобы задача 9.3 была выполнена *до* фазы 9, а не после — перечень значений фиксируется заранее.
+9. **Порядок фаз не может быть смягчён** отказом от миграции. Он продиктован зависимостями кода: `settings.yaml` сейчас обслуживает и bootstrap логирования, и операционные настройки.
+10. **Тест-инвариант против регресса политики.** Пункт (и) задачи 10.2 проверяет, что в проекте не появились модули миграции конфигурации и чтения YAML-настроек — это делает политику раздела 5 проверяемой, а не только декларативной.
+
+---
+
+## 11. Покрытие требований
+
+| # | Требование | Где раскрыто |
+|---|---|---|
+| 1 | Инвентаризация конфигурации и владение | 2.1–2.6, 4.1, 4.4 |
+| 2 | Правила `.env` | 4.1 (класс D), 4.4, фаза 5 |
+| 3 | Правила настроек в БД | 4.1 (класс A), 4.4, 4.6, фазы 1–2, 4, 8 |
+| 4 | Константы и дефолты в коде | 4.1 (класс C), 4.10, фаза 3 |
+| 5 | Пользовательские предпочтения | 4.1 (класс U), 4.3, 4.6, фаза 6 |
+| 6 | Архитектура персональной темы | 4.3, фазы 6–7 |
+| 7 | Разрешение темы на логин-экране | 4.3, задачи 7.1, 7.2 |
+| 8 | Сохранение темы после перезагрузки | 4.3, задача 7.3 |
+| 9 | Отсутствие протечки темы между пользователями | P17, 4.2 (правило 4.4), 4.3, задача 7.3 |
+| 10 | Архитектура времени и таймзон | 2.6, 4.9, задачи 4.5, 7.5 |
+| 11 | Судьба `time.timezone` | 2.6 (вывод 8), 4.9, 4.10 (#8), задача 4.5 |
+| 12 | Разрешение всех конфликтующих дефолтов | 4.10 (11 позиций) |
+| 13 | `max_plate_size = 400×100` | 4.10 (#2), задача 3.1 |
+| 14 | `motion_release_frames = 100` | 4.10 (#1), задача 3.1 |
+| 15 | Отсутствие миграционного фреймворка | Раздел 5, задача 10.2 (и) |
+| 16 | Отсутствие однократного импорта YAML | Раздел 5 (п. 1), фаза 9 |
+| 17 | Прямой чистый переход | Раздел 5, фаза 9 |
+| 18 | Откат через возврат проекта к ревизии git | Раздел 5 (п. 5), задача 9.3, `AGENTS.md` |
+| 19 | Политика в `AGENTS.md` | `AGENTS.md`, раздел «Development And Rollback Policy» |
+| 20 | Тесты, закрепляющие архитектуру | Раздел 7, задача 10.2 |
+
+---
+
+## 12. Единый реестр источников истины
+
+Сводная таблица: для каждого настраиваемого значения — один владелец, один способ изменения, один момент загрузки. Это нормативная часть документа: если значение не перечислено здесь, оно не имеет права существовать как настройка.
+
+### 12.1 Класс D — `.env` (развёртывание и инфраструктура)
+
+| Значение | Источник истины | Кто меняет | Когда загружается | Перезапуск |
+|---|---|---|---|---|
+| `JWT_SECRET_KEY` | `.env` | инженер развёртывания | старт процесса, `EnvConfig` | да |
+| `POSTGRES_DSN` | `.env` | инженер развёртывания | старт процесса | да |
+| `POSTGRES_DB` / `USER` / `PASSWORD` / `PORT` | `.env` (потребитель — контейнер `postgres`) | инженер развёртывания | старт контейнера БД | да |
+| `HTTP_PORT` | `.env` (потребитель — `docker-compose.yml`) | инженер развёртывания | старт контейнера nginx | да |
+| `CORS_ALLOWED_ORIGINS` | `.env` | инженер развёртывания | конструирование middleware при старте | да |
+| `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS` | `.env` + `Dockerfile` | инженер развёртывания | import-time `app/api/main.py` и нативные библиотеки | да |
+| `ANPR_MEDIA_DIR`, `ANPR_LOGS_DIR` | `.env` | инженер развёртывания | старт процесса | да |
+| `ANPR_YOLO_MODEL_PATH`, `ANPR_OCR_MODEL_PATH`, `ANPR_DEVICE` | `.env` | инженер развёртывания | создание `AnprModelConfig` при старте | да |
+| `BOOTSTRAP_SUPERADMIN_PASSWORD` | `.env` | инженер развёртывания | seed при пустой таблице `users` | да |
+| `LOG_LEVEL` | `.env` — **только bootstrap**, далее владелец `app_settings['logging.level']` | инженер развёртывания | старт процесса до готовности БД | нет (перекрывается значением из БД) |
+| `POSTGRES_POOL_MIN` / `MAX`, `ANPR_IO_POOL_WORKERS` | `.env` | инженер развёртывания | создание пула и исполнителей | да |
+| `APP_ENV` | `.env` | инженер развёртывания | старт процесса, включает строгие проверки | да |
+| `TZ=UTC` | `Dockerfile` | разработчик | старт контейнера | да |
+
+### 12.2 Класс A — `app_settings` (операционные настройки инстанса)
+
+| Значение | Источник истины | Кто меняет | Когда загружается | Перезапуск |
+|---|---|---|---|---|
+| `reconnect.signal_loss.enabled` / `frame_timeout_seconds` / `retry_interval_seconds` | `app_settings` | admin | кэш `SettingsService`, инвалидация по `revision` | нет |
+| `reconnect.periodic.enabled` / `interval_minutes` | `app_settings` | admin | там же | нет |
+| `retention.auto_cleanup_enabled` / `cleanup_interval_minutes` / `events_retention_days` / `media_retention_days` / `max_screenshots_mb` | `app_settings` | admin | там же, в API и в worker | нет |
+| `logging.level`, `logging.retention_days` | `app_settings` | admin | там же (для `level` — после bootstrap из env) | нет |
+| `plates.enabled_countries` | `app_settings` | admin | там же | **да**, перезапуск processor |
+| `interface.default_theme`, `interface.default_style` | `app_settings` | admin | там же; отдаётся публично через `/api/public/appearance` | нет |
+| `interface.display_timezone` | `app_settings` | admin | там же | нет |
+| `debug.video_output_enabled` | `app_settings` | superadmin | там же | нет |
+| `auth.token_ttl_minutes` | `app_settings` | superadmin | при выпуске токена | нет (для новых токенов) |
+| `auth.login_rate_limit_attempts` / `login_rate_limit_window_seconds` | `app_settings` | superadmin | при проверке лимита | нет |
+| `detection.confidence_threshold` | `app_settings` | admin | при создании processor | **да**, перезапуск processor |
+
+### 12.3 Класс A — собственные таблицы (конфигурация объектов)
+
+| Значение | Источник истины | Кто меняет | Когда загружается | Перезапуск |
+|---|---|---|---|---|
+| Конфигурация канала: ROI, motion/stride, OCR-пороги, фильтры списков, привязки контроллера и зоны (31 колонка) | таблица `channels` | admin через UI каналов | при старте и при перезапуске канала | перезапуск канала, не приложения |
+| Конфигурация контроллера: тип, адрес, пароль, режимы реле, hotkey | таблица `controllers` | admin | при обращении к контроллеру | нет |
+| Роли и права пользователей | `users.role`, `users.permissions` | superadmin | при каждой проверке прав | нет |
+| Зоны, списки, клиенты | `zones`, `lists`, `clients` | operator/admin | по запросу | нет |
+
+### 12.4 Класс U — `users.preferences` (личные предпочтения)
+
+| Значение | Источник истины | Кто меняет | Когда загружается | Перезапуск |
+|---|---|---|---|---|
+| `theme` | `users.preferences` | сам пользователь | `GET /api/me/preferences` после входа | нет |
+| `style` | `users.preferences` | сам пользователь | там же | нет |
+| `sidebar_locked` | `users.preferences` | сам пользователь | там же | нет |
+| `debug_panel_enabled`, `channel_metrics_visible` | `users.preferences` | сам пользователь | там же | нет |
+| `timezone` (`auto` по умолчанию) | `users.preferences` | сам пользователь | там же | нет |
+
+### 12.5 Класс C — константы кода
+
+| Значение | Источник истины |
+|---|---|
+| Контракт весов модели: `OCR_ALPHABET`, `OCR_IMAGE_HEIGHT/WIDTH`, `BBOX_PADDING_RATIO`, `MIN_PADDING_PIXELS` | `anpr/model_config.py` |
+| `JWT_ALGORITHM` | `app/api/auth_utils.py` |
+| Реестр прав `AVAILABLE_PERMISSIONS` | `app/api/routers/auth.py` |
+| `SUPPORTED_CONTROLLER_TYPES` | `config/settings_schema.py` |
+| `DEFAULT_ROI_POINTS`, нормализаторы ROI и hotkey | `config/settings_schema.py` |
+| Минимальная длина пароля | `app/api/schemas.py` |
+| Домены перечислений (темы, стили, уровни логирования, список зон) и **дефолты всех ключей классов A и U** | `config/registry.py` |
+| Форматы номеров, таблицы коррекции, стоп-слова по странам | `anpr/countries/*.yaml` (данные продукта, версионируются с кодом) |
+
+### 12.6 Класс L — `localStorage` (состояние устройства и кэш)
+
+| Значение | Источник истины | Роль |
+|---|---|---|
+| `anpr_token` | сам браузер (выдан сервером при входе) | сессия |
+| `anpr_channel_order` | `localStorage` — **серверного владельца нет** | раскладка плиток на конкретном экране |
+| `anpr_grid_size` | `localStorage` — **серверного владельца нет** | размер сетки на конкретном экране |
+| `anpr_appearance_instance` | **кэш** значения `app_settings` | подавление мигания до ответа `/api/public/appearance` |
+| `anpr_appearance_user:<user_id>` | **кэш** значения `users.preferences` | подавление мигания до ответа `/api/me/preferences`; удаляется при выходе |
+
+---
+
+## 13. Финальная проверка согласованности
+
+Сквозная проверка документа на противоречия между слоями. Для каждой пары проверено, что значение имеет ровно одного владельца и что правила слоёв не конфликтуют между собой.
+
+| Проверка | Результат |
+|---|---|
+| `.env` ↔ БД | Единственное пересечение — `LOG_LEVEL` / `logging.level`, и оно описано как bootstrap-fallback с явным порядком (правило 3, задача 4.3). Прочих пересечений нет: `POSTGRES_DSN`, каталоги и пути к моделям удалены из настроек (задачи 5.1–5.3), `DEBUG` и `SETTINGS_PATH` удаляются целиком |
+| `.env` ↔ константы | Значения, вынесенные из кода в env (границы пула, размер io-пула, пароль первичного суперадмина), удаляются из кода в тех же задачах — дублирования не остаётся (5.4, 0.4) |
+| БД ↔ предпочтения пользователя | Пересекаются только по внешнему виду и зоне времени, и всегда с явным порядком «пользователь → инстанс → константа» (4.3, 4.9). Ключи инстанса переименованы в `interface.default_*`, поэтому одноимённых ключей в двух классах не существует |
+| БД ↔ константы | `app_settings` хранит только переопределения; отсутствие строки означает дефолт реестра. Дефолт существует ровно в одном месте — `config/registry.py` (4.6, задача 1.1) |
+| Предпочтения ↔ `localStorage` | `localStorage` объявлен кэшем (правило 4), ключи привязаны к `user_id`, очищаются при выходе, перезаписываются любым успешным ответом сервера. Ключи `anpr_theme` и `anpr_style` удаляются, поэтому старый источник истины исчезает физически (задачи 7.2, 7.3) |
+| Разрешение темы ↔ права доступа | Внешний вид разрешается в bootstrap и не зависит от `tab:settings` (задача 7.4). Публичный эндпоинт отдаёт только дефолт инстанса, персональные значения — только владельцу (задачи 7.1, 6.2) |
+| Разрешение темы ↔ дефолты | Код-дефолт (`graphite-minimal`, `light`) совпадает в 4.3, 4.10 (#6, #7), 9.1 (O-12) и 12.5 — источником остаётся реестр |
+| Разрешение зоны ↔ разрешение темы | Обе цепочки используют один и тот же порядок и один и тот же механизм (`users.preferences` → `app_settings` → константа) и один и тот же эндпоинт `/api/me/preferences`; отдельного механизма для зоны не вводится |
+| Зона хранения ↔ зона отображения | Разделены жёстко: хранение всегда UTC (инвариант, тест 10.2 «ж»), отображение — отдельный ключ класса A. Преобразование выполняется только на границе отображения и экспорта (4.9) |
+| Владение API | Каждый ключ имеет ровно один путь записи: класс A — `PUT /api/settings`, класс U — `PATCH /api/me/preferences`, класс D — переразвёртывание. Дублирующий `PUT /api/data/policy` удаляется (задача 4.2); запись через приватные атрибуты `SettingsManager` исчезает вместе с ним (задача 9.2) |
+| Политика отката ↔ фаза 9 | Откат через возврат к ревизии git требует чистого рабочего дерева, поэтому фаза 0 (`.gitignore`, вывод `settings.yaml` из-под контроля версий) выполняется первой, а необратимая фаза 9 — последней и отдельным PR |
+| Политика «без legacy» ↔ схема БД | Идемпотентные `CREATE TABLE IF NOT EXISTS` и `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` отнесены к определению схемы, а не к миграции; это согласовано с формулировкой в `AGENTS.md` и проверяется тестом 10.2 «и» |
+| Политика «без legacy» ↔ бэкапы | Приём YAML в restore не реализуется, старые дампы настроек объявлены неприменимыми (задача 9.1). Совместимость дампов базы данных сохраняется только в направлении «старый дамп → новая схема» и только потому, что это следствие существующего кода, а не специально написанный слой (10.2) |
+| Удаление `settings.yaml` ↔ оставшиеся потребители | `config/settings_schema.py` не удаляется целиком, потому что его импортируют `database/channel_repository.py`, `app/api/schemas.py` и `controllers/`; сокращение до нормализаторов описано в задаче 9.2. PyYAML остаётся зависимостью для `anpr/countries/*.yaml` |
+| Секреты ↔ классификация | Инфраструктурные секреты в `.env`, пообъектные учётные данные оборудования в PostgreSQL (4.11). Правило «секреты в окружении» явно ограничено, чтобы не быть применённым к `controllers.password` и `channels.source` |
+| Конфликтующие дефолты | Все 11 позиций разрешены в 4.10 по единому правилу; значения из решений пользователя (`400×100`, `100`) и выведенные по правилу совпадают с `config/settings_schema.py`; сверка закрепляется тестом (задача 3.1) |
+
+### Противоречия, устранённые в ходе этой проверки
+
+1. **`GET /api/system/time` возвращал зону инстанса, а не разрешённую для пользователя.** При наличии личного переопределения зоны (`users.preferences.timezone`) часы в топбаре разошлись бы с журналом того же пользователя. Ответ изменён на разрешённую зону вызывающего (4.7, задача 4.5).
+2. **Зона браузера как резерв упоминалась применительно к логин-экрану**, где время не отображается вовсе. Формулировка исправлена: резерв относится к degraded-режиму `SettingsService` (4.9).
+3. **Ненастроенная зона была неотличима от осознанно выбранного `UTC`.** Введён признак `timezone_configured`, опирающийся на отсутствие строки в `app_settings`, — различие получено из уже принятой схемы «строка на ключ» без дополнительных полей (4.9).
+4. **Правило «секреты — в окружении» не имело границы** и при буквальном применении потребовало бы вынести пароли контроллеров и учётные данные RTSP из БД в `.env`, что сделало бы добавление камеры операцией переразвёртывания. Граница зафиксирована в 4.11.
+5. **Риск ломающих изменений API оценивался как средний** из-за неопределённости с внешними потребителями. После решения O-6 переоценён как низкий, формулировка про необходимость подтверждения удалена (раздел 8).
+
+### Незакрытые расхождения в существующей документации
+
+Не являются противоречиями roadmap, но подлежат исправлению в задаче 10.1 и частично исправлены сразу:
+
+- `AGENTS.md` утверждал, что `.env` gitignored — файл `.gitignore` отсутствует (исправляется задачей 0.1, формулировка — задачей 10.1);
+- `AGENTS.md` называл местом миграций несуществующий каталог `config/settings_migrations/` — **исправлено сразу** вместе с добавлением политики;
+- `AGENTS.md` относил учётные данные RTSP и пароли контроллеров к `config/settings.yaml` — **исправлено сразу** (они в PostgreSQL);
+- `AGENTS.md` описывал аутентификацию как `app/api/auth.py` с `APIKeyMiddleware` и переменной `API_KEY` — таких сущностей в проекте нет, аутентификация построена на JWT в `app/api/auth_utils.py`; **исправлено сразу**;
+- `.planning/codebase/*` описывает `SettingsManager` как слой, работающий с БД, и `settings.yaml` как «JSON file» — приводится в соответствие задачей 10.1.
