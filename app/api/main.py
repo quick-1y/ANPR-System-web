@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.container import AppContainer, WEB_DIR
+from common.cors import parse_cors_allowed_origins
 from app.api.routers.auth import router as auth_router
 from app.api.routers.channels import router as channels_router
 from app.api.routers.clients import router as clients_router
@@ -33,6 +34,22 @@ def _configure_thread_limits() -> None:
     cv2.setNumThreads(omp)
 
 
+def _cors_allowed_origins() -> list[str]:
+    """Browser-facing CORS allow-list, from CORS_ALLOWED_ORIGINS (comma-
+    separated origins, e.g. "https://dash.example.com,https://a.example.org").
+
+    Empty by default — no origin gets cross-origin browser access until an
+    operator explicitly configures one. This only affects browsers: CORS is
+    enforced client-side, and Starlette's CORSMiddleware never rejects a
+    request based on Origin — it only controls whether the *browser* is
+    allowed to expose the response to page JS. Non-browser clients
+    (server-to-server integrations authenticated with their own token, curl,
+    another backend) never go through this check at all, regardless of this
+    setting.
+    """
+    return parse_cors_allowed_origins(os.environ.get("CORS_ALLOWED_ORIGINS"))
+
+
 _configure_thread_limits()
 
 
@@ -48,7 +65,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="ANPR Core API", version="0.8-stage8", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_allowed_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )

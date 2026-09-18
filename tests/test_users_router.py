@@ -85,12 +85,22 @@ _OPERATOR = _make_user(user_id=2, login="op1", role="operator", permissions=["ta
 # ---------------------------------------------------------------------------
 
 class TestListUsers:
-    def test_superadmin_gets_all_users(self):
+    def test_excludes_superadmin_accounts(self):
+        """list_users() deliberately excludes the technical superadmin
+        account (see its docstring) — it's not meant to appear in the
+        generic user-management list."""
         container = _make_container(users=[_SUPERADMIN, _OPERATOR])
         result = list_users(current_user=_SUPERADMIN, container=container)
-        assert len(result) == 2
+        assert len(result) == 1
         logins = {u.login for u in result}
-        assert logins == {"superadmin", "op1"}
+        assert logins == {"op1"}
+
+    def test_multiple_non_superadmin_users_all_returned(self):
+        admin2 = _make_user(user_id=3, login="op2", role="operator", permissions=["tab:journal"])
+        container = _make_container(users=[_SUPERADMIN, _OPERATOR, admin2])
+        result = list_users(current_user=_SUPERADMIN, container=container)
+        logins = {u.login for u in result}
+        assert logins == {"op1", "op2"}
 
     def test_passwords_not_exposed(self):
         container = _make_container(users=[_SUPERADMIN])

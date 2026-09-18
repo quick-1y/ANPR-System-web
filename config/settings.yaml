@@ -4,7 +4,7 @@ models:
   device: cpu
 debug:
   show_channel_metrics: true
-  log_panel_enabled: true
+  log_panel_enabled: false
   disable_video_output: false
 reconnect:
   signal_loss:
@@ -28,8 +28,8 @@ plates:
   - KZ
   - RU
 interface:
-  style: graphite-minimal
-  theme: light
+  style: aurora
+  theme: dark
   sidebar_locked: false
 logging:
   level: ALL

@@ -301,6 +301,24 @@ class TestRateLimiter:
         with pytest.raises(HTTPException):
             _check_rate_limit(ip1)
 
+    def test_check_rate_limit_does_not_create_entry_for_clean_ip(self):
+        """Regression test for finding #4: checking an IP that has never
+        failed a login (the common case — this runs on every login attempt,
+        successful or not) must not leave a lingering dict entry."""
+        ip = "10.0.2.1"
+        _check_rate_limit(ip)
+        assert ip not in _failed_attempts
+
+    def test_expired_attempts_are_evicted_not_just_emptied(self):
+        """Regression test for finding #4: once an IP's attempts age out of
+        the window, the dict key itself must be removed — not left behind
+        as an empty list forever."""
+        ip = "10.0.2.2"
+        old_time = time.monotonic() - _RATE_WINDOW_SECONDS - 1
+        _failed_attempts[ip] = [old_time] * _MAX_FAILED_ATTEMPTS
+        _check_rate_limit(ip)
+        assert ip not in _failed_attempts
+
 
 # ---------------------------------------------------------------------------
 # Phase 6: Default password warning

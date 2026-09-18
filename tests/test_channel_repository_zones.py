@@ -1,10 +1,15 @@
 """Tests for zone-related fields in database/channel_repository.py
 
+Channels reference zones through a *pair* of endpoints — zone_before_id
+(zone the vehicle is in before crossing this channel) and zone_after_id
+(zone after crossing) — plus zone_channel_type ("entry"/"exit"/None). This
+replaced an earlier single zone_id column design.
+
 Covers:
-  - _normalize: zone_id coercion and validation
+  - _normalize: zone_before_id/zone_after_id coercion and validation
   - _normalize: zone_channel_type validation (entry/exit only)
-  - _normalize: zone_channel_type cleared when zone_id is None
-  - Schema SQL contains zone_id and zone_channel_type columns
+  - _normalize: zone_channel_type cleared when either endpoint is None
+  - Schema SQL contains the zone endpoint and type columns
   - create_channel and update_channel include zone fields in SQL
 """
 from __future__ import annotations
@@ -18,10 +23,10 @@ from database.channel_repository import ChannelDatabase, _normalize
 
 
 # ---------------------------------------------------------------------------
-# _normalize — zone_id
+# _normalize — zone_before_id / zone_after_id
 # ---------------------------------------------------------------------------
 
-class TestNormalizeZoneId:
+class TestNormalizeZoneEndpoints:
     def _base(self, **overrides):
         data = {
             "name": "Тест",
@@ -50,43 +55,57 @@ class TestNormalizeZoneId:
             "controller_direction_filter": "both",
             "list_filter_mode": "all",
             "list_filter_list_ids": [],
-            "zone_id": None,
+            "zone_before_id": None,
+            "zone_after_id": None,
             "zone_channel_type": None,
         }
         data.update(overrides)
         return data
 
-    def test_none_zone_id_stays_none(self):
-        result = _normalize(self._base(zone_id=None))
-        assert result["zone_id"] is None
+    def test_none_stays_none(self):
+        result = _normalize(self._base(zone_before_id=None, zone_after_id=None))
+        assert result["zone_before_id"] is None
+        assert result["zone_after_id"] is None
 
-    def test_zero_zone_id_becomes_none(self):
-        result = _normalize(self._base(zone_id=0))
-        assert result["zone_id"] is None
+    def test_zero_is_preserved_as_outside_parking_sentinel(self):
+        """0 means "Outside parking" and is a distinct, valid configured
+        value — unlike the old single zone_id column, it is NOT collapsed
+        to None here."""
+        result = _normalize(self._base(zone_before_id=0, zone_after_id=0))
+        assert result["zone_before_id"] == 0
+        assert result["zone_after_id"] == 0
 
-    def test_empty_string_zone_id_becomes_none(self):
-        result = _normalize(self._base(zone_id=""))
-        assert result["zone_id"] is None
+    def test_empty_string_becomes_none(self):
+        result = _normalize(self._base(zone_before_id="", zone_after_id=""))
+        assert result["zone_before_id"] is None
+        assert result["zone_after_id"] is None
 
-    def test_string_zero_zone_id_becomes_none(self):
-        result = _normalize(self._base(zone_id="0"))
-        assert result["zone_id"] is None
+    def test_negative_becomes_none(self):
+        result = _normalize(self._base(zone_before_id=-1, zone_after_id=-5))
+        assert result["zone_before_id"] is None
+        assert result["zone_after_id"] is None
 
-    def test_negative_zone_id_becomes_none(self):
-        result = _normalize(self._base(zone_id=-1))
-        assert result["zone_id"] is None
+    def test_valid_positive_preserved(self):
+        result = _normalize(self._base(zone_before_id=3, zone_after_id=4))
+        assert result["zone_before_id"] == 3
+        assert result["zone_after_id"] == 4
 
-    def test_valid_positive_zone_id_preserved(self):
-        result = _normalize(self._base(zone_id=3))
-        assert result["zone_id"] == 3
+    def test_string_positive_cast_to_int(self):
+        result = _normalize(self._base(zone_before_id="5", zone_after_id="6"))
+        assert result["zone_before_id"] == 5
+        assert result["zone_after_id"] == 6
 
-    def test_string_positive_zone_id_cast_to_int(self):
-        result = _normalize(self._base(zone_id="5"))
-        assert result["zone_id"] == 5
+    def test_non_numeric_becomes_none(self):
+        result = _normalize(self._base(zone_before_id="abc", zone_after_id="xyz"))
+        assert result["zone_before_id"] is None
+        assert result["zone_after_id"] is None
 
-    def test_non_numeric_zone_id_becomes_none(self):
-        result = _normalize(self._base(zone_id="abc"))
-        assert result["zone_id"] is None
+    def test_endpoints_normalized_independently(self):
+        """A valid zone_before_id doesn't get cleared by an invalid
+        zone_after_id, or vice versa."""
+        result = _normalize(self._base(zone_before_id=3, zone_after_id="bad"))
+        assert result["zone_before_id"] == 3
+        assert result["zone_after_id"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +113,7 @@ class TestNormalizeZoneId:
 # ---------------------------------------------------------------------------
 
 class TestNormalizeZoneChannelType:
-    def _base(self, zone_id=1, zone_channel_type=None):
+    def _base(self, zone_before_id=1, zone_after_id=2, zone_channel_type=None):
         return {
             "name": "Тест", "source": "0", "enabled": True,
             "roi_enabled": False, "region": {"unit": "percent", "points": []},
@@ -110,36 +129,44 @@ class TestNormalizeZoneChannelType:
             "controller_id": None, "controller_relay": 0,
             "controller_direction_filter": "both",
             "list_filter_mode": "all", "list_filter_list_ids": [],
-            "zone_id": zone_id, "zone_channel_type": zone_channel_type,
+            "zone_before_id": zone_before_id, "zone_after_id": zone_after_id,
+            "zone_channel_type": zone_channel_type,
         }
 
     def test_entry_is_valid(self):
-        result = _normalize(self._base(zone_id=1, zone_channel_type="entry"))
+        result = _normalize(self._base(zone_channel_type="entry"))
         assert result["zone_channel_type"] == "entry"
 
     def test_exit_is_valid(self):
-        result = _normalize(self._base(zone_id=1, zone_channel_type="exit"))
+        result = _normalize(self._base(zone_channel_type="exit"))
         assert result["zone_channel_type"] == "exit"
 
     def test_invalid_type_becomes_none(self):
-        result = _normalize(self._base(zone_id=1, zone_channel_type="both"))
+        result = _normalize(self._base(zone_channel_type="both"))
         assert result["zone_channel_type"] is None
 
     def test_empty_string_becomes_none(self):
-        result = _normalize(self._base(zone_id=1, zone_channel_type=""))
+        result = _normalize(self._base(zone_channel_type=""))
         assert result["zone_channel_type"] is None
 
     def test_uppercase_entry_normalised(self):
-        result = _normalize(self._base(zone_id=1, zone_channel_type="ENTRY"))
+        result = _normalize(self._base(zone_channel_type="ENTRY"))
         assert result["zone_channel_type"] == "entry"
 
-    def test_type_cleared_when_zone_id_is_none(self):
-        result = _normalize(self._base(zone_id=None, zone_channel_type="entry"))
+    def test_type_cleared_when_zone_before_id_is_none(self):
+        result = _normalize(self._base(zone_before_id=None, zone_channel_type="entry"))
         assert result["zone_channel_type"] is None
 
-    def test_type_cleared_when_zone_id_is_zero(self):
-        result = _normalize(self._base(zone_id=0, zone_channel_type="exit"))
+    def test_type_cleared_when_zone_after_id_is_none(self):
+        result = _normalize(self._base(zone_after_id=None, zone_channel_type="exit"))
         assert result["zone_channel_type"] is None
+
+    def test_type_preserved_when_both_endpoints_are_zero(self):
+        """0/0 ("Outside parking" on both sides) is a fully configured pair,
+        not an unset one — the type must survive, unlike None on either
+        side."""
+        result = _normalize(self._base(zone_before_id=0, zone_after_id=0, zone_channel_type="entry"))
+        assert result["zone_channel_type"] == "entry"
 
 
 # ---------------------------------------------------------------------------
@@ -151,8 +178,11 @@ class TestSchemaContainsZoneColumns:
         db = object.__new__(ChannelDatabase)
         return db._schema_sql()
 
-    def test_zone_id_column_present(self):
-        assert "zone_id" in self._schema()
+    def test_zone_before_id_column_present(self):
+        assert "zone_before_id" in self._schema()
+
+    def test_zone_after_id_column_present(self):
+        assert "zone_after_id" in self._schema()
 
     def test_zone_channel_type_column_present(self):
         assert "zone_channel_type" in self._schema()
@@ -198,7 +228,7 @@ def _channel_row(
     size_filter_enabled=False, min_plate_size=None, max_plate_size=None,
     controller_id=None, controller_relay=0, controller_direction_filter="both",
     list_filter_mode="all", list_filter_list_ids="[]",
-    zone_id=None, zone_channel_type=None,
+    zone_before_id=None, zone_after_id=None, zone_channel_type=None,
 ):
     """Build a mock DB row matching the channel_repository _SELECT_COLS column order."""
     import json
@@ -215,7 +245,7 @@ def _channel_row(
         json.dumps(max_plate_size or {"width": 600, "height": 240}),
         controller_id, controller_relay, controller_direction_filter,
         list_filter_mode, list_filter_list_ids,
-        zone_id, zone_channel_type,
+        zone_before_id, zone_after_id, zone_channel_type,
     )
 
 
@@ -229,11 +259,14 @@ def _full_channel_data(**overrides):
 class TestCreateChannelZoneFields:
     def test_create_channel_with_zone(self):
         db = _make_db()
-        row = _channel_row(zone_id=2, zone_channel_type="entry")
+        row = _channel_row(zone_before_id=1, zone_after_id=2, zone_channel_type="entry")
         conn, cursor = _mock_conn(fetchone=row)
         with patch.object(db, "_connect", return_value=conn):
-            result = db.create_channel(_full_channel_data(zone_id=2, zone_channel_type="entry"))
-        assert result["zone_id"] == 2
+            result = db.create_channel(
+                _full_channel_data(zone_before_id=1, zone_after_id=2, zone_channel_type="entry")
+            )
+        assert result["zone_before_id"] == 1
+        assert result["zone_after_id"] == 2
         assert result["zone_channel_type"] == "entry"
 
     def test_create_sql_includes_zone_columns(self):
@@ -243,24 +276,28 @@ class TestCreateChannelZoneFields:
         with patch.object(db, "_connect", return_value=conn):
             db.create_channel(_full_channel_data())
         sql = cursor.execute.call_args[0][0]
-        assert "zone_id" in sql
+        assert "zone_before_id" in sql
+        assert "zone_after_id" in sql
         assert "zone_channel_type" in sql
 
 
 class TestUpdateChannelZoneFields:
     def test_update_sql_includes_zone_columns(self):
         db = _make_db()
-        existing_row = _channel_row(zone_id=None, zone_channel_type=None)
-        updated_row = _channel_row(zone_id=3, zone_channel_type="exit")
+        existing_row = _channel_row(zone_before_id=None, zone_after_id=None, zone_channel_type=None)
+        updated_row = _channel_row(zone_before_id=1, zone_after_id=3, zone_channel_type="exit")
         conn, cursor = _mock_conn(fetchone=existing_row)
         # get_channel (called internally) and update both use _connect;
         # supply two sequential fetchone returns
         cursor.fetchone.side_effect = [existing_row, updated_row]
         with patch.object(db, "_connect", return_value=conn):
-            db.update_channel(1, {"name": "Выезд", "source": "0", "zone_id": 3, "zone_channel_type": "exit"})
+            db.update_channel(
+                1, {"name": "Выезд", "source": "0", "zone_before_id": 1, "zone_after_id": 3, "zone_channel_type": "exit"}
+            )
         calls = [c[0][0] for c in cursor.execute.call_args_list]
         update_sql = next((s for s in calls if "UPDATE" in s.upper()), "")
-        assert "zone_id" in update_sql
+        assert "zone_before_id" in update_sql
+        assert "zone_after_id" in update_sql
         assert "zone_channel_type" in update_sql
 
     def test_update_returns_none_when_not_found(self):

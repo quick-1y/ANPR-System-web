@@ -42,8 +42,15 @@ def _check_rate_limit(ip: str) -> None:
     """Raise HTTP 429 if the IP has exceeded the failed-login limit."""
     now = time.monotonic()
     with _attempts_lock:
-        attempts = [t for t in _failed_attempts[ip] if now - t < _RATE_WINDOW_SECONDS]
-        _failed_attempts[ip] = attempts
+        # Use .get() rather than bracket access so an IP with no failures on
+        # record (e.g. a normal successful login) never creates an entry —
+        # and drop the entry entirely once its attempts age out, so a slow
+        # trickle of distinct IPs doesn't grow this dict forever.
+        attempts = [t for t in _failed_attempts.get(ip, ()) if now - t < _RATE_WINDOW_SECONDS]
+        if attempts:
+            _failed_attempts[ip] = attempts
+        else:
+            _failed_attempts.pop(ip, None)
         if len(attempts) >= _MAX_FAILED_ATTEMPTS:
             raise HTTPException(
                 status_code=429,
@@ -107,9 +114,12 @@ def login(
     token = create_access_token(user_id=user["id"], role=user["role"])
     logger.info("login login='%s' id=%s ip='%s'", user["login"], user["id"], ip)
 
+    warn_default_password = user.get("role") == "superadmin" and user.get("password_changed_at") is None
+
     return LoginResponse(
         access_token=token,
         user=UserOut(**{k: v for k, v in user.items() if k != "password"}),
+        warn_default_password=warn_default_password,
     )
 
 

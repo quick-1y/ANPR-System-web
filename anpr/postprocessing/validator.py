@@ -29,9 +29,12 @@ class PlatePostProcessor:
 
     @staticmethod
     def _normalize(raw: str) -> str:
-        cleaned = re.sub(r"[^0-9A-Za-zА-ЯЁ]+", "", raw or "")
-        normalized = cleaned.upper().replace("Ё", "Е")
-        return normalized
+        # Uppercase *before* filtering: the character class below only lists
+        # uppercase Cyrillic, so lowercase Cyrillic input (e.g. "а123вс77")
+        # would otherwise be stripped by the regex before .upper() ever saw it.
+        upper = (raw or "").upper()
+        cleaned = re.sub(r"[^0-9A-ZА-ЯЁ]+", "", upper)
+        return cleaned.replace("Ё", "Е")
 
     def _apply_corrections(self, text: str, country: CountryConfig) -> str:
         corrected = text

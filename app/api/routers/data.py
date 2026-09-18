@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os
+import signal
 import threading
 import time
 from typing import Any, Dict, Optional
@@ -26,6 +26,34 @@ from common.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+# ── Upload size limits ───────────────────────────────────
+# Database backups only contain table rows as JSON (no media), settings
+# backups are a single small YAML file — caps are generous but bounded so
+# an authenticated upload can't exhaust server memory.
+_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB
+MAX_DATABASE_BACKUP_SIZE = 200 * 1024 * 1024  # 200 MiB
+MAX_SETTINGS_BACKUP_SIZE = 5 * 1024 * 1024  # 5 MiB
+
+
+class _PayloadTooLargeError(Exception):
+    """Raised when an uploaded file exceeds its configured size cap."""
+
+
+async def _read_upload_capped(file: UploadFile, max_bytes: int) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(_UPLOAD_CHUNK_SIZE)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise _PayloadTooLargeError(
+                f"Файл превышает допустимый размер {max_bytes // (1024 * 1024)} МБ"
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 @router.get("/api/data/policy")
@@ -122,7 +150,10 @@ async def restore_database(
             content={"status": "error", "detail": "Операция восстановления уже выполняется"},
         )
     try:
-        data = await file.read()
+        try:
+            data = await _read_upload_capped(file, MAX_DATABASE_BACKUP_SIZE)
+        except _PayloadTooLargeError as exc:
+            return JSONResponse(status_code=413, content={"status": "error", "detail": str(exc)})
 
         try:
             validate_database_backup(data)
@@ -158,11 +189,14 @@ async def restore_database(
         except Exception:
             logger.exception("Ошибка перезапуска после восстановления БД")
 
-        # Schedule process exit for a true restart (Docker will restart the container)
+        # Schedule a graceful restart (Docker will restart the container).
+        # SIGTERM lets uvicorn stop accepting connections, finish in-flight
+        # requests, and run the FastAPI lifespan shutdown before exiting —
+        # unlike os._exit(0), which killed the process mid-request.
         def _delayed_exit():
             time.sleep(2)
             logger.info("Перезапуск приложения после восстановления БД")
-            os._exit(0)
+            signal.raise_signal(signal.SIGTERM)
 
         exit_thread = threading.Thread(target=_delayed_exit, daemon=True)
         exit_thread.start()
@@ -208,7 +242,10 @@ async def restore_settings_endpoint(
             content={"status": "error", "detail": "Операция восстановления уже выполняется"},
         )
     try:
-        data = await file.read()
+        try:
+            data = await _read_upload_capped(file, MAX_SETTINGS_BACKUP_SIZE)
+        except _PayloadTooLargeError as exc:
+            return JSONResponse(status_code=413, content={"status": "error", "detail": str(exc)})
 
         try:
             validate_settings_yaml(data)

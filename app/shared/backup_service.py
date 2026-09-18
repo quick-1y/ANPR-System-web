@@ -11,6 +11,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 import psycopg
 import yaml
+from psycopg import sql
 
 from common.logging import get_logger
 
@@ -75,7 +76,11 @@ def export_database_backup(dsn: str) -> tuple[str, bytes]:
                 columns = [row[0] for row in cur.fetchall()]
                 if not columns:
                     continue
-                cur.execute(f"SELECT {', '.join(columns)} FROM {table}")  # noqa: S608
+                query = sql.SQL("SELECT {fields} FROM {table}").format(
+                    fields=sql.SQL(", ").join(sql.Identifier(c) for c in columns),
+                    table=sql.Identifier(table),
+                )
+                cur.execute(query)
                 rows = []
                 for row in cur.fetchall():
                     record: Dict[str, Any] = {}
@@ -145,7 +150,7 @@ def restore_database_backup(dsn: str, data: bytes) -> Dict[str, Any]:
             # Delete children before parents to respect FK constraints
             for table in reversed(_BACKUP_TABLES):
                 if table in tables:
-                    cur.execute(f"DELETE FROM {table}")  # noqa: S608
+                    cur.execute(sql.SQL("DELETE FROM {table}").format(table=sql.Identifier(table)))
 
             for table in _BACKUP_TABLES:
                 if table not in tables:
@@ -158,10 +163,15 @@ def restore_database_backup(dsn: str, data: bytes) -> Dict[str, Any]:
 
                 jsonb_cols = _fetch_jsonb_columns(cur, table)
                 columns = list(rows[0].keys())
-                col_names = ", ".join(columns)
-                placeholders = ", ".join(
-                    f"%s::jsonb" if col in jsonb_cols else "%s"  # noqa: S608
+                col_identifiers = sql.SQL(", ").join(sql.Identifier(c) for c in columns)
+                placeholders = sql.SQL(", ").join(
+                    sql.SQL("%s::jsonb") if col in jsonb_cols else sql.SQL("%s")
                     for col in columns
+                )
+                insert_query = sql.SQL("INSERT INTO {table} ({cols}) VALUES ({placeholders})").format(
+                    table=sql.Identifier(table),
+                    cols=col_identifiers,
+                    placeholders=placeholders,
                 )
 
                 for row in rows:
@@ -171,18 +181,18 @@ def restore_database_backup(dsn: str, data: bytes) -> Dict[str, Any]:
                         if col in jsonb_cols and isinstance(val, (dict, list)):
                             val = json.dumps(val, ensure_ascii=False)
                         values.append(val)
-                    cur.execute(
-                        f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})",  # noqa: S608
-                        values,
-                    )
+                    cur.execute(insert_query, values)
                 restored[table] = len(rows)
 
             # Reset sequences so new inserts get correct IDs
             for table in _BACKUP_TABLES:
                 if table in tables:
                     cur.execute(
-                        f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "  # noqa: S608
-                        f"COALESCE(MAX(id), 1)) FROM {table}"
+                        sql.SQL(
+                            "SELECT setval(pg_get_serial_sequence(%s, 'id'), "
+                            "COALESCE(MAX(id), 1)) FROM {table}"
+                        ).format(table=sql.Identifier(table)),
+                        (table,),
                     )
         conn.commit()
 

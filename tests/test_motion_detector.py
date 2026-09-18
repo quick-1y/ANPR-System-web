@@ -42,7 +42,13 @@ class TestMotionDetector:
         assert result is True
 
     def test_motion_releases_after_release_frames(self):
-        """Motion deactivates after release_frames consecutive static frames."""
+        """Motion deactivates after release_frames consecutive static frames.
+
+        The first frame sent after the noisy sequence is compared against
+        the last *noisy* frame, so that transition itself has a large pixel
+        delta and correctly counts as one more motion frame — the release
+        counter only starts on the frame after that (static-vs-static).
+        """
         cfg = MotionDetectorConfig(
             threshold=0.001,
             activation_frames=2,
@@ -57,6 +63,7 @@ class TestMotionDetector:
         assert md.update(_noisy(value=50)) is True  # active
         # Now send static frames
         static = _blank()
+        md.update(static)   # transition frame (noisy→static delta) — still counts as motion
         md.update(static)   # static 1
         md.update(static)   # static 2
         result = md.update(static)  # static 3 — should deactivate

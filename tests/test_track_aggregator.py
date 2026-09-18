@@ -1,4 +1,6 @@
 """Tests for TrackAggregator consensus and OCR budget logic in anpr/pipeline/anpr_pipeline.py"""
+import logging
+
 import pytest
 from anpr.pipeline.anpr_pipeline import TrackAggregator
 
@@ -244,3 +246,28 @@ class TestTrackOCRBudget:
         # Track 1 should be evicted — new state starts fresh.
         assert agg.should_process(1) is True
         assert 1 not in agg._track_states
+
+    def test_stale_eviction_is_logged_at_debug(self, caplog):
+        """Regression test for finding #10: eviction was previously silent,
+        making it impossible to notice a misconfigured TTL from logs alone."""
+        import time as _time
+
+        agg = TrackAggregator(best_shots=3, ttl_seconds=5.0)
+        agg.add_result(1, "ABC", 0.9)
+        agg._track_ts[1] = _time.monotonic() - 60.0
+
+        with caplog.at_level(logging.DEBUG, logger="anpr.pipeline.anpr_pipeline"):
+            agg._evict_stale(_time.monotonic())
+
+        assert any("устаревших треков" in r.message for r in caplog.records)
+
+    def test_no_log_when_nothing_evicted(self, caplog):
+        import time as _time
+
+        agg = TrackAggregator(best_shots=3, ttl_seconds=5.0)
+        agg.add_result(1, "ABC", 0.9)  # fresh — not stale
+
+        with caplog.at_level(logging.DEBUG, logger="anpr.pipeline.anpr_pipeline"):
+            agg._evict_stale(_time.monotonic())
+
+        assert not any("устаревших треков" in r.message for r in caplog.records)

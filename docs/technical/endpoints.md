@@ -148,9 +148,9 @@
 | `GET` | `/api/data/export/events.csv` | Экспорт событий в CSV |
 | `POST` | `/api/data/export/bundle` | Экспорт событий в ZIP (с медиа по выбору) |
 | `GET` | `/api/data/backup/database` | Скачать бэкап базы данных (ZIP с JSON-дампом и манифестом) |
-| `POST` | `/api/data/backup/database/restore` | Восстановить БД из бэкапа (multipart upload). Полностью перезаписывает текущие данные, затем перезапускает приложение |
+| `POST` | `/api/data/backup/database/restore` | Восстановить БД из бэкапа (multipart upload, до 200 МБ — больший файл отклоняется с `413`). Полностью перезаписывает текущие данные, затем перезапускает приложение |
 | `GET` | `/api/data/backup/settings` | Скачать текущий settings.yaml |
-| `POST` | `/api/data/backup/settings/restore` | Восстановить settings.yaml из файла (multipart upload). Валидирует, нормализует и атомарно сохраняет настройки, перезапускает pipeline |
+| `POST` | `/api/data/backup/settings/restore` | Восстановить settings.yaml из файла (multipart upload, до 5 МБ — больший файл отклоняется с `413`). Валидирует, нормализует и атомарно сохраняет настройки, перезапускает pipeline |
 
 ### System & Telemetry
 

@@ -88,6 +88,14 @@ class TrackAggregator:
             self.last_emitted.pop(tid, None)
             self._track_ts.pop(tid, None)
             self._track_states.pop(tid, None)
+        if stale:
+            logger.debug(
+                "%s: удалено %d устаревших треков (TTL=%.0fс): %s",
+                self._channel_label,
+                len(stale),
+                self.ttl_seconds,
+                stale,
+            )
 
     def should_process(self, track_id: int) -> bool:
         """Return *True* if OCR should still run for *track_id*."""
@@ -405,10 +413,27 @@ class ANPRPipeline:
             stale = [p for p, ts in self._last_seen.items() if now - ts > threshold]
             for p in stale:
                 del self._last_seen[p]
+            if stale:
+                logger.debug(
+                    "%s: очищено %d устаревших записей cooldown (порог=%.0fс).",
+                    self._channel_label,
+                    len(stale),
+                    threshold,
+                )
         last_seen = self._last_seen.get(plate)
         if last_seen is None:
             return False
-        return (now - last_seen) < self.cooldown_seconds
+        elapsed = now - last_seen
+        on_cooldown = elapsed < self.cooldown_seconds
+        if on_cooldown:
+            logger.debug(
+                "%s: номер \"%s\" подавлен cooldown'ом (повтор через %.1fс после предыдущего, порог=%dс).",
+                self._channel_label,
+                plate,
+                elapsed,
+                self.cooldown_seconds,
+            )
+        return on_cooldown
 
     def _touch_plate(self, plate: str) -> None:
         self._last_seen[plate] = time.monotonic()

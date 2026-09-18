@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -47,6 +48,7 @@ class AppContainer:
     lifecycle: DataLifecycleService
     main_loop: asyncio.AbstractEventLoop | None
     stream_shutdown: asyncio.Event
+    _processor_swap_lock: threading.Lock = field(default_factory=threading.Lock)
 
     def _resolve_dsn(self) -> str:
         return str(self.settings.get_storage_settings().get("postgres_dsn", "")).strip()
@@ -149,26 +151,36 @@ class AppContainer:
             return {"status": "degraded", "backend": "postgresql", "detail": str(exc)}
 
     def publish_event_sync(self, event: Dict[str, Any]) -> None:
-        if self.main_loop and self.main_loop.is_running():
-            self.main_loop.call_soon_threadsafe(asyncio.create_task, self.event_bus.publish(event))
+        loop = self.main_loop
+        if loop and loop.is_running():
+            try:
+                loop.call_soon_threadsafe(asyncio.create_task, self.event_bus.publish(event))
+            except RuntimeError:
+                # Loop stopped between the is_running() check above and this
+                # call (e.g. during shutdown) — the event is simply dropped.
+                pass
         if not event.get("relay_blocked"):
             self.controller_automation.dispatch_event(event)
 
     def restart_processor_for_settings(self) -> None:
-        channels = self.channel_db.list_channels()
-        enabled_ids = [int(item["id"]) for item in channels if item.get("enabled", True)]
-        old_processor = self.processor
-        for channel in channels:
-            try:
-                old_processor.stop(int(channel["id"]))
-            except Exception:
-                pass
-        self.processor = self._create_processor()
-        old_processor.shutdown_io_pool()
-        for channel in channels:
-            self.processor.ensure_channel(channel)
-        for channel_id in enabled_ids:
-            self.processor.start(channel_id)
+        # Guards the stop -> create -> start swap against two concurrent
+        # settings-driven restarts interleaving, which could otherwise start
+        # channels twice or orphan a freshly created processor.
+        with self._processor_swap_lock:
+            channels = self.channel_db.list_channels()
+            enabled_ids = [int(item["id"]) for item in channels if item.get("enabled", True)]
+            old_processor = self.processor
+            for channel in channels:
+                try:
+                    old_processor.stop(int(channel["id"]))
+                except Exception:
+                    pass
+            self.processor = self._create_processor()
+            old_processor.shutdown_io_pool()
+            for channel in channels:
+                self.processor.ensure_channel(channel)
+            for channel_id in enabled_ids:
+                self.processor.start(channel_id)
 
     def sync_channel_runtime(self, channel_id: int, enabled: bool) -> None:
         metric = self.processor.list_states().get(channel_id)
@@ -198,7 +210,7 @@ class AppContainer:
         if zone_before_id is None and zone_after_id is None:
             payload["zone_channel_type"] = None
             return
-        for field, zid in [("zone_before_id", zone_before_id), ("zone_after_id", zone_after_id)]:
+        for field_name, zid in [("zone_before_id", zone_before_id), ("zone_after_id", zone_after_id)]:
             if zid is not None and int(zid) != 0:
                 if not self.zone_db.get_zone(int(zid)):
                     raise HTTPException(status_code=400, detail=f"Зона #{zid} не найдена")

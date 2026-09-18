@@ -75,6 +75,11 @@ class DataLifecycleService:
         deleted = 0
         for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
             for file_path in self.screenshots_dir.rglob(ext):
+                if file_path.is_symlink():
+                    # Screenshots are written by this app itself — a symlink
+                    # here shouldn't exist, but rglob() would otherwise
+                    # follow it into an arbitrary directory.
+                    continue
                 try:
                     if file_path.stat().st_mtime < cutoff:
                         file_path.unlink()
@@ -89,6 +94,8 @@ class DataLifecycleService:
         total = 0
         for ext in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
             for file_path in self.screenshots_dir.rglob(ext):
+                if file_path.is_symlink():
+                    continue
                 try:
                     stat = file_path.stat()
                 except OSError:
