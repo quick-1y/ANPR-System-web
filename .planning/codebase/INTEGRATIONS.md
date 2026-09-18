@@ -1,195 +1,200 @@
 # External Integrations
 
-**Analysis Date:** 2026-04-14
+**Analysis Date:** 2026-09-18
 
 ## APIs & External Services
 
-**RTSP Camera Streams:**
-- Consumed via OpenCV `cv2.VideoCapture()` for live video feeds
-- Configured per-channel in `config/settings.yaml` (channel source URLs)
-- Authentication: Credentials embedded in RTSP URL (e.g., `rtsp://admin:pass@camera-ip:554/stream`)
-- Reconnection policies defined in `config/settings_schema.py` (`reconnect_defaults()`):
-  - Signal loss: enabled by default, 5s frame timeout, 5s retry interval
-  - Periodic: disabled by default, 60min interval
+**Hardware Relay Controllers:**
+- DTWONDER2CH - HTTP-based relay control system
+  - Purpose: Trigger relay actions (gate control, barrier raising, etc.) in response to license plate events
+  - Adapter: `controllers/adapters/dtwonder2ch.py` implements command URL building
+  - Integration: Controller command URL constructed with relay index, mode, timer, and password
+  - Communication: HTTP GET requests via `urllib.request` (`controllers/service.py`)
+  - Example: `http://<controller_address>/?type=<mode>&relay=<index>&on=<bool>&time=<timer>&pwd=<password>`
 
-**Hardware Controllers (HTTP relay devices):**
-- DTWONDER2CH adapter: `controllers/adapters/dtwonder2ch.py` (`Dtwonder2ChAdapter`)
-  - Communicates via HTTP GET to relay CGI endpoint
-  - URL pattern: `http://{address}/relay_cgi.cgi?type={}&relay={}&on={}&time={}&pwd={}`
-  - Supports 2 relays per controller (index 0 and 1)
-  - Relay modes: `pulse` (type=1, time=1) and `pulse_timer` (type=2, configurable time)
-  - Auth: per-device password sent as `pwd` query parameter
-  - Base class: `controllers/base.py` (`ControllerAdapter`)
-- Adapter system is pluggable via `controllers/adapters/` directory
-
-**SSE (Server-Sent Events):**
-- `/api/events/stream` — Live ANPR event stream to web clients
-- `/api/debug/logs/stream` — Live log stream to web clients
-- Nginx configured with `proxy_buffering off`, `proxy_cache off`, 1h `proxy_read_timeout` for SSE paths
-
-**MJPEG / Snapshot Streaming:**
-- `/api/channels/{id}/preview.mjpg` — Live camera preview (MJPEG)
-- `/api/channels/{id}/snapshot.jpg` — Single frame capture
+**Video Streams:**
+- RTSP/HTTP video stream sources configured per channel
+- Purpose: Input for ANPR detection pipeline
+- Framework: OpenCV (cv2) captures and processes frame streams
+- Integration: `runtime/channel_runtime.py` manages channel stream processing
 
 ## Data Storage
 
-**PostgreSQL 16:**
-- Connection: `POSTGRES_DSN` env var (default: `postgresql://anpr:anpr@postgres:5432/anpr`)
-- Driver: `psycopg[binary]` (psycopg3 with C extensions)
-- Connection pooling: **shared pool per DSN** via `database/base.py` (`get_shared_pool`)
-  - Pool config: `min_size=2, max_size=10, open=True`
-  - Single pool shared across all repository instances with the same DSN
-  - All `PooledDatabase` subclasses call `get_shared_pool(dsn)` which creates or returns the singleton
-  - `close_shared_pool(dsn)` called on DSN change in `AppContainer.refresh_storage_clients()`
-- Schema bootstrap: lazy via `_ensure_schema()` on first access per repository; initial schema also mounted at `/docker-entrypoint-initdb.d/01-schema.sql`
+**Databases:**
+- PostgreSQL 16
+  - Provider: Self-hosted (docker-compose includes `postgres:16` service)
+  - Connection: Via psycopg (PostgreSQL adapter for Python)
+  - Client: psycopg with connection pooling (psycopg_pool)
+    - Pool configuration: min_size=2, max_size=10 (shared across all repository classes)
+  - Connection: Environment variable `POSTGRES_DSN` (default: `postgresql://anpr:anpr@postgres:5432/anpr`)
+  - Credentials: Environment variables `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
+  - Schema: Auto-initialized by repository classes on first use
+  - Health check: PostgreSQL service health verified before API startup
 
-**Tables (from `database/postgres/schema.sql` and inline DDL):**
-- `events` — ANPR detection events (id, timestamp, channel_id, channel, plate, plate_display, country, confidence, source, frame_path, plate_path, direction)
-- `lists` — Named lists with types (`white`, `info`, `black`)
-- `clients` — Individual plate entries linked to lists (unique constraint on `list_id, plate_normalized`)
-- `users` — User accounts (id, login, password_hash, role, permissions, is_active, timestamps)
+**Schema/Tables (inferred from repository classes):**
+- Events - License plate detection events (`database/postgres_event_repository.py`)
+- Channels - Video channel configuration (`database/channel_repository.py`)
+- Users - System user accounts (`database/user_repository.py`)
+- Controllers - Relay controller definitions (`database/controller_repository.py`)
+- Zones - Detection zones for multi-zone triggers (`database/zones_repository.py`)
+- Lists - License plate whitelist/blacklist (`database/lists_repository.py`)
+- Clients - Client/account management (`database/clients_repository.py`)
 
-**Repositories:**
-- `PostgresEventDatabase` (`database/postgres_event_repository.py`) — event CRUD, journal pagination, export
-- `ListDatabase` (`database/lists_repository.py`) — list CRUD + plate-matching helpers for channel automation
-- `ClientDatabase` (`database/clients_repository.py`) — client CRUD, search, attach/detach
-- `UserDatabase` (`database/user_repository.py`) — user CRUD, login lookup, password management
-- `ChannelDatabase` (`database/channel_repository.py`) — channel config persistence
-- `ControllerDatabase` (`database/controller_repository.py`) — controller config persistence
-
-**File Storage (local filesystem via Docker volumes):**
-- Screenshots: `data/screenshots/` (Docker volume `media_data` at `/app/data`)
-- Exports: `data/exports/` (same volume)
-- Logs: `logs/` (Docker volume `logs_data` at `/app/logs`)
-- Hourly log rotation: `common/logging.py` (`HourlyFileHandler`), pattern: `{service}_{YYYY-MM-DD_HH-00}.log`
+**File Storage:**
+- Local filesystem
+  - Screenshots directory: Configured in settings.yaml (`storage.screenshots_dir`, default: `data/screenshots`)
+  - Logs directory: `logs/` (in docker-compose: `logs_data` volume)
+  - Media retention: Automatic cleanup based on retention policies
+  - Screenshot retention: Configurable max size and retention days (`storage.max_screenshots_mb`, `storage.media_retention_days`)
 
 **Caching:**
-- None (no Redis or external cache)
-- In-memory `EventBus` for live pub/sub (`runtime/event_bus.py`) — asyncio queue-based, max 512 per subscriber
-- In-memory `DebugLogBus` for live log streaming (`runtime/debug_log_bus.py`, capacity=2000)
+- None detected - No Redis, Memcached, or in-memory cache beyond runtime objects
 
 ## Authentication & Identity
 
-**JWT-based multi-user auth:**
-- Location: `app/api/auth_utils.py`, `app/api/deps.py`, `app/api/routers/auth.py`
-- Algorithm: HS256
-- Secret: `JWT_SECRET_KEY` env var (default: `anpr-default-secret-change-me` — insecure, must change in production)
-- Expiry: `JWT_EXPIRATION_MINUTES` env var (default: `480` = 8 hours)
-- Token delivery (checked in order by `get_current_user`):
-  1. `Authorization: Bearer <token>` header (standard)
-  2. `?token=<jwt>` query parameter (for SSE / MJPEG streams that cannot set headers)
-- Password hashing: bcrypt (`bcrypt.hashpw` / `bcrypt.checkpw`)
-- `app/api/deps.py` provides:
-  - `get_current_user()` — validates JWT, fetches user, checks `is_active`
-  - `require_role(role)` — dependency checking user role
-  - `require_permission(perm)` — dependency checking permission key
+**Auth Provider:**
+- Custom JWT-based implementation (no external provider)
+  - Implementation location: `app/api/auth_utils.py`
+  - Token algorithm: HS256 (HMAC-SHA256)
+  - Secret key: Environment variable `JWT_SECRET_KEY` (default weak value for dev only)
+  - Token fields: `sub` (user_id), `role`, `exp` (expiration), `iat` (issued at)
+  - Expiration: Configurable via `JWT_EXPIRATION_MINUTES` (default: 480 minutes)
+  - Password hashing: bcrypt with salt (via bcrypt library)
 
-**Brute-force protection (`app/api/routers/auth.py`):**
-- In-memory per-IP rate limiter: 5 failed attempts per 60-second rolling window
-- HTTP 429 returned on threshold breach; counter resets on successful login
-- `_failed_attempts: dict[str, list[float]]` protected by `threading.Lock`
+**Auth Flow:**
+1. Login endpoint (`app/api/routers/auth.py`): Username + password exchange for JWT
+2. Password verification: `verify_password()` checks bcrypt hash
+3. Token creation: `create_access_token()` generates signed JWT
+4. Token validation: Middleware/dependencies use `decode_access_token()` to validate incoming requests
+5. Token transmission: JWT in Authorization header or `?token=<jwt>` query parameter (for SSE/MJPEG streams)
 
-**User roles:**
-- `superadmin` — full access; required for most mutation endpoints
-- Custom permission keys: `tab:obs`, `tab:journal`, `tab:lists`, `tab:settings`
-
-**Endpoints:**
-- `POST /api/auth/login` — authenticate, receive JWT
-- `POST /api/auth/logout` — client-side token invalidation (no server-side revocation)
-- `GET /api/auth/me` — current user profile
+**User Roles:**
+- Based on `role` field in JWT payload
+- Access control: `require_permission()`, `require_role()` dependency functions in `app/api/deps.py`
+- Known roles: "superadmin" (referenced in debug router access control)
 
 ## Monitoring & Observability
 
-**Health Checks (Docker Compose):**
-
-| Service | Endpoint | Interval | Timeout | Retries | Probe |
-|---------|----------|----------|---------|---------|-------|
-| postgres | — | 5s | 5s | 12 | `pg_isready -U anpr -d anpr` |
-| api | `/api/health` | 10s | 5s | 6 | Python `urllib.request.urlopen` with 3s timeout |
-| retention_worker | `/worker/health` | 15s | 5s | 6 | Python `urllib.request.urlopen` with 3s timeout |
-| nginx | `/` | 10s | 5s | 6 | `wget -q -O /dev/null` |
-
-**Logging (`common/logging.py`):**
-- Async queue-based: `QueueHandler` + `QueueListener` (avoids blocking application threads)
-- Format: `%(asctime)s [%(levelname)s] [%(service)s] %(name)s: %(message)s`
-- File handler: `HourlyFileHandler` — rotates log files every hour
-- Console handler: `StreamHandler` to stdout
-- Live debug handler: `LiveDebugHandler` publishes to `DebugLogBus` for SSE streaming
-- Service name filter: auto-tags all log records with service identifier
-- Noisy loggers suppressed to WARNING: `matplotlib`, `PIL`, `urllib3`, `httpcore`, `httpx`, `uvicorn.access`, `multipart`
-- Log cleanup: background thread runs every 3600s, deletes logs older than `retention_days` (default 30)
-
-**System Metrics:**
-- `psutil` for CPU, memory, disk monitoring
-- Exposed via `/api/system/` routes (`app/api/routers/system.py`)
-
 **Error Tracking:**
-- No external service (no Sentry, DataDog, etc.)
-- Custom `StorageUnavailableError` for database connectivity issues (`database/errors.py`)
+- Not detected - No external error tracking (Sentry, etc.)
+- Custom exception handling: `StorageUnavailableError` for database connectivity issues
+- HTTP exceptions: FastAPI HTTPException for API errors
+
+**Logs:**
+- Approach: File-based logging with hourly rotation
+- Implementation: `common/logging.py` with custom `HourlyFileHandler`
+- Format: Formatted log records with service prefix
+- Log files: Hourly files in configured `logs_dir` (default: `logs/`)
+- Service prefix: Log files named by service (`api`, `worker`, etc.)
+- Log retention: Configurable `logging.retention_days` (default: 30 days)
+- Log levels: Configurable via `LOG_LEVEL` environment variable
+- Streaming logs: LiveDebugHandler publishes logs to DebugLogBus for real-time UI display
+- Channel-specific logging: Logs can be tagged with `channel_id` for filtering
+
+**Metrics/Debug:**
+- Debug registry: `runtime/debug.py` - Configurable debug features
+- Channel metrics: CPU/memory usage per channel (when `debug.show_channel_metrics` enabled)
+- Live log bus: Real-time log streaming to connected clients (capacity: 2000 messages)
+- Debug endpoints: `/api/debug/*` routes provide live logs and system diagnostics
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Self-hosted Docker Compose deployment (no cloud provider)
+- Docker containers (self-hosted)
+- Orchestration: docker-compose (3 services + PostgreSQL)
+
+**Services:**
+1. `api` - Main FastAPI application (port 8080 internal, exposed via Nginx)
+   - Health check: HTTP endpoint `/api/health`
+   - Startup dependency: PostgreSQL must be healthy
+2. `retention_worker` - Data lifecycle/cleanup service (port 8092 internal)
+   - Health check: HTTP endpoint `/worker/health`
+   - Function: Event retention, screenshot cleanup per policy
+3. `nginx` - Reverse proxy and static file server (port 8080 external)
+   - Health check: HTTP root endpoint
+   - Static serving: Web UI from `app/web/` directory
+4. `postgres` - PostgreSQL 16 database
+   - Health check: pg_isready command
+   - Initialization: SQL schema from `database/postgres/schema.sql`
 
 **CI Pipeline:**
-- Not detected — no `.github/workflows/`, `Jenkinsfile`, or `.gitlab-ci.yml`
+- Not detected - No GitHub Actions, GitLab CI, or other CI configuration found
 
-**Deployment:**
-- `docker-compose up --build`
-- Config bind-mounted from host: `./config:/app/config`
-- All services set `restart: unless-stopped`
-
-**Reverse Proxy (Nginx 1.27-alpine, `nginx/default.conf`):**
-- Routes `/worker/` to `retention_worker:8092`
-- Routes `/api/events/stream` with SSE config (no buffering, `Connection: ""`, 1h timeout, `X-Accel-Buffering: no`)
-- Routes everything else to `api:8080`
-- `client_max_body_size 50m`
-- External port: `HTTP_PORT` env var (default: `8080`)
+**Deployment Artifacts:**
+- Docker image built from `Dockerfile` (Python 3.13-slim base)
+- Docker Compose configuration in `docker-compose.yml`
+- Environment configuration: `.env` file (not in repo, use `.env.example`)
 
 ## Environment Configuration
 
 **Required env vars:**
-- `POSTGRES_DSN` — PostgreSQL connection string (critical for both api and retention_worker)
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` — Used by postgres container initialization
-- `JWT_SECRET_KEY` — **Must be changed from default before any production use**
+- `POSTGRES_DSN` - PostgreSQL connection string (default: `postgresql://anpr:anpr@postgres:5432/anpr`)
+- `JWT_SECRET_KEY` - JWT signing key (must be 32+ bytes in production, default weak value)
+- `SETTINGS_PATH` - Path to settings.yaml (default: `/app/config/settings.yaml`)
 
-**Optional env vars:**
-- `APP_ENV` — Environment identifier (default: `docker`)
-- `DEBUG` — Debug flag (default: `false`)
-- `LOG_LEVEL` — Log verbosity (default: `INFO`)
-- `SETTINGS_PATH` — YAML config path (default: `/app/config/settings.yaml`)
-- `HTTP_PORT` — External HTTP port (default: `8080`)
-- `JWT_EXPIRATION_MINUTES` — Token TTL (default: `480`)
-- `OMP_NUM_THREADS` / `MKL_NUM_THREADS` / `OPENBLAS_NUM_THREADS` — Thread limits (default: `2`)
+**Recommended env vars:**
+- `JWT_EXPIRATION_MINUTES` - Token expiration time (default: 480)
+- `LOG_LEVEL` - Logging level (default: INFO, options: ALL, DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- `OMP_NUM_THREADS` - PyTorch/OpenMP thread limit (default: 2, prevents CPU oversubscription)
+- `HTTP_PORT` - External HTTP port (default: 8080)
+- `APP_ENV` - Environment mode (e.g., "docker")
+- `DEBUG` - Debug mode flag (default: false)
+
+**Database env vars:**
+- `POSTGRES_DB` - Database name (default: anpr)
+- `POSTGRES_USER` - Database user (default: anpr)
+- `POSTGRES_PASSWORD` - Database password (default: anpr)
+- `POSTGRES_PORT` - Database port (default: 5432, docker-compose only)
 
 **Secrets location:**
-- `.env` file in project root (gitignored)
-- RTSP credentials embedded in stream URLs (plaintext in `config/settings.yaml`)
-- Controller passwords in `config/settings.yaml` (relay config sections)
+- `.env` file (git-ignored, use `.env.example` for template)
+- Sensitive values: `JWT_SECRET_KEY`, `POSTGRES_PASSWORD`, database credentials
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- None detected
+- Not detected - No webhook endpoints exposed
 
 **Outgoing:**
-- HTTP GET to hardware controllers (relay CGI endpoints) triggered by plate recognition events
-- Flow: plate detected -> list check -> adapter builds URL -> HTTP request to controller
+- Not detected - No external webhooks called
+- Event bus: Internal event publishing to `runtime/event_bus.py` (in-process only)
+- Controller automation: Events trigger relay control but no external notifications
 
-## Data Lifecycle
+## Real-time Communication
 
-**Retention Worker (`app/worker/main.py`):**
-- Separate FastAPI service on port 8092
-- `RetentionScheduler` runs async loop based on `cleanup_interval_minutes` (default 30)
-- Uses `app/shared/data_lifecycle.py` (`DataLifecycleService`)
-- Configurable policies from `config/settings_schema.py` (`storage_defaults()`):
-  - `events_retention_days`: 30 (default)
-  - `media_retention_days`: 14 (default)
-  - `max_screenshots_mb`: 4096 (default)
-- Manual trigger: `POST /worker/retention/run`
-- Health/status: `GET /worker/health` (returns policy + last run result)
+**SSE (Server-Sent Events):**
+- Live event streaming: `/api/events/stream` - Streams detected license plate events
+- Live debug logs: `/api/debug/logs/stream` - Streams system logs in real-time
+- Implementation: AsyncIO with event loop, StreamingResponse with `text/event-stream` media type
+- Access: Requires JWT authentication or `?token=` query parameter
+
+**MJPEG Streaming:**
+- Live video preview: `/api/channels/{channel_id}/preview` - MJPEG encoded video stream
+- Implementation: OpenCV frame encoding + streaming response
+- Access: Requires JWT authentication or `?token=` query parameter
+- Purpose: Real-time video display in web UI
+
+## Data Flow Patterns
+
+**Event Processing:**
+1. Video stream captured via OpenCV
+2. Frame passed to YOLOv8 detector (plate detection)
+3. Detected plates passed to CRNN OCR for text recognition
+4. Recognition results stored to PostgreSQL events table
+5. Event published to event bus
+6. Event bus subscribers triggered (UI updates, controller automation, logging)
+7. Controller automation evaluates license plate against whitelists/blacklists
+8. If match: Relay control command sent to hardware controller (HTTP)
+
+**Screenshot Storage:**
+- Captured frames saved to `data/screenshots/` on match
+- Automatic cleanup: Retention worker monitors disk usage and age
+- Cleanup policy: Based on `storage.media_retention_days` and `storage.max_screenshots_mb`
+
+**Log Archival:**
+- Logs written hourly to `logs/` directory
+- Automatic cleanup: Retention worker removes logs older than `logging.retention_days`
 
 ---
 
-*Integration audit: 2026-04-14*
+*Integration audit: 2026-09-18*

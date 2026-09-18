@@ -1,243 +1,590 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-04-14
+**Analysis Date:** 2026-09-18
 
-## Tech Debt
+## SQL Injection via Table/Column Names (Medium Risk)
 
-**Broad Exception Handling:**
-- Issue: Multiple `except Exception` blocks throughout suppress specific errors, making debugging harder
-- Files: `database/postgres_event_repository.py`, `database/lists_repository.py`, `anpr/detection/yolo_detector.py`, `runtime/channel_runtime.py`, `controllers/service.py`, `common/logging.py`, `app/api/container.py`, `app/api/routers/settings.py`
-- Impact: Network failures, permission issues, and data corruption treated identically. The YOLO detector silently falls back to CPU on any exception, not just CUDA errors
-- Fix approach: Replace broad catches with specific types (`psycopg.OperationalError`, `psycopg.IntegrityError`, etc.). Keep broad catch only in `_run_channel` top-level crash guard
+**Issue:** SQL queries constructed with f-strings containing table and column names.
 
-**Frontend Module Size:**
-- Issue: Several JS modules are very large without lazy loading
-- Files: `app/web/video-grid.js` (701 lines), `app/web/channels.js` (638 lines)
-- Impact: No code splitting, heavy upfront load even for unused tabs
-- Status: The monolithic `app.js` was split into domain modules — a significant improvement — but individual modules remain large
+**Files:**
+- `app/shared/backup_service.py` (lines 78, 148, 175, 184-186)
 
-**Unvalidated Channel Update Payload:**
-- Issue: `PUT /api/channels/{channel_id}` accepts raw `Dict[str, Any]` without schema validation
-- Files: `app/api/routers/channels.py`
-- Impact: Arbitrary key-value pairs can be injected into channel settings; no type coercion or bounds checking
-- Fix approach: Apply Pydantic validation to all channel update endpoints, or whitelist allowed keys
+**Current mitigation:** Table names are hardcoded to known values in `_BACKUP_TABLES` constant, limiting attack surface.
 
-**Settings Normalizer Coupling to Controllers:**
-- Issue: `config/settings_normalizer.py` imports `SUPPORTED_CONTROLLER_TYPES` from `controllers/__init__.py`
-- Impact: Config layer cannot be used independently of the controllers package
-- Fix approach: Move `SUPPORTED_CONTROLLER_TYPES` to `config/settings_schema.py` or a shared constants module
+**Fix approach:** 
+- Use `psycopg.sql.Identifier()` for safe table/column name quoting
+- Replace f-string SQL with parameterized identifiers:
+  ```python
+  from psycopg import sql
+  cur.execute(sql.SQL("SELECT {cols} FROM {table}").format(
+      cols=sql.SQL(", ").join(sql.Identifier(c) for c in columns),
+      table=sql.Identifier(table)
+  ), values)
+  ```
 
-**OCR Consensus Recomputed on Every Call:**
-- Issue: `TrackAggregator` recomputes weighted majority on every `add_result()` call
-- Files: `anpr/pipeline/anpr_pipeline.py`
-- Impact: CPU overhead grows with `best_shots` count; result could be cached after quorum
-- Fix approach: Cache the consensus result after first computation; invalidate only on new additions
-
-**Settings Deserialization Not Cached:**
-- Issue: `SettingsManager` may parse YAML on every settings read depending on call frequency
-- Files: `config/settings_repository.py`, `config/settings_manager.py`
-- Impact: Disk I/O per request in high-frequency settings access patterns
-- Fix approach: The in-memory `settings` dict is already cached; verify no redundant file reads occur per request
-
-**Media Cleanup Uses Full Directory Walk:**
-- Issue: `rglob()` walks entire screenshots directory without an index
-- Files: `app/shared/data_lifecycle.py`
-- Impact: Slow on large media directories with many files/subdirectories
-- Fix approach: Maintain a lightweight index or use date-based directory pruning
-
-## Known Bugs
-
-**Settings Update Does Not Affect Running Channels:**
-- Issue: Channel threads snapshot config at start via `channel = dict(ctx.channel)`. Settings changes do not propagate until channel restart
-- Files: `runtime/channel_runtime.py` (lines 346-347, 358-392)
-- Impact: Users change settings expecting immediate effect but see no change until manual restart
-- Fix approach: Implement config-reload mechanism checked periodically by the channel loop, or document and auto-restart on relevant config changes
-
-**Preview Frame Initialization Race:**
-- Issue: Gap between `metrics.state = "running"` and first successful frame encode where `latest_jpeg` is `None`. API returns 503 during this window
-- Files: `runtime/channel_runtime.py`, `app/api/routers/channels.py`
-- Impact: Frontend preview panels briefly flash an error state on channel start
-- Fix approach: Add a "starting" state handled gracefully by the frontend, or buffer first frame before transitioning to "running"
-
-**Reconnection Metrics Not Reset on Restart:**
-- Issue: `ChannelMetrics` reused without resetting `reconnect_count`, `timeout_count`, `error_count`, `failed_frames` when `restart()` calls `stop()` then `start()`
-- Files: `runtime/channel_runtime.py`
-- Impact: Metrics accumulate across restarts, showing misleading cumulative counts
-- Fix approach: Reset metric counters in `start()` or create a fresh `ChannelMetrics` instance
-
-**No Server-Side Token Revocation:**
-- Issue: JWT logout is client-side only; tokens remain valid until natural expiry (8h default)
-- Files: `app/api/routers/auth.py`
-- Impact: A stolen token or a deactivated user's token remains usable until expiry
-- Fix approach: Maintain a token blocklist (Redis or in-memory with TTL), or use short-lived tokens with refresh token rotation
-
-## Security Considerations
-
-**Default JWT Secret in Production:**
-- Risk: `JWT_SECRET_KEY` defaults to `"anpr-default-secret-change-me"` if env var not set
-- Files: `app/api/auth_utils.py` (line with `os.getenv("JWT_SECRET_KEY", ...)`)
-- Current mitigation: Comment in `.env` warns to change it; default is weak and public
-- Recommendations: Fail startup if `JWT_SECRET_KEY` equals the default value in non-dev environments
-
-**Default Password `1234`:**
-- Risk: Default admin account uses password `1234` (documented in README, hardcoded in test helpers)
-- Files: `tests/test_auth_router.py` (`_make_user(password="1234")`)
-- Recommendations: Force password change on first login; do not document default passwords in public README
-
-**JWT Token in Query Parameter:**
-- Risk: `?token=<jwt>` query parameter for SSE/MJPEG streams appears in server access logs and browser history
-- Files: `app/api/deps.py` (`_extract_token` function)
-- Current mitigation: Nginx `X-Accel-Buffering: no` does not help with log exposure
-- Recommendations: Use short-lived stream tokens issued by a dedicated endpoint; or cookie-based auth for streaming
-
-**Per-IP Rate Limiting (Not Per-Username):**
-- Risk: Distributed brute force can bypass the 5-attempts-per-IP limit by rotating IPs
-- Files: `app/api/routers/auth.py` (`_check_rate_limit`)
-- Current mitigation: 5 attempts per 60-second window per IP
-- Recommendations: Add per-username rate limiting in addition to per-IP; consider exponential backoff
-
-**Authentication Timing Attack:**
-- Risk: Login endpoint reveals user existence via response timing: user lookup is fast when user not found vs. slow bcrypt verify when user exists
-- Files: `app/api/routers/auth.py` (login endpoint)
-- Recommendations: Always run bcrypt verification (against a dummy hash) regardless of whether user exists
-
-**XSS via innerHTML in Frontend:**
-- Risk: Country codes or other user-controlled data injected into HTML attributes without escaping
-- Files: `app/web/` JS files — multiple `innerHTML` usages with interpolated data
-- Recommendations: Replace `innerHTML` with `textContent` for text content; introduce an HTML escape utility
-
-**RTSP Credentials in Plaintext Config:**
-- Risk: Camera credentials stored plaintext in `config/settings.yaml` (bind-mounted from host)
-- Recommendations: Encrypt sensitive config values at rest; or use environment variables for credentials
-
-## Performance Bottlenecks
-
-**Unbounded Export Query:**
-- Problem: `fetch_for_export` has no `LIMIT`. Loads entire matching events table into Python memory at once
-- Files: `database/postgres_event_repository.py`
-- Impact: Potential OOM on large datasets (months of multi-camera operation)
-- Fix: Use server-side cursors or streaming. Add date range limits. Consider background export jobs
-
-**In-Memory Export (CSV/ZIP):**
-- Problem: CSV and ZIP exports use `io.BytesIO()` without streaming
-- Files: `app/api/routers/data.py`, `app/shared/data_lifecycle.py`
-- Impact: Large exports occupy full memory before response begins
-- Fix: Use `StreamingResponse` with generator-based chunked export
-
-**JPEG Encoding on Every Frame:**
-- Problem: Every captured frame is JPEG-encoded for preview regardless of whether any client is watching
-- Files: `runtime/channel_runtime.py`
-- Impact: Wasted CPU proportional to number of channels × framerate
-- Fix: Track active MJPEG/snapshot consumers; skip encoding when `preview_consumers == 0`
-
-**DebugRegistry Track History Accumulation:**
-- Problem: `_track_histories` in `ChannelDebugState` grows with each new track_id; `_fallback_seq` increments unboundedly
-- Files: `runtime/debug.py`
-- Impact: Memory grows over long-running sessions with many plate detections
-- Fix: Cap total number of track entries per channel; cleanup logic exists but may not run on idle frames
-
-**Blocking Database Restore:**
-- Problem: Database restore operations use blocking I/O inside async endpoints
-- Files: `app/api/routers/data.py`
-- Impact: Blocks the async event loop during restore, affecting other concurrent requests
-- Fix: Run restore in `asyncio.to_thread()` or a dedicated executor
-
-## Fragile Areas
-
-**YOLO Detector Fallback Logic:**
-- Files: `anpr/detection/yolo_detector.py`
-- Why fragile: Multi-layered fallback chain (track → detect on CUDA error → detect on any exception). Once `_tracking_supported = False`, no recovery path for the lifetime of the instance
-- Test coverage: None
-
-**Channel Thread Lifecycle:**
-- Files: `runtime/channel_runtime.py`
-- Why fragile: Daemon threads with 3-second join timeout on stop. `cap.read()` can hang indefinitely on some RTSP sources; `stop()` may return before thread actually exits
-- Test coverage: None
-
-**Settings Schema Migration:**
-- Files: `config/settings_migrations/runner.py`, `config/settings_schema.py`
-- Why fragile: Single monolithic `_apply_legacy_compat` function; no incremental migration steps. Adding a new schema version requires modifying this function rather than adding a new migration
-- Test coverage: None
-
-**Settings Lock Not Async-Safe:**
-- Issue: `SettingsManager` uses `threading.Lock` (via `_file_lock`) for file operations. This lock is not `asyncio`-compatible; if called from an async context (e.g., during SSE streaming), it could block the event loop
-- Files: `config/settings_manager.py`, `config/settings_repository.py`
-
-**SSE Connection Leak on Client Disconnect:**
-- Issue: SSE subscriber queues may not be cleaned up promptly on client disconnect depending on Starlette/uvicorn behavior
-- Files: `app/api/routers/events.py`, `runtime/event_bus.py`
-- Impact: Stale queues accumulate in `EventBus._subscribers` list under high reconnect churn
-
-## Scaling Limits
-
-**PostgreSQL Connection Pool:**
-- Current: Single shared pool, min=2, max=10 connections total (all repos share one pool per DSN)
-- Limit: Under heavy load, pool exhaustion causes blocking. Pool size not configurable at runtime
-- Scaling path: Make pool size configurable via settings; consider async DB access for API layer
-
-**Screenshots Directory (Filesystem):**
-- Current: Unlimited growth; manual retention trigger required
-- Limit: Filesystem inode and disk space limits
-- Files: `runtime/channel_runtime.py`, `app/shared/data_lifecycle.py`
-
-**SSE / MJPEG Connections:**
-- Current: Unbounded connections; each MJPEG client polls at ~12.5fps (80ms sleep)
-- Limit: Many concurrent browser tabs or clients create CPU and memory pressure
-- Scaling path: Add per-endpoint connection limits; shared frame broadcasting instead of per-client polling
-
-**No Persistent Event Cache:**
-- SSE clients lose all events buffered during disconnect — no replay on reconnect
-- Files: `runtime/event_bus.py`
-
-## Dependencies at Risk
-
-**Ultralytics YOLO:**
-- Risk: Frequent breaking changes between versions. Tracker fallback logic depends on internal predictor attributes (`model.predictor.trackers`, `predictor.vid_path`) not in public API
-- Impact: YOLO upgrade may silently break tracking at runtime
-- Files: `anpr/detection/yolo_detector.py`
-- Mitigation: Version pinned at 8.3.20 in `pyproject.toml`
-
-**psycopg / psycopg_pool:**
-- Risk: Import errors surface at runtime, not at startup (lazy import pattern)
-- Impact: If psycopg_pool not installed, application starts but crashes on first DB operation
-- Mitigation: Import at module level or add explicit startup check
-
-## Missing Critical Features
-
-**No Automated Data Retention:**
-- Problem: `RetentionScheduler` runs in the worker service, but the worker is a separate container. If the worker fails or is not deployed, disk fills unboundedly
-- Files: `app/worker/main.py`, `app/shared/data_lifecycle.py`
-
-**No Audit Trail:**
-- Problem: No logging of data access/modification operations (who deleted what, who changed settings)
-- Impact: Cannot reconstruct actions for security incidents or compliance
-
-**No Media Encryption:**
-- Problem: Screenshots stored as plaintext JPEG files on disk
-- Impact: Physical or filesystem access exposes all captured license plate images
-
-**No Automated Backup:**
-- Problem: Database backup requires manual UI trigger via `/api/data/export/bundle`
-- Impact: Data loss risk in unattended deployments
-
-## Test Coverage Gaps
-
-**Overall coverage remains incomplete:**
-- Untested: `YOLODetector`, `ChannelProcessor`, `CRNNRecognizer`, `ANPRPipeline` (full integration), settings migrations, controller service
-
-**No Channel Runtime Tests:**
-- `runtime/channel_runtime.py` (most complex module: threading, OpenCV, state management) has zero test coverage
-- Priority: High
-
-**No YOLO / ML Model Tests:**
-- `anpr/detection/yolo_detector.py`, `anpr/recognition/crnn_recognizer.py` untested
-- Priority: Medium (requires model files)
-
-**No Settings Migration Tests:**
-- `config/settings_migrations/runner.py` untested
-- Risk: Bad migration corrupts user settings on upgrade
-- Priority: Medium
+**Impact:** Potential data exfiltration or corruption if backup logic is modified to accept dynamic table names. Currently low risk due to static enumeration.
 
 ---
 
-*Concerns audit: 2026-04-14*
+## Unsafe Process Termination (High Risk)
+
+**Issue:** `os._exit(0)` used in database restore procedure without proper shutdown sequence.
+
+**Files:**
+- `app/api/routers/data.py` (lines 162-168)
+
+**Problem:** 
+- Skips cleanup handlers and context managers
+- Thread running `_delayed_exit()` may interrupt ongoing operations
+- No graceful shutdown of FastAPI, database connections, or worker processes
+- Inconsistent state if called during active requests
+
+**Fix approach:**
+- Use standard shutdown mechanism: `sys.exit(0)` instead of `os._exit()`
+- Allow FastAPI lifespan handlers to run
+- Or use signal handlers: `signal.raise_signal(signal.SIGTERM)`
+- Document that restore requires manual restart after completion
+
+**Impact:** Risk of data corruption, lost connections, or hanging processes.
+
+---
+
+## Broad Exception Handling Without Context
+
+**Issue:** Some endpoints catch generic `Exception` without distinguishing error types.
+
+**Files:**
+- `app/api/routers/data.py` (lines 107-109, 146-148, 158-160)
+- Multiple routers catch `Exception` and return HTTP 500
+
+**Problem:**
+- Swallows unexpected errors that should surface
+- Makes debugging difficult
+- Can hide security-relevant failures
+
+**Fix approach:**
+- Catch specific exception types: `ValueError`, `OSError`, `StorageUnavailableError`
+- Let uncaught exceptions bubble for monitoring
+- Add structured logging with full context
+
+**Impact:** Operational difficulty; errors hidden from error tracking/monitoring.
+
+---
+
+## Incomplete JWT Validation
+
+**Issue:** Client-side JWT decoding in `app/web/js/api.js:16-26` without server verification of claims.
+
+**Files:**
+- `app/web/js/api.js` (lines 16-26)
+- `app/api/deps.py` handles server validation, but relies on client-side checks first
+
+**Current state:** Server-side validation exists (`decode_access_token` in deps.py), but frontend performs client-side expiry check.
+
+**Risk:** 
+- Frontend shows false positive about token validity
+- Expired tokens sent to server (caught by server, but bad UX)
+
+**Improvement:** Trust server-side validation only; remove client-side exp checks or use as UI hint only.
+
+---
+
+## Missing CSRF Protection
+
+**Issue:** POST/PUT/DELETE endpoints lack CSRF tokens.
+
+**Files:**
+- All router files in `app/api/routers/`
+
+**Problem:**
+- Cross-site request forgery possible from forms/scripts
+- No CSRF token validation on state-changing endpoints
+
+**Current mitigation:** FastAPI's default CORS policy is restrictive (only same-origin).
+
+**Fix approach:**
+- Add `fastapi-csrf-protect` or similar
+- Implement CSRF token middleware
+- OR use SameSite cookie policy (recommended)
+
+**Impact:** Medium risk if users authenticated to ANPR UI visit malicious sites simultaneously.
+
+---
+
+## Rate Limiting State Leakage
+
+**Issue:** In-memory rate limiting dict accumulates entries indefinitely without pruning.
+
+**Files:**
+- `app/api/routers/auth.py` (lines 37-46)
+
+**Problem:**
+- `_failed_attempts` dictionary retains entries for all IPs
+- Memory grows unbounded if many unique IPs attempt login
+- On system restart, all rate limits are reset
+
+**Fix approach:**
+- Implement age-based pruning (remove entries older than 2 × `_RATE_WINDOW_SECONDS`)
+- Or use Redis for persistent, memory-efficient rate limiting
+- Call `_evict_old_attempts()` on each check
+
+**Impact:** Memory leak under brute-force attack; potential DoS.
+
+---
+
+## Validation Gaps in Backup/Export Endpoints
+
+**Issue:** Limited validation of user-provided dates and channel IDs in export operations.
+
+**Files:**
+- `app/api/routers/data.py` (lines 53-88)
+- `app/shared/data_lifecycle.py` (lines 120-143)
+
+**Problem:**
+- `start` and `end` parameters passed directly to database queries without format validation
+- No bounds checking on channel_id
+- Large exports can consume excessive memory/disk
+
+**Fix approach:**
+- Validate `start`/`end` as ISO-8601 strings: `datetime.fromisoformat(start)`
+- Limit export size (max rows, max date range)
+- Add timeout to export operations
+- Validate channel_id exists before querying
+
+**Impact:** Potential DoS through large exports; invalid dates could cause database errors.
+
+---
+
+## Media File Path Traversal Risk (Low)
+
+**Issue:** Media file names from database written to ZIP without path validation.
+
+**Files:**
+- `app/shared/data_lifecycle.py` (lines 158-163)
+
+**Current state:** Uses `media_path.name` only (filename without directory), limiting traversal risk.
+
+**Residual risk:** If database paths can be manipulated externally, could write outside intended directory.
+
+**Fix approach:**
+- Validate that resolved path is within `screenshots_dir`: 
+  ```python
+  if not str(media_path.resolve()).startswith(str(self.screenshots_dir)):
+      continue  # Skip
+  ```
+
+---
+
+## No Input Validation on Zone/Channel Binding
+
+**Issue:** Payload validation in container methods is minimal.
+
+**Files:**
+- `app/api/container.py` (lines 187-200)
+
+**Problem:**
+- `validate_channel_controller_binding()` checks if controller exists, but no type validation
+- Zone binding allows None on both fields (valid) but no mutual exclusivity enforcement
+- No validation of payload structure/types
+
+**Fix approach:**
+- Move validation to Pydantic schemas
+- Enforce invariants (e.g., zone XOR controller, not both)
+- Use explicit validation functions
+
+---
+
+## Tracker State Not Reset on Size Change (Low)
+
+**Issue:** YOLO detector may retain stale tracking state if input frame size changes mid-stream.
+
+**Files:**
+- `anpr/detection/yolo_detector.py` (lines 94-102)
+
+**Current mitigation:** `_maybe_reset_tracker()` resets tracker when frame shape changes.
+
+**Residual risk:** If shape change occurs between frames, one frame may use mismatched state.
+
+**Recommendation:** Current approach is sound; monitor logs for "Сбрасываем состояние YOLO-трекера".
+
+---
+
+## Large File Upload Without Timeout
+
+**Issue:** Database backup restoration accepts uploaded files without size/timeout limits.
+
+**Files:**
+- `app/api/routers/data.py` (lines 112-177, specifically line 125: `await file.read()`)
+
+**Problem:**
+- No `max_size` on UploadFile; attacker can upload 1GB+ files
+- `await file.read()` loads entire file into memory
+- No timeout on operation
+
+**Fix approach:**
+```python
+from fastapi import UploadFile, HTTPException
+
+MAX_BACKUP_SIZE = 100 * 1024 * 1024  # 100MB
+file_size = 0
+chunks = []
+async for chunk in file.file:
+    file_size += len(chunk)
+    if file_size > MAX_BACKUP_SIZE:
+        raise HTTPException(status_code=413, detail="File too large")
+    chunks.append(chunk)
+data = b"".join(chunks)
+```
+
+**Impact:** Memory exhaustion DoS; delayed restore operations.
+
+---
+
+## Race Condition in Container Processor Replacement
+
+**Issue:** Processor replaced without synchronization during concurrent requests.
+
+**Files:**
+- `app/api/container.py` (lines 157-171)
+
+**Problem:**
+- `restart_processor_for_settings()` stops old processor and creates new one
+- Other threads may be using old processor during replacement
+- No lock preventing concurrent modifications
+
+**Risk:** Untracked detections, missed events during settings update.
+
+**Fix approach:**
+- Add `asyncio.Lock` to container
+- Hold lock during processor replacement
+- Queue processor operations instead of immediate replacement
+
+---
+
+## Database Connection Error Not Surfaced Consistently
+
+**Issue:** Some paths catch `StorageUnavailableError`, others don't.
+
+**Files:**
+- `app/api/routers/data.py` (lines 70, 88)
+- `app/api/routers/events.py` (likely similar pattern)
+
+**Problem:**
+- Inconsistent error handling across routers
+- Database connection failures may be logged but not returned to client
+- Client cannot distinguish temporary vs permanent failures
+
+**Fix approach:**
+- Create error handling middleware that catches all `StorageUnavailableError` globally
+- Return consistent HTTP 503 with detail
+- Log all storage failures
+
+---
+
+## Missing Content-Type Validation on Settings Restore
+
+**Issue:** Settings restore accepts any YAML without type validation.
+
+**Files:**
+- `app/api/routers/data.py` (lines 198-228)
+
+**Current mitigation:** `validate_settings_yaml()` checks it's a dict.
+
+**Residual risk:** 
+- No schema validation (unknown keys accepted)
+- No validation of actual setting values (ranges, formats)
+
+**Fix approach:**
+- Use Pydantic model for settings schema
+- Validate each setting's type and range
+- Reject unknown keys
+
+---
+
+## AsyncIO Event Loop Not Null-Checked in publish_event_sync
+
+**Issue:** Unsafe access to `main_loop` without full guards.
+
+**Files:**
+- `app/api/container.py` (lines 151-155)
+
+**Current code:**
+```python
+if self.main_loop and self.main_loop.is_running():
+    self.main_loop.call_soon_threadsafe(...)
+```
+
+**Risk:** Race condition between None check and `is_running()` call if event loop stops.
+
+**Fix approach:**
+```python
+if self.main_loop is not None:
+    try:
+        if self.main_loop.is_running():
+            self.main_loop.call_soon_threadsafe(...)
+    except RuntimeError:  # Loop closed
+        pass
+```
+
+---
+
+## Tests Missing for Critical Paths
+
+**Issue:** No test files found for some critical modules.
+
+**Files without tests:**
+- `app/api/routers/channels.py`
+- `app/api/routers/clients.py`
+- `app/api/routers/zones.py`
+- `app/api/routers/settings.py`
+- `app/shared/data_lifecycle.py`
+- `anpr/detection/yolo_detector.py`
+- Database restore functions
+
+**Impact:** High-risk paths (backup/restore, zone configuration) lack regression test coverage.
+
+**Fix approach:** Add test suite for all routers and lifecycle operations.
+
+---
+
+## No Timeout on External Stream Connections
+
+**Issue:** Stream connections to channels may hang indefinitely.
+
+**Files:**
+- `app/api/routers/channels.py` (likely uses EventSource or similar)
+
+**Problem:**
+- Network partitions/slow clients can exhaust connection pool
+- No idle timeout on streaming endpoints
+
+**Fix approach:**
+- Set `timeout` parameter on `response_streaming()`
+- Implement heartbeat/keepalive messages
+- Add client timeout in frontend (SSE reconnection policy)
+
+**Impact:** Connection leak under poor network conditions.
+
+---
+
+## Logging May Expose Sensitive Data
+
+**Issue:** Logs include user passwords or tokens in some debug paths.
+
+**Files:**
+- All routers log request/response data
+- Debug logs may include plate numbers, channel credentials
+
+**Risk:** Log files committed to disk without encryption could expose sensitive data.
+
+**Fix approach:**
+- Sanitize auth headers before logging
+- Implement log redaction for PII fields
+- Use structured logging with explicit field filtering
+
+---
+
+## YOLO Model Loading Blocks Startup
+
+**Issue:** Model loading is synchronous and blocks application startup.
+
+**Files:**
+- `app/api/container.py` (lines 106-107)
+- `anpr/detection/yolo_detector.py` (line 40: `YOLO(model_path)`)
+
+**Problem:**
+- If model file is missing or corrupted, entire application fails to start
+- Large model (100MB+) can cause 30+ second startup delay
+
+**Fix approach:**
+- Lazy load model on first use
+- Load model in background task during lifespan
+- Return degraded service (detect-only, no OCR) if model fails
+
+**Impact:** Deployment issues; increased startup time.
+
+---
+
+## Cleanup of Stale Tracks Has No Metrics
+
+**Issue:** Evicted tracks are removed silently with no observability.
+
+**Files:**
+- `anpr/pipeline/anpr_pipeline.py` (lines 84-90, 320-324)
+
+**Problem:**
+- Impossible to detect if eviction is dropping valid tracks
+- No alerting if eviction happens frequently (indicates misconfiguration)
+
+**Fix approach:**
+- Emit metrics: `tracks_evicted_total`, `tracks_active_gauge`
+- Log eviction when it happens (INFO level)
+- Alert if eviction rate exceeds threshold
+
+---
+
+## Exception Type Confusion in Restore Backup
+
+**Issue:** Both `ValueError` and generic `Exception` caught for restore operations.
+
+**Files:**
+- `app/api/routers/data.py` (lines 129-130, 144-148)
+
+**Problem:**
+- Unclear which errors are expected vs unexpected
+- May mask underlying bugs
+
+**Fix approach:**
+- Define custom exceptions: `InvalidBackupError`, `BackupRestoreError`
+- Catch specific types
+- Log unexpected errors as WARNING/ERROR
+
+---
+
+## Zone TTL Not Synchronized with Retention
+
+**Issue:** Stale zone tracking may outlive event retention.
+
+**Files:**
+- Event zones stored in database with indefinite TTL
+- Events deleted by retention policy, but zone associations persist
+
+**Risk:** Orphaned zone records accumulate over time.
+
+**Fix approach:**
+- Delete zone associations when parent event is deleted
+- Or implement zone TTL matching event TTL
+- Add cleanup job for orphaned zones
+
+---
+
+## No Backpressure on Event Publishing
+
+**Issue:** Event publishing is fire-and-forget; no flow control.
+
+**Files:**
+- `app/api/container.py` (lines 151-155)
+- `runtime/event_bus.py` (likely buffered without limits)
+
+**Problem:**
+- High-throughput scenarios may overflow event bus
+- No indication to caller if event was actually delivered
+
+**Fix approach:**
+- Add bounded queue to event bus
+- Return `Future` from publish; caller can await
+- Drop oldest events if queue full (with logging)
+
+---
+
+## Plate Cooldown May Suppress Valid Detections
+
+**Issue:** Duplicate plate suppression uses simple time-based cooldown.
+
+**Files:**
+- `anpr/pipeline/anpr_pipeline.py` (lines 401-414)
+
+**Problem:**
+- Same plate number reported legitimately at different times may be suppressed
+- Cooldown reset on system restart
+- No per-lane tracking (same plate on different lane suppressed incorrectly)
+
+**Fix approach:**
+- Use (plate, zone) tuple for cooldown key
+- Implement per-channel cooldown
+- Log suppressed events for audit
+
+**Impact:** May miss legitimate duplicate plates at busy intersections.
+
+---
+
+## Symlink Handling in Media Cleanup
+
+**Issue:** File cleanup uses `Path.unlink()` without checking for symlinks.
+
+**Files:**
+- `app/shared/data_lifecycle.py` (lines 80, 106)
+
+**Problem:**
+- Following symlinks could delete files outside screenshots_dir
+- Malicious administrator could create symlinks to system files
+
+**Fix approach:**
+```python
+if media_path.is_symlink():
+    logger.warning("Skipping symlink: %s", media_path)
+    continue
+```
+
+**Impact:** Low if file permissions are correct; high if compromised admin account.
+
+---
+
+## No Graceful Degradation if CRNN Model Unavailable
+
+**Issue:** CRNN recognizer required; no fallback if model fails to load.
+
+**Files:**
+- `app/api/container.py` (lines 102-117)
+
+**Problem:**
+- Missing model file causes complete application failure
+- No way to run detection-only mode (without OCR)
+
+**Fix approach:**
+- Load model lazily
+- Detect availability and return empty recognizer if unavailable
+- Log warnings, continue with degraded functionality
+
+---
+
+## Connection Pool May Not Reconnect After Extended Outage
+
+**Issue:** Database connection pool configured without reconnection strategy.
+
+**Files:**
+- `database/base.py` (pool initialization, not shown but likely issue)
+
+**Risk:** If PostgreSQL down for > timeout, connection pool remains unusable until restart.
+
+**Fix approach:**
+- Implement exponential backoff reconnection
+- Validate connections before use
+- Add circuit breaker pattern
+
+---
+
+## No Audit Log for Sensitive Operations
+
+**Issue:** Settings changes, user management, permission changes not logged comprehensively.
+
+**Files:**
+- `app/api/routers/settings.py`
+- `app/api/routers/users.py`
+
+**Problem:**
+- Regulatory/compliance issue; cannot trace who changed what and when
+- No way to detect unauthorized changes
+
+**Fix approach:**
+- Log all mutations: {user, timestamp, operation, before, after}
+- Store audit log in database (immutable)
+- Provide audit log query endpoint
+
+---
+
+Summary Statistics:
+- **High Risk:** 2 (unsafe exit, large file upload)
+- **Medium Risk:** 4 (SQL injection, missing CSRF, rate limit leak, restore validation)
+- **Low Risk:** 8+ (various improvements and observability gaps)
+
+**Recommendation Priority:**
+1. Fix unsafe process termination (data corruption risk)
+2. Implement large file upload limits
+3. Add CSRF protection
+4. Refactor SQL queries to use parameterized identifiers
+5. Expand test coverage for critical paths
+
+---
+
+*Concerns audit: 2026-09-18*

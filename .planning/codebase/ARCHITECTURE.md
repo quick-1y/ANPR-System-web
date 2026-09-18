@@ -1,265 +1,190 @@
 # Architecture
 
-**Analysis Date:** 2026-04-14
+**Analysis Date:** 2026-09-18
 
 ## Pattern Overview
 
-**Overall:** Layered monolith with multi-threaded channel processing
+**Overall:** Layered architecture with real-time video processing, multi-threaded channel management, and REST API orchestration.
 
 **Key Characteristics:**
-- Two FastAPI services: main API server and retention worker
-- Per-channel video processing threads managed by `ChannelProcessor`
-- In-memory event bus for real-time SSE streaming to frontend
-- PostgreSQL-only storage via shared `psycopg_pool` connection pool
-- YAML file-based settings with migration and normalization pipeline
-- Container pattern (`AppContainer`, `WorkerContainer`) for dependency wiring
-- Shared singleton OCR recognizer across all channel threads (thread-safe lazy init)
-- JWT-based multi-user auth (HS256, bcrypt passwords, per-IP rate limiting)
+- Multi-layer design: API → Services → Data Access → Video Processing
+- Dependency injection via AppContainer for centralized service management
+- Multi-threaded channel processors for concurrent video stream handling
+- Event-driven communication between video processing and API layers
+- PostgreSQL persistence with connection pooling
+- Separation of concerns: ANPR pipeline (detection/recognition) isolated from API logic
 
 ## Layers
 
-**Presentation (API):**
-- Purpose: HTTP REST API, SSE streaming, static web UI serving
-- Location: `app/api/`
-- Contains: FastAPI app, routers, Pydantic schemas, auth dependencies, DI
-- Entry: `app/api/main.py` — FastAPI app with lifespan context manager
-- Routers (all under `app/api/routers/`):
-  - `auth.py`: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
-  - `users.py`: `GET|POST /api/users`, `GET|PUT|DELETE /api/users/{id}`, `POST /api/users/{id}/password`
-  - `system.py`: `GET /`, `GET /api/health`, `GET /api/system/resources`, `GET /api/storage/status`
-  - `channels.py`: `GET|POST /api/channels`, `GET|PUT|DELETE /api/channels/{id}`, `GET /api/channels/{id}/snapshot.jpg`, `GET /api/channels/{id}/preview.mjpg`, `POST /api/channels/{id}/start|stop|restart`, `PUT /api/channels/{id}/config`, `PUT /api/channels/{id}/ocr`, `PUT /api/channels/{id}/filter`, `GET /api/channels/{id}/health`, `GET /api/channels/{id}/preview/status`, `GET /api/channels/last-plates`
-  - `events.py`: `GET /api/events`, `GET /api/events/item/{id}`, `GET /api/events/item/{id}/media/{kind}`, `GET /api/events/stream` (SSE)
-  - `controllers.py`: `GET|POST /api/controllers`, `PUT|DELETE /api/controllers/{id}`, `POST /api/controllers/{id}/test`
-  - `clients.py`: `GET /api/clients`, `POST /api/clients`, `GET /api/clients/search`, `GET|PUT|DELETE /api/clients/{id}`, `POST|DELETE /api/clients/{id}/attach`
-  - `lists.py`: `GET|POST /api/lists`, `DELETE|PUT /api/lists/{id}`, `GET /api/lists/{id}/clients`, `GET /api/lists/entry-by-plate`, `GET /api/lists/plates`
-  - `settings.py`: `GET|PUT /api/settings`
-  - `data.py`: `GET|PUT /api/data/policy`, `POST /api/data/retention/run`, `GET /api/data/export/events.csv`, `POST /api/data/export/bundle`
-  - `debug.py`: `GET|PUT /api/debug/settings`, `GET /api/debug/channels`, `GET /api/debug/state`, `GET /api/debug/logs`, `GET /api/debug/logs/stream` (SSE)
-- Auth: `app/api/auth_utils.py` — JWT creation/verification, bcrypt password ops
-- Deps: `app/api/deps.py` — `get_container()`, `get_current_user()`, `require_role()`, `require_permission()`
+**API Layer:**
+- Purpose: HTTP request handling, user authentication, schema validation
+- Location: `app/api/routers/` and `app/api/main.py`
+- Contains: FastAPI routers (`auth`, `channels`, `events`, `users`, `controllers`, `lists`, `zones`, `clients`, `settings`, `system`, `debug`, `data`)
+- Depends on: AppContainer, authentication, request validation
+- Used by: Web UI (`app/web/`), external integrations
 
-**Application Services (Container):**
-- Purpose: Dependency wiring, lifecycle management, cross-layer coordination
-- Location: `app/api/container.py` (API), `app/worker/main.py` (worker)
-- `AppContainer` (dataclass): holds `SettingsManager`, `PostgresEventDatabase`, `ListDatabase`, `ClientDatabase`, `UserDatabase`, `ChannelDatabase`, `ControllerDatabase`, `ControllerService`, `ControllerAutomationService`, `EventBus`, `DebugRegistry`, `DebugLogBus`, `ChannelProcessor`, `DataLifecycleService`
-- `AppContainer.build()`: constructs all services, wires callbacks
-- `AppContainer.startup()`: starts all enabled channels via `processor.ensure_channel()` + `processor.start()`
-- `AppContainer.publish_event_sync()`: bridges thread-based channel events to async `EventBus` via `loop.call_soon_threadsafe` + dispatches to `ControllerAutomationService`
-- `AppContainer.refresh_storage_clients()`: rebuilds all DB clients when DSN changes; closes old shared pool first
+**Business Logic Layer:**
+- Purpose: Coordinate domain operations, enforce business rules
+- Location: `controllers/` (relay automation), `app/shared/` (data lifecycle), runtime services
+- Contains: `ControllerService` (relay control), `ControllerAutomationService` (plate-triggered actions), `DataLifecycleService` (retention policies)
+- Depends on: Database repositories, ANPR pipeline, event bus
+- Used by: API routers, configuration services
 
-**Runtime Processing:**
-- Purpose: Per-channel video capture, frame processing loop, reconnection logic
-- Location: `runtime/channel_runtime.py`
-- `ChannelProcessor`: manages `Dict[int, ChannelContext]` with `threading.RLock`
-- Each channel runs in a daemon thread (`_run_channel`)
-- `ChannelContext` (dataclass): holds channel config, thread ref, stop event, metrics, latest JPEG preview
-- `ChannelMetrics` (dataclass): tracks state, reconnect/timeout/error counts, FPS, latency, processed frames, motion stats
-- `ReconnectConfig` (frozen dataclass): signal loss and periodic reconnect parameters with 30s cache TTL
-- ROI filtering: polygon-based detection filtering via `cv2.pointPolygonTest`
-- Motion detection: optional `MotionDetector` gating per channel
-- Frame stride: configurable `detector_frame_stride` to skip frames
+**Channel Processing Layer:**
+- Purpose: Real-time video capture, frame processing, ANPR pipeline execution
+- Location: `runtime/channel_runtime.py`, `anpr/pipeline/`
+- Contains: `ChannelProcessor` (thread pool management), `ChannelContext` (per-channel state), `ChannelMetrics` (health tracking)
+- Depends on: Video capture (OpenCV), ANPR models, database for results
+- Used by: API layer (metrics, preview streams), configuration management
 
-**ANPR Core (Pipeline):**
-- Purpose: Plate detection, OCR recognition, track aggregation, direction estimation
-- Location: `anpr/pipeline/`
-- `ANPRPipeline` (`anpr/pipeline/anpr_pipeline.py`): main orchestrator
-  - Constructs `_channel_label` as `"Канал {name} (id={id})"`
-  - Owns `TrackAggregator`, `PlatePreprocessor`, `TrackDirectionEstimator`, `PlatePostProcessor`
-  - `process_frame(frame, detections)`: batch OCR, aggregation, post-processing, cooldown
-- `TrackAggregator`: per-track OCR budget management
-  - Quorum-based consensus: weighted majority across `best_shots` attempts
-  - Exposes `last_result_type`: `"consensus"`, `"budget_best"`, `"budget_none"`, `""`
-  - TTL-based stale track eviction
-- `TrackDirectionEstimator`: APPROACHING/RECEDING estimation from bbox history
-- `build_components()` (`anpr/pipeline/factory.py`): factory creating `(ANPRPipeline, YOLODetector)` tuple
-  - Shared singleton `CRNNRecognizer` via `_get_shared_recognizer()` with double-checked locking
+**ANPR Pipeline Layer:**
+- Purpose: Convert frames to license plates through detection, recognition, validation
+- Location: `anpr/detection/`, `anpr/recognition/`, `anpr/postprocessing/`, `anpr/preprocessing/`
+- Contains: Plate detection (YOLOv8), OCR recognition (CRNN), motion detection, post-validation
+- Depends on: PyTorch, OpenCV, model files
+- Used by: ChannelProcessor
 
-**ML Models:**
-- Purpose: YOLO plate detection, CRNN OCR recognition
-- Location: `anpr/detection/`, `anpr/recognition/`, `anpr/models/`
-- `YOLODetector` (`anpr/detection/yolo_detector.py`): plate detection with tracking, size filtering, bbox padding
-- `MotionDetector` (`anpr/detection/motion_detector.py`): frame differencing for motion gating
-- `CRNNRecognizer` (`anpr/recognition/crnn_recognizer.py`): batch OCR with quantized model
-- `PlatePreprocessor` (`anpr/preprocessing/plate_preprocessor.py`): plate image preprocessing before OCR
-- Model files: `anpr/models/yolo/best.pt`, `anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth`
-
-**Data Processing (Postprocessing):**
-- Purpose: Plate validation, country detection, format matching
-- Location: `anpr/postprocessing/`
-- `PlatePostProcessor` (`anpr/postprocessing/validator.py`): validates plates against country-specific regex patterns
-- `CountryConfigLoader` (`anpr/postprocessing/country_config.py`): loads YAML configs from `anpr/countries/`
-
-**Storage:**
-- Purpose: Event persistence, plate list management, user management, schema bootstrap
+**Data Access Layer:**
+- Purpose: PostgreSQL operations with connection pooling and schema management
 - Location: `database/`
-- Base class: `PooledDatabase` (`database/base.py`) — lazy shared pool via `get_shared_pool(dsn)`, double-checked schema init
-- `PostgresEventDatabase` (`database/postgres_event_repository.py`): event CRUD with journal pagination
-- `ListDatabase` (`database/lists_repository.py`): list CRUD + plate-matching for channel automation
-- `ClientDatabase` (`database/clients_repository.py`): client CRUD, search, attach/detach
-- `UserDatabase` (`database/user_repository.py`): user accounts CRUD, login lookup
-- `ChannelDatabase` (`database/channel_repository.py`): channel config persistence
-- `ControllerDatabase` (`database/controller_repository.py`): controller config persistence
-- `StorageUnavailableError` (`database/errors.py`): custom exception for DB connectivity issues
-- Schema: `database/postgres/schema.sql` verified at startup
+- Contains: `PooledDatabase` base class, repository classes (`EventDatabase`, `ChannelDatabase`, `UserDatabase`, `ControllerDatabase`, etc.)
+- Depends on: psycopg (PostgreSQL driver)
+- Used by: Business logic layer, configuration services
 
-**Configuration:**
-- Purpose: Settings management with schema, normalization, migrations, persistence
+**Configuration Layer:**
+- Purpose: Settings management, schema validation, defaults
 - Location: `config/`
-- `SettingsManager` (`config/settings_manager.py`): thread-safe settings access with file lock
-- `SettingsNormalizer` (`config/settings_normalizer.py`): fills defaults, validates types, normalizes hotkeys
-- Settings schema (`config/settings_schema.py`): all default value functions, `build_default_settings()`
-- Settings migrations (`config/settings_migrations/`): versioned migration runner
-- Settings repository (`config/settings_repository.py`): YAML file I/O with file locking
-
-**Controllers:**
-- Purpose: Physical barrier/gate controller automation
-- Location: `controllers/`
-- `ControllerService` (`controllers/service.py`): sends HTTP commands to physical controllers
-- `ControllerAutomationService` (`controllers/service.py`): dispatches ANPR events based on channel-controller bindings and plate list matching
-- Adapters: `controllers/adapters/dtwonder2ch.py` (DTWONDER2CH 2-relay controller)
-- Registry: `controllers/registry.py` maps type strings to adapter classes
+- Contains: `SettingsManager` (loads YAML config), `SettingsNormalizer` (validation), `SettingsRepository` (DB access)
+- Depends on: PostgreSQL, YAML parsing
+- Used by: AppContainer during initialization
 
 ## Data Flow
 
-**Video Frame Processing Pipeline:**
+**Video Processing Pipeline:**
 
-1. `ChannelProcessor._run_channel()` opens `cv2.VideoCapture` for channel source URL
-2. Frame read loop with reconnection logic (signal loss timeout, periodic reconnect)
-3. Optional `MotionDetector` gating — skips frames when no motion detected
-4. Optional frame stride — processes every Nth frame
-5. `YOLODetector.track(frame)` returns detections with bboxes and track IDs
-6. ROI polygon filtering — drops detections outside configured region
-7. `ANPRPipeline.process_frame(frame, detections)`:
-   a. `TrackDirectionEstimator.update()` estimates APPROACHING/RECEDING per track
-   b. `TrackAggregator.should_process()` checks if track still has OCR budget
-   c. `PlatePreprocessor.preprocess()` prepares plate crops
-   d. `CRNNRecognizer.recognize_batch()` performs batch OCR
-   e. `TrackAggregator.add_result()` accumulates results, checks consensus/budget
-   f. `PlatePostProcessor.process()` validates against country patterns
-   g. Cooldown check prevents duplicate emissions
-8. Channel thread saves frame/plate JPEGs to `data/screenshots/{date}/channel_{id}/`
-9. DB repository persists event to PostgreSQL
-10. `AppContainer.publish_event_sync()` bridges to async `EventBus` + `ControllerAutomationService`
-11. `EventBus.publish()` pushes to SSE subscriber queues
+1. **Capture Phase** → `ChannelProcessor.start(channel_id)` spawns thread with reconnection logic
+2. **Read Phase** → OpenCV `VideoCapture.read()` with timeout/retry handling
+3. **Motion Detection** → Optional motion detection to skip frames without activity
+4. **Plate Detection** → YOLOv8 model detects plate regions in frame
+5. **Track Aggregation** → `TrackAggregator` collects detections across frames
+6. **Plate Recognition** → CRNN OCR recognizes text from best shots
+7. **Validation** → Post-processor validates format by country/region
+8. **Result Emission** → Event callback publishes to EventBus and database
+9. **Controller Automation** → If plate matches list, `ControllerAutomationService` triggers relay
+10. **Frame Storage** → Screenshot saved to filesystem (if configured)
 
-**HTTP Request Handling:**
+**API Request Flow:**
 
-1. Request reaches FastAPI router
-2. `get_current_user()` dependency validates JWT, returns user dict (or raises 401)
-3. `require_role()` / `require_permission()` checks authorization (or raises 403)
-4. Handler accesses services through container (events_db, lists_db, processor, settings, etc.)
-5. `StorageUnavailableError` caught and returned as HTTP 503
+1. Request arrives at FastAPI endpoint (e.g., `GET /api/channels`)
+2. Authentication: `get_current_user()` dependency extracts JWT from header/query
+3. User lookup: JWT sub claims → `UserDatabase.find_by_id()`
+4. Container injection: `get_container()` dependency retrieves `AppContainer`
+5. Business logic: Router calls service methods on container entities
+6. Data access: Repositories execute SQL via shared connection pool
+7. Response: Pydantic schema serialization to JSON
+8. Error handling: `HTTPException` for API errors, `StorageUnavailableError` for DB failures
+
+**Event Publishing:**
+
+1. ANPR pipeline emits event via `event_callback(dict)` from worker thread
+2. `AppContainer.publish_event_sync()` bridges thread-safe event to main event loop
+3. `EventBus.publish()` notifies all SSE subscribers
+4. `ControllerAutomationService.dispatch_event()` checks automation rules (plate in list → trigger relay)
+5. Event stored in PostgreSQL via `EventDatabase`
 
 **State Management:**
-- Settings: YAML file with in-memory cache, thread-safe via `_file_lock`
-- Channel state: `Dict[int, ChannelContext]` protected by `threading.RLock` in `ChannelProcessor`
-- Event streaming: `EventBus` with `asyncio.Queue` per SSE subscriber (maxsize=512, drops oldest on overflow)
-- Debug state: `DebugRegistry` with per-channel overlay data and stage timings, TTL-based cleanup
+
+- **Channel State**: Per-channel metrics, capture handle, latest JPEG frame in `ChannelContext`
+- **Track State**: OCR attempt budget, finalization status per detection track in `TrackAggregator._track_states`
+- **User State**: JWT claims include role, permissions; validated per request
+- **Configuration State**: Loaded once at startup via `SettingsManager`, refreshed on settings API call
 
 ## Key Abstractions
 
 **AppContainer:**
-- Purpose: Wires all API-side dependencies, manages lifecycle
-- Location: `app/api/container.py`
-- Pattern: Dataclass with `build()` classmethod factory
-
-**PooledDatabase:**
-- Purpose: Base class providing shared PostgreSQL connection pool per DSN
-- Location: `database/base.py`
-- Pattern: Double-checked locking for pool and schema initialization
+- Purpose: Dependency injection container and service orchestrator
+- Examples: `app/api/container.py` (lines 31-245)
+- Pattern: Dataclass with factory method (`build()`) initializing all services at startup; lifespan management with FastAPI
+- Usage: Injected into every API route via `get_container()` dependency
 
 **ChannelProcessor:**
-- Purpose: Manages per-channel processing threads
-- Location: `runtime/channel_runtime.py`
-- Pattern: Thread pool manager with start/stop/restart per channel
-
-**ANPRPipeline:**
-- Purpose: Orchestrates detection -> OCR -> aggregation -> validation
-- Location: `anpr/pipeline/anpr_pipeline.py`
-- Pattern: Pipeline with injected recognizer, aggregator, postprocessor
+- Purpose: Manages concurrent video capture and processing across channels
+- Examples: `runtime/channel_runtime.py` (lines 69-100+)
+- Pattern: Thread pool executor with per-channel context dictionaries; reconnection logic with exponential backoff
+- Usage: Started at app startup, stopped at shutdown; called by API for metrics/preview
 
 **TrackAggregator:**
-- Purpose: Per-track OCR consensus with budget management
-- Location: `anpr/pipeline/anpr_pipeline.py`
-- Pattern: Stateful accumulator with quorum voting
+- Purpose: Accumulates ANPR results for a single plate detection across multiple frames
+- Examples: `anpr/pipeline/anpr_pipeline.py` (lines 45-100+)
+- Pattern: Consensus voting with OCR budget; emits plate number when quorum reached or budget exhausted
+- Usage: One per channel, receives OCR results, tracks finalization state
 
-**SettingsManager:**
-- Purpose: Thread-safe settings access with normalization and persistence
-- Location: `config/settings_manager.py`
-- Pattern: Repository + normalizer + schema defaults
+**Database Repositories:**
+- Purpose: Database abstraction with pooled connections
+- Examples: `database/channel_repository.py`, `database/postgres_event_repository.py`, `database/user_repository.py`
+- Pattern: `PooledDatabase` base class with lazy schema initialization; methods return Dict[str, Any] for flexibility
+- Usage: CRUD operations for domain entities (channels, events, users, controllers, zones)
 
-**EventBus:**
-- Purpose: In-memory async pub/sub for live event streaming
-- Location: `runtime/event_bus.py`
-- Pattern: Observer with bounded async queues
-
-**DebugRegistry:**
-- Purpose: Real-time debug overlay state (bboxes, OCR text, timings) per channel
-- Location: `runtime/debug.py`
-- Pattern: Thread-safe registry with TTL-based state cleanup
-
-**DebugLogBus:**
-- Purpose: Live log streaming from any thread to async SSE subscribers
-- Location: `runtime/debug_log_bus.py`
-- Pattern: Thread-safe ring buffer with cross-thread pub/sub via `loop.call_soon_threadsafe`
+**ChannelMetrics:**
+- Purpose: Runtime health snapshot for a channel
+- Examples: `runtime/channel_runtime.py` (lines 25-43)
+- Pattern: Dataclass with mutable state fields (FPS, latency, error counts)
+- Usage: Queried by API for `/api/channels` endpoint; updated by processor threads
 
 ## Entry Points
 
-**API Server:**
+**FastAPI Application:**
 - Location: `app/api/main.py`
-- Run: `uvicorn app.api.main:app`
-- Triggers: HTTP requests, lifespan startup/shutdown
-- Responsibilities: REST API, SSE streaming, static web UI, channel lifecycle management
+- Triggers: Server startup (e.g., `uvicorn app.api.main:app`)
+- Responsibilities: Configure CORS, mount static files, register routers, manage lifespan
 
-**Retention Worker:**
-- Location: `app/worker/main.py`
-- Run: `uvicorn app.worker.main:app`
-- Triggers: Scheduled timer loop, manual HTTP trigger
-- Responsibilities: Event/media retention cleanup, CSV/ZIP export
+**ChannelProcessor Worker:**
+- Location: `runtime/channel_runtime.py`
+- Triggers: `AppContainer.startup()` on app launch
+- Responsibilities: Spawn per-channel threads, coordinate frame capture/processing
 
-**Channel Threads:**
-- Location: `runtime/channel_runtime.py` (`ChannelProcessor._run_channel`)
-- Triggers: `AppContainer.startup()` or API channel start/restart
-- Responsibilities: Video capture, ANPR processing, event generation
+**Configuration Loader:**
+- Location: `config/settings_manager.py`
+- Triggers: `AppContainer.build()` during initialization
+- Responsibilities: Load YAML config, validate schema, merge with database settings
 
 ## Error Handling
 
-**Strategy:** Exception catching with logging; graceful degradation for storage failures
+**Strategy:** Layered validation with graceful degradation.
 
 **Patterns:**
-- `StorageUnavailableError` raised by database layer, caught by API handlers as HTTP 503
-- `AppContainer.storage_503()` helper converts exceptions to `HTTPException(503)`
-- Channel thread: broad `except Exception` in `_run_channel` sets metrics to error state, logs traceback
-- Reconnection: automatic retry on frame read failure with configurable intervals
-- OCR init failure: `_FallbackRecognizer` returns empty results until real recognizer is ready
-- Settings normalization: missing keys filled with defaults, invalid values corrected silently
-- Controller errors: bounded error state dict (max 100 entries) in `ControllerService`
+
+- **HTTP Exceptions**: API routers raise `HTTPException` for user-facing errors (400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, 503 Service Unavailable)
+- **Storage Unavailable**: Database failures caught as `StorageUnavailableError`, wrapped in 503 response via `container.storage_503()`
+- **Reconnection Logic**: Video capture failures trigger reconnect with configurable backoff (signal-loss timeout, retry interval)
+- **Thread Safety**: Database operations protected by connection pool; channel state accessed via `threading.RLock()`
+- **Validation**: Pydantic schemas validate on API input; normalizers apply business rules before storage
+- **Logging**: All errors logged to configurable level (DEBUG, INFO, WARNING, ERROR, CRITICAL) with context
 
 ## Cross-Cutting Concerns
 
-**Logging:**
-- Module: `common/logging.py`
-- Async-safe: `QueueHandler` + `QueueListener` avoids blocking channel threads
-- `HourlyFileHandler`: rotates by hour with service prefix (`api_2026-04-14_14-00.log`)
-- `LiveDebugHandler`: forwards records to `DebugLogBus` for SSE streaming to debug panel
-- `ServiceNameFilter`: injects service name into every log record
+**Logging:** 
+- Framework: `common/logging.py` with context injection (service name, channel ID)
+- Pattern: Lazy configuration via `SettingsManager.get_logging_config()`
+- Output: File and stderr with rotation
 
-**Authentication:**
-- JWT-based (`app/api/auth_utils.py`): HS256, bcrypt password hashing
-- `get_current_user` dependency validates token on every protected request
-- Per-IP rate limiter on login: 5 failures per 60-second window → HTTP 429
-- No server-side token revocation (logout is client-side only)
+**Validation:** 
+- Pydantic schemas in `app/api/schemas.py` for HTTP payloads
+- Normalizers in `config/settings_normalizer.py` for configuration defaults
+- Business logic validation in service methods and `AppContainer` helpers (e.g., `validate_global_hotkeys()`)
 
-**Thread Safety:**
-- `ChannelProcessor`: `threading.RLock` protects `_contexts` dict
-- `DebugRegistry`: `threading.RLock` protects channel states
-- `SettingsManager`: `_file_lock` protects settings read/write
-- `EventBus`: `asyncio.Lock` protects subscriber list
-- `DebugLogBus`: `threading.Lock` protects buffer and subscriber list
-- Shared pool: `threading.Lock` in `database/base.py` `_pool_registry_lock`
-- Cross-thread event delivery: `loop.call_soon_threadsafe(asyncio.create_task, ...)` in `publish_event_sync`
-- OCR singleton: double-checked locking with `threading.RLock` + `threading.Event` in factory
+**Authentication:** 
+- JWT tokens issued by `/api/auth/login` endpoint
+- Token extraction from Authorization header or query parameter in `get_current_user()`
+- User lookup from PostgreSQL on each request
+- Role-based access control via `require_role()` and `require_permission()` dependencies
+
+**Metrics & Observability:**
+- Channel metrics (FPS, latency, errors) tracked in `ChannelMetrics`
+- Debug registry in `runtime/debug.py` for feature flags and debug settings
+- Live log bus in `runtime/debug_log_bus.py` for streaming logs to UI
+- Event history stored in PostgreSQL (configurable retention)
 
 ---
 
-*Architecture analysis: 2026-04-14*
+*Architecture analysis: 2026-09-18*

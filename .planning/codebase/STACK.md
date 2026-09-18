@@ -1,146 +1,130 @@
 # Technology Stack
 
-**Analysis Date:** 2026-04-14
+**Analysis Date:** 2026-09-18
 
 ## Languages
 
 **Primary:**
-- Python 3.13 — All backend logic, ML inference, API server (`Dockerfile`: `python:3.13-slim`)
-
-**Secondary:**
-- HTML/CSS/JS — Static web frontend served from `app/web/` via FastAPI `StaticFiles`
-- YAML — Configuration management (`config/settings.yaml`)
-- SQL — Database schema and queries (`database/postgres/schema.sql`)
+- Python 3.13 - Backend API, ANPR detection/recognition, data processing
+- JavaScript (Vanilla) - Frontend UI (no framework)
+- YAML - Configuration files
 
 ## Runtime
 
 **Environment:**
-- Python 3.13-slim Docker image (Debian-based)
-- System deps in Dockerfile: `libglib2.0-0`, `libgl1`, `libgomp1` (required by OpenCV and numeric libs)
-- `PYTHONDONTWRITEBYTECODE=1` and `PYTHONUNBUFFERED=1` set in Dockerfile
-- Thread limits configured at startup via env vars: `OMP_NUM_THREADS=2`, `MKL_NUM_THREADS=2`, `OPENBLAS_NUM_THREADS=2`
-  - Applied to PyTorch (`torch.set_num_threads`), OpenCV (`cv2.setNumThreads`) to prevent CPU oversubscription
+- Docker containers (Python 3.13-slim base image)
+- Uvicorn ASGI server for FastAPI applications
+- Nginx reverse proxy (in docker-compose)
 
 **Package Manager:**
-- **Poetry** (`pyproject.toml`) — replaced pip/requirements.txt
-- Dev dependencies group: `pytest>=9.0.2,<10.0.0`
-- Special index: PyTorch CPU wheels from `https://download.pytorch.org/whl/cpu` (named `pytorch-cpu`, priority `explicit`)
+- Poetry 1.x - Python dependency management
+- Lockfile: `poetry.lock` (present)
 
 ## Frameworks
 
-**Core:**
-- FastAPI (unpinned) — REST API framework (`app/api/main.py`, `app/worker/main.py`)
-- Uvicorn (unpinned) — ASGI server; command: `uvicorn app.api.main:app --host 0.0.0.0 --port 8080`
+**Core Web:**
+- FastAPI - REST API framework (`app.api.main`, version in pyproject.toml `*`)
+- Uvicorn - ASGI server (runs on port 8080 in Docker)
 
 **ML/Computer Vision:**
-- ultralytics 8.3.20 — YOLO object detection for license plate localization
-- PyTorch 2.8.0 (CPU-only) — Deep learning runtime
-- torchvision 0.23.0 (CPU-only) — Image transforms for CRNN OCR model
-- OpenCV (`opencv-python`, unpinned) — Video capture (RTSP), image processing, JPEG encoding
+- Ultralytics YOLOv8 - License plate detection (version 8.3.20)
+- OpenCV (opencv-python) - Image processing, video stream capture and processing
+- PyTorch - Deep learning runtime (version 2.8.0, CPU variant)
+  - TorchVision (version 0.23.0) - Vision utilities
+- CRNN OCR Model - Character recognition for license plates (`anpr/models/ocr_crnn/`)
 
-**Auth:**
-- PyJWT (unpinned) — JWT token creation and verification (HS256)
-- bcrypt (unpinned) — Password hashing for user credentials
+**Testing:**
+- pytest (9.0.2+) - Unit and integration testing
 
 **Build/Dev:**
-- Docker + Docker Compose — Containerized deployment
-- Nginx 1.27-alpine — Reverse proxy (`nginx/default.conf`)
+- Docker - Containerization
+- nginx 1.27-alpine - Reverse proxy and static file serving
 
 ## Key Dependencies
 
-**From `pyproject.toml`:**
+**Critical (core functionality):**
+- `ultralytics` 8.3.20 - YOLOv8 for ANPR detection
+- `opencv-python` - Video capture, frame processing
+- `torch` 2.8.0 - Deep learning inference (CPU)
+- `torchvision` 0.23.0 - Vision model utilities
+- `fastapi` - Web framework
+- `uvicorn` - ASGI server
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `ultralytics` | 8.3.20 | YOLO license plate detection |
-| `opencv-python` | unpinned | Video capture and image processing |
-| `psutil` | unpinned | System resource monitoring (CPU, memory, disk) |
-| `PyYAML` | unpinned | Settings YAML parsing |
-| `fastapi` | unpinned | HTTP API framework |
-| `python-multipart` | unpinned | Multipart form uploads |
-| `uvicorn` | unpinned | ASGI server |
-| `psycopg[binary]` | unpinned | PostgreSQL driver (psycopg3 with C extensions) |
-| `psycopg_pool` | unpinned | PostgreSQL connection pooling |
-| `bcrypt` | unpinned | Password hashing |
-| `PyJWT` | unpinned | JWT token auth |
-| `torch` | 2.8.0 | PyTorch CPU build (explicit index) |
-| `torchvision` | 0.23.0 | Image transforms (explicit index) |
+**Database:**
+- `psycopg` with binary extras - PostgreSQL adapter for Python
+- `psycopg_pool` - Connection pooling for PostgreSQL (min_size=2, max_size=10)
 
-**Dev dependencies:**
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `pytest` | >=9.0.2,<10.0.0 | Test runner |
+**Security:**
+- `bcrypt` - Password hashing
+- `PyJWT` - JWT token encoding/decoding
 
-**Infrastructure (Docker images):**
-- `postgres:16` — Event and plate list storage
-- `nginx:1.27-alpine` — Reverse proxy
-- `python:3.13-slim` — Base application image
+**System:**
+- `python-multipart` - Multipart form data parsing
+- `psutil` - System metrics
+- `PyYAML` - YAML parsing for configuration
 
 ## Configuration
 
-**Environment (from `.env`):**
-- `APP_ENV` — Runtime environment identifier (default: `docker`)
-- `JWT_SECRET_KEY` — JWT signing secret (default: `anpr-default-secret-change-me` — must be changed in production)
-- `JWT_EXPIRATION_MINUTES` — JWT token TTL in minutes (default: `480` = 8 hours)
-- `DEBUG` — Debug mode flag (default: `false`)
-- `LOG_LEVEL` — Logging verbosity (default: `INFO`)
-- `SETTINGS_PATH` — Path to YAML settings file (default: `/app/config/settings.yaml`)
-- `HTTP_PORT` — Nginx external port (default: `8080`)
-- `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` — PostgreSQL credentials
-- `POSTGRES_DSN` — Full PostgreSQL connection string
-- `OMP_NUM_THREADS` / `MKL_NUM_THREADS` / `OPENBLAS_NUM_THREADS` — Thread limits (default: `2`)
+**Environment:**
+- Configured via environment variables:
+  - `APP_ENV` - Environment mode (e.g., "docker")
+  - `JWT_SECRET_KEY` - JWT signing key (must be 32+ bytes in production)
+  - `JWT_EXPIRATION_MINUTES` - Token TTL (default: 480 minutes / 8 hours)
+  - `DEBUG` - Debug logging flag
+  - `LOG_LEVEL` - Logging level (ALL, DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  - `SETTINGS_PATH` - Path to settings.yaml configuration file
+  - `HTTP_PORT` - HTTP server port (default: 8080)
+  - `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS` - Thread limits for PyTorch/OpenCV
+  - `POSTGRES_*` - PostgreSQL connection (DB, user, password, DSN)
 
-**Application Settings (YAML via `config/settings_schema.py`):**
-- `models` — YOLO and OCR model paths, device (`cpu`)
-- `ocr` — Image dimensions, alphabet, confidence threshold
-- `detector` — Detection confidence, bbox padding
-- `inference` — Worker count, shared memory flag
-- `debug` — Channel metrics, log panel, video output toggles
-- `channels` — Per-channel detection config (ROI, motion, size filter, controller binding, list filter)
-- `controllers` — Hardware relay controller definitions
-- `reconnect` — Signal loss and periodic reconnect policies
-- `storage` — Directories, retention days, cleanup intervals
-- `tracking` — Best shots, cooldown, OCR confidence, direction tracking
-- `plates` — Country configs directory, enabled countries
-- `logging` — Level, retention days
-- `time` — Timezone, offset
+**Configuration Files:**
+- `.env` / `.env.example` - Environment variables (stored in `.env.example` for safe default values)
+- `config/settings.yaml` - Application settings:
+  - Model paths (`yolo_model_path`, `ocr_model_path`)
+  - Device configuration (CPU/CUDA)
+  - Debug settings (channel metrics, log panel, video output disable)
+  - Reconnection policies (signal loss, periodic retry)
+  - Storage configuration (screenshots directory, retention policies, cleanup schedules)
+  - License plate country support (BY, KZ, RU enabled by default)
+  - UI theme and interface settings
+  - Logging retention and timezone
 
-**Build:**
-- `Dockerfile` — Single-stage Python 3.13-slim image with two-phase pip install (PyTorch first, then remaining deps)
-- `docker-compose.yml` — 4-service orchestration
-
-## Services Architecture
-
-**Docker Compose defines 4 services:**
-
-| Service | Image | Port | Health Check | Purpose |
-|---------|-------|------|-------------|---------|
-| `postgres` | postgres:16 | 5432 (internal) | `pg_isready` every 5s, 12 retries | Event and plate list storage |
-| `api` | Custom (Dockerfile) | 8080 (internal) | `GET /api/health` every 10s, 6 retries | Main API + ANPR processing |
-| `retention_worker` | Custom (Dockerfile) | 8092 (internal) | `GET /worker/health` every 15s, 6 retries | Scheduled data cleanup |
-| `nginx` | nginx:1.27-alpine | 80 -> `HTTP_PORT` | `wget /` every 10s, 6 retries | Reverse proxy, SSE support |
-
-**Startup order:** postgres (healthy) -> api + retention_worker (healthy) -> nginx
-
-**Docker volumes:**
-- `pgdata` — PostgreSQL data persistence
-- `media_data` — Screenshots and exports (`/app/data`)
-- `logs_data` — Application logs (`/app/logs`)
-- `./config:/app/config` — Settings YAML (bind mount, not named volume)
+**Build Configuration:**
+- `Dockerfile` - Multi-stage Docker image definition
+- `docker-compose.yml` - Orchestration with PostgreSQL, FastAPI API, retention worker, and Nginx
+- `pyproject.toml` - Poetry project manifest with dependencies and build config
 
 ## Platform Requirements
 
 **Development:**
-- Docker and Docker Compose
-- `.env` file in project root (see `.env` for template)
-- `config/settings.yaml` — application settings
-- ANPR model weights: `anpr/models/yolo/best.pt` and `anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth`
+- Python 3.13+ (requires 3.13 as minimum)
+- Poetry (for package management)
+- Docker (optional, for containerized development)
+- libglib2.0-0, libgl1, libgomp1 (OpenCV dependencies - handled in Dockerfile)
 
 **Production:**
-- Docker host with CPU (no GPU required — CPU-only PyTorch)
-- Network access to RTSP camera sources
-- Change `JWT_SECRET_KEY` to a random 32+ byte value before deploying
+- Docker container runtime
+- PostgreSQL 16 (in docker-compose)
+- 2 GB+ RAM (minimum for PyTorch model inference)
+- CPU (recommended: multi-core for concurrent channel processing)
+- Network access to video sources (RTSP/HTTP streams)
+
+## Project Structure
+
+**Entry Points:**
+- `app/api/main.py` - FastAPI application initialization
+- `app/worker/main.py` - Retention/lifecycle worker service
+
+**Key Module Organization:**
+- `app/api/` - REST API routers and dependencies
+- `app/web/` - Static frontend HTML, CSS, JavaScript
+- `anpr/` - ANPR detection and recognition modules
+- `database/` - PostgreSQL repository pattern implementations
+- `runtime/` - Channel processing, event bus, controller automation
+- `controllers/` - Hardware controller adapters (relay control)
+- `config/` - Settings management and configuration system
+- `common/` - Shared utilities (logging, etc.)
 
 ---
 
-*Stack analysis: 2026-04-14*
+*Stack analysis: 2026-09-18*

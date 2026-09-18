@@ -1,226 +1,378 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-04-14
+**Analysis Date:** 2026-09-18
 
 ## Naming Patterns
 
 **Files:**
-- `snake_case.py` for all Python modules: `anpr_pipeline.py`, `motion_detector.py`, `crnn_recognizer.py`
-- `__init__.py` in every package directory (mostly empty)
-- Test files prefixed with `test_`: `test_track_aggregator.py`, `test_auth_router.py`
+- Snake case: `auth_utils.py`, `yolo_detector.py`, `motion_detector.py`
+- Test files: `test_*.py` (e.g., `test_auth_utils.py`, `test_auth_router.py`)
+- Modules group related functionality: `detection/`, `postprocessing/`, `recognition/`
 
-**Functions:**
-- `snake_case` for all functions and methods: `add_result()`, `should_process()`, `process_frame()`
-- Private methods prefixed with underscore: `_evict_stale()`, `_best_candidate()`, `_normalize()`
-- Factory/builder functions use descriptive names: `build_default_settings()`, `relay_defaults()`
+**Functions and Methods:**
+- Snake case: `hash_password()`, `verify_password()`, `create_access_token()`
+- Private functions prefixed with underscore: `_check_rate_limit()`, `_reset_tracker_state()`
+- Method names are descriptive: `find_by_login()`, `list_all_users()`, `update_user()`
 
-**Variables:**
-- `snake_case` for local variables and instance attributes: `track_id`, `best_shots`, `min_confidence`
-- Private attributes prefixed with underscore: `self._track_ts`, `self._channel_label`, `self._dsn`
-- Module-level private state uses `_UPPER_SNAKE`: `_STATE_LOCK`, `_LOG_QUEUE`, `_FILE_HANDLER`
+**Classes:**
+- PascalCase: `YOLODetector`, `PlatePostProcessor`, `MotionDetector`, `UserOut`, `LoginRequest`
+- Private classes prefixed with underscore: `_FallbackRecognizer`
 
 **Constants:**
-- `UPPER_SNAKE_CASE` for module-level constants: `SETTINGS_VERSION`, `DEFAULT_LEVEL`, `CLEANUP_INTERVAL_SECONDS`
-- Auth constants: `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRATION_MINUTES` in `app/api/auth_utils.py`
+- UPPER_CASE: `JWT_SECRET_KEY`, `MAX_FAILED_ATTEMPTS`, `RATE_WINDOW_SECONDS`, `DEFAULT_LOG_DIR`
+- Module-level private constants: `_OPERATOR_FORBIDDEN_PERMISSIONS`, `_MAX_FAILED_ATTEMPTS`
 
-**Types/Classes:**
-- `PascalCase` for all classes: `TrackAggregator`, `MotionDetector`, `PlatePostProcessor`, `UserDatabase`
-- Dataclasses follow the same convention: `MotionDetectorConfig`, `PlateFormat`, `ChannelMetrics`
-- Private dataclasses prefixed with underscore: `_TrackOCRState`
-- API request schemas suffixed with `Payload` or `Request`: `ChannelPayload`, `LoginRequest`
-- API response schemas suffixed with `Out`: `UserOut`, `LoginResponse`
+**Variables:**
+- Snake case: `current_user`, `model_path`, `frame_shape`
+- Private module-level variables: `_failed_attempts`, `_QUEUE_LISTENER`, `_FILE_HANDLER`
+
+**Type Variables:**
+- Use modern type hints: `dict[str, Any]`, `list[str]`, `Optional[int]` (from typing)
+- Union types: `str | None` (Python 3.10+ syntax)
 
 ## Code Style
 
-**Formatting:**
-- No automated formatter configured (no ruff.toml, .flake8, pyproject tool sections for formatting)
-- Consistent 4-space indentation throughout
-- Line length generally kept under ~120 characters
-- Trailing commas used in multi-line function signatures and data structures
+**File Structure:**
+- Begin with shebang if executable: `#!/usr/bin/env python3`
+- Import `from __future__ import annotations` for forward reference support
+- Module-level docstring describing purpose
+- Imports organized by group (stdlib, third-party, local)
+- Constants at module level before functions/classes
+- Functions and classes follow
 
-**Linting:**
-- No formal linter configuration file
-- `# noqa: BLE001` comments used on intentional broad `except Exception` blocks
+**Function Documentation:**
+- All public functions have docstrings in triple-quote format
+- One-line summary or multi-line with description and return/raises info
+- Example from `app/api/auth_utils.py`:
+  ```python
+  def decode_access_token(token: str) -> Dict[str, Any]:
+      """Decode and validate a JWT access token.
 
-**`from __future__ import annotations`:**
-- Present in every Python source file. Always use it in new files.
+      Returns the payload dict on success.
+      Raises ``jwt.ExpiredSignatureError`` or ``jwt.InvalidTokenError`` on failure.
+      """
+  ```
+
+**Method Documentation:**
+- Router endpoints document what they do: `"""Authenticate with login + password, receive a JWT."""`
+- Complex logic includes inline comments: `# Allow some tolerance for timing`
+- Private methods may have brief docstrings
+
+**Section Comments:**
+- Major sections separated with ASCII comment lines:
+  ```python
+  # ---------------------------------------------------------------------------
+  # Brute-force rate limiter (in-memory, per-IP, Phase 6)
+  # ---------------------------------------------------------------------------
+  ```
+
+**Decorators:**
+- Use `@staticmethod` for utility functions not needing state
+- Use `@classmethod` with `cls` parameter for class methods
+- `@field_validator` and `@model_validator` for Pydantic validation
+- `@asynccontextmanager` for async context managers
 
 ## Import Organization
 
 **Order:**
-1. `from __future__ import annotations` (always first)
-2. Standard library imports (`os`, `re`, `time`, `threading`, `collections`, `dataclasses`, `typing`)
-3. Third-party imports (`numpy`, `cv2`, `torch`, `fastapi`, `pydantic`, `yaml`, `jwt`, `bcrypt`)
-4. Local/project imports (`from common.logging import get_logger`, `from database.base import PooledDatabase`)
+1. `from __future__ import annotations` (first if present)
+2. Standard library imports (`os`, `sys`, `threading`, `datetime`, etc.)
+3. Third-party imports (`fastapi`, `pydantic`, `torch`, `cv2`, etc.)
+4. Local imports (relative or absolute from project root)
 
-**Conditional imports for type checking:**
+**Patterns:**
+- Avoid `from module import *`
+- Use explicit imports: `from app.api.auth_utils import hash_password, verify_password`
+- Group related third-party imports together
+- Example from `app/api/routers/auth.py`:
+  ```python
+  from __future__ import annotations
+
+  import time
+  from collections import defaultdict
+  from threading import Lock
+  from typing import Any, Dict
+
+  from fastapi import APIRouter, Depends, HTTPException, Request
+
+  from app.api.auth_utils import create_access_token, verify_password
+  from app.api.container import AppContainer
+  from app.api.deps import get_container, get_current_user, require_permission
+  from app.api.schemas import LoginRequest, LoginResponse, UserOut
+
+  from common.logging import get_logger
+  ```
+
+**Type Checking Imports:**
+- Use `TYPE_CHECKING` guard for forward references to avoid circular imports:
+  ```python
+  from typing import TYPE_CHECKING
+
+  if TYPE_CHECKING:
+      from anpr.model_config import AnprModelConfig
+  ```
+
+## Type Hints
+
+**Usage:**
+- All function parameters should have type hints
+- All function return types should be specified
+- Use modern syntax: `dict[str, Any]`, `list[str]`, `str | None`
+- Import types from `typing`: `Optional`, `Dict`, `List`, `Any`, `Tuple`
+
+**Examples:**
 ```python
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from anpr.recognition.crnn_recognizer import CRNNRecognizer
-```
-Use `TYPE_CHECKING` blocks to avoid circular dependencies.
+def hash_password(plain: str) -> str:
+    """Return a bcrypt hash of the plain-text password."""
+    ...
 
-**Path style:**
-- Absolute imports from project root: `from common.logging import get_logger`
-- Relative imports within the same package: `from .country_config import CountryConfig`
-- No path aliases or import rewriting configured
+def create_access_token(
+    user_id: int,
+    role: str,
+    exp_minutes: Optional[int] = None,
+) -> str:
+    """Create a signed JWT access token."""
+    ...
+
+def _make_user(user_id=1, login="superadmin") -> dict[str, Any]:
+    return {...}
+```
 
 ## Error Handling
 
-**Custom exceptions:**
-- `StorageUnavailableError(RuntimeError)` in `database/errors.py` — PostgreSQL temporarily unavailable
+**HTTP Errors:**
+- Raise `HTTPException` with appropriate status codes:
+  ```python
+  raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+  raise HTTPException(status_code=404, detail="Пользователь не найден")
+  raise HTTPException(status_code=409, detail="Пользователь с таким логином уже существует")
+  raise HTTPException(status_code=429, detail="Слишком много попыток входа...")
+  ```
 
-**HTTPException pattern in API routers:**
-```python
-# 404 for missing resources
-raise HTTPException(status_code=404, detail="Канал не найден")
+**Exception Propagation:**
+- Let library exceptions bubble up with logging context
+- Example from `anpr/detection/yolo_detector.py`:
+  ```python
+  def _maybe_handle_cuda_op_error(self, exc: Exception, context: str) -> bool:
+      if self.device.type == "cpu":
+          return False
+      if self._is_cuda_op_missing(exc):
+          self._fallback_to_cpu(f"{context}: {exc}")
+          return True
+      return False
+  ```
 
-# 503 for database unavailability — via helper
-except StorageUnavailableError as exc:
-    raise container.storage_503(exc) from exc
+**Logging on Error:**
+- Use `logger.warning()` for authentication failures and recoverable issues
+- Use `logger.debug()` with `exc_info=True` for full stack traces
+- Use `logger.info()` for important state changes
+- Example:
+  ```python
+  logger.warning(
+      "login_failed login='%s' ip='%s' reason='user_not_found'",
+      body.login, ip,
+  )
+  logger.debug("Не удалось сбросить состояние трекера YOLO", exc_info=True)
+  ```
 
-# 400 for invalid input
-raise HTTPException(status_code=400, detail="before_ts и before_id должны передаваться вместе")
-
-# 429 for rate limiting
-raise HTTPException(status_code=429, detail="Слишком много попыток входа. Повторите через минуту.")
-```
-- Error detail messages are in Russian
-- Always re-raise with `from exc` to preserve exception chain
-
-**Broad `except Exception` usage:**
-- Used intentionally in infrastructure code (logging handlers, database operations, controller communication)
-- Always annotated with `# noqa: BLE001` when intentional
-- In database layer: `except Exception as exc: # noqa: BLE001` wraps into `StorageUnavailableError`
-
-**Pydantic validation errors:**
-```python
-raise ValueError("Хоткей должен содержать только одну основную клавишу")
-raise ValueError("Контроллер должен содержать ровно 2 реле")
-```
+**Validation:**
+- Pydantic `@field_validator` for individual field validation
+- Pydantic `@model_validator` for cross-field validation
+- Raise `ValueError` with descriptive Russian messages
+- Example from `app/api/schemas.py`:
+  ```python
+  @field_validator("login")
+  @classmethod
+  def validate_login(cls, v: str) -> str:
+      v = v.strip()
+      if not v:
+          raise ValueError("Логин не может быть пустым")
+      return v
+  ```
 
 ## Logging
 
-**Framework:** Python standard `logging` with custom infrastructure in `common/logging.py`
+**Framework:** Python's built-in `logging` module via `get_logger(__name__)` from `common/logging.py`
 
-**Logger acquisition:**
+**Patterns:**
+- Get logger at module level: `logger = get_logger(__name__)`
+- Use format strings, not f-strings: `logger.info("msg key=%s", value)`
+- Log levels match severity:
+  - `logger.info()` - State changes, successful operations
+  - `logger.warning()` - Recoverable issues, degraded operations
+  - `logger.debug()` - Detailed diagnostic info (usually with `exc_info=True`)
+
+**Examples:**
 ```python
-from common.logging import get_logger
 logger = get_logger(__name__)
-```
-Always call `get_logger(__name__)` at module level. Never use `logging.getLogger()` directly.
 
-**Log levels:**
-- `ALL` maps to `logging.NOTSET` (shows everything)
-- `DEBUG` — per-OCR-attempt details
-- `INFO` — consensus reached, startup messages
-- `WARNING` — device fallback warnings
-
-**Log format:**
-```
-%(asctime)s [%(levelname)s] [%(service)s] %(name)s: %(message)s
-```
-
-**Russian log messages in pipeline code:**
-```python
-logger.info(
-    "%s, трек %d: номер \"%s\" подтверждён по консенсусу после %d OCR попыток.",
-    self._channel_label, track_id, consensus, state.ocr_attempts,
+logger.info("Детектор YOLO успешно загружен (model=%s, device=%s)", model_path, device)
+logger.warning("Переключаем YOLO на CPU: %s", reason)
+logger.warning(
+    "login_failed login='%s' ip='%s' reason='inactive'",
+    body.login, ip,
 )
+logger.info(
+    "Создан пользователь: '%s' (role=%s, admin: %s)",
+    body.login,
+    body.role,
+    current_user["login"],
+)
+logger.debug("Не удалось сбросить состояние трекера YOLO", exc_info=True)
 ```
-- Pipeline messages always start with `self._channel_label` for channel context
-- Channel label format: `"Канал {name} (id={id})"`
-- Use `%s`/`%d`/`%.2f` formatting (lazy evaluation), **never f-strings in log calls**
+
+**Structured Data:**
+- Log additional context as key-value pairs (positional args, not dict)
+- Include IDs, names, states needed for debugging
+- Use consistent key names across codebase
 
 ## Comments
 
-**Docstrings:**
-- Russian docstrings for classes and key methods:
-```python
-class TrackAggregator:
-    """Агрегирует результаты распознавания в рамках одного трека."""
+**When to Comment:**
+- Explain complex business logic: rate limiting, permission checks, format validation
+- Document non-obvious algorithmic choices
+- Mark phase-specific code: `# Phase 5 user management`, `# Phase 6`
+- Document known limitations: `# CRNN quantization with prepare_fx is not thread-safe`
 
-class HourlyFileHandler(logging.Handler):
-    """Файловый обработчик с ротацией по часу и service-prefix в имени файла."""
-```
+**When NOT to Comment:**
+- Don't repeat what code obviously does
+- Don't comment simple assignments or loops
+- Docstrings replace inline comments for function intent
 
-**Inline comments:**
-- Section separators in test files using dashes:
-```python
-# ---------------------------------------------------------------------------
-# POST /api/auth/login
-# ---------------------------------------------------------------------------
-```
-- Russian comments for business logic: `# Если список был пустым, загружаем всё`
-- `# noqa:` comments with rule codes when suppressing linters
+**Format:**
+- Use section separators for logical grouping:
+  ```python
+  # ---------------------------------------------------------------------------
+  # Endpoints
+  # ---------------------------------------------------------------------------
+  ```
+- Inline comments on same line or line above:
+  ```python
+  # Activate motion
+  md.update(_noisy())
+  ```
 
 ## Function Design
 
+**Size:**
+- Keep functions focused and single-purpose
+- Aim for functions under 50 lines (exceptions for complex algorithms)
+- Extract complex conditional chains into helper functions
+
 **Parameters:**
-- Keyword-only arguments for optional/config params: `def __init__(self, ..., *, ocr_height: int = 32)`
-- Type hints on all function signatures
-- `Optional[X]` or `X | None` for nullable parameters
-- Clamping in `__init__`: `self.best_shots = max(1, best_shots)`
+- Use descriptive names: `model_path`, `detection_confidence_threshold`
+- Default sensible values for optional parameters
+- Group related parameters or use dataclasses/Pydantic for many params
+- Type hint all parameters
 
-**Return values:**
-- Return empty string `""` for "no result" rather than `None` (in aggregator/pipeline)
-- Return `bool` for state queries: `should_process()`, `_on_cooldown()`
-- Return dataclasses for structured results: `PlatePostprocessResult`
-- Return `Dict[str, Any]` for JSON-serializable API responses
+**Return Values:**
+- Return explicit types matching the type hint
+- Return early to reduce nesting: `if not condition: return None`
+- Avoid returning `None` without documenting the case
 
-## Module Design
-
-**Dataclass vs Pydantic:**
-- **Dataclasses** for internal domain models and configuration: `MotionDetectorConfig`, `PlateFormat`, `ChannelMetrics`
-- **Pydantic `BaseModel`** exclusively for API request/response schemas: all `*Payload`, `*Request`, `*Out` classes in `app/api/schemas.py`
-- Use `Field(ge=, le=, pattern=)` for Pydantic validation constraints
-
-**Settings schema:**
-- `config/settings_schema.py` uses plain functions returning `Dict[str, Any]` for defaults
-- Each group has a `*_defaults()` function: `storage_defaults()`, `logging_defaults()`
-- `build_default_settings()` assembles the full configuration dict
-
-**Protocol classes for interfaces:**
+**Example:**
 ```python
-class BatchRecognizer(Protocol):
-    """Минимальный контракт OCR-распознавателя для упрощения тестирования."""
-    def recognize_batch(self, plate_images: List[np.ndarray]) -> List[tuple[str, float]]:
-        ...
-```
-
-**Database repositories:**
-- All extend `PooledDatabase` from `database/base.py`
-- Override `_schema_sql()` to return schema DDL
-- Call `self._ensure_schema()` before first query (double-checked locking)
-- Use `with self._connect() as conn:` for connection management
-
-## Thread Safety Patterns
-
-**Double-checked locking (shared pool, OCR singleton):**
-```python
-if pool is None:
-    with _pool_registry_lock:
-        pool = _pool_registry.get(dsn)
-        if pool is None:
-            pool = ConnectionPool(dsn, ...)
-            _pool_registry[dsn] = pool
-```
-
-**Per-IP rate limiter with rolling window:**
-```python
-_failed_attempts: dict[str, list[float]] = defaultdict(list)
-_attempts_lock = Lock()
-
 def _check_rate_limit(ip: str) -> None:
+    """Raise HTTP 429 if the IP has exceeded the failed-login limit."""
     now = time.monotonic()
     with _attempts_lock:
         attempts = [t for t in _failed_attempts[ip] if now - t < _RATE_WINDOW_SECONDS]
         _failed_attempts[ip] = attempts
         if len(attempts) >= _MAX_FAILED_ATTEMPTS:
-            raise HTTPException(status_code=429, ...)
+            raise HTTPException(status_code=429, detail="Слишком много попыток входа...")
 ```
+
+## Module Design
+
+**Exports:**
+- Put public API at module level
+- Use `__all__` only if you want to restrict `from module import *` (discouraged)
+- Private functions/classes prefixed with underscore are not part of public API
+
+**Barrel Files:**
+- Avoid `__init__.py` files that re-export many items
+- Example from `anpr/__init__.py`: typically empty or minimal
+- Each module explicitly imports what it needs
+
+**Dependencies:**
+- Avoid circular imports using `TYPE_CHECKING` guard
+- Keep module dependencies clear and acyclic
+- Inject dependencies via function parameters or constructor
+
+**Example Module Structure:**
+```python
+from __future__ import annotations
+
+import os
+from typing import Any, Dict, Optional
+
+from common.logging import get_logger
+
+logger = get_logger(__name__)
+
+# Constants
+DEFAULT_TIMEOUT = 30
+
+# Private module-level state
+_cache: Dict[str, Any] = {}
+_cache_lock = threading.Lock()
+
+# Classes
+class MyService:
+    """Public service class."""
+    ...
+
+# Functions
+def public_function(param: str) -> str:
+    """Public function."""
+    ...
+
+def _private_helper(data: dict) -> bool:
+    """Private helper function."""
+    ...
+```
+
+## Pydantic Models
+
+**Schema Definition:**
+- Use `BaseModel` from pydantic v2
+- Include default values where sensible
+- Use `Field()` for additional constraints:
+  ```python
+  unit: str = Field(default="percent", pattern="^(px|percent)$")
+  ```
+
+**Validation:**
+- Use `@field_validator` for individual field validation
+- Use `@model_validator` for cross-field logic
+- Raise `ValueError` with user-facing error message in Russian
+
+**Example:**
+```python
+from pydantic import BaseModel, Field, field_validator
+
+class UserCreate(BaseModel):
+    login: str
+    password: str
+    role: str = "operator"
+    permissions: List[str] = []
+
+    @field_validator("login")
+    @classmethod
+    def validate_login(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Логин не может быть пустым")
+        return v
+```
+
+## Language Preference
+
+- Code comments and docstrings: English
+- User-facing messages (validation, error details): Russian
+- Log messages: Russian for human readability
+- Variable/function names: English (standard programming convention)
 
 ---
 
-*Convention analysis: 2026-04-14*
+*Convention analysis: 2026-09-18*
