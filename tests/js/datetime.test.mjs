@@ -85,24 +85,33 @@ test("network latency is split: the server stamped its answer mid-request", () =
   }
 });
 
-test("server zone and the 'not configured' flag show up in the label", async () => {
+test("only an administrator-chosen zone is labelled", async () => {
   await syncServerTime(async () => ({ server_utc: UTC_NOON, display_timezone: "UTC", timezone_configured: false }));
   let info = getZoneInfo();
   assert.equal(info.source, "server");
-  assert.match(info.label, /UTC \(по умолчанию\)/);
+  assert.equal(info.label, "UTC", "an explicitly stored zone (even UTC) is labelled");
   await syncServerTime(async () => ({ server_utc: UTC_NOON, display_timezone: "Europe/Minsk", timezone_configured: true }));
   info = getZoneInfo();
   assert.equal(info.label, "Europe/Minsk");
 });
 
-test("unavailable server: the browser zone is used and explicitly marked", async () => {
+test("unavailable server: the client's own zone is used, unlabelled", async () => {
   await syncServerTime(async () => { throw new Error("down"); });
   const info = getZoneInfo();
-  assert.equal(info.source, "browser");
-  assert.match(info.label, /\(зона браузера\)$/);
+  assert.equal(info.source, "client");
+  assert.equal(info.label, "");
 });
 
-test("an invalid zone from the server falls back to the browser zone", () => {
+test("no zone chosen by an administrator: the default is this computer's time, without a label", async () => {
+  await syncServerTime(async () => ({ server_utc: UTC_NOON, display_timezone: null, timezone_configured: false }));
+  const info = getZoneInfo();
+  assert.equal(info.source, "client");
+  assert.equal(info.zone, Intl.DateTimeFormat().resolvedOptions().timeZone);
+  assert.equal(info.label, "");
+  assert.equal(formatTime(UTC_NOON), new Intl.DateTimeFormat("ru-RU", { timeZone: info.zone, hourCycle: "h23", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(UTC_NOON)));
+});
+
+test("an invalid zone from the server falls back to the client's zone", () => {
   configureZone({ zone: "Mars/Olympus", configured: true });
-  assert.equal(getZoneInfo().source, "browser");
+  assert.equal(getZoneInfo().source, "client");
 });

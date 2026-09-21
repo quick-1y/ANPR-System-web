@@ -66,7 +66,7 @@ class TestTimezoneConfigured:
     def test_false_without_a_row(self):
         container, _ = _container()
         body = system_time(container=container, _user=USER)
-        assert body["display_timezone"] == "UTC"
+        assert body["display_timezone"] is None, "no zone chosen: the client shows its own time"
         assert body["timezone_configured"] is False
 
     def test_true_after_an_explicit_write_even_of_utc(self):

@@ -18,12 +18,6 @@ const storage = {
 
 export const appearance = createAppearance({
   storage,
-  // Public and unauthenticated: the login screen has no token yet.
-  fetchPublic: async () => {
-    const response = await fetch(api("/api/public/appearance"));
-    if (!response.ok) throw new Error("appearance unavailable");
-    return response.json();
-  },
   fetchPreferences: loadPreferences,
   patchPreferences: savePreferences,
   apply: ({ theme, style }) => { applyStyle(style); applyTheme(theme); },

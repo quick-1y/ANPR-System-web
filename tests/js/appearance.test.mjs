@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { CODE_DEFAULTS, INSTANCE_KEY, USER_PREFIX, createAppearance } from "../../app/web/js/appearance-core.js";
+import { CODE_DEFAULTS, USER_PREFIX, createAppearance } from "../../app/web/js/appearance-core.js";
 
 class MemoryStorage {
   constructor() { this.map = new Map(); }
@@ -69,24 +69,11 @@ test("first start without any cache: code defaults (graphite-minimal, light)", (
   assert.deepEqual(CODE_DEFAULTS, { theme: "light", style: "graphite-minimal" });
 });
 
-test("login screen: the cached instance default is applied synchronously, then confirmed by the public endpoint", async () => {
-  const storage = new MemoryStorage();
-  storage.setItem(INSTANCE_KEY, JSON.stringify({ theme: "dark", style: "aurora" }));
-  const { app, applied } = makeApp({ storage, server: makeServer({ instance: { theme: "dark", style: "aurora" } }) });
+test("before sign-in nobody is known: the code defaults are shown", () => {
+  const { app, applied } = makeApp();
   app.boot(null);
-  assert.deepEqual(applied.at(-1), { theme: "dark", style: "aurora" }); // before any network
-  await app.refreshInstance();
-  assert.deepEqual(applied.at(-1), { theme: "dark", style: "aurora" });
-});
-
-test("a server answer overwrites the instance cache (server wins over the cache)", async () => {
-  const storage = new MemoryStorage();
-  storage.setItem(INSTANCE_KEY, JSON.stringify({ theme: "dark", style: "aurora" }));
-  const { app, applied } = makeApp({ storage });
-  app.boot(null);
-  await app.refreshInstance();
   assert.deepEqual(applied.at(-1), { theme: "light", style: "graphite-minimal" });
-  assert.deepEqual(JSON.parse(storage.getItem(INSTANCE_KEY)), { theme: "light", style: "graphite-minimal" });
+  assert.equal(applied.length, 1);
 });
 
 test("signing in gives the user's own look and caches it under their id", async () => {
@@ -97,30 +84,6 @@ test("signing in gives the user's own look and caches it under their id", async 
   await app.signIn(7);
   assert.deepEqual(applied.at(-1), { theme: "dark", style: "aurora" });
   assert.deepEqual(JSON.parse(storage.getItem(USER_PREFIX + "7")), { theme: "dark", style: "aurora" });
-});
-
-test("no personal preference: the instance default; an admin change reaches the user's look", async () => {
-  const server = makeServer({ instance: { theme: "dark", style: "graphite-minimal" } });
-  const { app, applied, userId } = makeApp({ server });
-  app.boot(null);
-  userId.current = 3;
-  await app.signIn(3);
-  assert.equal(applied.at(-1).theme, "dark");
-  server.instance.theme = "light"; // the administrator changes the instance default
-  await app.refreshUser();
-  assert.equal(applied.at(-1).theme, "light");
-});
-
-test("login screen to app: no theme change when the user has no personal preference", async () => {
-  const server = makeServer({ instance: { theme: "dark", style: "aurora" } });
-  const { app, applied, userId } = makeApp({ server });
-  app.boot(null);
-  await app.refreshInstance(); // the login screen now shows the instance look
-  const onLoginScreen = applied.length;
-  userId.current = 4;
-  await app.signIn(4);
-  assert.deepEqual(applied.slice(onLoginScreen).filter((look) => look.theme !== "dark" || look.style !== "aurora"), [],
-    "the look changed between the login screen and the app");
 });
 
 test("the choice survives a reload: the cache paints it before the network answers", async () => {
@@ -214,7 +177,6 @@ test("localStorage disabled or throwing everywhere: nothing breaks", async () =>
     apply: (look) => applied.push(look),
   });
   app.boot("8");
-  await app.refreshInstance();
   await app.signIn(8);
   assert.equal(await app.setPersonal({ theme: "light" }), true);
   app.signOut();
@@ -229,7 +191,6 @@ test("server unreachable at start: the cached look stays and nothing throws", as
   server.fail = true;
   const { app, applied } = makeApp({ storage, server });
   app.boot("6");
-  await app.refreshInstance();
   await app.signIn(6);
   assert.deepEqual(applied.at(-1), { theme: "dark", style: "aurora" });
 });

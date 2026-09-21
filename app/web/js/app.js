@@ -13,7 +13,7 @@ import { restoreGridSize, saveGridSize } from './video-grid.js';
 import { appearance } from './appearance.js';
 import { onZoneChange, startServerTimeSync, syncServerTime } from './datetime.js';
 import { fetchServerTime } from './server-time.js';
-import { loadPreferences, savePreferences, syncPreferenceControls, bindPreferenceControls } from './preferences.js';
+import { loadPreferences, syncPreferenceControls, bindPreferenceControls, syncSidebarPin, bindSidebarPin } from './preferences.js';
 import { loadControllers, createController, _doCreateController, deleteController, _doDeleteController, saveController, testController } from './controllers.js';
 import { applyDebugPanelVisibility, loadDebugLogHistory, setupDebugLogStream, setupStream } from './debug.js';
 import { initHelpSystem } from './help.js';
@@ -243,15 +243,6 @@ document.getElementById("prefsBtn").onclick = () => { syncPreferenceControls(); 
 document.getElementById("prefsModalClose").onclick = () => closeModal("prefsModal");
 document.getElementById("p_theme").onchange = (e) => appearance.setPersonal({ theme: e.target.value }).then(syncPreferenceControls);
 document.getElementById("p_style").onchange = (e) => appearance.setPersonal({ style: e.target.value }).then(syncPreferenceControls);
-document.getElementById("p_timezone").onchange = async (e) => {
-  try {
-    await savePreferences({ timezone: e.target.value });
-    await syncServerTime(fetchServerTime);   // zone listeners re-render every view
-  } catch (_err) {
-    e.target.value = getPreference("timezone") || "auto";
-    showToast("Не удалось сохранить часовой пояс", 4000);
-  }
-};
 document.getElementById("plateSizeResetBtn").onclick = resetPlateSizeBoxes;
 document.getElementById("roiRefreshBtn").onclick = refreshPreviewSnapshot;
 document.getElementById("roiClearBtn").onclick = resetROIPoints;
@@ -317,10 +308,9 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
 (async function init() {
   const apiBaseEl = document.getElementById("apiBase");
   if (apiBaseEl) apiBaseEl.value = window.location.origin;
-  // Look before anything else: the token's user cache (if any), else the cached
-  // instance default. The server then confirms and overwrites the cache.
+  // Look before anything else: the token's user cache (if any), else the code
+  // defaults. The server then confirms and overwrites the cache.
   appearance.boot(getTokenUserId());
-  appearance.refreshInstance();
   restoreGridSize();   // device state (class L): this screen's grid size
   await _inlineThemeableIcons();
 
@@ -357,13 +347,14 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
   try {
     await appearance.signIn(currentUser.id);   // loads preferences, applies + caches the look
     syncPreferenceControls();
+    syncSidebarPin();
     applySidebarLocked(Boolean(getPreference("sidebar_locked")));
   } catch (_e) {
     showToast("Не удалось загрузить личные настройки", 4000);
   }
+  bindSidebarPin((pinned) => applySidebarLocked(pinned));
   bindPreferenceControls((key) => {
-    if (key === "sidebar_locked") applySidebarLocked(Boolean(getPreference("sidebar_locked")));
-    else if (key === "channel_metrics_visible") { syncOverlayPolling(); scheduleVideoGridLayout(true); }
+    if (key === "channel_metrics_visible") { syncOverlayPolling(); scheduleVideoGridLayout(true); }
     else if (key === "debug_panel_enabled") applyDebugPanelVisibility();
   });
   const userIsSuperadmin = currentUser.role === "superadmin";

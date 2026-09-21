@@ -185,8 +185,7 @@ export function openModal(id) { document.getElementById(id).classList.add("activ
 export function closeModal(id) { document.getElementById(id).classList.remove("active"); }
 
 // Pure DOM appliers: they show a look, they never decide or remember one
-// (appearance.js owns that). The instance-default <select>s in the settings
-// pane are NOT touched here — they mirror the instance value, not the personal one.
+// (appearance.js owns that).
 export function applyStyle(style) {
   document.body.setAttribute("data-app-style", pickEnum("style", style, "graphite-minimal"));
 }
@@ -221,13 +220,12 @@ export function updateTopbarDateTime() {
 // Zone label next to the clock and above the journal — shown always: a time
 // without its zone is incomplete audit data.
 export function updateZoneLabels() {
-  const { label, source, configured } = getZoneInfo();
-  const warn = source === "browser" || configured === false;
+  const { label } = getZoneInfo();
   for (const id of ["topbarTz", "journalTz"]) {
     const el = document.getElementById(id);
     if (!el) continue;
-    el.textContent = id === "journalTz" ? `Время указано в зоне: ${label}` : label;
-    el.classList.toggle("tz-warn", warn);
+    el.textContent = label ? (id === "journalTz" ? `Время указано в зоне: ${label}` : label) : "";
+    el.hidden = !label;
   }
 }
 

@@ -318,14 +318,12 @@ class StoragePayload(BaseModel):
 
 
 class InterfacePayload(BaseModel):
-    """Instance-level appearance (app_settings). `None` = leave unchanged.
+    """Instance display zone (app_settings). `None` = leave unchanged.
 
-    The instance defaults apply to users without a personal preference; the
-    personal look is saved through `/api/me/preferences`.
+    Theme and style are personal preferences (`/api/me/preferences`) and have
+    no instance-level counterpart.
     """
 
-    default_style: Optional[str] = Field(default=None, pattern=choices_pattern(ENUMS["style"]))
-    default_theme: Optional[str] = Field(default=None, pattern=choices_pattern(ENUMS["theme"]))
     #: IANA zone of the instance. `None` keeps an untouched setting distinguishable
     #: from an explicit choice of UTC.
     display_timezone: Optional[str] = None

@@ -91,9 +91,6 @@ class TestResolvedDefaults:
     def test_enabled_countries_are_all_four(self):
         assert get_spec("plates.enabled_countries").default == ["RU", "UA", "BY", "KZ"]
 
-    def test_default_style_and_theme_are_graphite_minimal_light(self):
-        assert get_spec("interface.default_style").default == "graphite-minimal"
-        assert get_spec("interface.default_theme").default == "light"
 
     def test_display_timezone_default_is_static_utc(self):
         assert get_spec("interface.display_timezone").default == "UTC"
@@ -141,7 +138,7 @@ class TestValidation:
 
     def test_value_outside_choices_is_rejected(self):
         with pytest.raises(SettingValidationError):
-            get_spec("interface.default_theme").validate("purple")
+            get_spec("theme").validate("purple")
 
     def test_value_below_minimum_is_rejected(self):
         with pytest.raises(SettingValidationError):
@@ -166,8 +163,6 @@ class TestValidation:
         with pytest.raises(SettingValidationError):
             get_spec("interface.display_timezone").validate("Not/AZone")
 
-    def test_personal_timezone_accepts_auto(self):
-        assert get_spec("timezone").validate("auto") == "auto"
 
     def test_unknown_key_is_reported_clearly(self):
         with pytest.raises(KeyError):
@@ -333,9 +328,9 @@ class TestArchitectureInvariants:
     def test_new_endpoints_use_the_adapter_not_tab_settings(self):
         import inspect
 
-        from app.api.routers import preferences, public, settings, system
+        from app.api.routers import preferences, settings, system
 
-        for function in (preferences.get_my_preferences, preferences.patch_my_preferences, public.public_appearance,
+        for function in (preferences.get_my_preferences, preferences.patch_my_preferences,
                          system.system_time, settings.get_settings_schema):
             source = inspect.getsource(function)
             assert "require_access(" in source, function.__name__

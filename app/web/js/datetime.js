@@ -1,9 +1,8 @@
 // The single owner of displayed date/time (roadmap 7.5, model 4.9).
 //
-// Everything shown to the user is rendered in ONE zone — the display zone the
-// server resolved for this user (personal override -> instance zone -> UTC) —
-// with one explicit locale. The browser's own zone is used only as an
-// emergency fallback and is always labelled as such. The workstation clock is
+// Everything shown to the user is rendered in ONE zone with one explicit locale:
+// the zone an administrator chose for the instance, or — until one is chosen —
+// this computer's own zone (the default; it is not labelled). The workstation clock is
 // never trusted: "now" is server time plus a measured offset.
 //
 // No imports and no DOM access at load time, so it runs (and is tested) in Node.
@@ -12,7 +11,7 @@ export const LOCALE = "ru-RU";
 
 const state = {
   zone: null,          // IANA id actually used for rendering
-  source: "browser",   // "server" | "browser" (fallback)
+  source: "client",    // "server" = an administrator chose the zone; "client" = this computer's own zone
   configured: null,    // did an administrator choose the instance zone? (null = unknown)
   offsetMs: 0,         // serverNow - Date.now()
 };
@@ -28,17 +27,17 @@ function isValidZone(zone) {
 
 export function getZoneInfo() {
   const zone = state.zone || browserZone();
-  let label = zone;
-  if (state.source === "browser") label = `${zone} (зона браузера)`;
-  else if (state.configured === false) label = `${zone} (по умолчанию)`;
+  // A label exists only for a zone an administrator explicitly chose. The
+  // default (this computer's time) is not labelled.
+  const label = state.source === "server" ? zone : "";
   return { zone, source: state.source, configured: state.configured, label };
 }
 
-// Adopt the zone the server reported. A missing/invalid zone falls back to the
-// browser zone and is flagged. Listeners run only when the outcome changed.
+// Adopt the zone the server reported. A missing/invalid zone means the
+// client's own zone. Listeners run only when the outcome changed.
 export function configureZone({ zone = null, configured = null } = {}) {
   const usable = zone && isValidZone(zone) ? zone : null;
-  const next = { zone: usable || browserZone(), source: usable ? "server" : "browser", configured: usable ? configured : null };
+  const next = { zone: usable || browserZone(), source: usable ? "server" : "client", configured: usable ? configured : null };
   const changed = next.zone !== state.zone || next.source !== state.source || next.configured !== state.configured;
   Object.assign(state, next);
   if (changed) zoneListeners.forEach((listener) => { try { listener(getZoneInfo()); } catch (_e) { /* one bad view must not block the others */ } });
@@ -63,7 +62,7 @@ export function serverNow() {
 }
 
 // One request gives the clock offset AND the zone. On failure the interface
-// keeps working: last offset stays, the zone falls back to the browser's.
+// keeps working: last offset stays, the zone falls back to the client's.
 export async function syncServerTime(fetchTime) {
   const sentAt = Date.now();
   try {

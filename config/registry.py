@@ -36,7 +36,6 @@ from config.settings_schema import (
     LOG_LEVELS,
     SUPPORTED_CONTROLLER_TYPES,
     channel_defaults,
-    interface_defaults,
     logging_defaults,
     plate_defaults,
     plate_size_defaults,
@@ -219,7 +218,9 @@ def _valid_zone(value: str) -> str:
 _RECONNECT = reconnect_defaults()
 _RETENTION = retention_defaults()
 _LOGGING = logging_defaults()
-_INTERFACE = interface_defaults()
+#: Код-дефолты личного внешнего вида: глобального дефолта инстанса нет, действуют они.
+DEFAULT_THEME = "light"
+DEFAULT_STYLE = "graphite-minimal"
 _PLATES = plate_defaults()
 
 
@@ -259,9 +260,6 @@ _SPECS: Tuple[SettingSpec, ...] = (
         "plates.enabled_countries", "str_list", _PLATES["enabled_countries"],
         "Страны, форматы номеров которых распознаются", choices=COUNTRIES, requires_restart=True,
     ),
-    # Решения 4.10 №6, №7: значения из schema, а не из прежнего файла настроек.
-    _a("interface.default_theme", "str", _INTERFACE["theme"], "Тема инстанса по умолчанию; читается без аутентификации логин-экраном", choices=THEMES),
-    _a("interface.default_style", "str", _INTERFACE["style"], "Стиль инстанса по умолчанию; читается без аутентификации логин-экраном", choices=STYLES),
     # Решение 4.10 №8: статический дефолт UTC вместо зоны ОС хоста.
     _a("interface.display_timezone", "str", "UTC", "Зона отображения времени инстанса (IANA); хранение остаётся в UTC", validator=_valid_zone),
     _a(
@@ -286,13 +284,12 @@ _SPECS: Tuple[SettingSpec, ...] = (
         minimum=0.0, maximum=1.0, requires_restart=True,
     ),
     # ── Класс U — users.preferences ──────────────────────────────────────
-    _u("theme", "str", _INTERFACE["theme"], "Личная тема; поверх interface.default_theme", choices=THEMES),
-    _u("style", "str", _INTERFACE["style"], "Личный стиль; поверх interface.default_style", choices=STYLES),
+    _u("theme", "str", DEFAULT_THEME, "Личная тема; единственный источник — предпочтение пользователя, без дефолта инстанса", choices=THEMES),
+    _u("style", "str", DEFAULT_STYLE, "Личный стиль; единственный источник — предпочтение пользователя, без дефолта инстанса", choices=STYLES),
     _u("sidebar_locked", "bool", False, "Фиксация левой панели в свёрнутом виде"),
     _u("debug_panel_enabled", "bool", False, "Показывать панель debug-логов"),
     # Решение 4.10 №3: дефолт False (debug-функция выключена, пока её не включили).
     _u("channel_metrics_visible", "bool", False, "Показывать метрики каналов"),
-    _u("timezone", "str", "auto", "Личная зона отображения; auto — зона инстанса", validator=_valid_zone),
     _u(
         "locale", "str", "ru",
         "Зарезервирован: нет слоя локализации (P15); место выбора языка — рядом с переключателем темы, а не в настройках",
@@ -326,8 +323,7 @@ _SPECS: Tuple[SettingSpec, ...] = (
     _l("anpr_token", "JWT сессии"),
     _l("anpr_channel_order", "Порядок плиток видеосетки на конкретном экране — серверного владельца нет"),
     _l("anpr_grid_size", "Размер видеосетки на конкретном экране — серверного владельца нет"),
-    _l("anpr_appearance_instance", "Кэш дефолта внешнего вида инстанса для логин-экрана; источник — app_settings"),
-    _l("anpr_appearance_user:<user_id>", "Кэш предпочтений пользователя; источник — users.preferences; удаляется при выходе"),
+    _l("anpr_appearance_user:<user_id>", "Кэш личного внешнего вида пользователя; источник — users.preferences; удаляется при выходе"),
 )
 
 REGISTRY: Dict[str, SettingSpec] = {spec.key: spec for spec in _SPECS}
@@ -352,9 +348,12 @@ REMOVED: Dict[str, str] = {
     "debug.show_channel_metrics": "channel_metrics_visible",
     "debug.log_panel_enabled": "debug_panel_enabled",
     "debug.disable_video_output": "debug.video_output_enabled (инвертируется)",
-    "interface.style": "interface.default_style и style",
-    "interface.theme": "interface.default_theme и theme",
+    "interface.style": "style (только личное предпочтение)",
+    "interface.theme": "theme (только личное предпочтение)",
+    "interface.default_style": "удалён: дефолта инстанса нет, действует код-дефолт",
+    "interface.default_theme": "удалён: дефолта инстанса нет, действует код-дефолт",
     "interface.sidebar_locked": "sidebar_locked",
+    "timezone (личная)": "удалена: остаётся только interface.display_timezone",
     "time.timezone": "interface.display_timezone (домен меняется на IANA)",
     "JWT_EXPIRATION_MINUTES": "auth.token_ttl_minutes",
     "SETTINGS_PATH": "удаляется вместе с settings.yaml (фаза 9)",

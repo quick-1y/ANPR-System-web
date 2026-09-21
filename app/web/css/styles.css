@@ -1778,3 +1778,10 @@ tr.list-info:hover { background: rgba(56, 189, 248, 0.18); }
 .s-note { font-size: var(--font-sm, 12px); color: var(--text3); padding: 4px 0; }
 .s-note.tz-warn { color: var(--warning); }
 .s-note[hidden] { display: none; }
+
+/* Sidebar pin (personal "keep the rail collapsed" toggle) */
+.rail-pin { background: none; border: 0; width: 100%; text-align: left; cursor: pointer; color: inherit; }
+.rail-pin .rail-pin-icon { transition: transform .15s ease; transform: rotate(35deg); opacity: .65; }
+.rail-pin:hover .rail-pin-icon { opacity: 1; }
+.rail-pin.is-pinned .rail-pin-icon { transform: rotate(0deg); opacity: 1; color: var(--accent, currentColor); fill: currentColor; }
+.rail-pin:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: -2px; }

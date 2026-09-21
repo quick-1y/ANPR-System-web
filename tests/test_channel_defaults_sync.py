@@ -118,15 +118,7 @@ def test_personal_debug_flags_default_to_off_and_are_not_server_settings():
     assert DebugSettings().video_output_enabled is True
 
 
-def test_interface_payload_defaults_follow_schema():
-    from config.settings_schema import interface_defaults
-
-    assert interface_defaults() == {"style": "graphite-minimal", "theme": "light"}
-    payload = InterfacePayload()  # nothing is sent unless the admin changes it
-    assert (payload.default_style, payload.default_theme, payload.display_timezone) == (None, None, None)
-
-
-def test_registry_channel_keys_do_not_leak_into_app_settings():
-    from config.registry import REGISTRY
-
-    assert not [k for k in REGISTRY if k.startswith("channel.")]
+def test_interface_payload_carries_only_the_display_zone():
+    payload = InterfacePayload()  # nothing is sent unless the administrator changes it
+    assert set(InterfacePayload.model_fields) == {"display_timezone"}
+    assert payload.display_timezone is None

@@ -132,8 +132,8 @@ class TestDefaultsAndOverrides:
         assert service.get("plates.enabled_countries") == ["RU", "UA", "BY", "KZ"]
 
     def test_invalid_stored_value_falls_back_to_the_default(self):
-        service, _, _ = _service(_Repo({"interface.default_theme": "purple", "retention.events_retention_days": "many"}))
-        assert service.get("interface.default_theme") == "light"
+        service, _, _ = _service(_Repo({"logging.level": "LOUD", "retention.events_retention_days": "many"}))
+        assert service.get("logging.level") == "ALL"
         assert service.get("retention.events_retention_days") == 30
 
     def test_stored_key_unknown_to_the_registry_is_ignored(self):
@@ -260,13 +260,13 @@ class TestUpdateValidation:
     def test_value_outside_choices_is_rejected_and_nothing_is_written(self):
         service, repo, _ = _service()
         with pytest.raises(SettingValidationError):
-            service.update({"interface.default_theme": "purple"})
+            service.update({"logging.level": "LOUD"})
         assert repo.writes == []
 
     def test_one_invalid_value_rejects_the_whole_mapping(self):
         service, repo, _ = _service()
         with pytest.raises(SettingValidationError):
-            service.update({"retention.events_retention_days": 60, "interface.default_theme": "purple"})
+            service.update({"retention.events_retention_days": 60, "logging.level": "LOUD"})
         assert repo.writes == []
 
     def test_wrong_type_is_rejected(self):

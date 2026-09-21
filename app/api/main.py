@@ -20,7 +20,6 @@ from app.api.routers.debug import router as debug_router
 from app.api.routers.events import router as events_router
 from app.api.routers.lists import router as lists_router
 from app.api.routers.preferences import router as preferences_router
-from app.api.routers.public import router as public_router
 from app.api.routers.settings import router as settings_router
 from app.api.routers.system import router as system_router
 from app.api.routers.users import router as users_router
@@ -86,7 +85,6 @@ app.add_middleware(
 app.mount("/web", StaticFiles(directory=str(WEB_DIR), html=True), name="web")
 
 app.include_router(auth_router)
-app.include_router(public_router)
 app.include_router(users_router)
 app.include_router(preferences_router)
 app.include_router(system_router)

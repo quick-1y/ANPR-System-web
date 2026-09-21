@@ -97,7 +97,7 @@ export function initBackupBindings() {
       const resp = await fetch(api("/api/data/backup/settings/restore"), { method: "POST", headers, body: formData });
       if (resp.status === 401) { showLoginOverlay(() => location.reload()); return; }
       const result = await resp.json();
-      if (resp.ok && result.status === "ok") { showToast("Настройки восстановлены и применены", 3000); await loadGlobalSettings(); await appearance.refreshUser(); await appearance.refreshInstance(); await syncServerTime(fetchServerTime); }
+      if (resp.ok && result.status === "ok") { showToast("Настройки восстановлены и применены", 3000); await loadGlobalSettings(); await appearance.refreshUser(); await syncServerTime(fetchServerTime); }
       else { showToast(result.detail || "Ошибка восстановления настроек", 5000); }
     } catch (err) { showToast("Ошибка: " + err.message, 5000); }
     finally { _pendingSettingsFile = null; confirmBtn.disabled = false; setBackupBusy(false); }

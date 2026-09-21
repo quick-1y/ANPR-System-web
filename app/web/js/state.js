@@ -24,7 +24,6 @@ export let overlayRefreshTimer = null;
 // Personal preferences (class U), mirrored from GET /api/me/preferences:
 // { key: { value, source } }. The server stays the source of truth.
 export let preferencesCache = {};
-export let displayTimezone = "UTC";
 export let eventFeedResizeObserver = null;
 export let eventFeedRenderScheduled = false;
 export let eventFeedRenderFrame = null;
@@ -37,7 +36,7 @@ export function setDebugLogSource(v) { debugLogSource = v; }
 export function setDebugLogReconnectTimer(v) { debugLogReconnectTimer = v; }
 export function setLastDebugLogId(v) { lastDebugLogId = v; }
 export function setDebugSettingsCache(v) { debugSettingsCache = v; }
-export function setPreferencesCache(prefs, zone) { preferencesCache = prefs || {}; if (zone) displayTimezone = zone; }
+export function setPreferencesCache(prefs) { preferencesCache = prefs || {}; }
 export function getPreferenceEntry(key) { return preferencesCache[key] || null; }
 export function getPreference(key) { const entry = preferencesCache[key]; return entry ? entry.value : undefined; }
 // Server-side debug flag (app_settings debug.video_output_enabled); unknown until loaded.

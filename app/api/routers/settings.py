@@ -37,11 +37,9 @@ def _flatten(prefix: str, nested: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _interface_view(container: AppContainer) -> Dict[str, Any]:
-    """Instance appearance and display zone, all from `app_settings`."""
+    """Instance display zone from `app_settings` (appearance is personal, not here)."""
     service = container.settings_service
     return {
-        "default_style": service.get("interface.default_style"),
-        "default_theme": service.get("interface.default_theme"),
         "display_timezone": container.get_display_timezone(),
         "timezone_configured": service.is_configured("interface.display_timezone"),
     }
@@ -92,10 +90,6 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
     is_superadmin = current_user.get("role") == "superadmin"
     if is_superadmin and payload.debug is not None:
         settings_mapping["debug.video_output_enabled"] = payload.debug.video_output_enabled
-    if payload.interface.default_style is not None:
-        settings_mapping["interface.default_style"] = payload.interface.default_style
-    if payload.interface.default_theme is not None:
-        settings_mapping["interface.default_theme"] = payload.interface.default_theme
     if payload.interface.display_timezone is not None:
         settings_mapping["interface.display_timezone"] = payload.interface.display_timezone
     try:

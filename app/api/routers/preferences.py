@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.api.container import AppContainer
 from app.api.deps import get_container, require_access
-from config.preferences import effective_timezone, resolve, validate_patch
+from config.preferences import resolve, validate_patch
 from config.registry import SettingValidationError
 from database.errors import StorageUnavailableError
 
@@ -33,14 +33,10 @@ class PreferencesPatch(BaseModel):
     sidebar_locked: Optional[bool] = None
     debug_panel_enabled: Optional[bool] = None
     channel_metrics_visible: Optional[bool] = None
-    timezone: Optional[str] = None
 
 
 def _view(container: AppContainer, stored: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "preferences": resolve(stored, container.settings_service),
-        "display_timezone": effective_timezone(stored, container.settings_service),
-    }
+    return {"preferences": resolve(stored)}
 
 
 @router.get("/api/me/preferences")

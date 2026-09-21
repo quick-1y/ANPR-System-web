@@ -51,6 +51,12 @@
         </div>
       
         <div class="rail-bottom" id="railBottom">
+          <button class="ttab rail-pin" id="railPinBtn" type="button" aria-pressed="false" title="Закрепить панель свёрнутой">
+            <span class="ttab-icon-wrap">
+              <svg class="rail-pin-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6z"/><path d="M12 14v7"/></svg>
+            </span>
+            <span class="ttab-label" id="railPinLabel">Закрепить панель</span>
+          </button>
           <button class="ttab" id="logoutBtn" title="Выход">
             <span class="ttab-icon-wrap">
               <img class="ttab-icon ui-icon" src="/web/assets/icons/logout.svg" alt="" />
@@ -443,20 +449,6 @@
                     <option>3x3</option>
                   </select>
                 </div>
-                <div class="s-row">
-                  <div class="s-row-label">
-                    <button class="param-help-btn" data-help="g_style">?</button>
-                    <div class="s-row-name">Стиль по умолчанию (для всех)</div>
-                  </div>
-                  <select class="input input--md s-input input--select" id="g_style"></select>
-                </div>
-                <div class="s-row">
-                  <div class="s-row-label">
-                    <button class="param-help-btn" data-help="g_theme">?</button>
-                    <div class="s-row-name">Тема по умолчанию (для всех)</div>
-                  </div>
-                  <select class="input input--md s-input input--select" id="g_theme"></select>
-                </div>
               </div>
             </div>
 
@@ -586,7 +578,7 @@
                   <select class="input input--md s-input input--select" id="g_timezone"></select>
                 </div>
                 <div class="s-note tz-warn" id="tzNotConfiguredNote" hidden>
-                  Зона отображения не настроена: сейчас используется UTC. Выберите часовой пояс объекта — он применится ко всем без перезапуска.
+                  Зона не выбрана: каждому пользователю показывается время его компьютера. Выберите часовой пояс объекта — он применится ко всем без перезапуска.
                 </div>
               </div>
             </div>
@@ -1280,7 +1272,7 @@
           <button class="modal-close" id="prefsModalClose">✕</button>
         </div>
         <div class="modal-body">
-          <p class="s-note">Действуют только для вашей учётной записи на любом рабочем месте.</p>
+          <p class="s-note">Тема и стиль действуют только для вашей учётной записи на любом рабочем месте.</p>
           <div class="s-row">
             <div class="s-row-label"><div class="s-row-name">Тема</div><div class="s-note" id="p_theme_source"></div></div>
             <select class="input input--md s-input input--select" id="p_theme"></select>
@@ -1288,14 +1280,6 @@
           <div class="s-row">
             <div class="s-row-label"><div class="s-row-name">Стиль</div><div class="s-note" id="p_style_source"></div></div>
             <select class="input input--md s-input input--select" id="p_style"></select>
-          </div>
-          <div class="s-row">
-            <div class="s-row-label"><div class="s-row-name">Часовой пояс</div></div>
-            <select class="input input--md s-input input--select" id="p_timezone"></select>
-          </div>
-          <div class="s-row">
-            <div class="s-row-label"><div class="s-row-name">Зафиксировать левую панель</div></div>
-            <input type="checkbox" id="p_sidebar_locked" />
           </div>
         </div>
       </div>

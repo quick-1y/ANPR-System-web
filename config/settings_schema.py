@@ -137,14 +137,6 @@ def direction_defaults() -> Dict[str, float | int]:
     }
 
 
-def interface_defaults() -> Dict[str, Any]:
-    """Код-дефолты внешнего вида (тема и стиль); источник для реестра."""
-    return {
-        "style": "graphite-minimal",
-        "theme": "light",
-    }
-
-
 def logging_defaults() -> Dict[str, Any]:
     return {"level": "ALL", "retention_days": 30}
 

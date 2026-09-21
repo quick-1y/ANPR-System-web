@@ -50,14 +50,10 @@ class SettingsService:
 
     # ── Read ──────────────────────────────────────────────────────────
 
-    def get(self, key: str, *, block: bool = True) -> Any:
-        """Действующее значение ключа класса A: переопределение из БД либо дефолт.
-
-        `block=False` — для неаутентифицированных запросов: если другой поток
-        уже ходит в БД, ответ берётся из кэша немедленно, а не после ожидания.
-        """
+    def get(self, key: str) -> Any:
+        """Действующее значение ключа класса A: переопределение из БД либо дефолт."""
         self._require_class_a(key)
-        self._refresh_if_stale(block=block)
+        self._refresh_if_stale()
         with self._lock:
             return copy.deepcopy(self._effective[key])
 
@@ -162,12 +158,12 @@ class SettingsService:
 
     # ── Cache ─────────────────────────────────────────────────────────
 
-    def _refresh_if_stale(self, block: bool = True) -> None:
+    def _refresh_if_stale(self) -> None:
         if not self._is_stale():
             return
         # Пока кэша нет вовсе, ждём загрузку; когда он есть — не блокируем
         # читателей ожиданием БД (у пула соединений долгий таймаут).
-        if not self._refresh_lock.acquire(blocking=block and not self._loaded):
+        if not self._refresh_lock.acquire(blocking=not self._loaded):
             return
         try:
             if not self._is_stale():

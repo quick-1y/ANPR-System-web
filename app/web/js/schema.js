@@ -8,8 +8,6 @@ let schema = null;
 
 // [select element id, registry enum name]
 const BINDINGS = [
-  ["g_style", "style"],
-  ["g_theme", "theme"],
   ["p_style", "style"],
   ["p_theme", "theme"],
   ["g_log_level", "log_level"],
@@ -78,11 +76,5 @@ export async function loadSettingsSchema() {
   }
   const zoneSelect = document.getElementById("g_timezone");
   if (zoneSelect && Array.isArray(schema.timezones)) fillTimezones(zoneSelect, schema.timezones);
-  // Personal zone: "auto" means "use the instance zone" and is not an IANA id.
-  const personalZone = document.getElementById("p_timezone");
-  if (personalZone && Array.isArray(schema.timezones)) {
-    fillTimezones(personalZone, ["auto", ...schema.timezones]);
-    personalZone.options[0].textContent = "Как у инстанса (auto)";
-  }
   return schema;
 }

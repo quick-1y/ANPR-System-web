@@ -3,7 +3,6 @@ import { setDebugSettingsCache, isSuperAdmin, isVideoOutputDisabled } from './st
 import { syncPreferenceControls } from './preferences.js';
 import { api, jfetch } from './api.js';
 import { val, setVal, setChk, showToast } from './ui.js';
-import { appearance } from './appearance.js';
 import { syncServerTime } from './datetime.js';
 import { fetchServerTime } from './server-time.js';
 import { scheduleVideoGridLayout, syncOverlayPolling } from './channels.js';
@@ -67,8 +66,6 @@ export async function loadGlobalSettings() {
   setVal("g_rl_window", g.auth.login_rate_limit_window_seconds);
   setVal("g_log_level", g.logging.level); setVal("g_log_retention", g.logging.retention_days);
   if (g.interface) {
-    setVal("g_style", g.interface.default_style);
-    setVal("g_theme", g.interface.default_theme);
   }
   // display_timezone is an app_settings key; it is sent back only when the
   // administrator touched the select, so "never configured" stays distinguishable
@@ -94,7 +91,7 @@ export async function saveGeneral() {
     },
     storage: { auto_cleanup_enabled: document.getElementById("g_auto_cleanup").checked, cleanup_interval_minutes: Number(val("g_cleanup_minutes")), events_retention_days: Number(val("g_events_retention")), media_retention_days: Number(val("g_media_retention")), max_screenshots_mb: Number(val("g_max_screenshots")) },
     logging: { level: val("g_log_level"), retention_days: Number(val("g_log_retention")) },
-    interface: { default_style: val("g_style"), default_theme: val("g_theme"), display_timezone: timezoneTouched ? val("g_timezone") : null },
+    interface: { display_timezone: timezoneTouched ? val("g_timezone") : null },
     plates: { enabled_countries: getEnabledCountryCodes() },
     auth: { token_ttl_minutes: Number(val("g_token_ttl")), login_rate_limit_attempts: Number(val("g_rl_attempts")), login_rate_limit_window_seconds: Number(val("g_rl_window")) },
   };
@@ -116,9 +113,7 @@ export async function saveGeneral() {
   timezoneTouched = false;
   const note = document.getElementById("tzNotConfiguredNote");
   if (note && updated && updated.interface) note.hidden = Boolean(updated.interface.timezone_configured);
-  // The instance default may have changed what users without a personal choice see,
-  // and the zone may have changed what everyone sees.
-  await appearance.refreshUser();
+  // The zone may have changed what everyone sees.
   await syncServerTime(fetchServerTime);
   const restart = (updated || {}).requires_restart || [];
   showToast(restart.length

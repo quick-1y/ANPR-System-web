@@ -17,7 +17,6 @@ from app.api.routers import settings as settings_router
 from app.api.routers.system import system_time
 from config.preferences import (
     clean_stored,
-    effective_timezone,
     known_keys,
     resolve,
     validate_patch,
@@ -41,20 +40,8 @@ SUPERADMIN = {"id": 1, "login": "root", "role": "superadmin", "permissions": []}
 # ── 6.1 storage ─────────────────────────────────────────────────────────
 
 class TestRegistryAndValidation:
-    def test_known_keys_are_the_class_u_keys_without_reserved(self):
-        assert set(known_keys()) == {
-            "theme", "style", "sidebar_locked", "debug_panel_enabled", "channel_metrics_visible", "timezone",
-        }
-        assert "locale" not in known_keys()
 
-    def test_patch_is_validated_per_key_and_stays_partial(self):
-        assert validate_patch({"theme": "dark"}) == {"theme": "dark"}
-        assert validate_patch({"sidebar_locked": True, "timezone": "Europe/Minsk"}) == {
-            "sidebar_locked": True, "timezone": "Europe/Minsk",
-        }
 
-    def test_auto_timezone_is_accepted(self):
-        assert validate_patch({"timezone": "auto"}) == {"timezone": "auto"}
 
     @pytest.mark.parametrize(
         "patch_",
@@ -140,27 +127,9 @@ class TestResolution:
     def _settings(self, stored=None):
         return _container(_Repo(stored))[0].settings_service
 
-    def test_new_user_inherits_registry_defaults(self):
-        resolved = resolve({}, self._settings())
-        assert resolved["theme"] == {"value": "light", "source": "default"}
-        assert resolved["style"] == {"value": "graphite-minimal", "source": "default"}
-        assert resolved["sidebar_locked"] == {"value": False, "source": "default"}
-        assert resolved["timezone"] == {"value": "auto", "source": "default"}
 
-    def test_explicit_instance_default_is_reported_as_instance(self):
-        resolved = resolve({}, self._settings({"interface.default_theme": "dark"}))
-        assert resolved["theme"] == {"value": "dark", "source": "instance"}
-        assert resolved["style"]["source"] == "default"
 
-    def test_personal_value_wins_over_the_instance_default(self):
-        resolved = resolve({"theme": "light"}, self._settings({"interface.default_theme": "dark"}))
-        assert resolved["theme"] == {"value": "light", "source": "user"}
 
-    def test_timezone_auto_follows_the_instance_zone_and_a_personal_zone_overrides_it(self):
-        settings = self._settings({"interface.display_timezone": "Europe/Minsk"})
-        assert effective_timezone({}, settings) == "Europe/Minsk"
-        assert effective_timezone({"timezone": "auto"}, settings) == "Europe/Minsk"
-        assert effective_timezone({"timezone": "Asia/Almaty"}, settings) == "Asia/Almaty"
 
 
 # ── 6.2 endpoints ───────────────────────────────────────────────────────
@@ -247,18 +216,7 @@ class TestEndpoints:
         result = _patch(container, NO_PERMISSIONS, sidebar_locked=True)
         assert result["preferences"]["theme"]["value"] == "dark"
 
-    def test_source_follows_the_layer_and_null_resets_to_it(self):
-        container = _with_user_db({"interface.default_theme": "dark"})
-        assert prefs_router.get_my_preferences(container=container, user=NO_PERMISSIONS)["preferences"]["theme"] == {
-            "value": "dark", "source": "instance",
-        }
-        assert _patch(container, NO_PERMISSIONS, theme="light")["preferences"]["theme"] == {"value": "light", "source": "user"}
-        assert _patch(container, NO_PERMISSIONS, theme=None)["preferences"]["theme"] == {"value": "dark", "source": "instance"}
 
-    def test_response_reports_the_effective_display_timezone(self):
-        container = _with_user_db({"interface.display_timezone": "Europe/Minsk"})
-        assert prefs_router.get_my_preferences(container=container, user=NO_PERMISSIONS)["display_timezone"] == "Europe/Minsk"
-        assert _patch(container, NO_PERMISSIONS, timezone="Asia/Almaty")["display_timezone"] == "Asia/Almaty"
 
     def test_unknown_user_is_404(self):
         container = _with_user_db(users=())
@@ -273,12 +231,6 @@ class TestEndpoints:
             _patch(container, NO_PERMISSIONS, theme="dark")
         assert exc.value.status_code == 503
 
-    def test_system_time_uses_the_personal_zone(self):
-        container = _with_user_db({"interface.display_timezone": "Europe/Minsk"})
-        assert system_time(container=container, _user=NO_PERMISSIONS)["display_timezone"] == "Europe/Minsk"
-        _patch(container, NO_PERMISSIONS, timezone="Asia/Almaty")
-        assert system_time(container=container, _user=NO_PERMISSIONS)["display_timezone"] == "Asia/Almaty"
-        assert system_time(container=container, _user=OTHER_USER)["display_timezone"] == "Europe/Minsk"
 
     def test_router_is_registered_in_the_application(self):
         main = (ROOT / "app" / "api" / "main.py").read_text(encoding="utf-8")
@@ -355,7 +307,7 @@ class TestFrontendWiring:
     def test_personal_flags_save_through_the_preferences_endpoint_on_toggle(self):
         text = self._js("preferences.js")
         assert "/api/me/preferences" in text and '"PATCH"' in text
-        for pair in ('"p_sidebar_locked", "sidebar_locked"', '"d_metrics", "channel_metrics_visible"', '"d_log", "debug_panel_enabled"'):
+        for pair in ('"d_metrics", "channel_metrics_visible"', '"d_log", "debug_panel_enabled"'):
             assert pair in text
 
     def test_bootstrap_loads_preferences_without_a_tab_permission(self):

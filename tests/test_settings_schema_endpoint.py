@@ -53,8 +53,6 @@ class TestPydanticFollowsRegistry:
     @pytest.mark.parametrize(
         "model, field, enum",
         [
-            (schemas.InterfacePayload, "default_style", "style"),
-            (schemas.InterfacePayload, "default_theme", "theme"),
             (schemas.LoggingPayload, "level", "log_level"),
             (schemas.RelayPayload, "mode", "relay_mode"),
             (schemas.ROIRegionPayload, "unit", "roi_unit"),
@@ -72,7 +70,7 @@ class TestPydanticFollowsRegistry:
 
     def test_unknown_value_is_rejected(self):
         with pytest.raises(ValidationError):
-            schemas.InterfacePayload(default_theme="sepia")
+            schemas.LoggingPayload(level="LOUD", retention_days=1)
 
 
 class TestNoHardcodedDomains:

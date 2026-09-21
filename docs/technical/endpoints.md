@@ -40,18 +40,12 @@
 - `POST /api/auth/logout` — требует токен; фиксирует выход в аудит-лог.
 - Аутентификация только через JWT. Статические API-ключи не поддерживаются.
 
-### Публичные *(без аутентификации)*
-
-| Метод | Путь | Описание |
-|---|---|---|
-| `GET` | `/api/public/appearance` | `{default_theme, default_style}` — дефолт внешнего вида инстанса для логин-экрана; читается из кэша `SettingsService`, при недоступной БД отдаёт код-дефолты со статусом 200. Ничего кроме этих двух полей |
-
 ### Личные предпочтения *(любой аутентифицированный пользователь, права не нужны)*
 
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/api/me/preferences` | Разрешённые значения предпочтений вызывающего: `{preferences: {ключ: {value, source}}, display_timezone}`. `source`: `user` — личное значение; `instance` — администратор явно задал дефолт инстанса; `default` — константа реестра |
-| `PATCH` | `/api/me/preferences` | Частичное обновление своих предпочтений (`theme`, `style`, `sidebar_locked`, `debug_panel_enabled`, `channel_metrics_visible`, `timezone`). `null` сбрасывает значение к унаследованному. Недопустимое значение и неизвестное поле — `422`; идентификатор пользователя не принимается, чужие предпочтения изменить нельзя |
+| `PATCH` | `/api/me/preferences` | Частичное обновление своих предпочтений (`theme`, `style`, `sidebar_locked`, `debug_panel_enabled`, `channel_metrics_visible`; личной зоны времени нет). `null` сбрасывает значение к унаследованному. Недопустимое значение и неизвестное поле — `422`; идентификатор пользователя не принимается, чужие предпочтения изменить нельзя |
 
 Предпочтения хранятся в `users.preferences` (JSONB). Колонка попадает в резервную копию БД автоматически, но копия нового формата не восстанавливается в базу старой схемы — без колонки `preferences`.
 
@@ -150,8 +144,8 @@
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/api/settings/schema` | Допустимые значения перечислений и список зон отображения (любой аутентифицированный пользователь) |
-| `GET` | `/api/settings` | Глобальные настройки; секция `interface` содержит `default_style`, `default_theme` (дефолт инстанса для пользователей без личного выбора), `display_timezone` и `timezone_configured`; `reconnect`, `storage` (retention), `logging`, `plates`, `detection`, `auth` (срок токена и лимиты попыток входа) и (для superadmin) `debug.video_output_enabled` читаются из `app_settings`. Личные флаги (`sidebar_locked`, метрики, панель логов) в этот ответ не входят — они в `/api/me/preferences` |
-| `PUT` | `/api/settings` | Обновить настройки; ключи класса A пишутся в `app_settings` одной транзакцией. Ответ содержит `requires_restart` — ключи, изменение которых потребовало перезапуска обработчика (сейчас `plates.enabled_countries`; перезапуск выполняется один раз). В секции `interface` поля `default_style`, `default_theme`, `display_timezone` необязательны (`null` = не менять; зона передаётся только при явном выборе) |
+| `GET` | `/api/settings` | Глобальные настройки; секция `interface` содержит только `display_timezone` (зона, выбранная администратором, либо `null`) и `timezone_configured`; тема и стиль в настройках инстанса отсутствуют — они личные; `reconnect`, `storage` (retention), `logging`, `plates`, `detection`, `auth` (срок токена и лимиты попыток входа) и (для superadmin) `debug.video_output_enabled` читаются из `app_settings`. Личные флаги (`sidebar_locked`, метрики, панель логов) в этот ответ не входят — они в `/api/me/preferences` |
+| `PUT` | `/api/settings` | Обновить настройки; ключи класса A пишутся в `app_settings` одной транзакцией. Ответ содержит `requires_restart` — ключи, изменение которых потребовало перезапуска обработчика (сейчас `plates.enabled_countries`; перезапуск выполняется один раз). В секции `interface` поле `display_timezone` необязательно (`null` = не менять; зона передаётся только при явном выборе) |
 | `GET` | `/api/countries` | Список доступных конфигураций стран |
 
 ### Data & Export *(только superadmin)*
@@ -172,7 +166,7 @@
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/api/health` | Health check API |
-| `GET` | `/api/system/time` | `{server_utc, display_timezone, timezone_configured}`; `timezone_configured` — задавал ли администратор зону явно (даже `UTC`) |
+| `GET` | `/api/system/time` | `{server_utc, display_timezone, timezone_configured}`; `display_timezone` равен `null`, пока администратор не выбрал зону (тогда клиент показывает время своего компьютера) |
 | `GET` | `/api/system/resources` | CPU и RAM (psutil) |
 | `GET` | `/api/storage/status` | Статус PostgreSQL |
 | `GET` | `/api/telemetry/channels` | Метрики каналов (FPS, latency, reconnect_count и др.) |

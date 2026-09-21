@@ -1,15 +1,13 @@
-// Appearance resolution (roadmap 7.2/7.3, model 4.3) — the logic, with every
+// Appearance resolution (personal theme and style only) — the logic, with every
 // side effect injected so it can be tested without a browser.
 //
-// Order:  personal preference -> instance default -> code default.
+// Order:  personal preference -> code default (there is no instance default).
 // The server is the source of truth. localStorage is only a fast-load cache:
-//   * anpr_appearance_instance        — anonymous instance default (login screen)
 //   * anpr_appearance_user:<user id>  — that user's resolved look
 // Every server answer overwrites the cache; user keys are removed on logout and
 // when another user signs in, so a look never leaks between people (P17).
 // Storage that is missing or throws only costs the flash-suppression.
 
-export const INSTANCE_KEY = "anpr_appearance_instance";
 export const USER_PREFIX = "anpr_appearance_user:";
 export const CODE_DEFAULTS = Object.freeze({ theme: "light", style: "graphite-minimal" });
 
@@ -20,9 +18,8 @@ function pick(source) {
   return out;
 }
 
-export function createAppearance({ storage, fetchPublic, fetchPreferences, patchPreferences, apply, notify = () => {} }) {
+export function createAppearance({ storage, fetchPreferences, patchPreferences, apply, notify = () => {} }) {
   let userId = null;
-  let instance = { ...CODE_DEFAULTS };
   let current = { ...CODE_DEFAULTS };
 
   const readJson = (key) => {
@@ -56,22 +53,12 @@ export function createAppearance({ storage, fetchPublic, fetchPreferences, patch
 
   return {
     // Synchronous, before any network: cached look of the token's user if there
-    // is one, else the cached instance default, else the code defaults.
+    // is one, else the code defaults (nobody is known before sign-in).
     boot(tokenUserId = null) {
-      instance = { ...CODE_DEFAULTS, ...pick(readJson(INSTANCE_KEY)) };
       userId = tokenUserId === null || tokenUserId === undefined ? null : String(tokenUserId);
       const cachedUser = userId === null ? {} : pick(readJson(USER_PREFIX + userId));
       current = { ...CODE_DEFAULTS };
-      show({ ...instance, ...cachedUser });
-    },
-
-    async refreshInstance() {
-      try {
-        const body = await fetchPublic();
-        instance = { ...CODE_DEFAULTS, ...pick({ theme: body.default_theme, style: body.default_style }) };
-        writeJson(INSTANCE_KEY, instance);
-        if (userId === null) show(instance);
-      } catch (_e) { /* keep what is shown */ }
+      show({ ...CODE_DEFAULTS, ...cachedUser });
     },
 
     async signIn(id) {
@@ -85,7 +72,7 @@ export function createAppearance({ storage, fetchPublic, fetchPreferences, patch
       try {
         const values = fromPreferences(await fetchPreferences());
         writeJson(USER_PREFIX + userId, values);
-        show({ ...instance, ...values });
+        show({ ...CODE_DEFAULTS, ...values });
       } catch (_e) { /* offline: the cached look stays */ }
     },
 
@@ -110,7 +97,7 @@ export function createAppearance({ storage, fetchPublic, fetchPreferences, patch
     signOut() {
       dropUserKeys();
       userId = null;
-      show(instance);
+      show(CODE_DEFAULTS);
     },
 
     current: () => ({ ...current }),
