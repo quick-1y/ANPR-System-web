@@ -283,15 +283,15 @@ data = b"".join(chunks)
 
 ## Missing Content-Type Validation on Settings Restore
 
-**Issue:** Settings restore accepts any YAML without type validation.
+**Issue (resolved 2026-09-21):** settings restore used to accept any YAML. It now accepts only a JSON dump of `app_settings`, validated against the registry (format, version, unknown keys, value bounds) before anything is written.
 
 **Files:**
 - `app/api/routers/data.py` (lines 198-228)
 
-**Current mitigation:** `validate_settings_yaml()` checks it's a dict.
+**Current mitigation:** `validate_settings_dump()` in `app/shared/backup_service.py`.
 
 **Residual risk:** 
-- No schema validation (unknown keys accepted)
+- None for settings: unknown keys and out-of-range values are rejected
 - No validation of actual setting values (ranges, formats)
 
 **Fix approach:**

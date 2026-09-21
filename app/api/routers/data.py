@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, Response
 from database.errors import StorageUnavailableError
 from app.api.container import AppContainer
 from app.api.deps import get_container, require_permission
-from app.api.schemas import ExportBundlePayload, RetentionPolicyPayload
+from app.api.schemas import ExportBundlePayload
 from app.shared.data_lifecycle import RetentionPolicy
 from app.shared.backup_service import (
     export_database_backup,
@@ -20,7 +20,7 @@ from app.shared.backup_service import (
     restore_database_backup,
     restore_settings,
     validate_database_backup,
-    validate_settings_yaml,
+    validate_settings_dump,
 )
 from common.logging import get_logger
 
@@ -58,20 +58,14 @@ async def _read_upload_capped(file: UploadFile, max_bytes: int) -> bytes:
 
 @router.get("/api/data/policy")
 def get_data_policy(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
-    return container.lifecycle.policy.to_storage()
-
-
-@router.put("/api/data/policy")
-def update_data_policy(payload: RetentionPolicyPayload, container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
-    policy = RetentionPolicy(**payload.model_dump())
-    container.lifecycle.update_policy(policy)
-    container.settings.save_storage_settings(policy.to_storage())
-    return {"status": "updated", "policy": policy.to_storage()}
+    """Read-only: the policy is changed only through `PUT /api/settings` (retention.*)."""
+    return RetentionPolicy.from_settings(container.settings_service).to_storage()
 
 
 @router.post("/api/data/retention/run")
 def run_retention(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     try:
+        container.lifecycle.update_policy(RetentionPolicy.from_settings(container.settings_service))
         result = container.lifecycle.run_retention_cycle()
         return {"status": "ok", **result}
     except StorageUnavailableError as exc:
@@ -88,7 +82,7 @@ def export_events_csv(
     _user: Dict[str, Any] = Depends(require_permission("tab:settings")),
 ) -> Response:
     try:
-        filename, payload = container.lifecycle.export_events_csv(start=start, end=end, plate=plate, channel_id=channel_id)
+        filename, payload = container.lifecycle.export_events_csv(start=start, end=end, plate=plate, channel_id=channel_id, display_timezone=container.get_display_timezone())
         return Response(
             content=payload,
             media_type="text/csv",
@@ -106,6 +100,7 @@ def export_events_bundle(payload: ExportBundlePayload, container: AppContainer =
             end=payload.end,
             channel_id=payload.channel_id,
             include_media=payload.include_media,
+            display_timezone=container.get_display_timezone(),
         )
         return Response(
             content=body,
@@ -120,7 +115,7 @@ def export_events_bundle(payload: ExportBundlePayload, container: AppContainer =
 
 @router.get("/api/data/backup/database")
 def backup_database(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Response:
-    dsn = str(container.settings.get_storage_settings().get("postgres_dsn", "")).strip()
+    dsn = container._resolve_dsn()
     if not dsn:
         return JSONResponse(status_code=500, content={"status": "error", "detail": "PostgreSQL DSN не настроен"})
     try:
@@ -160,7 +155,7 @@ async def restore_database(
         except ValueError as exc:
             return JSONResponse(status_code=422, content={"status": "error", "detail": str(exc)})
 
-        dsn = str(container.settings.get_storage_settings().get("postgres_dsn", "")).strip()
+        dsn = container._resolve_dsn()
         if not dsn:
             return JSONResponse(status_code=500, content={"status": "error", "detail": "PostgreSQL DSN не настроен"})
 
@@ -214,19 +209,16 @@ async def restore_database(
 
 @router.get("/api/data/backup/settings")
 def backup_settings(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Response:
+    """JSON dump of the explicit `app_settings` overrides (no file system involved)."""
     try:
-        settings_path = container.settings._repo.path
-        filename, body = export_settings(settings_path)
-        return Response(
-            content=body,
-            media_type="application/x-yaml",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-        )
-    except FileNotFoundError as exc:
-        return JSONResponse(status_code=404, content={"status": "error", "detail": str(exc)})
-    except Exception as exc:
-        logger.exception("Ошибка экспорта настроек")
-        return JSONResponse(status_code=500, content={"status": "error", "detail": f"Ошибка экспорта: {exc}"})
+        filename, body = export_settings(container.settings_service)
+    except StorageUnavailableError as exc:
+        raise container.storage_503(exc) from exc
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/api/data/backup/settings/restore")
@@ -248,35 +240,36 @@ async def restore_settings_endpoint(
             return JSONResponse(status_code=413, content={"status": "error", "detail": str(exc)})
 
         try:
-            validate_settings_yaml(data)
+            validate_settings_dump(data)
         except ValueError as exc:
             return JSONResponse(status_code=422, content={"status": "error", "detail": str(exc)})
 
         try:
-            from config.settings_normalizer import SettingsNormalizer
-            normalized = restore_settings(container.settings._repo, SettingsNormalizer, data)
+            result = restore_settings(container.settings_service, data, updated_by=_user.get("id"))
         except ValueError as exc:
             return JSONResponse(status_code=422, content={"status": "error", "detail": str(exc)})
+        except StorageUnavailableError as exc:
+            return JSONResponse(status_code=503, content={"status": "error", "detail": f"PostgreSQL недоступен: {exc}"})
         except Exception as exc:
             logger.exception("Ошибка восстановления настроек")
             return JSONResponse(status_code=500, content={"status": "error", "detail": f"Ошибка восстановления: {exc}"})
 
-        # Reload settings in-memory
+        # Apply what can change at runtime, then restart the processor only if a
+        # restart-requiring key actually changed.
         try:
-            container.settings.refresh()
-        except Exception:
-            logger.exception("Ошибка перезагрузки настроек в памяти")
-
-        # Refresh storage clients and restart processor
-        try:
+            container.processor.update_reconnect_settings(container.get_reconnect_settings())
+            container.processor.update_debug_settings({"video_output_enabled": container.settings_service.get("debug.video_output_enabled")})
+            container.logging_applier.apply()
             container.refresh_storage_clients()
-            container.restart_processor_for_settings()
+            if result["requires_restart"]:
+                container.restart_processor_for_settings()
         except Exception:
-            logger.exception("Ошибка перезапуска после восстановления настроек")
+            logger.exception("Ошибка применения настроек после восстановления")
 
         return JSONResponse(content={
             "status": "ok",
             "detail": "Настройки успешно восстановлены и применены",
+            **result,
         })
     finally:
         lock.release()

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from contextlib import asynccontextmanager
 
 import cv2
@@ -11,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.container import AppContainer, WEB_DIR
-from common.cors import parse_cors_allowed_origins
+from config.env_settings import enforce_secret_policy, load_env_config
 from app.api.routers.auth import router as auth_router
 from app.api.routers.channels import router as channels_router
 from app.api.routers.clients import router as clients_router
@@ -20,6 +19,8 @@ from app.api.routers.data import router as data_router
 from app.api.routers.debug import router as debug_router
 from app.api.routers.events import router as events_router
 from app.api.routers.lists import router as lists_router
+from app.api.routers.preferences import router as preferences_router
+from app.api.routers.public import router as public_router
 from app.api.routers.settings import router as settings_router
 from app.api.routers.system import router as system_router
 from app.api.routers.users import router as users_router
@@ -28,10 +29,21 @@ from app.api.routers.zones import router as zones_router
 
 def _configure_thread_limits() -> None:
     """Limit internal threading for PyTorch/OpenCV to prevent CPU oversubscription."""
-    omp = int(os.environ.get("OMP_NUM_THREADS", 2))
+    omp = load_env_config().omp_num_threads
     torch.set_num_threads(omp)
     torch.set_num_interop_threads(min(2, omp))
     cv2.setNumThreads(omp)
+
+
+def _enforce_secret_policy_on_startup() -> None:
+    """Fail-fast on weak infrastructure secrets before the app serves.
+
+    Called at import time, like _configure_thread_limits() above: with
+    APP_ENV=production a default or too-short JWT_SECRET_KEY (or a missing
+    BOOTSTRAP_SUPERADMIN_PASSWORD) must abort the process, not start
+    serving requests signed with a publicly known secret.
+    """
+    enforce_secret_policy()
 
 
 def _cors_allowed_origins() -> list[str]:
@@ -47,10 +59,11 @@ def _cors_allowed_origins() -> list[str]:
     another backend) never go through this check at all, regardless of this
     setting.
     """
-    return parse_cors_allowed_origins(os.environ.get("CORS_ALLOWED_ORIGINS"))
+    return list(load_env_config().cors_allowed_origins)
 
 
 _configure_thread_limits()
+_enforce_secret_policy_on_startup()
 
 
 @asynccontextmanager
@@ -73,7 +86,9 @@ app.add_middleware(
 app.mount("/web", StaticFiles(directory=str(WEB_DIR), html=True), name="web")
 
 app.include_router(auth_router)
+app.include_router(public_router)
 app.include_router(users_router)
+app.include_router(preferences_router)
 app.include_router(system_router)
 app.include_router(channels_router)
 app.include_router(events_router)

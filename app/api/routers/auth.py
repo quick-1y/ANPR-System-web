@@ -28,17 +28,27 @@ AVAILABLE_PERMISSIONS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Brute-force rate limiter (in-memory, per-IP, Phase 6)
+# Brute-force rate limiter (in-memory, per-IP)
+#
+# The policy — attempts per rolling window — is not hardcoded: it is read from
+# app_settings (`auth.login_rate_limit_*`, registry defaults 5 per 60 s) on every
+# check, so an administrator's change applies to the very next request.
 # ---------------------------------------------------------------------------
-
-_MAX_FAILED_ATTEMPTS = 5   # per window
-_RATE_WINDOW_SECONDS = 60  # rolling window
 
 _failed_attempts: dict[str, list[float]] = defaultdict(list)
 _attempts_lock = Lock()
 
 
-def _check_rate_limit(ip: str) -> None:
+def _rate_policy(container: AppContainer) -> tuple[int, int]:
+    """Current `(max failed attempts, window seconds)` from the settings cache."""
+    service = container.settings_service
+    return (
+        int(service.get("auth.login_rate_limit_attempts")),
+        int(service.get("auth.login_rate_limit_window_seconds")),
+    )
+
+
+def _check_rate_limit(ip: str, max_attempts: int, window_seconds: int) -> None:
     """Raise HTTP 429 if the IP has exceeded the failed-login limit."""
     now = time.monotonic()
     with _attempts_lock:
@@ -46,16 +56,22 @@ def _check_rate_limit(ip: str) -> None:
         # record (e.g. a normal successful login) never creates an entry —
         # and drop the entry entirely once its attempts age out, so a slow
         # trickle of distinct IPs doesn't grow this dict forever.
-        attempts = [t for t in _failed_attempts.get(ip, ()) if now - t < _RATE_WINDOW_SECONDS]
+        attempts = [t for t in _failed_attempts.get(ip, ()) if now - t < window_seconds]
         if attempts:
             _failed_attempts[ip] = attempts
         else:
             _failed_attempts.pop(ip, None)
-        if len(attempts) >= _MAX_FAILED_ATTEMPTS:
+        if len(attempts) >= max_attempts:
             raise HTTPException(
                 status_code=429,
-                detail="Слишком много попыток входа. Повторите через минуту.",
+                detail=f"Слишком много попыток входа. Повторите через {_wait_text(window_seconds)}.",
             )
+
+
+def _wait_text(window_seconds: int) -> str:
+    if window_seconds < 90:
+        return "минуту" if window_seconds >= 45 else f"{window_seconds} с"
+    return f"{round(window_seconds / 60)} мин"
 
 
 def _record_failed_attempt(ip: str) -> None:
@@ -83,7 +99,7 @@ def login(
     """Authenticate with login + password, receive a JWT."""
     ip = (request.client.host if request.client else "unknown") or "unknown"
 
-    _check_rate_limit(ip)
+    _check_rate_limit(ip, *_rate_policy(container))
 
     user = container.user_db.find_by_login(body.login)
     if not user:
@@ -111,7 +127,11 @@ def login(
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
 
     _reset_attempts(ip)
-    token = create_access_token(user_id=user["id"], role=user["role"])
+    token = create_access_token(
+        user_id=user["id"],
+        role=user["role"],
+        exp_minutes=container.settings_service.get("auth.token_ttl_minutes"),
+    )
     logger.info("login login='%s' id=%s ip='%s'", user["login"], user["id"], ip)
 
     warn_default_password = user.get("role") == "superadmin" and user.get("password_changed_at") is None

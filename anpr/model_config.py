@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 import torch
 
@@ -18,9 +18,9 @@ MIN_PADDING_PIXELS = 2
 class AnprModelConfig:
     """Plain-data configuration for ANPR model components.
 
-    Constructed by AppContainer from SettingsManager and passed down into
+    Constructed by AppContainer from EnvConfig and passed down into
     ChannelProcessor → build_components().  The anpr/ package itself has no
-    dependency on SettingsManager; all settings resolution happens before this
+    dependency on the config layer; all settings resolution happens before this
     object is created.
     """
 
@@ -49,20 +49,18 @@ class AnprModelConfig:
             return torch.device("cpu")
 
     @classmethod
-    def from_settings(
+    def from_env(
         cls,
-        model_settings: Dict[str, Any],
+        env: Any,
+        detection_confidence_threshold: float = DETECTION_CONFIDENCE_THRESHOLD,
     ) -> "AnprModelConfig":
+        """Build from `EnvConfig` (weights paths, device) plus the operational
+        `detection.confidence_threshold` from app_settings."""
         return cls(
-            yolo_model_path=str(model_settings.get("yolo_model_path", "")),
-            ocr_model_path=str(model_settings.get("ocr_model_path", "")),
-            device_name=str(model_settings.get("device") or "cpu"),
-            ocr_height=OCR_IMAGE_HEIGHT,
-            ocr_width=OCR_IMAGE_WIDTH,
-            ocr_alphabet=OCR_ALPHABET,
-            detection_confidence_threshold=DETECTION_CONFIDENCE_THRESHOLD,
-            bbox_padding_ratio=BBOX_PADDING_RATIO,
-            min_padding_pixels=MIN_PADDING_PIXELS,
+            yolo_model_path=env.yolo_model_path,
+            ocr_model_path=env.ocr_model_path,
+            device_name=env.device,
+            detection_confidence_threshold=float(detection_confidence_threshold),
         )
 
 

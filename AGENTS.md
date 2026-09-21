@@ -71,7 +71,7 @@ Unless the user explicitly asks otherwise, the agent should:
 | Project documentation | `README.md` | Architecture overview, deployment, runtime flow (in Russian) |
 | Agent instructions | `AGENTS.md` | Conventions, boundaries, file placement, workflow rules |
 | Codebase analysis | `.planning/codebase/` | Detailed architecture, stack, structure, concerns, conventions, testing patterns |
-| Settings schema | `config/settings_schema.py` | Default values and settings structure |
+| Configuration registry | `config/registry.py` | Classes, defaults, bounds and enum domains of every setting |
 | DB schema | `database/postgres/schema.sql` | PostgreSQL table definitions |
 | API routers | `app/api/routers/` | Available REST endpoints and request/response shapes |
 | Environment template | `.env.example` | Required and optional env vars |
@@ -105,7 +105,7 @@ If documentation and code disagree, prefer code and mention the mismatch in your
 | Database driver | psycopg[binary] | unpinned | PostgreSQL driver (psycopg3) | — |
 | Database pooling | psycopg_pool | unpinned | Connection pooling (min=2, max=10) | Two separate pools: events + lists |
 | System monitoring | psutil | unpinned | CPU, memory, disk metrics | — |
-| Config parsing | PyYAML | unpinned | Settings YAML parsing | — |
+| Config parsing | PyYAML | unpinned | Country plate-format configs (`anpr/countries/*.yaml`); settings are not YAML | — |
 | Reverse proxy | nginx | 1.27-alpine | SSE support, request routing | Docker image |
 
 ### Version Policy
@@ -135,8 +135,8 @@ If documentation and code disagree, prefer code and mention the mismatch in your
 - Put channel orchestration in `runtime/`, not in `app/api/` routers.
 - Keep `config/` independent from domain logic (known coupling with `controllers/` for `SUPPORTED_CONTROLLER_TYPES` exists as tech debt).
 - New API endpoints must go through `AppContainer` for dependency access.
-- New settings sections require schema defaults in `config/settings_schema.py`, normalizer fill in `config/settings_normalizer.py`, and get/save methods in `config/settings_manager.py`.
-- Do not bypass `SettingsNormalizer` — all settings reads go through `SettingsManager`.
+- New operational settings are declared once in `config/registry.py` (class, type, default, bounds, `requires_restart`, owner) and read/written only through `SettingsService`. Deployment values go to `config/env_settings.py` (`EnvConfig`) and `.env.example`; personal preferences are class U keys in the registry.
+- There is no settings file: do not add one, and do not read the environment outside `config/env_settings.py`.
 
 ---
 
@@ -170,10 +170,11 @@ ANPR-System-v0.8_web/
 ├── common/                     # Shared utilities
 │   └── logging.py              # Logging setup, LiveDebugHandler, HourlyFileHandler
 ├── config/                     # Configuration management
-│   ├── settings_manager.py     # SettingsManager (main config API)
-│   ├── settings_normalizer.py  # Validation and defaults
-│   ├── settings_repository.py  # YAML file I/O with locking
-│   └── settings_schema.py      # Default values, schema constants
+│   ├── env_settings.py         # EnvConfig, the only place that reads the environment
+│   ├── registry.py             # Configuration registry (classes, defaults, bounds)
+│   ├── settings_service.py     # SettingsService over app_settings
+│   ├── preferences.py          # Personal preferences (class U)
+│   └── settings_schema.py      # Code defaults, normalizers
 ├── controllers/                # Physical gate/barrier controller integration
 │   ├── adapters/               # Controller protocol adapters
 │   ├── base.py                 # ControllerAdapter abstract base
@@ -221,13 +222,13 @@ ANPR-System-v0.8_web/
 - New ANPR processing steps: add module in `anpr/preprocessing/` or `anpr/postprocessing/`, wire into `ANPRPipeline`.
 - New country plate formats: add YAML config in `anpr/countries/`.
 - New controller adapters: create in `controllers/adapters/`, register in `controllers/registry.py`.
-- New settings sections: add defaults in `config/settings_schema.py`, fill method in `config/settings_normalizer.py`, get/save in `config/settings_manager.py`.
+- New settings: add a spec to `config/registry.py` (and its default source if it is not a literal), expose it through `PUT /api/settings` or `/api/me/preferences`; no per-section accessors.
 - New DB tables: add DDL to `database/postgres/schema.sql`, create repository in `database/`.
 - New tests: add `test_*.py` in `tests/`.
 - New shared utilities: add to `common/`.
 - Generated runtime data (`data/screenshots/`, `data/exports/`, `logs/`): not committed.
 - ML model weights (`anpr/models/`): committed binary files, trained externally.
-- Env/config files: `.env` (gitignored), `config/settings.yaml` (bind-mounted in Docker).
+- Env/config files: `.env` (gitignored). Operational settings live in PostgreSQL (`app_settings`); there is no settings file.
 
 ---
 
@@ -246,7 +247,6 @@ ANPR-System-v0.8_web/
 ### Setup Notes
 
 - Copy `.env.example` to `.env` before first run.
-- `config/settings.yaml` is bind-mounted from host (`./config:/app/config`).
 - ANPR model weights (`anpr/models/yolo/best.pt`, `anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth`) must be present.
 - Docker is required for the standard deployment; no standalone Python run instructions exist.
 - Database schema bootstrap is safe to run repeatedly (`CREATE TABLE IF NOT EXISTS`).
@@ -428,13 +428,14 @@ See `docs/roadmap/configuration-architecture.md` (section 5) for how this policy
 
 - PostgreSQL schema bootstrap is lazy (on first write) and idempotent (`CREATE TABLE IF NOT EXISTS`).
 - `schema.sql` is also mounted as Docker init script for fresh databases.
+- `schema.sql` holds every table. The repositories keep their inline `_SCHEMA` for lazy bootstrap, and `tests/test_schema_sync.py` fails if the two differ, so change both together.
 - Database schema changes must be implemented directly in `database/postgres/schema.sql` and the relevant repositories. Do not create DB migration modules, legacy compatibility layers, or transitional upgrade paths for database changes — in this project context, functional development assumes a fresh database and migration code only adds unnecessary clutter.
 - Settings and configuration schema changes are applied directly to the current architecture; backward compatibility with old local configs is not required unless explicitly requested. Do not write import/conversion code for previous configuration formats — see "Development And Rollback Policy".
 - Preserve backward compatibility for API responses unless the task explicitly allows a breaking change.
 
 ### Settings Schema Development Rules
 
-- During active development, `config/settings.yaml` schema changes are direct-only: update the current defaults, normalizer, manager accessors, docs, and examples in place.
+- During active development, settings changes are direct-only: update the registry, its consumers, docs and `.env.example` in place; no import/conversion code for previous configuration formats.
 - Do not bump a settings schema version or add migration code unless a user explicitly asks for compatibility with older configs.
 - Do not leave obsolete settings in defaults, docs, examples, or UI after removing/renaming fields.
 

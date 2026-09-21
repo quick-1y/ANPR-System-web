@@ -42,7 +42,7 @@
 
 **File Storage:**
 - Local filesystem
-  - Screenshots directory: Configured in settings.yaml (`storage.screenshots_dir`, default: `data/screenshots`)
+  - Screenshots directory: `ANPR_MEDIA_DIR` (default: `data/screenshots`; a volume mount point, not a UI setting)
   - Logs directory: `logs/` (in docker-compose: `logs_data` volume)
   - Media retention: Automatic cleanup based on retention policies
   - Screenshot retention: Configurable max size and retention days (`storage.max_screenshots_mb`, `storage.media_retention_days`)
@@ -130,7 +130,6 @@
 **Required env vars:**
 - `POSTGRES_DSN` - PostgreSQL connection string (default: `postgresql://anpr:anpr@postgres:5432/anpr`)
 - `JWT_SECRET_KEY` - JWT signing key (must be 32+ bytes in production, default weak value)
-- `SETTINGS_PATH` - Path to settings.yaml (default: `/app/config/settings.yaml`)
 
 **Recommended env vars:**
 - `JWT_EXPIRATION_MINUTES` - Token expiration time (default: 480)

@@ -1,4 +1,4 @@
-"""Backup / restore helpers for database and settings."""
+"""Backup / restore helpers: business database (ZIP) and instance settings (JSON)."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ from typing import Any, Dict
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import psycopg
-import yaml
 from psycopg import sql
 
 from common.logging import get_logger
+from database.errors import StorageUnavailableError
 
 logger = get_logger(__name__)
 
@@ -201,42 +201,73 @@ def restore_database_backup(dsn: str, data: bytes) -> Dict[str, Any]:
 
 
 # ── Settings backup ─────────────────────────────────────────────
+#
+# The dump is the explicit overrides of app_settings as JSON. It is a different
+# thing from the database backup above: `app_settings` is deliberately NOT in
+# `_BACKUP_TABLES`, so restoring the database never overwrites instance
+# configuration, and restoring settings never touches business data. Nothing
+# here reads or writes the file system.
 
-def export_settings(settings_path: str) -> tuple[str, bytes]:
-    """Read the settings YAML and return (filename, raw bytes)."""
-    import os
-
-    if not os.path.isfile(settings_path):
-        raise FileNotFoundError(f"Файл настроек не найден: {settings_path}")
-
-    with open(settings_path, "r", encoding="utf-8") as f:
-        body = f.read()
-
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    filename = f"settings_{ts}.yaml"
-    return filename, body.encode("utf-8")
+SETTINGS_DUMP_FORMAT = "anpr-app-settings"
+SETTINGS_DUMP_VERSION = 1
 
 
-def validate_settings_yaml(data: bytes) -> None:
-    """Raise ValueError if *data* is not valid YAML with a dict root."""
+def export_settings(service: Any) -> tuple[str, bytes]:
+    """Return `(filename, JSON bytes)` with every explicitly stored setting."""
+    values = service.stored_values()
+    if not service.loaded or service.degraded:
+        # A dump built from defaults or a stale cache would look valid and be wrong.
+        raise StorageUnavailableError("настройки не удалось прочитать из БД — резервная копия не создана")
+    now = datetime.now(timezone.utc)
+    document = {
+        "format": SETTINGS_DUMP_FORMAT,
+        "version": SETTINGS_DUMP_VERSION,
+        "exported_at": now.isoformat(),
+        "settings": values,
+    }
+    body = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8")
+    return f"settings_{now.strftime('%Y%m%d_%H%M%S')}.json", body
+
+
+def validate_settings_dump(data: bytes) -> Dict[str, Any]:
+    """Parse and check a settings dump; return its `settings` mapping.
+
+    Raises `ValueError` on malformed JSON, a foreign format or version, an
+    unknown or reserved key, or a value the registry rejects — before anything
+    is written. A YAML file (the old format) is not accepted.
+    """
+    from config.registry import ConfigClass, SettingValidationError, get_spec, specs
+
     try:
-        parsed = yaml.safe_load(data)
-    except yaml.YAMLError as exc:
-        raise ValueError(f"Некорректный YAML: {exc}") from exc
-    if not isinstance(parsed, dict):
-        raise ValueError("Файл настроек должен содержать YAML-объект (словарь)")
+        document = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise ValueError(f"Некорректный JSON: {exc}") from exc
+    if not isinstance(document, dict) or document.get("format") != SETTINGS_DUMP_FORMAT:
+        raise ValueError("Это не дамп настроек ANPR (ожидается формат " + SETTINGS_DUMP_FORMAT + ")")
+    if document.get("version") != SETTINGS_DUMP_VERSION:
+        raise ValueError(f"Неподдерживаемая версия дампа настроек: {document.get('version')!r}")
+    values = document.get("settings")
+    if not isinstance(values, dict):
+        raise ValueError("В дампе нет объекта settings")
+
+    allowed = {spec.key for spec in specs(ConfigClass.A) if not spec.reserved}
+    unknown = sorted(key for key in values if key not in allowed)
+    if unknown:
+        raise ValueError("Дамп содержит неизвестные ключи настроек: " + ", ".join(unknown))
+    checked: Dict[str, Any] = {}
+    for key, value in values.items():
+        try:
+            checked[key] = get_spec(key).validate(value)
+        except SettingValidationError as exc:
+            raise ValueError(str(exc)) from exc
+    return checked
 
 
-def restore_settings(repo: Any, normalizer_class: type, data: bytes) -> Dict[str, Any]:
-    """Write *data* to the settings file, normalizing via *normalizer_class*."""
-    parsed = yaml.safe_load(data)
-    if not isinstance(parsed, dict):
-        raise ValueError("Файл настроек должен содержать YAML-объект (словарь)")
-
-    normalizer = normalizer_class()
-    normalized = normalizer.normalize(parsed)
-    repo.save(normalized)
-    return normalized
+def restore_settings(service: Any, data: bytes, updated_by: int | None = None) -> Dict[str, Any]:
+    """Validate the dump, then make app_settings equal to it in one transaction."""
+    values = validate_settings_dump(data)
+    requires_restart = service.replace(values, updated_by=updated_by)
+    return {"restored_keys": len(values), "requires_restart": requires_restart}
 
 
 __all__ = [
@@ -246,5 +277,5 @@ __all__ = [
     "restore_database_backup",
     "restore_settings",
     "validate_database_backup",
-    "validate_settings_yaml",
+    "validate_settings_dump",
 ]

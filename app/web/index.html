@@ -68,6 +68,7 @@
             <div class="topbar-datetime-block">
               <span class="topbar-time" id="topbarTime"></span>
               <span class="topbar-date" id="topbarDate"></span>
+              <span class="topbar-tz" id="topbarTz"></span>
             </div>
           </div>
           <div class="topbar-right">
@@ -91,6 +92,7 @@
             </div>
             <input id="apiBase" type="hidden" value="" />
             <button class="icon-btn" id="themeToggleBtn" title="Тема">◐</button>
+            <button class="icon-btn" id="prefsBtn" title="Мои предпочтения" aria-label="Мои предпочтения">☰</button>
           </div>
         </div>
         <div class="content">
@@ -154,6 +156,7 @@
                 </button>
               </div>
             </div>
+            <div class="journal-tz" id="journalTz"></div>
             <div class="data-table-wrap">
               <div class="table-scroll" id="journalScroll">
                 <table class="data-table" id="journalTable">
@@ -422,6 +425,7 @@
               <button class="btn btn-ghost ch-tab general-tab" data-general-tab="logging">Логи</button>
               <button class="btn btn-ghost ch-tab general-tab" data-general-tab="time">Время</button>
               <button class="btn btn-ghost ch-tab general-tab" data-general-tab="plates">Номера</button>
+              <button class="btn btn-ghost ch-tab general-tab" data-general-tab="security">Безопасность</button>
             </div>
             <!-- Интерфейс -->
             <div class="s-card general-group active" data-general-group="interface">
@@ -442,29 +446,16 @@
                 <div class="s-row">
                   <div class="s-row-label">
                     <button class="param-help-btn" data-help="g_style">?</button>
-                    <div class="s-row-name">Стиль приложения</div>
+                    <div class="s-row-name">Стиль по умолчанию (для всех)</div>
                   </div>
-                  <select class="input input--md s-input input--select" id="g_style">
-                    <option value="graphite-minimal">Graphite Minimal</option>
-                    <option value="aurora">Aurora</option>
-                  </select>
+                  <select class="input input--md s-input input--select" id="g_style"></select>
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
                     <button class="param-help-btn" data-help="g_theme">?</button>
-                    <div class="s-row-name">Тема оформления</div>
+                    <div class="s-row-name">Тема по умолчанию (для всех)</div>
                   </div>
-                  <select class="input input--md s-input input--select" id="g_theme">
-                    <option value="dark">Тёмная</option>
-                    <option value="light">Светлая</option>
-                  </select>
-                </div>
-                <div class="s-row">
-                  <div class="s-row-label">
-                    <button class="param-help-btn" data-help="g_sidebar_locked">?</button>
-                    <div class="s-row-name">Зафиксировать левую панель</div>
-                  </div>
-                  <input type="checkbox" id="g_sidebar_locked" />
+                  <select class="input input--md s-input input--select" id="g_theme"></select>
                 </div>
               </div>
             </div>
@@ -541,10 +532,7 @@
                     <button class="param-help-btn" data-help="g_log_level">?</button>
                     <div class="s-row-name">Уровень логирования</div>
                   </div>
-                  <select class="input input--md s-input input--select" id="g_log_level">
-                    <option>ALL</option><option>DEBUG</option><option>INFO</option>
-                    <option>WARNING</option><option>ERROR</option><option>CRITICAL</option>
-                  </select>
+                  <select class="input input--md s-input input--select" id="g_log_level"></select>
                 </div>
                 <div class="s-row">
                   <div class="s-row-label">
@@ -585,7 +573,6 @@
             </div>
 
             <!-- Hidden: keeps saveGeneral() payload intact -->
-            <input type="hidden" id="g_postgres_dsn" />
 
             <!-- Отображение времени -->
             <div class="s-card general-group" data-general-group="time">
@@ -596,34 +583,10 @@
                     <button class="param-help-btn" data-help="g_timezone">?</button>
                     <div class="s-row-name">Часовой пояс</div>
                   </div>
-                  <select class="input input--md s-input input--select" id="g_timezone">
-                    <option value="UTC-12:00">UTC−12:00</option>
-                    <option value="UTC-11:00">UTC−11:00</option>
-                    <option value="UTC-10:00">UTC−10:00</option>
-                    <option value="UTC-09:00">UTC−09:00</option>
-                    <option value="UTC-08:00">UTC−08:00</option>
-                    <option value="UTC-07:00">UTC−07:00</option>
-                    <option value="UTC-06:00">UTC−06:00</option>
-                    <option value="UTC-05:00">UTC−05:00</option>
-                    <option value="UTC-04:00">UTC−04:00</option>
-                    <option value="UTC-03:00">UTC−03:00</option>
-                    <option value="UTC-02:00">UTC−02:00</option>
-                    <option value="UTC-01:00">UTC−01:00</option>
-                    <option value="UTC+00:00">UTC+00:00</option>
-                    <option value="UTC+01:00">UTC+01:00</option>
-                    <option value="UTC+02:00">UTC+02:00</option>
-                    <option value="UTC+03:00">UTC+03:00</option>
-                    <option value="UTC+04:00">UTC+04:00</option>
-                    <option value="UTC+05:00">UTC+05:00</option>
-                    <option value="UTC+05:30">UTC+05:30</option>
-                    <option value="UTC+06:00">UTC+06:00</option>
-                    <option value="UTC+07:00">UTC+07:00</option>
-                    <option value="UTC+08:00">UTC+08:00</option>
-                    <option value="UTC+09:00">UTC+09:00</option>
-                    <option value="UTC+10:00">UTC+10:00</option>
-                    <option value="UTC+11:00">UTC+11:00</option>
-                    <option value="UTC+12:00">UTC+12:00</option>
-                  </select>
+                  <select class="input input--md s-input input--select" id="g_timezone"></select>
+                </div>
+                <div class="s-note tz-warn" id="tzNotConfiguredNote" hidden>
+                  Зона отображения не настроена: сейчас используется UTC. Выберите часовой пояс объекта — он применится ко всем без перезапуска.
                 </div>
               </div>
             </div>
@@ -638,6 +601,34 @@
                     <div class="s-row-name">Страны</div>
                   </div>
                   <div id="g_countries_list"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Безопасность -->
+            <div class="s-card general-group" data-general-group="security">
+              <div class="s-card-header">Аутентификация</div>
+              <div class="s-card-body">
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_token_ttl">?</button>
+                    <div class="s-row-name">Срок сессии (минут)</div>
+                  </div>
+                  <input class="input input--sm s-input sm" id="g_token_ttl" type="number" min="5" max="43200" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_rl_attempts">?</button>
+                    <div class="s-row-name">Неудачных попыток входа</div>
+                  </div>
+                  <input class="input input--sm s-input sm" id="g_rl_attempts" type="number" min="1" max="100" />
+                </div>
+                <div class="s-row">
+                  <div class="s-row-label">
+                    <button class="param-help-btn" data-help="g_rl_window">?</button>
+                    <div class="s-row-name">За окно (секунд)</div>
+                  </div>
+                  <input class="input input--sm s-input sm" id="g_rl_window" type="number" min="1" max="86400" />
                 </div>
               </div>
             </div>
@@ -717,22 +708,14 @@
                         <button class="param-help-btn" data-help="controller_direction_filter">?</button>
                         <div class="s-row-name">Фильтр направления</div>
                       </div>
-                      <select class="input input--md s-input input--select" id="c_controller_direction_filter">
-                        <option value="both">Оба направления</option>
-                        <option value="approaching">Приближение</option>
-                        <option value="receding">Удаление</option>
-                      </select>
+                      <select class="input input--md s-input input--select" id="c_controller_direction_filter"></select>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
                         <button class="param-help-btn" data-help="list_filter_mode">?</button>
                         <div class="s-row-name">Режим фильтра списков</div>
                       </div>
-                      <select class="input input--md s-input input--select" id="c_list_filter_mode">
-                        <option value="all">Все</option>
-                        <option value="whitelist">Белые списки</option>
-                        <option value="custom">Свои списки</option>
-                      </select>
+                      <select class="input input--md s-input input--select" id="c_list_filter_mode"></select>
                     </div>
                     <div class="s-row" id="c_custom_lists_block" style="display: none">
                       <div class="s-row-label">
@@ -770,8 +753,6 @@
                       </div>
                       <select class="input input--md s-input input--select" id="c_zone_channel_type" disabled>
                         <option value="">—</option>
-                        <option value="entry">Въезд</option>
-                        <option value="exit">Выезд</option>
                       </select>
                     </div>
                   </div>
@@ -788,10 +769,7 @@
                         <button class="param-help-btn" data-help="detection_mode">?</button>
                         <div class="s-row-name">Режим обнаружения ТС</div>
                       </div>
-                      <select class="input input--md s-input input--select" id="c_detection_mode">
-                        <option>always</option>
-                        <option>motion</option>
-                      </select>
+                      <select class="input input--md s-input input--select" id="c_detection_mode"></select>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
@@ -1051,7 +1029,7 @@
                       <div class="s-row-label">
                         <div class="s-row-name">Тип</div>
                       </div>
-                      <select class="input input--md s-input input--select" id="ctrlType"><option value="DTWONDER2CH">DTWONDER2CH</option></select>
+                      <select class="input input--md s-input input--select" id="ctrlType"></select>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
@@ -1074,10 +1052,7 @@
                       <div class="s-row-label">
                         <div class="s-row-name">Режим</div>
                       </div>
-                      <select class="input input--md s-input input--select" id="ctrlR0Mode">
-                        <option value="pulse">Импульс</option>
-                        <option value="pulse_timer">Импульс с таймером</option>
-                      </select>
+                      <select class="input input--md s-input input--select" id="ctrlR0Mode"></select>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
@@ -1109,10 +1084,7 @@
                       <div class="s-row-label">
                         <div class="s-row-name">Режим</div>
                       </div>
-                      <select class="input input--md s-input input--select" id="ctrlR1Mode">
-                        <option value="pulse">Импульс</option>
-                        <option value="pulse_timer">Импульс с таймером</option>
-                      </select>
+                      <select class="input input--md s-input input--select" id="ctrlR1Mode"></select>
                     </div>
                     <div class="s-row">
                       <div class="s-row-label">
@@ -1175,7 +1147,7 @@
                     <img class="backup-icon" src="/web/assets/icons/import.svg" alt="" width="16" height="16" />
                     Импорт настроек
                   </button>
-                  <input type="file" id="settingsRestoreFileInput" accept=".yaml,.yml" class="hidden" />
+                  <input type="file" id="settingsRestoreFileInput" accept=".json" class="hidden" />
                 </div>
               </div>
             </div>
@@ -1296,6 +1268,35 @@
               Сохранить
             </button>
 </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="prefsModal">
+      <div class="modal-card modal-card--sm">
+        <div class="modal-head">
+          <span>Мои предпочтения</span>
+          <div style="flex: 1"></div>
+          <button class="modal-close" id="prefsModalClose">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="s-note">Действуют только для вашей учётной записи на любом рабочем месте.</p>
+          <div class="s-row">
+            <div class="s-row-label"><div class="s-row-name">Тема</div><div class="s-note" id="p_theme_source"></div></div>
+            <select class="input input--md s-input input--select" id="p_theme"></select>
+          </div>
+          <div class="s-row">
+            <div class="s-row-label"><div class="s-row-name">Стиль</div><div class="s-note" id="p_style_source"></div></div>
+            <select class="input input--md s-input input--select" id="p_style"></select>
+          </div>
+          <div class="s-row">
+            <div class="s-row-label"><div class="s-row-name">Часовой пояс</div></div>
+            <select class="input input--md s-input input--select" id="p_timezone"></select>
+          </div>
+          <div class="s-row">
+            <div class="s-row-label"><div class="s-row-name">Зафиксировать левую панель</div></div>
+            <input type="checkbox" id="p_sidebar_locked" />
+          </div>
         </div>
       </div>
     </div>
@@ -1706,7 +1707,7 @@
             Вы собираетесь восстановить настройки из файла <strong id="settingsRestoreFileName"></strong>.
           </p>
           <p class="modal-confirm-text modal-warning-text">
-            ⚠ Текущий файл настроек будет <strong>полностью перезаписан</strong>.
+            ⚠ Настройки инстанса будут <strong>заменены содержимым файла</strong>: параметры, которых в нём нет, вернутся к значениям по умолчанию. Данные (события, каналы, пользователи) не затрагиваются. Принимается только JSON-дамп, созданный этой версией («Экспорт настроек»).
           </p>
           <p class="modal-confirm-text modal-warning-text">
             ⚠ После восстановления конфигурация приложения будет <strong>полностью перезагружена</strong>. Возможен кратковременный перезапуск обработки каналов.

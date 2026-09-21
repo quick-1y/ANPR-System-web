@@ -3,6 +3,7 @@ import { state } from './state.js';
 import { api, jfetch } from './api.js';
 import { formatDirection, flagHtml, normalizePlate, esc } from './ui.js';
 import { openEventDetails } from './events.js';
+import { formatDate, formatTime, wallTimeToUtcIso } from './datetime.js';
 
 export const journalState = {
   items: [],
@@ -16,11 +17,7 @@ function formatJournalDateTime(value) {
   if (!value) {
     return { date: "—", time: "—" };
   }
-  const ts = new Date(value);
-  return {
-    date: ts.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }),
-    time: ts.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-  };
+  return { date: formatDate(value), time: formatTime(value) };
 }
 
 function buildJournalPassageCell(channel, dt) {
@@ -42,8 +39,8 @@ function buildJournalParams(cursor) {
   const dateTo = document.getElementById("fltDateTo").value;
   if (plate) params.set("plate", plate);
   if (channelId) params.set("channel_id", channelId);
-  if (dateFrom) params.set("start_ts", new Date(dateFrom).toISOString());
-  if (dateTo) params.set("end_ts", new Date(dateTo).toISOString());
+  if (dateFrom) params.set("start_ts", wallTimeToUtcIso(dateFrom));
+  if (dateTo) params.set("end_ts", wallTimeToUtcIso(dateTo));
   if (cursor) {
     params.set("before_ts", cursor.ts);
     params.set("before_id", String(cursor.id));
@@ -148,8 +145,8 @@ export function initJournalBindings() {
     const dateTo = document.getElementById("fltDateTo").value;
     if (plate) params.set("plate", plate);
     if (channelId) params.set("channel_id", channelId);
-    if (dateFrom) params.set("start", new Date(dateFrom).toISOString());
-    if (dateTo) params.set("end", new Date(dateTo).toISOString());
+    if (dateFrom) params.set("start", wallTimeToUtcIso(dateFrom));
+    if (dateTo) params.set("end", wallTimeToUtcIso(dateTo));
     const qs = params.toString();
     window.open(api(`/api/data/export/events.csv${qs ? "?" + qs : ""}`), "_blank");
   };

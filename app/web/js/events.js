@@ -3,6 +3,7 @@ import { state, eventFeedRenderScheduled, eventFeedRenderFrame, setEventFeedRend
 import { api, apiUrl, jfetch } from './api.js';
 import { getActiveTabName, formatDirection, flagHtml, normalizePlate, openModal, closeModal } from './ui.js';
 import { updateChannelLastPlate } from './channels.js';
+import { formatTime, formatDateTime, serverNow } from './datetime.js';
 import { journalState, makeJournalRow } from './journal.js';
 
 function trimEventFeedOverflow(feed) {
@@ -87,7 +88,7 @@ export function renderEventFeed(forceRebuild = false) {
     const direction = formatDirection(item.direction);
     const key = String(item.id ?? item.time ?? "");
     const channelName = resolveChannelName(item.channel_id_exit || item.channel_id_entry || item.channel_id);
-    const timeStr = new Date(item.time || Date.now()).toLocaleTimeString();
+    const timeStr = formatTime(item.time || serverNow());
     const div = document.createElement("div");
     const normalizedPlate = normalizePlate(item.plate);
     const listType = state.plateLookup[normalizedPlate];
@@ -245,7 +246,7 @@ export async function openEventDetails(ev) {
       payload = ev;
     }
   }
-  const ts = payload.time ? new Date(payload.time).toLocaleString() : "—";
+  const ts = payload.time ? formatDateTime(payload.time) : "—";
   const entryChannelName = resolveChannelName(payload.channel_id_entry);
   const exitChannelName = resolveChannelName(payload.channel_id_exit);
   const rows = [
@@ -268,8 +269,8 @@ export async function openEventDetails(ev) {
     }
     if (zoneName !== undefined) {
       rows.push(["Зона", zoneName]);
-      if (payload.time_entry) rows.push(["Въезд", new Date(payload.time_entry).toLocaleString()]);
-      if (payload.time_exit) rows.push(["Выезд", new Date(payload.time_exit).toLocaleString()]);
+      if (payload.time_entry) rows.push(["Въезд", formatDateTime(payload.time_entry)]);
+      if (payload.time_exit) rows.push(["Выезд", formatDateTime(payload.time_exit)]);
     }
   }
 

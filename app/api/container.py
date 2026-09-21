@@ -14,12 +14,15 @@ from database.clients_repository import ClientDatabase
 from database.controller_repository import ControllerDatabase
 from database.lists_repository import ListDatabase
 from database.user_repository import UserDatabase
-from config.settings_manager import SettingsManager
+from config.env_settings import load_env_config, verify_model_files
+from config.settings_service import SettingsService
+from database.settings_repository import AppSettingsRepository
 from database.postgres_event_repository import PostgresEventDatabase
 from database.zones_repository import ZoneDatabase
 from database.errors import StorageUnavailableError
 from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
-from common.logging import configure_logging, get_live_log_bus, get_logger
+from common.logging import get_live_log_bus, get_logger
+from config.logging_setup import LoggingApplier, bootstrap_logging
 from controllers import ControllerAutomationService, ControllerService
 from runtime.debug import DebugRegistry
 from runtime.event_bus import EventBus
@@ -31,7 +34,6 @@ WEB_DIR = PROJECT_ROOT / "app" / "web"
 
 @dataclass
 class AppContainer:
-    settings: SettingsManager
     events_db: PostgresEventDatabase
     lists_db: ListDatabase
     clients_db: ClientDatabase
@@ -49,16 +51,36 @@ class AppContainer:
     main_loop: asyncio.AbstractEventLoop | None
     stream_shutdown: asyncio.Event
     _processor_swap_lock: threading.Lock = field(default_factory=threading.Lock)
+    #: Class A settings (`app_settings`); the reconnect group is read from here.
+    settings_service: SettingsService | None = None
+    logging_applier: LoggingApplier | None = None
+
+    def get_plate_settings(self) -> Dict[str, Any]:
+        """Plate post-processing config in the shape `ChannelProcessor` consumes."""
+        return {"enabled_countries": self.settings_service.get("plates.enabled_countries")}
+
+    def get_display_timezone(self) -> str:
+        return str(self.settings_service.get("interface.display_timezone"))
+
+    def get_reconnect_settings(self) -> Dict[str, Any]:
+        """Reconnect policy in the nested shape `ChannelProcessor` consumes."""
+        flat = self.settings_service.get_section("reconnect")
+        nested: Dict[str, Any] = {}
+        for key, value in flat.items():
+            group, name = key.split(".", 1)
+            nested.setdefault(group, {})[name] = value
+        return nested
 
     def _resolve_dsn(self) -> str:
-        return str(self.settings.get_storage_settings().get("postgres_dsn", "")).strip()
+        return load_env_config().postgres_dsn
 
     @classmethod
     def build(cls) -> "AppContainer":
-        settings = SettingsManager()
-        configure_logging(settings.get_logging_config(), service_name="api")
+        bootstrap_logging("api")
 
-        dsn = str(settings.get_storage_settings().get("postgres_dsn", "")).strip()
+        env = load_env_config()
+        verify_model_files(env)
+        dsn = env.postgres_dsn
         events_db = PostgresEventDatabase(dsn)
         lists_db = ListDatabase(dsn)
         clients_db = ClientDatabase(dsn)
@@ -66,13 +88,15 @@ class AppContainer:
         channel_db = ChannelDatabase(dsn)
         controller_db = ControllerDatabase(dsn)
         zone_db = ZoneDatabase(dsn)
+        settings_service = SettingsService(AppSettingsRepository(dsn))
+        logging_applier = LoggingApplier(settings_service, "api")
+        logging_applier.apply()
         controller_service = ControllerService()
         event_bus = EventBus()
-        debug_registry = DebugRegistry(settings.get_debug_settings())
+        debug_registry = DebugRegistry({"video_output_enabled": settings_service.get("debug.video_output_enabled")})
         debug_log_bus = get_live_log_bus()
 
         container = cls(
-            settings=settings,
             events_db=events_db,
             lists_db=lists_db,
             clients_db=clients_db,
@@ -89,6 +113,8 @@ class AppContainer:
             lifecycle=None,  # type: ignore[arg-type]
             main_loop=None,
             stream_shutdown=asyncio.Event(),
+            settings_service=settings_service,
+            logging_applier=logging_applier,
         )
         container.controller_automation = ControllerAutomationService(
             controller_service,
@@ -105,12 +131,14 @@ class AppContainer:
         from runtime.channel_runtime import ChannelProcessor
         from anpr.model_config import AnprModelConfig
 
-        model_config = AnprModelConfig.from_settings(self.settings.get_model_settings())
+        env = load_env_config()
+        model_config = AnprModelConfig.from_env(env, self.settings_service.get("detection.confidence_threshold"))
         return ChannelProcessor(
             event_callback=self.publish_event_sync,
-            plate_settings=self.settings.get_plate_settings(),
-            storage_settings=self.settings.get_storage_settings(),
-            reconnect_settings=self.settings.get_reconnect(),
+            plate_settings=self.get_plate_settings(),
+            media_dir=env.media_dir,
+            io_pool_workers=env.io_pool_workers,
+            reconnect_settings=self.get_reconnect_settings(),
             debug_registry=self.debug_registry,
             model_config=model_config,
             events_db=self.events_db,
@@ -119,9 +147,9 @@ class AppContainer:
         )
 
     def _build_lifecycle(self) -> DataLifecycleService:
-        policy = RetentionPolicy.from_storage(self.settings.get_storage_settings())
+        policy = RetentionPolicy.from_settings(self.settings_service)
         return DataLifecycleService(
-            screenshots_dir=self.settings.get_screenshot_dir(),
+            screenshots_dir=load_env_config().media_dir,
             policy=policy,
             postgres_dsn=self._resolve_dsn(),
         )

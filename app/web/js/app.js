@@ -1,18 +1,24 @@
 // Application entry point — initialization, DOM bindings, timers
 import { eventSource, debugLogSource, overlayRefreshTimer, eventFeedRenderFrame, eventFeedRenderScheduled, setEventFeedRenderScheduled, setEventFeedRenderFrame } from './state.js';
-import { api, getToken, setToken, isTokenExpired, getCurrentUser, showLoginOverlay, logoutRequest } from './api.js';
-import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, applyStyle, applyTheme, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, applyTabVisibility, showToast, getCurrentTheme } from './ui.js';
+import { api, getToken, setToken, isTokenExpired, getTokenUserId, getCurrentUser, showLoginOverlay, logoutRequest } from './api.js';
+import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, updateZoneLabels, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, applyTabVisibility, showToast, getCurrentTheme } from './ui.js';
 import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVideoGridDragDrop, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate, clearExpandMode, updateZoneChannelTypeState } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
 import { loadJournal, initJournalScroll, initJournalBindings } from './journal.js';
 import { loadLists, refreshPlateLookup, exportCurrentListCSV, importCurrentListCSV, openClientPickerModal } from './lists.js';
 import { loadAllClients, openAddClientModal, searchClients, saveClientChanges, openDeleteClientConfirm, confirmDeleteClient, openListPickerModal, detachClientFromList, confirmDetachClient } from './clients.js';
 import { loadGlobalSettings, saveGeneral } from './settings.js';
+import { loadSettingsSchema } from './schema.js';
+import { restoreGridSize, saveGridSize } from './video-grid.js';
+import { appearance } from './appearance.js';
+import { onZoneChange, startServerTimeSync, syncServerTime } from './datetime.js';
+import { fetchServerTime } from './server-time.js';
+import { loadPreferences, savePreferences, syncPreferenceControls, bindPreferenceControls } from './preferences.js';
 import { loadControllers, createController, _doCreateController, deleteController, _doDeleteController, saveController, testController } from './controllers.js';
 import { applyDebugPanelVisibility, loadDebugLogHistory, setupDebugLogStream, setupStream } from './debug.js';
 import { initHelpSystem } from './help.js';
 import { initBackupBindings } from './backup.js';
-import { state, setCurrentUser, hasPermission } from './state.js';
+import { state, setCurrentUser, hasPermission, getPreference } from './state.js';
 import { initUsersPane } from './users.js';
 import { loadZones, initZonesTab } from './zones.js';
 import { initSystemPolling, refreshSystemResources, checkServerHealth } from './system.js';
@@ -51,7 +57,7 @@ document.querySelectorAll(".ttab").forEach((el) => (el.onclick = () => {
 document.querySelectorAll(".snav-item").forEach((el) => (el.onclick = () => switchSettings(el.dataset.sp)));
 document.querySelectorAll(".ch-tab").forEach((el) => (el.onclick = () => switchChannelSettingsTab(el.dataset.chTab)));
 document.querySelectorAll(".general-tab").forEach((el) => (el.onclick = () => switchGeneralSettingsTab(el.dataset.generalTab)));
-document.getElementById("gridSelect").onchange = () => { clearExpandMode(); scheduleVideoGridLayout(true); };
+document.getElementById("gridSelect").onchange = () => { saveGridSize(); clearExpandMode(); scheduleVideoGridLayout(true); };
 
 
 
@@ -228,13 +234,23 @@ document.getElementById("ctrlR1Mode").onchange = () => updateRelayTimerState(1);
 document.getElementById("c_controller_id").onchange = updateChannelControllerBindingState;
 document.getElementById("c_list_filter_mode").onchange = updateCustomListsVisibility;
 document.getElementById("saveDebugBtn").onclick = saveGeneral;
-document.getElementById("g_style").onchange = () => applyStyle(val("g_style"));
-document.getElementById("g_theme").onchange = () => applyTheme(val("g_theme"));
-document.getElementById("g_sidebar_locked").onchange = () => applySidebarLocked(document.getElementById("g_sidebar_locked").checked);
+// Personal look: available to everyone, whatever tabs they can see. The change
+// is saved on the server (users.preferences); the screen reverts if that fails.
 document.getElementById("themeToggleBtn").onclick = () => {
-  const nextTheme = getCurrentTheme() === "light" ? "dark" : "light";
-  setVal("g_theme", nextTheme);
-  applyTheme(nextTheme);
+  appearance.setPersonal({ theme: getCurrentTheme() === "light" ? "dark" : "light" });
+};
+document.getElementById("prefsBtn").onclick = () => { syncPreferenceControls(); openModal("prefsModal"); };
+document.getElementById("prefsModalClose").onclick = () => closeModal("prefsModal");
+document.getElementById("p_theme").onchange = (e) => appearance.setPersonal({ theme: e.target.value }).then(syncPreferenceControls);
+document.getElementById("p_style").onchange = (e) => appearance.setPersonal({ style: e.target.value }).then(syncPreferenceControls);
+document.getElementById("p_timezone").onchange = async (e) => {
+  try {
+    await savePreferences({ timezone: e.target.value });
+    await syncServerTime(fetchServerTime);   // zone listeners re-render every view
+  } catch (_err) {
+    e.target.value = getPreference("timezone") || "auto";
+    showToast("Не удалось сохранить часовой пояс", 4000);
+  }
 };
 document.getElementById("plateSizeResetBtn").onclick = resetPlateSizeBoxes;
 document.getElementById("roiRefreshBtn").onclick = refreshPreviewSnapshot;
@@ -265,6 +281,13 @@ document.addEventListener("keydown", (event) => {
 // --- Timers ---
 updateTopbarDateTime();
 setInterval(updateTopbarDateTime, 1000);
+onZoneChange(() => {
+  updateZoneLabels();
+  updateTopbarDateTime();
+  renderEventFeed(true);
+  loadJournal();
+});
+updateZoneLabels();
 initSystemPolling();
 
 // --- Cleanup ---
@@ -294,10 +317,11 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
 (async function init() {
   const apiBaseEl = document.getElementById("apiBase");
   if (apiBaseEl) apiBaseEl.value = window.location.origin;
-  try { applyStyle(localStorage.getItem("anpr_style") || "graphite-minimal"); }
-  catch (_e) { applyStyle("graphite-minimal"); }
-  try { applyTheme(localStorage.getItem("anpr_theme") || "light"); }
-  catch (_e) { applyTheme("light"); }
+  // Look before anything else: the token's user cache (if any), else the cached
+  // instance default. The server then confirms and overwrites the cache.
+  appearance.boot(getTokenUserId());
+  appearance.refreshInstance();
+  restoreGridSize();   // device state (class L): this screen's grid size
   await _inlineThemeableIcons();
 
   const startLoginFlow = () => {
@@ -312,6 +336,7 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
   const token = getToken();
   if (!token || isTokenExpired()) {
     setToken(null);
+    appearance.signOut();
     startLoginFlow();
     return;
   }
@@ -322,10 +347,25 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
   } catch (_e) {
     // Token expired or invalid — clear it and re-authenticate
     setToken(null);
+    appearance.signOut();
     startLoginFlow();
     return;
   }
   _applyUserUI(currentUser);
+  startServerTimeSync(fetchServerTime);
+  // Personal preferences apply to every user, whatever their permissions.
+  try {
+    await appearance.signIn(currentUser.id);   // loads preferences, applies + caches the look
+    syncPreferenceControls();
+    applySidebarLocked(Boolean(getPreference("sidebar_locked")));
+  } catch (_e) {
+    showToast("Не удалось загрузить личные настройки", 4000);
+  }
+  bindPreferenceControls((key) => {
+    if (key === "sidebar_locked") applySidebarLocked(Boolean(getPreference("sidebar_locked")));
+    else if (key === "channel_metrics_visible") { syncOverlayPolling(); scheduleVideoGridLayout(true); }
+    else if (key === "debug_panel_enabled") applyDebugPanelVisibility();
+  });
   const userIsSuperadmin = currentUser.role === "superadmin";
   applyTabVisibility(currentUser.permissions || [], userIsSuperadmin);
   applyDebugPanelVisibility();
@@ -344,6 +384,7 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
   if (logoutBtn) logoutBtn.onclick = async () => {
     await logoutRequest();
     setToken(null);
+    appearance.signOut();   // drops every per-user appearance cache key
     location.reload();
   };
 
@@ -360,6 +401,8 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
   setupPlateSizeInputListeners();
   switchChannelSettingsTab("channel");
   updateTopbarTitle();
+  try { await loadSettingsSchema(); }
+  catch (_e) { showToast("Не удалось загрузить допустимые значения настроек", 4000); }
   await refreshChannels();
   loadZones();
   await hydrateChannelLastPlates();

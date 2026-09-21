@@ -16,9 +16,16 @@ from app.api.routers.auth import (
     login, logout, me, available_permissions,
     AVAILABLE_PERMISSIONS,
     _check_rate_limit, _record_failed_attempt, _reset_attempts,
-    _failed_attempts, _MAX_FAILED_ATTEMPTS, _RATE_WINDOW_SECONDS,
+    _failed_attempts,
 )
 from app.api.schemas import LoginRequest, UserOut
+from config.registry import get_spec
+from config.settings_service import SettingsService
+from tests.test_settings_service import _Clock, _Repo
+
+# Registry defaults of the policy (decision: unchanged, 5 failures per 60 s).
+_MAX_FAILED_ATTEMPTS = get_spec("auth.login_rate_limit_attempts").default
+_RATE_WINDOW_SECONDS = get_spec("auth.login_rate_limit_window_seconds").default
 
 
 # ---------------------------------------------------------------------------
@@ -40,9 +47,10 @@ def _make_user(user_id=1, login="superadmin", role="superadmin", is_active=True,
     }
 
 
-def _make_container(user=None):
+def _make_container(user=None, stored=None):
     container = MagicMock()
     container.user_db.find_by_login.return_value = user
+    container.settings_service = SettingsService(_Repo(stored), clock=_Clock())
     return container
 
 
@@ -238,14 +246,14 @@ class TestRateLimiter:
         for _ in range(_MAX_FAILED_ATTEMPTS - 1):
             _record_failed_attempt(ip)
         # Should not raise
-        _check_rate_limit(ip)
+        _check_rate_limit(ip, _MAX_FAILED_ATTEMPTS, _RATE_WINDOW_SECONDS)
 
     def test_blocks_after_max_attempts(self):
         ip = "10.0.0.2"
         for _ in range(_MAX_FAILED_ATTEMPTS):
             _record_failed_attempt(ip)
         with pytest.raises(HTTPException) as exc_info:
-            _check_rate_limit(ip)
+            _check_rate_limit(ip, _MAX_FAILED_ATTEMPTS, _RATE_WINDOW_SECONDS)
         assert exc_info.value.status_code == 429
 
     def test_reset_clears_attempts(self):
@@ -254,14 +262,14 @@ class TestRateLimiter:
             _record_failed_attempt(ip)
         _reset_attempts(ip)
         # Should not raise after reset
-        _check_rate_limit(ip)
+        _check_rate_limit(ip, _MAX_FAILED_ATTEMPTS, _RATE_WINDOW_SECONDS)
 
     def test_expired_attempts_do_not_count(self):
         ip = "10.0.0.4"
         old_time = time.monotonic() - _RATE_WINDOW_SECONDS - 1
         _failed_attempts[ip] = [old_time] * _MAX_FAILED_ATTEMPTS
         # All attempts are outside the window — should not block
-        _check_rate_limit(ip)
+        _check_rate_limit(ip, _MAX_FAILED_ATTEMPTS, _RATE_WINDOW_SECONDS)
 
     def test_login_records_failed_attempt_on_wrong_password(self):
         ip = "10.0.0.5"
@@ -297,16 +305,16 @@ class TestRateLimiter:
         for _ in range(_MAX_FAILED_ATTEMPTS):
             _record_failed_attempt(ip1)
         # ip2 should not be affected
-        _check_rate_limit(ip2)  # Should not raise
+        _check_rate_limit(ip2, _MAX_FAILED_ATTEMPTS, _RATE_WINDOW_SECONDS)  # Should not raise
         with pytest.raises(HTTPException):
-            _check_rate_limit(ip1)
+            _check_rate_limit(ip1, _MAX_FAILED_ATTEMPTS, _RATE_WINDOW_SECONDS)
 
     def test_check_rate_limit_does_not_create_entry_for_clean_ip(self):
         """Regression test for finding #4: checking an IP that has never
         failed a login (the common case — this runs on every login attempt,
         successful or not) must not leave a lingering dict entry."""
         ip = "10.0.2.1"
-        _check_rate_limit(ip)
+        _check_rate_limit(ip, _MAX_FAILED_ATTEMPTS, _RATE_WINDOW_SECONDS)
         assert ip not in _failed_attempts
 
     def test_expired_attempts_are_evicted_not_just_emptied(self):
@@ -316,7 +324,7 @@ class TestRateLimiter:
         ip = "10.0.2.2"
         old_time = time.monotonic() - _RATE_WINDOW_SECONDS - 1
         _failed_attempts[ip] = [old_time] * _MAX_FAILED_ATTEMPTS
-        _check_rate_limit(ip)
+        _check_rate_limit(ip, _MAX_FAILED_ATTEMPTS, _RATE_WINDOW_SECONDS)
         assert ip not in _failed_attempts
 
 

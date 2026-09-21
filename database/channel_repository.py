@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
+from config.registry import DIRECTION_FILTERS, LIST_FILTER_MODES, ZONE_CHANNEL_TYPES
 from config.settings_schema import channel_defaults, direction_defaults, normalize_region_config
 from database.base import PooledDatabase
 from database.errors import StorageUnavailableError
+
+_CHANNEL_DEFAULTS = channel_defaults({})
 
 _SELECT_COLS = (
     "id, name, source, enabled, roi_enabled, region, "
@@ -52,8 +55,8 @@ def _row_to_dict(row: Any) -> Dict[str, Any]:
         "motion_activation_frames": row[18],
         "motion_release_frames": row[19],
         "size_filter_enabled": row[20],
-        "min_plate_size": _load_json(row[21], {"width": 80, "height": 20}),
-        "max_plate_size": _load_json(row[22], {"width": 600, "height": 240}),
+        "min_plate_size": _load_json(row[21], _CHANNEL_DEFAULTS["min_plate_size"]),
+        "max_plate_size": _load_json(row[22], _CHANNEL_DEFAULTS["max_plate_size"]),
         "controller_id": row[23],
         "controller_relay": row[24],
         "controller_direction_filter": row[25],
@@ -104,12 +107,12 @@ def _normalize(data: Dict[str, Any]) -> Dict[str, Any]:
         result["controller_relay"] = relay if relay in (0, 1) else 0
 
     direction_filter = str(result.get("controller_direction_filter") or "both").strip().lower()
-    if direction_filter not in {"approaching", "receding", "both"}:
+    if direction_filter not in DIRECTION_FILTERS:
         direction_filter = "both"
     result["controller_direction_filter"] = direction_filter
 
     mode = str(result.get("list_filter_mode") or "all").strip().lower()
-    if mode not in {"all", "whitelist", "custom"}:
+    if mode not in LIST_FILTER_MODES:
         mode = "all"
     result["list_filter_mode"] = mode
 
@@ -142,7 +145,7 @@ def _normalize(data: Dict[str, Any]) -> Dict[str, Any]:
     result["zone_after_id"] = zone_after_id
 
     zone_type = str(result.get("zone_channel_type") or "").strip().lower()
-    if zone_type not in ("entry", "exit"):
+    if zone_type not in ZONE_CHANNEL_TYPES:
         zone_type = None
     if zone_before_id is None or zone_after_id is None:
         zone_type = None
@@ -178,7 +181,7 @@ CREATE TABLE IF NOT EXISTS channels (
     motion_release_frames INTEGER NOT NULL DEFAULT 100,
     size_filter_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     min_plate_size JSONB NOT NULL DEFAULT '{"width":80,"height":20}'::jsonb,
-    max_plate_size JSONB NOT NULL DEFAULT '{"width":600,"height":240}'::jsonb,
+    max_plate_size JSONB NOT NULL DEFAULT '{"width":400,"height":100}'::jsonb,
     controller_id INTEGER,
     controller_relay INTEGER NOT NULL DEFAULT 0,
     controller_direction_filter TEXT NOT NULL DEFAULT 'both',

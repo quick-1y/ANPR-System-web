@@ -7,7 +7,10 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
 from app.api.container import AppContainer, WEB_DIR
-from app.api.deps import get_container, get_current_user
+from app.api.deps import get_container, get_current_user, require_access
+from common.timeutil import utc_now
+from config.preferences import effective_timezone
+from database.errors import StorageUnavailableError
 
 router = APIRouter()
 
@@ -24,6 +27,27 @@ def health(container: AppContainer = Depends(get_container)) -> Dict[str, Any]:
         "status": "ok",
         "channels_total": len(container.channel_db.list_channels()),
         "channels_running": sum(1 for item in metrics.values() if item.state == "running"),
+    }
+
+
+@router.get("/api/system/time")
+def system_time(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_access("authenticated"))) -> Dict[str, Any]:
+    """Server clock (UTC) and the display zone for the caller.
+
+    The personal `timezone` preference wins unless it is `auto`, in which case
+    the instance zone applies. `timezone_configured` is false until an
+    administrator has explicitly stored a zone — even UTC counts once stored.
+    """
+    stored = None
+    if container.user_db is not None:
+        try:
+            stored = container.user_db.get_preferences(int(_user["id"]))
+        except StorageUnavailableError:
+            stored = None  # personal override unavailable: fall back to the instance zone
+    return {
+        "server_utc": utc_now().isoformat(),
+        "display_timezone": effective_timezone(stored, container.settings_service),
+        "timezone_configured": container.settings_service.is_configured("interface.display_timezone"),
     }
 
 

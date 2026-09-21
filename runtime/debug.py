@@ -8,27 +8,24 @@ from datetime import datetime, timezone
 from typing import Any, Deque, Dict, List, Optional
 
 
+
 @dataclass(frozen=True)
 class DebugSettings:
-    show_channel_metrics: bool = True
-    log_panel_enabled: bool = False
-    disable_video_output: bool = False
+    """Server-side debug switches only.
+
+    Personal display flags (metrics overlay, log panel) are user preferences
+    (`users.preferences`) and have no server effect, so they do not live here.
+    """
+
+    video_output_enabled: bool = True
 
     @classmethod
     def from_dict(cls, payload: Dict[str, Any] | None) -> "DebugSettings":
         data = payload or {}
-        return cls(
-            show_channel_metrics=bool(data.get("show_channel_metrics", True)),
-            log_panel_enabled=bool(data.get("log_panel_enabled", False)),
-            disable_video_output=bool(data.get("disable_video_output", False)),
-        )
+        return cls(video_output_enabled=bool(data.get("video_output_enabled", True)))
 
     def to_dict(self) -> Dict[str, bool]:
-        return {
-            "show_channel_metrics": self.show_channel_metrics,
-            "log_panel_enabled": self.log_panel_enabled,
-            "disable_video_output": self.disable_video_output,
-        }
+        return {"video_output_enabled": self.video_output_enabled}
 
 
 @dataclass

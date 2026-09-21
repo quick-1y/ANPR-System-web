@@ -1,7 +1,11 @@
 // Global settings panel, country toggles
-import { setDebugSettingsCache, debugSettingsCache } from './state.js';
+import { setDebugSettingsCache, isSuperAdmin, isVideoOutputDisabled } from './state.js';
+import { syncPreferenceControls } from './preferences.js';
 import { api, jfetch } from './api.js';
-import { val, setVal, setChk, applyStyle, applyTheme, showToast, applySidebarLocked } from './ui.js';
+import { val, setVal, setChk, showToast } from './ui.js';
+import { appearance } from './appearance.js';
+import { syncServerTime } from './datetime.js';
+import { fetchServerTime } from './server-time.js';
 import { scheduleVideoGridLayout, syncOverlayPolling } from './channels.js';
 import { applyDebugPanelVisibility } from './debug.js';
 
@@ -32,6 +36,20 @@ function getEnabledCountryCodes() {
   return codes;
 }
 
+let timezoneTouched = false;
+
+function setTimezoneSelect(zone) {
+  const select = document.getElementById("g_timezone");
+  if (!select) return;
+  if (zone && !Array.from(select.options).some(o => o.value === zone)) {
+    const option = document.createElement("option");
+    option.value = zone; option.textContent = zone;
+    select.appendChild(option);
+  }
+  select.value = zone;
+  select.onchange = () => { timezoneTouched = true; };
+}
+
 export async function loadGlobalSettings() {
   const g = await jfetch(api("/api/settings"));
   setChk("g_sl_enabled", g.reconnect.signal_loss.enabled);
@@ -44,54 +62,66 @@ export async function loadGlobalSettings() {
   setVal("g_events_retention", g.storage.events_retention_days);
   setVal("g_media_retention", g.storage.media_retention_days);
   setVal("g_max_screenshots", g.storage.max_screenshots_mb);
-  setVal("g_postgres_dsn", g.storage.postgres_dsn);
+  setVal("g_token_ttl", g.auth.token_ttl_minutes);
+  setVal("g_rl_attempts", g.auth.login_rate_limit_attempts);
+  setVal("g_rl_window", g.auth.login_rate_limit_window_seconds);
   setVal("g_log_level", g.logging.level); setVal("g_log_retention", g.logging.retention_days);
   if (g.interface) {
-    setVal("g_style", g.interface.style);
-    setVal("g_theme", g.interface.theme);
-    setChk("g_sidebar_locked", g.interface.sidebar_locked);
-    applyStyle(g.interface.style);
-    applyTheme(g.interface.theme);
-    applySidebarLocked(g.interface.sidebar_locked);
+    setVal("g_style", g.interface.default_style);
+    setVal("g_theme", g.interface.default_theme);
   }
-  setVal("g_timezone", g.time.timezone);
+  // display_timezone is an app_settings key; it is sent back only when the
+  // administrator touched the select, so "never configured" stays distinguishable
+  // from an explicit choice (including an explicit UTC).
+  setTimezoneSelect(g.interface.display_timezone);
+  timezoneTouched = false;
+  const note = document.getElementById("tzNotConfiguredNote");
+  if (note) note.hidden = Boolean(g.interface.timezone_configured);
   await renderCountryToggles(g.plates.enabled_countries || []);
   if (g.debug) {
-    setChk("d_metrics", g.debug.show_channel_metrics);
-    setChk("d_log", g.debug.log_panel_enabled);
-    setChk("d_video_off", g.debug.disable_video_output);
+    setChk("d_video_off", g.debug.video_output_enabled === false);
     setDebugSettingsCache(g.debug || {});
   }
+  syncPreferenceControls();
   applyDebugPanelVisibility();
 }
 
 export async function saveGeneral() {
-  applyStyle(val("g_style"));
-  applyTheme(val("g_theme"));
   const payload = {
     reconnect: {
       signal_loss: { enabled: document.getElementById("g_sl_enabled").checked, frame_timeout_seconds: Number(val("g_frame_timeout")), retry_interval_seconds: Number(val("g_retry_interval")) },
       periodic: { enabled: document.getElementById("g_periodic_enabled").checked, interval_minutes: Number(val("g_periodic_minutes")) },
     },
-    storage: { auto_cleanup_enabled: document.getElementById("g_auto_cleanup").checked, cleanup_interval_minutes: Number(val("g_cleanup_minutes")), events_retention_days: Number(val("g_events_retention")), media_retention_days: Number(val("g_media_retention")), max_screenshots_mb: Number(val("g_max_screenshots")), postgres_dsn: val("g_postgres_dsn") },
+    storage: { auto_cleanup_enabled: document.getElementById("g_auto_cleanup").checked, cleanup_interval_minutes: Number(val("g_cleanup_minutes")), events_retention_days: Number(val("g_events_retention")), media_retention_days: Number(val("g_media_retention")), max_screenshots_mb: Number(val("g_max_screenshots")) },
     logging: { level: val("g_log_level"), retention_days: Number(val("g_log_retention")) },
-    interface: { style: val("g_style"), theme: val("g_theme"), sidebar_locked: document.getElementById("g_sidebar_locked").checked },
-    time: { timezone: val("g_timezone") },
+    interface: { default_style: val("g_style"), default_theme: val("g_theme"), display_timezone: timezoneTouched ? val("g_timezone") : null },
     plates: { enabled_countries: getEnabledCountryCodes() },
-    debug: { show_channel_metrics: document.getElementById("d_metrics").checked, log_panel_enabled: document.getElementById("d_log").checked, disable_video_output: document.getElementById("d_video_off").checked },
+    auth: { token_ttl_minutes: Number(val("g_token_ttl")), login_rate_limit_attempts: Number(val("g_rl_attempts")), login_rate_limit_window_seconds: Number(val("g_rl_window")) },
   };
+  // Server-side debug flag: superadmin only. Personal display flags (sidebar,
+  // metrics overlay, log panel) are saved on toggle via /api/me/preferences.
+  if (isSuperAdmin()) payload.debug = { video_output_enabled: !document.getElementById("d_video_off").checked };
   const updated = await jfetch(api("/api/settings"), "PUT", payload);
-  setDebugSettingsCache((updated || {}).debug || payload.debug);
-  setChk("d_video_off", Boolean(debugSettingsCache.disable_video_output));
-  setChk("d_metrics", Boolean(debugSettingsCache.show_channel_metrics));
-  setChk("d_log", Boolean(debugSettingsCache.log_panel_enabled));
+  if (isSuperAdmin()) {
+    setDebugSettingsCache((updated || {}).debug || payload.debug);
+    setChk("d_video_off", isVideoOutputDisabled());
+  }
   document.querySelectorAll(".cam-preview").forEach((img) => {
     img.dataset.url = "";
-    if (debugSettingsCache.disable_video_output) img.removeAttribute("src");
+    if (isVideoOutputDisabled()) img.removeAttribute("src");
   });
   applyDebugPanelVisibility();
   syncOverlayPolling();
   scheduleVideoGridLayout(true);
-  applySidebarLocked(document.getElementById("g_sidebar_locked").checked);
-  showToast("Настройки сохранены");
+  timezoneTouched = false;
+  const note = document.getElementById("tzNotConfiguredNote");
+  if (note && updated && updated.interface) note.hidden = Boolean(updated.interface.timezone_configured);
+  // The instance default may have changed what users without a personal choice see,
+  // and the zone may have changed what everyone sees.
+  await appearance.refreshUser();
+  await syncServerTime(fetchServerTime);
+  const restart = (updated || {}).requires_restart || [];
+  showToast(restart.length
+    ? "Настройки сохранены. Обработчик перезапущен для применения: " + restart.join(", ")
+    : "Настройки сохранены", restart.length ? 5000 : 2000);
 }

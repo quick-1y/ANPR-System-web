@@ -57,12 +57,12 @@ class TestVerifyPassword:
 
 class TestCreateAccessToken:
     def test_returns_string(self):
-        token = create_access_token(user_id=1, role="superadmin")
+        token = create_access_token(user_id=1, role="superadmin", exp_minutes=480)
         assert isinstance(token, str)
         assert len(token) > 0
 
     def test_payload_contains_expected_claims(self):
-        token = create_access_token(user_id=42, role="operator")
+        token = create_access_token(user_id=42, role="operator", exp_minutes=480)
         payload = pyjwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         assert payload["sub"] == "42"
         assert payload["role"] == "operator"
@@ -82,7 +82,7 @@ class TestCreateAccessToken:
 
 class TestDecodeAccessToken:
     def test_valid_token(self):
-        token = create_access_token(user_id=7, role="superadmin")
+        token = create_access_token(user_id=7, role="superadmin", exp_minutes=480)
         payload = decode_access_token(token)
         assert payload["sub"] == "7"
         assert payload["role"] == "superadmin"
@@ -97,7 +97,7 @@ class TestDecodeAccessToken:
             decode_access_token("not.a.valid.token")
 
     def test_tampered_token_raises(self):
-        token = create_access_token(user_id=1, role="superadmin")
+        token = create_access_token(user_id=1, role="superadmin", exp_minutes=480)
         # Tamper with the token
         tampered = token[:-5] + "XXXXX"
         with pytest.raises(pyjwt.InvalidTokenError):

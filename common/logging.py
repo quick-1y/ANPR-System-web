@@ -5,7 +5,7 @@ import os
 import queue
 import re
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from logging.handlers import QueueHandler, QueueListener
 from typing import Any, Optional
 
@@ -75,13 +75,13 @@ class HourlyFileHandler(logging.Handler):
         self._current_period_start: Optional[datetime] = None
         self._lock = threading.RLock()
         os.makedirs(self.log_dir, exist_ok=True)
-        self._open_stream(datetime.now().astimezone())
+        self._open_stream(datetime.now(timezone.utc))
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
             message = self.format(record)
             with self._lock:
-                self._open_stream(datetime.now().astimezone())
+                self._open_stream(datetime.now(timezone.utc))
                 if self._stream is not None:
                     self._stream.write(f"{message}\n")
                     self._stream.flush()
@@ -131,7 +131,7 @@ def _cleanup_old_logs(log_dir: str, retention_days: int) -> int:
     if retention_days <= 0 or not os.path.isdir(log_dir):
         return 0
 
-    now = datetime.now().astimezone()
+    now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=retention_days)
     removed = 0
     for entry in os.listdir(log_dir):
@@ -141,7 +141,7 @@ def _cleanup_old_logs(log_dir: str, retention_days: int) -> int:
         if not match:
             continue
         try:
-            log_time = datetime.strptime(match.group(1), LOG_FILENAME_TIME_FORMAT).replace(tzinfo=now.tzinfo)
+            log_time = datetime.strptime(match.group(1), LOG_FILENAME_TIME_FORMAT).replace(tzinfo=timezone.utc)
         except ValueError:
             continue
         if log_time <= cutoff:

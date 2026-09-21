@@ -72,22 +72,13 @@
   - `JWT_EXPIRATION_MINUTES` - Token TTL (default: 480 minutes / 8 hours)
   - `DEBUG` - Debug logging flag
   - `LOG_LEVEL` - Logging level (ALL, DEBUG, INFO, WARNING, ERROR, CRITICAL)
-  - `SETTINGS_PATH` - Path to settings.yaml configuration file
   - `HTTP_PORT` - HTTP server port (default: 8080)
   - `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS` - Thread limits for PyTorch/OpenCV
   - `POSTGRES_*` - PostgreSQL connection (DB, user, password, DSN)
 
 **Configuration Files:**
 - `.env` / `.env.example` - Environment variables (stored in `.env.example` for safe default values)
-- `config/settings.yaml` - Application settings:
-  - Model paths (`yolo_model_path`, `ocr_model_path`)
-  - Device configuration (CPU/CUDA)
-  - Debug settings (channel metrics, log panel, video output disable)
-  - Reconnection policies (signal loss, periodic retry)
-  - Storage configuration (screenshots directory, retention policies, cleanup schedules)
-  - License plate country support (BY, KZ, RU enabled by default)
-  - UI theme and interface settings
-  - Logging retention and timezone
+- There is no settings file. Operational settings live in PostgreSQL (`app_settings`, declared in `config/registry.py`, served by `SettingsService`); personal preferences in `users.preferences`; deployment values (paths, DSN, secrets, device, pool limits) in environment variables read only by `config/env_settings.py`. See `docs/technical/configuration.md`.
 
 **Build Configuration:**
 - `Dockerfile` - Multi-stage Docker image definition

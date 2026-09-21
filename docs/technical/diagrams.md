@@ -14,7 +14,7 @@ flowchart TD
         PREVIEW["Preview endpoints\nsnapshot / preview.mjpg"]
         PROC["ChannelProcessor"]
         BUS["EventBus"]
-        SETTINGS["SettingsManager"]
+        SETTINGS["SettingsService"]
         EVENTS_DB["PostgresEventDatabase"]
         LISTS_DB["ListDatabase"]
         CTRL["ControllerService"]

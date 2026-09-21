@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
+from config.registry import RELAY_MODES
 from config.settings_schema import SUPPORTED_CONTROLLER_TYPES, normalize_hotkey, relay_defaults
 from database.base import PooledDatabase
 from database.errors import StorageUnavailableError
@@ -24,7 +25,7 @@ def _normalize_relay(relay: Dict[str, Any]) -> Dict[str, Any]:
     normalized = dict(defaults)
     normalized.update(relay or {})
     mode = str(normalized.get("mode", "pulse") or "pulse")
-    if mode not in ("pulse", "pulse_timer"):
+    if mode not in RELAY_MODES:
         mode = "pulse"
     normalized["mode"] = mode
     try:

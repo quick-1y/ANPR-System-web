@@ -40,6 +40,21 @@
 - `POST /api/auth/logout` — требует токен; фиксирует выход в аудит-лог.
 - Аутентификация только через JWT. Статические API-ключи не поддерживаются.
 
+### Публичные *(без аутентификации)*
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/public/appearance` | `{default_theme, default_style}` — дефолт внешнего вида инстанса для логин-экрана; читается из кэша `SettingsService`, при недоступной БД отдаёт код-дефолты со статусом 200. Ничего кроме этих двух полей |
+
+### Личные предпочтения *(любой аутентифицированный пользователь, права не нужны)*
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/me/preferences` | Разрешённые значения предпочтений вызывающего: `{preferences: {ключ: {value, source}}, display_timezone}`. `source`: `user` — личное значение; `instance` — администратор явно задал дефолт инстанса; `default` — константа реестра |
+| `PATCH` | `/api/me/preferences` | Частичное обновление своих предпочтений (`theme`, `style`, `sidebar_locked`, `debug_panel_enabled`, `channel_metrics_visible`, `timezone`). `null` сбрасывает значение к унаследованному. Недопустимое значение и неизвестное поле — `422`; идентификатор пользователя не принимается, чужие предпочтения изменить нельзя |
+
+Предпочтения хранятся в `users.preferences` (JSONB). Колонка попадает в резервную копию БД автоматически, но копия нового формата не восстанавливается в базу старой схемы — без колонки `preferences`.
+
 ### Users *(требует tab:settings)*
 
 | Метод | Путь | Описание |
@@ -134,29 +149,30 @@
 
 | Метод | Путь | Описание |
 |---|---|---|
-| `GET` | `/api/settings` | Все глобальные настройки, включая секцию `interface` (`style`, `theme`, `sidebar_locked`) |
-| `PUT` | `/api/settings` | Обновить настройки; секция `interface` меняет стиль/тему UI без перезапуска pipeline (изменение параметров распознавания номеров и DSN перезапускает pipeline) |
+| `GET` | `/api/settings/schema` | Допустимые значения перечислений и список зон отображения (любой аутентифицированный пользователь) |
+| `GET` | `/api/settings` | Глобальные настройки; секция `interface` содержит `default_style`, `default_theme` (дефолт инстанса для пользователей без личного выбора), `display_timezone` и `timezone_configured`; `reconnect`, `storage` (retention), `logging`, `plates`, `detection`, `auth` (срок токена и лимиты попыток входа) и (для superadmin) `debug.video_output_enabled` читаются из `app_settings`. Личные флаги (`sidebar_locked`, метрики, панель логов) в этот ответ не входят — они в `/api/me/preferences` |
+| `PUT` | `/api/settings` | Обновить настройки; ключи класса A пишутся в `app_settings` одной транзакцией. Ответ содержит `requires_restart` — ключи, изменение которых потребовало перезапуска обработчика (сейчас `plates.enabled_countries`; перезапуск выполняется один раз). В секции `interface` поля `default_style`, `default_theme`, `display_timezone` необязательны (`null` = не менять; зона передаётся только при явном выборе) |
 | `GET` | `/api/countries` | Список доступных конфигураций стран |
 
 ### Data & Export *(только superadmin)*
 
 | Метод | Путь | Описание |
 |---|---|---|
-| `GET` | `/api/data/policy` | Retention policy |
-| `PUT` | `/api/data/policy` | Обновить retention policy |
+| `GET` | `/api/data/policy` | Retention policy (только чтение; значения `retention.*` из `app_settings`, изменяются через `PUT /api/settings`) |
 | `POST` | `/api/data/retention/run` | Запустить retention cycle вручную |
 | `GET` | `/api/data/export/events.csv` | Экспорт событий в CSV |
 | `POST` | `/api/data/export/bundle` | Экспорт событий в ZIP (с медиа по выбору) |
 | `GET` | `/api/data/backup/database` | Скачать бэкап базы данных (ZIP с JSON-дампом и манифестом) |
 | `POST` | `/api/data/backup/database/restore` | Восстановить БД из бэкапа (multipart upload, до 200 МБ — больший файл отклоняется с `413`). Полностью перезаписывает текущие данные, затем перезапускает приложение |
-| `GET` | `/api/data/backup/settings` | Скачать текущий settings.yaml |
-| `POST` | `/api/data/backup/settings/restore` | Восстановить settings.yaml из файла (multipart upload, до 5 МБ — больший файл отклоняется с `413`). Валидирует, нормализует и атомарно сохраняет настройки, перезапускает pipeline |
+| `GET` | `/api/data/backup/settings` | Скачать JSON-дамп явно заданных значений `app_settings` (формат `anpr-app-settings`, версия 1) |
+| `POST` | `/api/data/backup/settings/restore` | Восстановить настройки из такого дампа (multipart upload, до 5 МБ — больший файл отклоняется с `413`). Неизвестный ключ, недопустимое значение, не тот формат или YAML — `422` без записи; иначе `app_settings` становится равной дампу одной транзакцией (отсутствующие в дампе ключи возвращаются к значениям по умолчанию). Ответ содержит `restored_keys` и `requires_restart`; обработчик перезапускается только если изменился ключ, требующий перезапуска. Файловая система не используется |
 
 ### System & Telemetry
 
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/api/health` | Health check API |
+| `GET` | `/api/system/time` | `{server_utc, display_timezone, timezone_configured}`; `timezone_configured` — задавал ли администратор зону явно (даже `UTC`) |
 | `GET` | `/api/system/resources` | CPU и RAM (psutil) |
 | `GET` | `/api/storage/status` | Статус PostgreSQL |
 | `GET` | `/api/telemetry/channels` | Метрики каналов (FPS, latency, reconnect_count и др.) |
@@ -165,8 +181,8 @@
 
 | Метод | Путь | Описание |
 |---|---|---|
-| `GET` | `/api/debug/settings` | Debug-настройки |
-| `PUT` | `/api/debug/settings` | Обновить debug-настройки |
+| `GET` | `/api/debug/settings` | Серверный debug-флаг `video_output_enabled` |
+| `PUT` | `/api/debug/settings` | Изменить `video_output_enabled` (пишется в `app_settings`, применяется без перезапуска). Личные debug-флаги (`debug_panel_enabled`, `channel_metrics_visible`) сюда не относятся — они в `/api/me/preferences` |
 | `GET` | `/api/debug/channels` | Метрики + debug state каналов |
 | `GET` | `/api/debug/state` | Агрегированный debug state (overlay: bbox, OCR, direction) |
 | `GET` | `/api/debug/logs` | Последние логи (snapshot) |

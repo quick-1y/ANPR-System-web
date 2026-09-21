@@ -1,3 +1,5 @@
+import { pickEnum } from "./schema.js";
+import { formatDate, formatTime, getZoneInfo, serverNow } from "./datetime.js";
 // UI utilities — tabs, sidebar, toast, modals, datetime, flags, theme
 
 export function flagByCountry(code) {
@@ -182,30 +184,16 @@ export function showToast(message, duration = 2000) {
 export function openModal(id) { document.getElementById(id).classList.add("active"); }
 export function closeModal(id) { document.getElementById(id).classList.remove("active"); }
 
+// Pure DOM appliers: they show a look, they never decide or remember one
+// (appearance.js owns that). The instance-default <select>s in the settings
+// pane are NOT touched here — they mirror the instance value, not the personal one.
 export function applyStyle(style) {
-  const normalized = String(style || "graphite-minimal").toLowerCase() === "aurora"
-    ? "aurora"
-    : "graphite-minimal";
-  document.body.setAttribute("data-app-style", normalized);
-
-  const styleSelect = document.getElementById("g_style");
-  if (styleSelect && styleSelect.value !== normalized) {
-    styleSelect.value = normalized;
-  }
-
-  try {
-    localStorage.setItem("anpr_style", normalized);
-  } catch (_e) {}
+  document.body.setAttribute("data-app-style", pickEnum("style", style, "graphite-minimal"));
 }
 
 export function applyTheme(theme) {
-  const normalized = String(theme || "light").toLowerCase() === "dark" ? "dark" : "light";
+  const normalized = pickEnum("theme", theme, "light");
   document.body.setAttribute("data-theme", normalized);
-
-  const themeSelect = document.getElementById("g_theme");
-  if (themeSelect && themeSelect.value !== normalized) {
-    themeSelect.value = normalized;
-  }
 
   const themeToggle = document.getElementById("themeToggleBtn");
   if (themeToggle) {
@@ -213,23 +201,34 @@ export function applyTheme(theme) {
     themeToggle.title = normalized === "dark" ? "Включить светлую тему" : "Включить тёмную тему";
     themeToggle.setAttribute("aria-label", themeToggle.title);
   }
-
-  try {
-    localStorage.setItem("anpr_theme", normalized);
-  } catch (_e) {}
 }
 
 export function getCurrentTheme() {
   return document.body.getAttribute("data-theme") === "dark" ? "dark" : "light";
 }
 
+// Topbar clock: server time (measured offset), rendered in the display zone.
+// The workstation clock and zone never reach the screen.
 export function updateTopbarDateTime() {
   const dateEl = document.getElementById("topbarDate");
   const timeEl = document.getElementById("topbarTime");
   if (!dateEl && !timeEl) return;
-  const now = new Date();
-  if (dateEl) dateEl.textContent = now.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
-  if (timeEl) timeEl.textContent = now.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const now = serverNow();
+  if (dateEl) dateEl.textContent = formatDate(now);
+  if (timeEl) timeEl.textContent = formatTime(now);
+}
+
+// Zone label next to the clock and above the journal — shown always: a time
+// without its zone is incomplete audit data.
+export function updateZoneLabels() {
+  const { label, source, configured } = getZoneInfo();
+  const warn = source === "browser" || configured === false;
+  for (const id of ["topbarTz", "journalTz"]) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.textContent = id === "journalTz" ? `Время указано в зоне: ${label}` : label;
+    el.classList.toggle("tz-warn", warn);
+  }
 }
 
 // DOM form helpers

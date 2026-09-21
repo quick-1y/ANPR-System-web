@@ -1,8 +1,9 @@
 // Debug panels, log stream
-import { debugLogSource, debugLogReconnectTimer, lastDebugLogId, debugSettingsCache, setDebugLogSource, setDebugLogReconnectTimer, setLastDebugLogId, streamReconnectTimer, eventSource, setStreamReconnectTimer, setEventSource, isSuperAdmin } from './state.js';
+import { debugLogSource, debugLogReconnectTimer, lastDebugLogId, getPreference, setDebugLogSource, setDebugLogReconnectTimer, setLastDebugLogId, streamReconnectTimer, eventSource, setStreamReconnectTimer, setEventSource, isSuperAdmin } from './state.js';
 import { api, apiUrl, jfetch } from './api.js';
 import { scheduleVideoGridLayout } from './channels.js';
 import { pushEvent } from './events.js';
+import { formatTime, serverNow } from './datetime.js';
 
 function mapLogClass(level) {
   const v = String(level || "INFO").toUpperCase();
@@ -18,7 +19,7 @@ function prependDebugLine(text, type = "info", timestamp = null, meta = "") {
   if (!log) return;
   const line = document.createElement("div");
   line.className = `log-line ${type}`;
-  const ts = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+  const ts = formatTime(timestamp || serverNow());
   line.innerHTML = `<span class='log-ts'>${ts}</span>${meta ? ` <span class='log-meta'>${meta}</span>` : ""} ${text}`;
   log.prepend(line);
   while (log.children.length > 300) log.removeChild(log.lastElementChild);
@@ -33,7 +34,7 @@ export function applyDebugPanelVisibility() {
     return;
   }
   const btn = document.getElementById("toggleDebugPanelBtn");
-  const enabled = Boolean((debugSettingsCache || {}).log_panel_enabled);
+  const enabled = Boolean(getPreference("debug_panel_enabled"));
   panel.style.display = enabled ? "flex" : "none";
   scheduleVideoGridLayout(true);
   if (!enabled) return;

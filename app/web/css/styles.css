@@ -1770,3 +1770,11 @@ tr.list-info:hover { background: rgba(56, 189, 248, 0.18); }
   font-size: var(--font-sm);
   cursor: pointer;
 }
+
+/* Display-time zone labels (roadmap 7.5): always shown next to times */
+.topbar-tz { font-size: 11px; color: var(--text3); margin-left: 6px; white-space: nowrap; }
+.journal-tz { font-size: 12px; color: var(--text3); padding: 4px 2px 6px; }
+.tz-warn { color: var(--warning); }
+.s-note { font-size: var(--font-sm, 12px); color: var(--text3); padding: 4px 0; }
+.s-note.tz-warn { color: var(--warning); }
+.s-note[hidden] { display: none; }

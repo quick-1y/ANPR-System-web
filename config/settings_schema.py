@@ -1,8 +1,13 @@
-"""Схема настроек приложения и дефолтные значения."""
+"""Код-дефолты и нормализаторы значений.
+
+Файла настроек больше нет: операционные настройки живут в `app_settings`
+(реестр — `config/registry.py`), а этот модуль хранит значения, из которых
+строится реестр, и чистые нормализаторы, которыми пользуются репозитории
+каналов и контроллеров.
+"""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 from common.logging import get_logger
@@ -48,11 +53,6 @@ def normalize_hotkey(value: Any, *, strict: bool = False) -> str:
     ordered = [item for item in modifiers_order if item in modifiers]
     ordered.append(key_part)
     return "+".join(ordered)
-
-
-def normalize_log_level(value: Any) -> str:
-    normalized = str(value or "INFO").upper()
-    return normalized if normalized in LOG_LEVELS else "INFO"
 
 
 DEFAULT_ROI_POINTS = [
@@ -107,10 +107,9 @@ def reconnect_defaults() -> Dict[str, Any]:
     }
 
 
-def storage_defaults() -> Dict[str, Any]:
+def retention_defaults() -> Dict[str, Any]:
+    """Политика очистки: значения по умолчанию ключей `retention.*` (app_settings)."""
     return {
-        "screenshots_dir": "data/screenshots",
-        "logs_dir": "logs",
         "auto_cleanup_enabled": True,
         "cleanup_interval_minutes": 30,
         "events_retention_days": 30,
@@ -121,10 +120,6 @@ def storage_defaults() -> Dict[str, Any]:
 
 def plate_defaults() -> Dict[str, Any]:
     return {"enabled_countries": ["RU", "UA", "BY", "KZ"]}
-
-
-def model_defaults() -> Dict[str, Any]:
-    return {"yolo_model_path": "anpr/models/yolo/best.pt", "ocr_model_path": "anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth", "device": "cpu"}
 
 
 def plate_size_defaults() -> Dict[str, Dict[str, int]]:
@@ -142,36 +137,16 @@ def direction_defaults() -> Dict[str, float | int]:
     }
 
 
-def time_defaults() -> Dict[str, Any]:
-    now = datetime.now().astimezone()
-    offset = now.utcoffset() or timedelta()
-    minutes = int(offset.total_seconds() // 60)
-    sign = "+" if minutes >= 0 else "-"
-    total = abs(minutes)
-    hours = total // 60
-    mins = total % 60
-    default_zone = f"UTC{sign}{hours:02d}:{mins:02d}"
-    return {"timezone": default_zone}
-
-
 def interface_defaults() -> Dict[str, Any]:
+    """Код-дефолты внешнего вида (тема и стиль); источник для реестра."""
     return {
         "style": "graphite-minimal",
         "theme": "light",
-        "sidebar_locked": False,
     }
 
 
 def logging_defaults() -> Dict[str, Any]:
     return {"level": "ALL", "retention_days": 30}
-
-
-def debug_defaults() -> Dict[str, Any]:
-    return {
-        "show_channel_metrics": False,
-        "log_panel_enabled": False,
-        "disable_video_output": False,
-    }
 
 
 def channel_defaults(tracking: Dict[str, Any]) -> Dict[str, Any]:
@@ -201,17 +176,4 @@ def channel_defaults(tracking: Dict[str, Any]) -> Dict[str, Any]:
         "controller_direction_filter": "both",
         "list_filter_mode": "all",
         "list_filter_list_ids": [],
-    }
-
-
-def build_default_settings() -> Dict[str, Any]:
-    return {
-        "models": model_defaults(),
-        "debug": debug_defaults(),
-        "interface": interface_defaults(),
-        "reconnect": reconnect_defaults(),
-        "storage": storage_defaults(),
-        "plates": plate_defaults(),
-        "logging": logging_defaults(),
-        "time": time_defaults(),
     }

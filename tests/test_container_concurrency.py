@@ -57,7 +57,6 @@ class _FakeChannelDb:
 
 def _make_container(channels=(), processor=None):
     return AppContainer(
-        settings=None,
         events_db=None,
         lists_db=None,
         clients_db=None,

@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 from abc import ABC, abstractmethod
 
+from config.env_settings import load_env_config
 from database.errors import StorageUnavailableError
 
 _pool_registry_lock = threading.Lock()
@@ -13,7 +14,7 @@ def get_shared_pool(dsn: str):
     """Return (or create) a shared ConnectionPool for *dsn*.
 
     All PooledDatabase subclasses using the same DSN share one pool,
-    keeping the total connection count bounded (min=2, max=10) instead
+    keeping the total connection count bounded (POSTGRES_POOL_MIN/MAX, default 2/10) instead
     of multiplied per-class.
     """
     with _pool_registry_lock:
@@ -21,7 +22,8 @@ def get_shared_pool(dsn: str):
         if pool is None:
             from psycopg_pool import ConnectionPool  # type: ignore
 
-            pool = ConnectionPool(dsn, min_size=2, max_size=10, open=True)
+            env = load_env_config()
+            pool = ConnectionPool(dsn, min_size=env.postgres_pool_min, max_size=env.postgres_pool_max, open=True)
             _pool_registry[dsn] = pool
         return pool
 

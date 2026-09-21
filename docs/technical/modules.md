@@ -24,7 +24,7 @@
 | `app/api/routers/system.py` | Health check, CPU/RAM, статус БД, Web UI |
 | `app/api/routers/debug.py` | Debug-настройки, overlay state, лог-панель SSE — **только Admin** |
 | `app/worker/main.py` | `RetentionScheduler`: async цикл retention; отдельный FastAPI-сервис |
-| `app/shared/backup_service.py` | `BackupService`: бэкап и восстановление базы данных и settings.yaml |
+| `app/shared/backup_service.py` | бэкап и восстановление базы данных (ZIP) и дамп/восстановление настроек `app_settings` (JSON) |
 | `app/shared/data_lifecycle.py` | `DataLifecycleService`: cleanup событий/медиа, контроль размера, CSV/ZIP export |
 | `app/web/index.html` | Единственная HTML-страница SPA; включает `#login-overlay` для аутентификации и кнопку «Выход» в topbar |
 | `app/web/js/api.js` | HTTP-слой: `getToken/setToken` (JWT в `localStorage`), `jfetch()` (Bearer), `apiUrl()` (?token=), `loginRequest()`, `getCurrentUser()`, `showLoginOverlay()`; методы зон: `getZones()`, `createZone()`, `getZone(id)`, `updateZone(id, data)`, `deleteZone(id)` |
@@ -92,11 +92,12 @@
 
 | Файл / директория | Ответственность |
 |---|---|
-| `config/settings_manager.py` | `SettingsManager`: оркестрация глобальных настроек (models, reconnect, storage, plates, logging, time, debug); каналы и контроллеры хранятся в БД |
-| `config/settings_repository.py` | Чтение и запись `settings.yaml` с file lock |
-| `config/settings_normalizer.py` | Нормализация и заполнение дефолтов |
-| `config/settings_schema.py` | Схема и дефолты всех секций |
-| `config/settings.yaml` | Рабочая runtime-конфигурация |
+| `config/env_settings.py` | Класс D: `EnvConfig`, единственная точка чтения окружения, проверки секретов и файлов весов |
+| `config/registry.py` | Реестр конфигурации: классы, типы, дефолты, границы, домены перечислений |
+| `config/settings_service.py` | `SettingsService`: чтение и запись класса A (`app_settings`) с кэшем по ревизии |
+| `config/preferences.py` | Личные предпочтения (класс U): валидация патча и разрешение значений |
+| `config/logging_setup.py` | Bootstrap логирования из env и переключение на настройки из БД |
+| `config/settings_schema.py` | Код-дефолты и нормализаторы (каналы, контроллеры, ROI, hotkey) |
 
 ## `common/` — общие утилиты
 

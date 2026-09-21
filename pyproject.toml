@@ -19,6 +19,7 @@ psycopg = {version = "*", extras = ["binary"]}
 psycopg_pool = "*"
 bcrypt = "*"
 PyJWT = "*"
+tzdata = "*"
 torch = {version = "2.8.0", source = "pytorch-cpu"}
 torchvision = {version = "0.23.0", source = "pytorch-cpu"}
 

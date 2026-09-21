@@ -1,172 +1,27 @@
 import io
 from zipfile import ZipFile
 
-from config.settings_normalizer import SettingsNormalizer
-from config.settings_schema import build_default_settings
 from app.shared.data_lifecycle import DataLifecycleService, RetentionPolicy
 
 
-class TestLoggingSettingsNormalization:
-
-    def test_normalizer_removes_offset_minutes_from_time(self):
-        normalizer = SettingsNormalizer()
-        raw = {
-            "time": {
-                "timezone": "UTC+03:00",
-                "offset_minutes": 120,
-            }
-        }
-
-        normalized, changed = normalizer.normalize_with_meta(raw)
-
-        assert changed is True
-        assert "offset_minutes" not in normalized["time"]
-
-    def test_normalizer_removes_allowed_levels_from_logging(self):
-        normalizer = SettingsNormalizer()
-        raw = {
-            "logging": {
-                "level": "INFO",
-                "retention_days": 30,
-                "allowed_levels": ["INFO", "ERROR"],
-            }
-        }
-
-        normalized, changed = normalizer.normalize_with_meta(raw)
-
-        assert changed is True
-        assert "allowed_levels" not in normalized["logging"]
-
-    def test_normalizer_removes_obsolete_ocr_section(self):
-        normalizer = SettingsNormalizer()
-        raw = {
-            "ocr": {
-                "img_height": 32,
-                "img_width": 128,
-                "alphabet": "0123456789ABCEHKMOPTXY",
-            }
-        }
-
-        normalized, changed = normalizer.normalize_with_meta(raw)
-
-        assert changed is True
-        assert "ocr" not in normalized
-
-    def test_normalizer_removes_obsolete_detector_section(self):
-        normalizer = SettingsNormalizer()
-        raw = {
-            "detector": {
-                "confidence_threshold": 0.5,
-                "bbox_padding_ratio": 0.08,
-                "min_padding_pixels": 2,
-            }
-        }
-
-        normalized, changed = normalizer.normalize_with_meta(raw)
-
-        assert changed is True
-        assert "detector" not in normalized
-
-    def test_default_settings_do_not_include_detector_contract(self):
-        defaults = build_default_settings()
-
-        assert "detector" not in defaults
-
-    def test_default_settings_do_not_include_ocr_contract(self):
-        defaults = build_default_settings()
-
-        assert "ocr" not in defaults
-
-    def test_normalizer_removes_obsolete_inference_section(self):
-        normalizer = SettingsNormalizer()
-        raw = {
-            "inference": {
-                "workers": 2,
-                "shared_memory": True,
-            }
-        }
-
-        normalized, changed = normalizer.normalize_with_meta(raw)
-
-        assert changed is True
-        assert "inference" not in normalized
-
-    def test_default_settings_include_graphite_minimal_interface(self):
-        defaults = build_default_settings()
-
-        assert defaults["interface"] == {
-            "style": "graphite-minimal",
-            "theme": "light",
-            "sidebar_locked": False,
-        }
-
-    def test_normalizer_adds_and_clamps_interface_settings(self):
-        normalizer = SettingsNormalizer()
-        raw = {
-            "interface": {
-                "style": "unknown",
-                "theme": "blue",
-                "sidebar_locked": 1,
-            }
-        }
-
-        normalized, changed = normalizer.normalize_with_meta(raw)
-
-        assert changed is True
-        assert normalized["interface"] == {
-            "style": "graphite-minimal",
-            "theme": "light",
-            "sidebar_locked": True,
-        }
-
-    def test_normalizer_accepts_aurora_style(self):
-        normalizer = SettingsNormalizer()
-        raw = build_default_settings()
-        raw["interface"] = {
-            "style": "aurora",
-            "theme": "dark",
-            "sidebar_locked": False,
-        }
-
-        normalized, changed = normalizer.normalize_with_meta(raw)
-
-        assert changed is False
-        assert normalized["interface"]["style"] == "aurora"
-        assert normalized["interface"]["theme"] == "dark"
-
-
 class TestStorageCleanup:
-    def test_normalizer_removes_export_dir_from_storage(self):
-        normalizer = SettingsNormalizer()
-        raw = {
-            "storage": {
-                "screenshots_dir": "data/screenshots",
-                "logs_dir": "logs",
-                "auto_cleanup_enabled": True,
-                "cleanup_interval_minutes": 30,
-                "events_retention_days": 30,
-                "media_retention_days": 14,
-                "max_screenshots_mb": 4096,
-                "export_dir": "data/exports",
-            }
-        }
-
-        normalized, changed = normalizer.normalize_with_meta(raw)
-
-        assert changed is True
-        assert "export_dir" not in normalized["storage"]
-
     def test_retention_policy_does_not_persist_export_dir(self):
-        policy = RetentionPolicy.from_storage(
-            {
-                "auto_cleanup_enabled": True,
-                "cleanup_interval_minutes": 60,
-                "events_retention_days": 10,
-                "media_retention_days": 5,
-                "max_screenshots_mb": 2048,
-                "export_dir": "data/exports",
-            }
+        from config.settings_service import SettingsService
+        from tests.test_settings_service import _Clock, _Repo
+
+        service = SettingsService(
+            _Repo(
+                {
+                    "retention.auto_cleanup_enabled": True,
+                    "retention.cleanup_interval_minutes": 60,
+                    "retention.events_retention_days": 10,
+                    "retention.media_retention_days": 5,
+                    "retention.max_screenshots_mb": 2048,
+                }
+            ),
+            clock=_Clock(),
         )
+        policy = RetentionPolicy.from_settings(service)
 
         storage = policy.to_storage()
 

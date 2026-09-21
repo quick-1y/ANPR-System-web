@@ -24,15 +24,14 @@ services:
     env_file:
       - .env
     environment:
-      SETTINGS_PATH: ${SETTINGS_PATH:-/app/config/settings.yaml}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ANPR_LOGS_DIR: ${ANPR_LOGS_DIR:-/app/logs}
+      ANPR_MEDIA_DIR: ${ANPR_MEDIA_DIR:-/app/data/screenshots}
       APP_ENV: ${APP_ENV:-docker}
-      DEBUG: ${DEBUG:-false}
     command: uvicorn app.api.main:app --host 0.0.0.0 --port 8080
     expose:
       - "8080"
     volumes:
-      - ./config:/app/config
       - media_data:/app/data
       - logs_data:/app/logs
     depends_on:
@@ -52,15 +51,14 @@ services:
     env_file:
       - .env
     environment:
-      SETTINGS_PATH: ${SETTINGS_PATH:-/app/config/settings.yaml}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ANPR_LOGS_DIR: ${ANPR_LOGS_DIR:-/app/logs}
+      ANPR_MEDIA_DIR: ${ANPR_MEDIA_DIR:-/app/data/screenshots}
       APP_ENV: ${APP_ENV:-docker}
-      DEBUG: ${DEBUG:-false}
     command: uvicorn app.worker.main:app --host 0.0.0.0 --port 8092
     expose:
       - "8092"
     volumes:
-      - ./config:/app/config
       - media_data:/app/data
       - logs_data:/app/logs
     depends_on:

@@ -54,8 +54,8 @@
 **Configuration Layer:**
 - Purpose: Settings management, schema validation, defaults
 - Location: `config/`
-- Contains: `SettingsManager` (loads YAML config), `SettingsNormalizer` (validation), `SettingsRepository` (DB access)
-- Depends on: PostgreSQL, YAML parsing
+- Contains: `EnvConfig` (environment), the registry, `SettingsService` (`app_settings`), preferences, code defaults
+- Depends on: PostgreSQL
 - Used by: AppContainer during initialization
 
 ## Data Flow
@@ -97,7 +97,7 @@
 - **Channel State**: Per-channel metrics, capture handle, latest JPEG frame in `ChannelContext`
 - **Track State**: OCR attempt budget, finalization status per detection track in `TrackAggregator._track_states`
 - **User State**: JWT claims include role, permissions; validated per request
-- **Configuration State**: Loaded once at startup via `SettingsManager`, refreshed on settings API call
+- **Configuration State**: environment read once at startup (`EnvConfig`); operational settings cached by `SettingsService` and invalidated by the `app_settings_revision` counter, so API and worker see changes without restart
 
 ## Key Abstractions
 
@@ -144,9 +144,9 @@
 - Responsibilities: Spawn per-channel threads, coordinate frame capture/processing
 
 **Configuration Loader:**
-- Location: `config/settings_manager.py`
+- Location: `config/env_settings.py`, `config/settings_service.py`
 - Triggers: `AppContainer.build()` during initialization
-- Responsibilities: Load YAML config, validate schema, merge with database settings
+- Responsibilities: read the environment, fail fast on missing weights or weak secrets, serve operational settings with registry defaults
 
 ## Error Handling
 
@@ -165,7 +165,7 @@
 
 **Logging:** 
 - Framework: `common/logging.py` with context injection (service name, channel ID)
-- Pattern: Lazy configuration via `SettingsManager.get_logging_config()`
+- Pattern: bootstrap from `LOG_LEVEL`, then reconfigured from `app_settings` (`config/logging_setup.py`)
 - Output: File and stderr with rotation
 
 **Validation:** 

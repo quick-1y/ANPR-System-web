@@ -3,13 +3,15 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.container import AppContainer
-from app.api.deps import get_container, require_permission
+from app.api.deps import get_container, require_access, require_permission
 from app.api.schemas import GlobalSettingsPayload
 from anpr.postprocessing.country_config import CountryConfigLoader
-from common.logging import configure_logging, get_logger
+from common.logging import get_logger
+from config.registry import SettingValidationError, schema_document
+from database.errors import StorageUnavailableError
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -17,85 +19,107 @@ router = APIRouter()
 
 @router.get("/api/countries")
 def get_available_countries(container: AppContainer = Depends(get_container), _user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> List[Dict[str, str]]:
-    plates = container.settings.get_plate_settings()
     config_dir = "anpr/countries"
     loader = CountryConfigLoader(os.path.abspath(config_dir))
     return loader.available_configs()
 
 
+def _flatten(prefix: str, nested: Dict[str, Any]) -> Dict[str, Any]:
+    """`{"signal_loss": {"enabled": True}}` -> `{"reconnect.signal_loss.enabled": True}`."""
+    flat: Dict[str, Any] = {}
+    for key, value in nested.items():
+        path = f"{prefix}.{key}"
+        if isinstance(value, dict):
+            flat.update(_flatten(path, value))
+        else:
+            flat[path] = value
+    return flat
+
+
+def _interface_view(container: AppContainer) -> Dict[str, Any]:
+    """Instance appearance and display zone, all from `app_settings`."""
+    service = container.settings_service
+    return {
+        "default_style": service.get("interface.default_style"),
+        "default_theme": service.get("interface.default_theme"),
+        "display_timezone": container.get_display_timezone(),
+        "timezone_configured": service.is_configured("interface.display_timezone"),
+    }
+
+
+def _storage_view(container: AppContainer) -> Dict[str, Any]:
+    """`storage` section of the response: the retention policy from `app_settings`.
+    Directories and the connection string are deployment settings (env) and are
+    never exposed here."""
+    return container.settings_service.get_section("retention")
+
+
+@router.get("/api/settings/schema")
+def get_settings_schema(_user: Dict[str, Any] = Depends(require_access("authenticated"))) -> Dict[str, Any]:
+    """Допустимые значения перечислений и список зон отображения (registry)."""
+    return schema_document()
+
+
 @router.get("/api/settings")
 def get_global_settings(container: AppContainer = Depends(get_container), current_user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
     body = {
-        "reconnect": container.settings.get_reconnect(),
-        "storage": container.settings.get_storage_settings(),
-        "logging": container.settings.get_logging_config(),
-        "interface": container.settings.get_interface_settings(),
-        "time": container.settings.get_time_settings(),
-        "plates": container.settings.get_plate_settings(),
+        "reconnect": container.get_reconnect_settings(),
+        "storage": _storage_view(container),
+        "logging": container.settings_service.get_section("logging"),
+        "interface": _interface_view(container),
+        "plates": container.get_plate_settings(),
+        "detection": {"confidence_threshold": container.settings_service.get("detection.confidence_threshold")},
+        "auth": container.settings_service.get_section("auth"),
     }
     if current_user.get("role") == "superadmin":
-        body["debug"] = container.settings.get_debug_settings()
+        body["debug"] = {"video_output_enabled": container.settings_service.get("debug.video_output_enabled")}
     return body
 
 
 @router.put("/api/settings")
 def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer = Depends(get_container), current_user: Dict[str, Any] = Depends(require_permission("tab:settings"))) -> Dict[str, Any]:
-    import copy
-
-    old_plates = container.settings.get_plate_settings()
-    old_storage = container.settings.get_storage_settings()
-
     reconnect_config = payload.reconnect.model_dump()
-    debug_payload = payload.debug.model_dump()
-    logging_payload = payload.logging.model_dump()
-    interface_payload = payload.interface.model_dump()
-
-    with container.settings._file_lock:
-        container.settings.settings["reconnect"] = reconnect_config
-
-        current_storage = container.settings.settings.get("storage", {})
-        sanitized_storage = copy.deepcopy(payload.storage.model_dump())
-        sanitized_storage.pop("postgres_dsn", None)
-        current_storage.update(sanitized_storage)
-        container.settings.settings["storage"] = current_storage
-
-        container.settings.settings["time"] = payload.time.model_dump()
-        container.settings.settings["interface"] = interface_payload
-        current_plates = container.settings.settings.get("plates", {})
-        current_plates.update(payload.plates.model_dump())
-        container.settings.settings["plates"] = current_plates
-
-        is_superadmin = current_user.get("role") == "superadmin"
-        if is_superadmin:
-            container.settings.settings["debug"] = debug_payload
-
-        current_logging = container.settings.settings.get("logging", {})
-        current_logging.update(logging_payload)
-        from config.settings_schema import normalize_log_level
-        current_logging["level"] = normalize_log_level(current_logging.get("level"))
-        container.settings.settings["logging"] = current_logging
-
-        settings_snapshot = copy.deepcopy(container.settings.settings)
-
-    container.settings._repo.save(settings_snapshot)
-
+    retention_config = payload.storage.model_dump()
+    settings_mapping = {
+        **_flatten("reconnect", reconnect_config),
+        **_flatten("retention", retention_config),
+        **_flatten("logging", payload.logging.model_dump()),
+        "plates.enabled_countries": payload.plates.enabled_countries,
+    }
+    settings_mapping.update(_flatten("auth", payload.auth.model_dump(exclude_none=True)))
+    if payload.detection is not None:
+        settings_mapping["detection.confidence_threshold"] = payload.detection.confidence_threshold
+    is_superadmin = current_user.get("role") == "superadmin"
+    if is_superadmin and payload.debug is not None:
+        settings_mapping["debug.video_output_enabled"] = payload.debug.video_output_enabled
+    if payload.interface.default_style is not None:
+        settings_mapping["interface.default_style"] = payload.interface.default_style
+    if payload.interface.default_theme is not None:
+        settings_mapping["interface.default_theme"] = payload.interface.default_theme
+    if payload.interface.display_timezone is not None:
+        settings_mapping["interface.display_timezone"] = payload.interface.display_timezone
     try:
-        container.processor.update_reconnect_settings(reconnect_config)
+        requires_restart = container.settings_service.update(settings_mapping, updated_by=current_user.get("id"))
+    except SettingValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except StorageUnavailableError as exc:
+        raise container.storage_503(exc) from exc
+    try:
+        container.processor.update_reconnect_settings(container.get_reconnect_settings())
     except Exception:
         logger.exception("Не удалось обновить reconnect-настройки активного processor")
-    if current_user.get("role") == "superadmin":
-        container.processor.update_debug_settings(debug_payload)
-    configure_logging(container.settings.get_logging_config(), service_name="api")
+    if is_superadmin:
+        container.processor.update_debug_settings({"video_output_enabled": container.settings_service.get("debug.video_output_enabled")})
+    container.logging_applier.apply()
 
     container.refresh_storage_clients()
 
-    new_plates = container.settings.get_plate_settings()
-    new_storage = payload.storage.model_dump()
-    pipeline_changed = (
-        old_plates != new_plates
-        or old_storage.get("postgres_dsn") != new_storage.get("postgres_dsn")
-    )
-    if pipeline_changed:
+    # A key flagged `requires_restart` that actually changed (plates.enabled_countries)
+    # gets exactly one processor restart; other keys never trigger one.
+    if requires_restart:
         container.restart_processor_for_settings()
 
-    return get_global_settings(container=container, current_user=current_user)
+    body = get_global_settings(container=container, current_user=current_user)
+    body["requires_restart"] = requires_restart
+    return body
+

@@ -25,7 +25,7 @@
 |---|---|
 | Python 3.13 | Backend, API, runtime каналов, ML inference |
 | HTML / CSS / JavaScript | Статический web frontend; типографика построена на системных шрифтах без bundled web fonts; стили интерфейса разделены на CSS-токены в `app/web/css/themes/` |
-| YAML | Глобальные runtime-настройки (`config/settings.yaml`); каналы и контроллеры хранятся в PostgreSQL |
+| YAML | Конфигурации стран (`anpr/countries/*.yaml`); настройки, каналы и контроллеры хранятся в PostgreSQL |
 | SQL | Схема PostgreSQL и запросы репозиториев |
 | Mermaid | Архитектурные и процессные диаграммы в документации |
 
@@ -71,7 +71,7 @@
 | REST | Управление каналами, настройками, событиями, контроллерами, списками |
 | SSE | Live-события и live-логи |
 | MJPEG | Live preview каналов |
-| Multipart upload | Восстановление БД и `settings.yaml` |
+| Multipart upload | Восстановление БД и дампа настроек |
 | CSV / ZIP | Экспорт событий и бэкапов |
 
 ## Где смотреть детали

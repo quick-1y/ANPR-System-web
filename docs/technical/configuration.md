@@ -1,0 +1,145 @@
+# Конфигурация ANPR System
+
+Документ описывает, **где хранится каждое значение, кто им владеет и когда оно применяется**. Источник истины по ключам и дефолтам — `config/registry.py`; таблицы ниже сверяются с реестром тестом `tests/test_config_architecture.py` (каждый ключ реестра обязан быть здесь описан). Историю решений и аудит см. в [`docs/roadmap/configuration-architecture.md`](../roadmap/configuration-architecture.md).
+
+Файла настроек нет. Конфигурация делится на пять классов; каждое значение относится ровно к одному.
+
+## Классификация конфигурации
+
+| Класс | Название | Хранилище | Кто меняет | Когда загружается | Эффект изменения |
+|---|---|---|---|---|---|
+| **D** | Развёртывание и инфраструктура | переменные окружения (`.env`, `docker-compose.yml`) | инженер развёртывания | один раз при старте процесса, `EnvConfig` (`config/env_settings.py`) | перезапуск контейнера |
+| **A** | Операционные настройки инстанса | таблица `app_settings` (одна строка на ключ) | администратор через UI | при обращении; кэш `SettingsService`, инвалидация по `revision` | сразу либо с автоматическим перезапуском обработчика (`requires_restart`) |
+| **U** | Личные предпочтения | `users.preferences` (JSONB) | сам пользователь | после входа, `GET /api/me/preferences` | сразу, только для него |
+| **C** | Константы кода | код | разработчик | при импорте | релиз |
+| **L** | Состояние устройства и кэш | `localStorage` браузера | неявно | при загрузке страницы | сразу, только на этом устройстве |
+
+Класс C (реестр прав, контракт весов модели, алгоритм JWT, форматы номеров стран `anpr/countries/*.yaml`, домены перечислений) записями реестра не представлен; реестр владеет доменами перечислений и дефолтами ключей классов A и U. Конфигурация объектов — каналы (`channels`), контроллеры, зоны, списки, пользователи — хранится в собственных таблицах PostgreSQL (в том числе RTSP-адреса в `channels.source` и пароли контроллеров в `controllers.password`, а не в файлах).
+
+## Правила приоритета
+
+1. **У каждого значения один источник истины.** Остальные слои — либо кэш с явной инвалидацией, либо документированный bootstrap.
+2. **Разрешены только три формы многослойности:**
+   - личное предпочтение поверх дефолта инстанса: `users.preferences` → `app_settings` → константа реестра (класс U: тема, стиль; зона времени — `auto` означает зону инстанса);
+   - операционная настройка поверх кода: `app_settings` → константа реестра;
+   - bootstrap до готовности БД: `LOG_LEVEL` (env) действует от старта процесса до первого успешного чтения `logging.level` из `app_settings`, затем владельцем становится БД.
+3. **Отсутствие строки в `app_settings` — не ошибка**, а значение из реестра. Поэтому на чистой установке таблица пуста и всё работает.
+4. **Класс D никогда не пересекается с классом A** (единственное исключение — bootstrap `LOG_LEVEL`). Пути, DSN, секреты, лимиты пулов, пути к весам — только окружение и через UI не меняются.
+5. **Клиентское хранилище никогда не источник истины для значения, у которого есть серверный владелец:** `localStorage` — либо кэш быстрой загрузки (ответ сервера безусловно его перезаписывает, ключ личного кэша привязан к `user_id` и удаляется при выходе), либо состояние устройства (класс L). Cookie не используются. Недоступный `localStorage` не ломает приложение.
+6. **Значение без потребителя запрещено:** ключ либо потребляется кодом, либо помечен `reserved` (сейчас — `locale`, слоя локализации нет).
+7. **Разрешение личных значений не зависит от прав.** Чтение и запись своих предпочтений и получение дефолта внешнего вида не требуют ни `tab:*`, ни роли; настройки инстанса требуют права `tab:settings` (переходная схема до пересмотра модели доступа в фазе 11).
+
+## Модель темы и стиля
+
+Порядок: `users.preferences.theme|style` → `app_settings['interface.default_theme'|'interface.default_style']` → константы `light` / `graphite-minimal`.
+
+| Момент | Что происходит |
+|---|---|
+| Логин-экран | синхронно применяется обезличенный кэш `anpr_appearance_instance`, затем `GET /api/public/appearance` (без аутентификации, только два поля) применяется и перезаписывает кэш |
+| Загрузка по токену | синхронно применяется кэш `anpr_appearance_user:<id>` (id берётся из токена только для выбора ключа), затем `/api/me/preferences` подтверждает значение |
+| Пользователь без личного выбора | видит дефолт инстанса; смена дефолта администратором доходит до него после сохранения/перезагрузки |
+| Переключение темы | значение показывается сразу, сохраняется через `PATCH /api/me/preferences`, кэш обновляется только после успеха; при ошибке — откат и уведомление |
+| Выход / вход другого пользователя | все ключи `anpr_appearance_user:*` удаляются; чужой кэш никогда не применяется |
+| Нет `localStorage` | приложение работает, теряется лишь подавление мигания |
+
+Реализация: `app/web/js/appearance-core.js` (логика), `appearance.js` (обвязка браузера); `ui.js` только применяет значения к DOM.
+
+## Модель времени
+
+| Слой | Решение |
+|---|---|
+| Зона ОС контейнера | не влияет ни на что: `TZ=UTC`; `datetime.now()` без зоны и `astimezone()` без аргумента запрещены тестом-инвариантом |
+| Хранение | всегда UTC: `TIMESTAMPTZ`, ISO-8601 со смещением |
+| Зона инстанса | `app_settings['interface.display_timezone']` (IANA, дефолт `UTC`); основной слой отображения |
+| Личная зона | `users.preferences.timezone`; `auto` (по умолчанию) = зона инстанса |
+| Зона браузера | только аварийный резерв, всегда помечается «(зона браузера)» |
+
+`timezone_configured` (есть ли строка в `app_settings`) отличает явно выбранную зону, в том числе `UTC`, от значения по умолчанию: пока зона не выбрана, интерфейс показывает «(по умолчанию)» и предупреждение в настройках. Единственный форматтер на клиенте — `app/web/js/datetime.js` (`Intl.DateTimeFormat`, явные `timeZone` и `ru-RU`); часы топбара показывают серверное время с измеренной поправкой; значения `datetime-local` в фильтрах журнала трактуются в зоне отображения и уходят в API как UTC. Экспорт CSV/ZIP форматируется в зоне отображения, зона указана в заголовках колонок и в имени файла.
+
+## Что делать при добавлении настройки
+
+1. Добавить запись в `config/registry.py` (класс, тип, дефолт, границы или `choices`, `requires_restart`, владелец, описание). Для класса A пользовательские значения пишутся через `SettingsService.update`, читаются через `get`/`get_section`; отдельных аксессоров по секциям нет.
+2. Показать в `PUT /api/settings` (класс A) либо `/api/me/preferences` (класс U); для перечислений добавить домен в `ENUMS` — список для UI отдаёт `GET /api/settings/schema`.
+3. Для класса D — переменная в `EnvConfig` и `.env.example`; читать окружение вне `config/env_settings.py` нельзя.
+4. Добавить строку в таблицы ниже (тест это проверяет) и, если ключ потребляется, убедиться, что потребитель существует.
+
+## Реестр значений
+
+Для каждого ключа таблицы отвечают на семь вопросов: где хранится (класс, раздел), какого типа и с какими допустимыми значениями, какой дефолт, кто может менять, когда вступает в силу, где менять в UI, кто потребляет.
+
+### Класс A — `app_settings`
+
+| Ключ | Тип и допустимые значения | Дефолт | Кто меняет | Когда вступает в силу | Где в UI | Кто потребляет |
+|---|---|---|---|---|---|---|
+| `reconnect.signal_loss.enabled` | bool | `True` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Переподключение | `ChannelProcessor` (`update_reconnect_settings`) |
+| `reconnect.signal_loss.frame_timeout_seconds` | int; 1… | `5` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Переподключение | `ChannelProcessor` (`update_reconnect_settings`) |
+| `reconnect.signal_loss.retry_interval_seconds` | int; 1… | `5` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Переподключение | `ChannelProcessor` (`update_reconnect_settings`) |
+| `reconnect.periodic.enabled` | bool | `False` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Переподключение | `ChannelProcessor` (`update_reconnect_settings`) |
+| `reconnect.periodic.interval_minutes` | int; 1… | `60` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Переподключение | `ChannelProcessor` (`update_reconnect_settings`) |
+| `retention.auto_cleanup_enabled` | bool | `True` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Хранение | `RetentionScheduler`, `DataLifecycleService` |
+| `retention.cleanup_interval_minutes` | int; 1… | `30` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Хранение | `RetentionScheduler`, `DataLifecycleService` |
+| `retention.events_retention_days` | int; 1… | `30` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Хранение | `RetentionScheduler`, `DataLifecycleService` |
+| `retention.media_retention_days` | int; 1… | `14` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Хранение | `RetentionScheduler`, `DataLifecycleService` |
+| `retention.max_screenshots_mb` | int; 256… | `4096` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Хранение | `RetentionScheduler`, `DataLifecycleService` |
+| `logging.level` | str; одно из: ALL, DEBUG, INFO, WARNING, ERROR, CRITICAL | `ALL` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Логи | `LoggingApplier` → `common/logging.py` |
+| `logging.retention_days` | int; 1… | `30` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Логи | `LoggingApplier` → `common/logging.py` |
+| `plates.enabled_countries` | str_list; одно из: RU, UA, BY, KZ | `['RU', 'UA', 'BY', 'KZ']` | `tab:settings` (переходно, до фазы 11) | перезапуск обработчика (автоматически) | Настройки → Номера | пост-обработка номеров в `ChannelProcessor` |
+| `interface.default_theme` | str; одно из: light, dark | `light` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Интерфейс (по умолчанию для всех) | `GET /api/public/appearance`, `config/preferences.resolve` |
+| `interface.default_style` | str; одно из: graphite-minimal, aurora | `graphite-minimal` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Интерфейс (по умолчанию для всех) | `GET /api/public/appearance`, `config/preferences.resolve` |
+| `interface.display_timezone` | str | `UTC` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Время | `GET /api/system/time`, экспорт CSV/ZIP |
+| `interface.default_locale` | str; одно из: ru | `ru` | `tab:settings` (переходно, до фазы 11) | не используется | — (зарезервирован) | нет потребителя |
+| `debug.video_output_enabled` | bool | `True` | superadmin | сразу, без перезапуска | Настройки → Разработка (superadmin) | `DebugRegistry`, `routers/channels.py` |
+| `auth.token_ttl_minutes` | int; 5…43200 | `480` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | Настройки → Безопасность | `POST /api/auth/login` |
+| `auth.login_rate_limit_attempts` | int; 1…100 | `5` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | — | — |
+| `auth.login_rate_limit_window_seconds` | int; 1…86400 | `60` | `tab:settings` (переходно, до фазы 11) | сразу, без перезапуска | — | — |
+| `detection.confidence_threshold` | float; 0.0…1.0 | `0.5` | `tab:settings` (переходно, до фазы 11) | перезапуск обработчика (автоматически) | `PUT /api/settings` (поля в UI нет) | `AnprModelConfig.from_env` |
+
+### Класс U — `users.preferences`
+
+| Ключ | Тип и допустимые значения | Дефолт | Кто меняет | Когда вступает в силу | Где в UI | Кто потребляет |
+|---|---|---|---|---|---|---|
+| `theme` | str; одно из: light, dark | `light` | сам пользователь, права не нужны | сразу, только для этого пользователя | Мои предпочтения, переключатель темы | `/api/me/preferences`, `appearance.js`, `preferences.js` |
+| `style` | str; одно из: graphite-minimal, aurora | `graphite-minimal` | сам пользователь, права не нужны | сразу, только для этого пользователя | Мои предпочтения, переключатель темы | `/api/me/preferences`, `appearance.js`, `preferences.js` |
+| `sidebar_locked` | bool | `False` | сам пользователь, права не нужны | сразу, только для этого пользователя | Мои предпочтения, переключатель темы | `/api/me/preferences`, `appearance.js`, `preferences.js` |
+| `debug_panel_enabled` | bool | `False` | сам пользователь, права не нужны | сразу, только для этого пользователя | Мои предпочтения, переключатель темы | `/api/me/preferences`, `appearance.js`, `preferences.js` |
+| `channel_metrics_visible` | bool | `False` | сам пользователь, права не нужны | сразу, только для этого пользователя | Мои предпочтения, переключатель темы | `/api/me/preferences`, `appearance.js`, `preferences.js` |
+| `timezone` | str | `auto` | сам пользователь, права не нужны | сразу, только для этого пользователя | Мои предпочтения, переключатель темы | `/api/me/preferences`, `appearance.js`, `preferences.js` |
+| `locale` | str; одно из: ru | `ru` | сам пользователь, права не нужны | не используется | — | нет потребителя |
+
+### Класс D — окружение
+
+| Ключ | Тип и допустимые значения | Дефолт | Кто меняет | Когда вступает в силу | Где менять | Кто потребляет |
+|---|---|---|---|---|---|---|
+| `JWT_SECRET_KEY` | str | `anpr-default-secret-change-me` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `auth_utils`, `enforce_secret_policy` |
+| `POSTGRES_DSN` | str | `postgresql://anpr:anpr@postgres:5432/anpr` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `AppContainer`, worker, backup |
+| `POSTGRES_DB` | str | `anpr` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | контейнер `postgres` |
+| `POSTGRES_USER` | str | `anpr` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | контейнер `postgres` |
+| `POSTGRES_PASSWORD` | str | `anpr` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | контейнер `postgres` |
+| `POSTGRES_PORT` | int; 1…65535 | `5432` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `docker-compose.yml` |
+| `HTTP_PORT` | int; 1…65535 | `8080` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `docker-compose.yml` |
+| `CORS_ALLOWED_ORIGINS` | str | `` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `CORSMiddleware` |
+| `OMP_NUM_THREADS` | int; 1… | `2` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `_configure_thread_limits`, PyTorch |
+| `MKL_NUM_THREADS` | int; 1… | `2` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | библиотека MKL |
+| `OPENBLAS_NUM_THREADS` | int; 1… | `2` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | библиотека OpenBLAS |
+| `ANPR_MEDIA_DIR` | str | `data/screenshots` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `ChannelProcessor`, `DataLifecycleService` |
+| `ANPR_LOGS_DIR` | str | `logs` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `common/logging.py` |
+| `ANPR_YOLO_MODEL_PATH` | str | `anpr/models/yolo/best.pt` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `AnprModelConfig` |
+| `ANPR_OCR_MODEL_PATH` | str | `anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `AnprModelConfig` |
+| `ANPR_DEVICE` | str | `cpu` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `AnprModelConfig` |
+| `BOOTSTRAP_SUPERADMIN_PASSWORD` | str | — | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | seed в `UserDatabase` |
+| `LOG_LEVEL` | str; одно из: ALL, DEBUG, INFO, WARNING, ERROR, CRITICAL | `INFO` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `bootstrap_logging` |
+| `POSTGRES_POOL_MIN` | int; 1… | `2` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `database/base.py` |
+| `POSTGRES_POOL_MAX` | int; 1… | `10` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `database/base.py` |
+| `ANPR_IO_POOL_WORKERS` | int; 1… | `2` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `ChannelProcessor` |
+| `APP_ENV` | str | `` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `enforce_secret_policy` |
+| `TZ` | str | `UTC` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `Dockerfile` |
+
+### Класс L — `localStorage`
+
+| Ключ | Тип и допустимые значения | Дефолт | Кто меняет | Когда вступает в силу | Где в UI | Кто потребляет |
+|---|---|---|---|---|---|---|
+| `anpr_token` | строка | — | браузер (неявно) | сразу | — (автоматически) | `api.js` |
+| `anpr_channel_order` | строка | — | браузер (неявно) | сразу | — (автоматически) | `video-grid.js` |
+| `anpr_grid_size` | строка | — | браузер (неявно) | сразу | — (автоматически) | `video-grid.js` (`restoreGridSize`, `saveGridSize`) |
+| `anpr_appearance_instance` | строка | — | браузер (неявно) | сразу | — (автоматически) | `appearance.js` |
+| `anpr_appearance_user:<user_id>` | строка | — | браузер (неявно) | сразу | — (автоматически) | `appearance.js` |

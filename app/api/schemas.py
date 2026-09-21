@@ -5,7 +5,36 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from config.settings_schema import SUPPORTED_CONTROLLER_TYPES, normalize_hotkey
+from config.registry import (
+    CHANNEL_PLATE_SIZES,
+    CHANNEL_SPECS,
+    ENUMS,
+    REGISTRY as CONFIG_REGISTRY,
+    choices_pattern,
+)
+from config.settings_schema import (
+    SUPPORTED_CONTROLLER_TYPES,
+    normalize_hotkey,
+)
+
+
+
+def _channel_field(name: str, **overrides: Any) -> Any:
+    """Field for a channel setting: default, bounds and choices from the registry."""
+    spec = CHANNEL_SPECS[name]
+    kwargs: Dict[str, Any] = {"default": spec.default}
+    if spec.minimum is not None:
+        kwargs["ge"] = spec.minimum
+    if spec.maximum is not None:
+        kwargs["le"] = spec.maximum
+    if spec.choices is not None:
+        kwargs["pattern"] = choices_pattern(spec.choices)
+    kwargs.update(overrides)
+    return Field(**kwargs)
+
+
+def _plate_size(name: str) -> "PlateSizePayload":
+    return PlateSizePayload(**CHANNEL_PLATE_SIZES[name])
 
 
 # ── Auth schemas ──────────────────────────────────────────────────────
@@ -95,7 +124,7 @@ class ChannelPayload(BaseModel):
 
 
 class ROIRegionPayload(BaseModel):
-    unit: str = Field(default="percent", pattern="^(px|percent)$")
+    unit: str = Field(default="percent", pattern=choices_pattern(ENUMS["roi_unit"]))
     points: List[Dict[str, float]] = Field(default_factory=list)
 
 
@@ -109,31 +138,31 @@ class ChannelConfigPayload(BaseModel):
     source: str
     enabled: Optional[bool] = None
     controller_id: Optional[int] = None
-    controller_relay: int = Field(default=0, ge=0, le=1)
-    controller_direction_filter: str = Field(default="both", pattern="^(approaching|receding|both)$")
-    list_filter_mode: str = Field(default="all", pattern="^(all|whitelist|custom)$")
+    controller_relay: int = _channel_field("controller_relay")
+    controller_direction_filter: str = _channel_field("controller_direction_filter")
+    list_filter_mode: str = _channel_field("list_filter_mode")
     list_filter_list_ids: List[int] = Field(default_factory=list)
-    detection_mode: str = Field(default="motion", pattern="^(always|motion)$")
-    motion_threshold: float = Field(default=0.01, ge=0.0, le=1.0)
-    motion_frame_stride: int = Field(default=1, ge=1, le=30)
-    motion_activation_frames: int = Field(default=3, ge=1, le=120)
-    motion_release_frames: int = Field(default=6, ge=1, le=120)
-    detector_frame_stride: int = Field(default=2, ge=1, le=30)
-    adaptive_stride_enabled: bool = True
-    size_filter_enabled: bool = True
-    min_plate_size: PlateSizePayload = Field(default_factory=lambda: PlateSizePayload(width=80, height=20))
-    max_plate_size: PlateSizePayload = Field(default_factory=lambda: PlateSizePayload(width=600, height=240))
-    best_shots: int = Field(default=3, ge=1, le=20)
-    cooldown_seconds: int = Field(default=5, ge=0, le=300)
-    ocr_min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
-    max_ocr_attempts: int = Field(default=15, ge=1, le=200)
-    max_consecutive_empty_ocr: int = Field(default=5, ge=0, le=200)
-    preview_fps_limit: int = Field(default=5, ge=1, le=30)
+    detection_mode: str = _channel_field("detection_mode")
+    motion_threshold: float = _channel_field("motion_threshold")
+    motion_frame_stride: int = _channel_field("motion_frame_stride")
+    motion_activation_frames: int = _channel_field("motion_activation_frames")
+    motion_release_frames: int = _channel_field("motion_release_frames")
+    detector_frame_stride: int = _channel_field("detector_frame_stride")
+    adaptive_stride_enabled: bool = _channel_field("adaptive_stride_enabled")
+    size_filter_enabled: bool = _channel_field("size_filter_enabled")
+    min_plate_size: PlateSizePayload = Field(default_factory=lambda: _plate_size("min_plate_size"))
+    max_plate_size: PlateSizePayload = Field(default_factory=lambda: _plate_size("max_plate_size"))
+    best_shots: int = _channel_field("best_shots")
+    cooldown_seconds: int = _channel_field("cooldown_seconds")
+    ocr_min_confidence: float = _channel_field("ocr_min_confidence")
+    max_ocr_attempts: int = _channel_field("max_ocr_attempts")
+    max_consecutive_empty_ocr: int = _channel_field("max_consecutive_empty_ocr")
+    preview_fps_limit: int = _channel_field("preview_fps_limit")
     roi_enabled: bool = True
     region: ROIRegionPayload = Field(default_factory=ROIRegionPayload)
     zone_before_id: Optional[int] = None
     zone_after_id: Optional[int] = None
-    zone_channel_type: Optional[str] = Field(default=None, pattern="^(entry|exit)$")
+    zone_channel_type: Optional[str] = Field(default=None, pattern=choices_pattern(ENUMS["zone_channel_type"]))
 
     @field_validator("controller_id")
     @classmethod
@@ -160,19 +189,19 @@ class ChannelConfigPayload(BaseModel):
 
 
 class ChannelOCRPayload(BaseModel):
-    best_shots: int = Field(ge=1, le=20)
-    cooldown_seconds: int = Field(ge=0, le=300)
-    ocr_min_confidence: float = Field(ge=0.0, le=1.0)
-    max_ocr_attempts: int = Field(default=15, ge=1, le=200)
-    max_consecutive_empty_ocr: int = Field(default=5, ge=0, le=200)
+    best_shots: int = _channel_field("best_shots")
+    cooldown_seconds: int = _channel_field("cooldown_seconds")
+    ocr_min_confidence: float = _channel_field("ocr_min_confidence")
+    max_ocr_attempts: int = _channel_field("max_ocr_attempts")
+    max_consecutive_empty_ocr: int = _channel_field("max_consecutive_empty_ocr")
 
 
 class ChannelFilterPayload(BaseModel):
-    list_filter_mode: str = Field(pattern="^(all|whitelist|custom)$")
+    list_filter_mode: str = _channel_field("list_filter_mode")
     list_filter_list_ids: List[int] = []
     size_filter_enabled: bool = True
-    min_plate_size: Dict[str, int] = {"width": 80, "height": 20}
-    max_plate_size: Dict[str, int] = {"width": 600, "height": 240}
+    min_plate_size: Dict[str, int] = Field(default_factory=lambda: dict(CHANNEL_PLATE_SIZES["min_plate_size"]))
+    max_plate_size: Dict[str, int] = Field(default_factory=lambda: dict(CHANNEL_PLATE_SIZES["max_plate_size"]))
 
 
 def _normalize_hotkey(value: str) -> str:
@@ -180,7 +209,7 @@ def _normalize_hotkey(value: str) -> str:
 
 
 class RelayPayload(BaseModel):
-    mode: str = Field(default="pulse", pattern="^(pulse|pulse_timer)$")
+    mode: str = Field(default="pulse", pattern=choices_pattern(ENUMS["relay_mode"]))
     timer_seconds: int = Field(default=1, ge=1, le=3600)
     hotkey: str = ""
 
@@ -257,14 +286,6 @@ class BulkImportPayload(BaseModel):
     clients: List[ClientPayload]
 
 
-class RetentionPolicyPayload(BaseModel):
-    auto_cleanup_enabled: bool = True
-    cleanup_interval_minutes: int = 30
-    events_retention_days: int = 30
-    media_retention_days: int = 14
-    max_screenshots_mb: int = 4096
-
-
 class ExportBundlePayload(BaseModel):
     start: Optional[str] = None
     end: Optional[str] = None
@@ -289,7 +310,6 @@ class ReconnectPayload(BaseModel):
 
 
 class StoragePayload(BaseModel):
-    postgres_dsn: Optional[str] = None
     auto_cleanup_enabled: bool
     cleanup_interval_minutes: int = Field(ge=1, le=1440)
     events_retention_days: int = Field(ge=1, le=3650)
@@ -298,18 +318,22 @@ class StoragePayload(BaseModel):
 
 
 class InterfacePayload(BaseModel):
-    style: str = Field(default="graphite-minimal", pattern="^(graphite-minimal|aurora)$")
-    theme: str = Field(default="light", pattern="^(light|dark)$")
-    sidebar_locked: bool = False
+    """Instance-level appearance (app_settings). `None` = leave unchanged.
+
+    The instance defaults apply to users without a personal preference; the
+    personal look is saved through `/api/me/preferences`.
+    """
+
+    default_style: Optional[str] = Field(default=None, pattern=choices_pattern(ENUMS["style"]))
+    default_theme: Optional[str] = Field(default=None, pattern=choices_pattern(ENUMS["theme"]))
+    #: IANA zone of the instance. `None` keeps an untouched setting distinguishable
+    #: from an explicit choice of UTC.
+    display_timezone: Optional[str] = None
 
 
 class LoggingPayload(BaseModel):
-    level: str = Field(pattern="^(ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
+    level: str = Field(pattern=choices_pattern(ENUMS["log_level"]))
     retention_days: int = Field(ge=1, le=3650)
-
-
-class TimePayload(BaseModel):
-    timezone: str
 
 
 class PlatesPayload(BaseModel):
@@ -317,19 +341,34 @@ class PlatesPayload(BaseModel):
 
 
 class DebugPayload(BaseModel):
-    show_channel_metrics: bool = True
-    log_panel_enabled: bool = False
-    disable_video_output: bool = False
+    """Server-side debug flag (app_settings `debug.video_output_enabled`)."""
+
+    video_output_enabled: bool = True
+
+
+class AuthPayload(BaseModel):
+    """Authentication policy (app_settings `auth.*`); bounds come from the registry.
+    `None` = leave unchanged."""
+
+    token_ttl_minutes: Optional[int] = Field(default=None, ge=CONFIG_REGISTRY["auth.token_ttl_minutes"].minimum, le=CONFIG_REGISTRY["auth.token_ttl_minutes"].maximum)
+    login_rate_limit_attempts: Optional[int] = Field(default=None, ge=CONFIG_REGISTRY["auth.login_rate_limit_attempts"].minimum, le=CONFIG_REGISTRY["auth.login_rate_limit_attempts"].maximum)
+    login_rate_limit_window_seconds: Optional[int] = Field(default=None, ge=CONFIG_REGISTRY["auth.login_rate_limit_window_seconds"].minimum, le=CONFIG_REGISTRY["auth.login_rate_limit_window_seconds"].maximum)
+
+
+class DetectionPayload(BaseModel):
+    confidence_threshold: float = Field(ge=0.0, le=1.0)
 
 
 class GlobalSettingsPayload(BaseModel):
     reconnect: ReconnectPayload
     storage: StoragePayload
     logging: LoggingPayload
-    interface: InterfacePayload
-    time: TimePayload
+    interface: InterfacePayload = InterfacePayload()
     plates: PlatesPayload
-    debug: DebugPayload
+    #: Optional: `None` leaves the stored threshold unchanged (needs a processor restart).
+    detection: Optional[DetectionPayload] = None
+    auth: AuthPayload = AuthPayload()
+    debug: Optional[DebugPayload] = None
 
 
 class ZonePayload(BaseModel):

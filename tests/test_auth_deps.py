@@ -85,7 +85,7 @@ class TestExtractToken:
 class TestGetCurrentUser:
     def test_valid_jwt_returns_user(self):
         user = _make_user(user_id=5)
-        token = create_access_token(user_id=5, role="superadmin")
+        token = create_access_token(user_id=5, role="superadmin", exp_minutes=480)
         request = _make_request(auth_header=f"Bearer {token}")
         container = _make_container(user=user)
 
@@ -120,7 +120,7 @@ class TestGetCurrentUser:
         assert exc_info.value.status_code == 401
 
     def test_user_not_found_raises_401(self):
-        token = create_access_token(user_id=999, role="superadmin")
+        token = create_access_token(user_id=999, role="superadmin", exp_minutes=480)
         request = _make_request(auth_header=f"Bearer {token}")
         container = _make_container(user=None)
 
@@ -130,7 +130,7 @@ class TestGetCurrentUser:
 
     def test_inactive_user_raises_401(self):
         user = _make_user(user_id=3, is_active=False)
-        token = create_access_token(user_id=3, role="superadmin")
+        token = create_access_token(user_id=3, role="superadmin", exp_minutes=480)
         request = _make_request(auth_header=f"Bearer {token}")
         container = _make_container(user=user)
 
@@ -141,7 +141,7 @@ class TestGetCurrentUser:
 
     def test_query_param_token(self):
         user = _make_user(user_id=10)
-        token = create_access_token(user_id=10, role="operator")
+        token = create_access_token(user_id=10, role="operator", exp_minutes=480)
         request = _make_request(query_params={"token": token})
         container = _make_container(user=user)
 

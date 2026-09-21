@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 
 from common.logging import get_logger
+from config.env_settings import DEFAULT_IO_POOL_WORKERS, DEFAULT_MEDIA_DIR
 from controllers.service import ControllerAutomationService
 from runtime.debug import DebugRegistry
 
@@ -71,7 +72,8 @@ class ChannelProcessor:
         self,
         event_callback,
         plate_settings: Dict[str, Any] | None = None,
-        storage_settings: Dict[str, Any] | None = None,
+        media_dir: str = DEFAULT_MEDIA_DIR,
+        io_pool_workers: int = DEFAULT_IO_POOL_WORKERS,
         reconnect_settings: Dict[str, Any] | None = None,
         debug_registry: DebugRegistry | None = None,
         model_config: "AnprModelConfig | None" = None,
@@ -82,7 +84,6 @@ class ChannelProcessor:
         self._event_callback = event_callback
         self._contexts: Dict[int, ChannelContext] = {}
         self._lock = threading.RLock()
-        self._storage_settings = storage_settings or {}
         if events_db is None:
             raise ValueError("events_db is required for ChannelProcessor")
         self._events_db = events_db
@@ -94,9 +95,8 @@ class ChannelProcessor:
         self._reconnect_config_cache: Optional[ReconnectConfig] = None
         self._debug_registry = debug_registry or DebugRegistry()
         self._model_config = model_config
-        self._io_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="screenshot-io")
-        screenshots_dir = str(self._storage_settings.get("screenshots_dir", "data/screenshots")).strip() or "data/screenshots"
-        self._screenshots_dir = Path(screenshots_dir).expanduser().resolve()
+        self._io_pool = ThreadPoolExecutor(max_workers=max(1, int(io_pool_workers)), thread_name_prefix="screenshot-io")
+        self._screenshots_dir = Path(media_dir).expanduser().resolve()
         self._screenshots_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
@@ -746,7 +746,7 @@ class ChannelProcessor:
                         postprocess_ms=postprocess_ms,
                     )
 
-                if not self._debug_registry.get_settings().disable_video_output:
+                if self._debug_registry.get_settings().video_output_enabled:
                     now_mono = time.monotonic()
                     if self._has_preview_consumers(channel_id) and (now_mono - last_preview_encode_ts) >= preview_encode_interval:
                         ok_enc, preview_buf = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])

@@ -76,6 +76,45 @@ def require_permission(permission: str):
     return _check
 
 
+# ── Access levels (roadmap 4.11) ─────────────────────────────────────────
+#
+# Endpoints declare the level of protection the DATA needs, not a tab or a
+# permission key. `require_access` is the single adapter from a level to the
+# mechanism that enforces it today; the access model itself is redesigned in
+# roadmap phase 11, and only this mapping will change then.
+#
+#   public         no authentication (login screen material only)
+#   authenticated  any signed-in user
+#   self           any signed-in user, restricted to their own record by the handler
+#   admin-config   instance configuration      (transitional: `tab:settings`)
+#   admin-data     export, backup, retention   (transitional: `tab:settings`)
+#   admin-users    user management             (transitional: `tab:settings`)
+#   admin-debug    developer tooling           (superadmin)
+#   admin-devices  controllers                 (superadmin)
+
+ACCESS_LEVELS = (
+    "public", "authenticated", "self",
+    "admin-config", "admin-data", "admin-users", "admin-debug", "admin-devices",
+)
+
+
+def _no_authentication() -> None:
+    return None
+
+
+def require_access(level: str):
+    """Return the FastAPI dependency that enforces access *level*."""
+    if level == "public":
+        return _no_authentication
+    if level in ("authenticated", "self"):
+        return get_current_user
+    if level in ("admin-config", "admin-data", "admin-users"):
+        return require_permission("tab:settings")
+    if level in ("admin-debug", "admin-devices"):
+        return require_role("superadmin")
+    raise ValueError(f"Неизвестный уровень доступа {level!r}; допустимо: {', '.join(ACCESS_LEVELS)}")
+
+
 def _extract_token(request: Request) -> str | None:
     """Extract JWT from Authorization header or query parameter."""
     auth_header = request.headers.get("Authorization", "")

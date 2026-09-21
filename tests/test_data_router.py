@@ -12,6 +12,7 @@ import json
 from unittest.mock import MagicMock
 from zipfile import ZIP_DEFLATED, ZipFile
 
+import pytest
 from fastapi import HTTPException
 
 from app.api.routers import data as data_router
@@ -28,10 +29,12 @@ from app.api.routers.data import (
     restore_database,
     restore_settings_endpoint,
     run_retention,
-    update_data_policy,
 )
-from app.api.schemas import ExportBundlePayload, RetentionPolicyPayload
+from app.api.schemas import ExportBundlePayload
+from config.settings_service import SettingsService
+from tests.test_settings_service import _Clock, _Repo
 from app.shared.backup_service import get_restore_lock
+from config.settings_service import SettingsService
 from database.errors import StorageUnavailableError
 
 
@@ -91,7 +94,7 @@ def _valid_db_backup_bytes(tables=("users",)) -> bytes:
 
 def _make_container(dsn="postgresql://user:pass@localhost/anpr", channels=None):
     container = MagicMock()
-    container.settings.get_storage_settings.return_value = {"postgres_dsn": dsn}
+    container._resolve_dsn.return_value = dsn
     container.channel_db.list_channels.return_value = channels or []
     container.storage_503.side_effect = (
         lambda exc: HTTPException(status_code=503, detail=f"PostgreSQL недоступен: {exc}")
@@ -141,20 +144,38 @@ class TestReadUploadCapped:
 # ---------------------------------------------------------------------------
 
 class TestDataPolicy:
-    def test_get_policy_returns_storage_dict(self):
+    def _with_service(self, stored=None):
         container = _make_container()
-        container.lifecycle.policy.to_storage.return_value = {"events_retention_days": 30}
-        result = get_data_policy(container=container, _user={})
-        assert result == {"events_retention_days": 30}
+        container.settings_service = SettingsService(_Repo(stored), clock=_Clock())
+        return container
 
-    def test_update_policy_saves_and_returns_policy(self):
-        container = _make_container()
-        payload = RetentionPolicyPayload(events_retention_days=45)
-        result = update_data_policy(payload=payload, container=container, _user={})
-        assert result["status"] == "updated"
-        assert result["policy"]["events_retention_days"] == 45
-        container.lifecycle.update_policy.assert_called_once()
-        container.settings.save_storage_settings.assert_called_once()
+    def test_get_policy_reads_retention_from_app_settings(self):
+        container = self._with_service({"retention.events_retention_days": 45})
+        result = get_data_policy(container=container, _user={})
+        assert result["events_retention_days"] == 45
+        assert result["media_retention_days"] == 14
+
+    def test_get_policy_defaults_when_the_table_is_empty(self):
+        result = get_data_policy(container=self._with_service(), _user={})
+        assert result == {
+            "auto_cleanup_enabled": True,
+            "cleanup_interval_minutes": 30,
+            "events_retention_days": 30,
+            "media_retention_days": 14,
+            "max_screenshots_mb": 4096,
+        }
+
+    def test_put_endpoint_is_gone(self):
+        """Task 4.2 / P8: retention has one write path, `PUT /api/settings`."""
+        assert not hasattr(data_router, "update_data_policy")
+        paths = {(route.path, tuple(sorted(route.methods))) for route in data_router.router.routes}
+        assert ("/api/data/policy", ("GET",)) in paths
+        assert not [p for p in paths if p[0] == "/api/data/policy" and "PUT" in p[1]]
+
+    def test_router_has_no_direct_settings_writer(self):
+        import inspect
+
+        assert "save_storage_settings" not in inspect.getsource(data_router)
 
 
 # ---------------------------------------------------------------------------
@@ -164,12 +185,16 @@ class TestDataPolicy:
 class TestRunRetention:
     def test_success_merges_result(self):
         container = _make_container()
+        container.settings_service = SettingsService(_Repo({"retention.media_retention_days": 3}), clock=_Clock())
         container.lifecycle.run_retention_cycle.return_value = {"deleted_events": 3}
         result = run_retention(container=container, _user={})
         assert result == {"status": "ok", "deleted_events": 3}
+        # The manual run uses the policy currently stored in app_settings.
+        assert container.lifecycle.update_policy.call_args.args[0].media_retention_days == 3
 
     def test_storage_unavailable_returns_error_status(self):
         container = _make_container()
+        container.settings_service = SettingsService(_Repo(), clock=_Clock())
         container.lifecycle.run_retention_cycle.side_effect = StorageUnavailableError("down")
         result = run_retention(container=container, _user={})
         assert result["status"] == "error"
@@ -369,34 +394,52 @@ class TestRestoreDatabase:
 # ---------------------------------------------------------------------------
 
 class TestBackupSettings:
-    def test_missing_file_returns_404(self):
+    def _with_service(self, stored=None):
         container = _make_container()
-        container.settings._repo.path = "/nonexistent/path/settings.yaml"
-        response = backup_settings(container=container, _user={})
-        assert response.status_code == 404
+        container.settings_service = SettingsService(_Repo(stored), clock=_Clock())
+        return container
 
-    def test_success_returns_yaml(self, monkeypatch):
-        monkeypatch.setattr(
-            data_router, "export_settings",
-            lambda path: ("settings.yaml", b"auto_cleanup_enabled: true\n"),
-        )
-        container = _make_container()
+    def test_returns_a_json_dump_of_the_explicit_overrides(self):
+        container = self._with_service({"retention.events_retention_days": 90})
         response = backup_settings(container=container, _user={})
-        assert response.media_type == "application/x-yaml"
-        assert response.body == b"auto_cleanup_enabled: true\n"
+        assert response.media_type == "application/json"
+        document = json.loads(response.body)
+        assert document["format"] == "anpr-app-settings" and document["version"] == 1
+        assert document["settings"] == {"retention.events_retention_days": 90}
+        assert 'filename="settings_' in response.headers["content-disposition"]
+        assert response.headers["content-disposition"].endswith('.json"')
+
+    def test_database_outage_is_503(self):
+        container = self._with_service()
+        container.settings_service._repository.down = True  # the database was never readable
+        with pytest.raises(HTTPException) as exc:
+            backup_settings(container=container, _user={})
+        assert exc.value.status_code == 503
 
 
 # ---------------------------------------------------------------------------
 # POST /api/data/backup/settings/restore  (finding #2)
 # ---------------------------------------------------------------------------
 
+def _dump(settings, **overrides):
+    document = {"format": "anpr-app-settings", "version": 1, "exported_at": "2026-09-21T00:00:00+00:00", "settings": settings}
+    document.update(overrides)
+    return json.dumps(document).encode("utf-8")
+
+
 class TestRestoreSettings:
+    def _with_service(self, stored=None):
+        container = _make_container()
+        container.settings_service = SettingsService(_Repo(stored), clock=_Clock())
+        container.get_reconnect_settings.return_value = {}
+        return container
+
     def test_rejects_when_restore_already_running(self):
         lock = get_restore_lock()
         assert lock.acquire("held_by_other_test")
         try:
-            container = _make_container()
-            file = _FakeUploadFile(b"auto_cleanup_enabled: true\n")
+            container = self._with_service()
+            file = _FakeUploadFile(_dump({}))
             result = _run(restore_settings_endpoint(file=file, container=container, _user={}))
             assert result.status_code == 409
         finally:
@@ -404,47 +447,61 @@ class TestRestoreSettings:
 
     def test_rejects_oversized_upload_with_413(self, monkeypatch):
         monkeypatch.setattr(data_router, "MAX_SETTINGS_BACKUP_SIZE", 10)
-        container = _make_container()
+        container = self._with_service()
         file = _FakeUploadFile(b"x" * 11)
         result = _run(restore_settings_endpoint(file=file, container=container, _user={}))
         assert result.status_code == 413
 
-    def test_rejects_invalid_yaml(self):
-        container = _make_container()
-        file = _FakeUploadFile(b"not: [valid: yaml: at: all")
-        result = _run(restore_settings_endpoint(file=file, container=container, _user={}))
+    def test_rejects_malformed_json(self):
+        container = self._with_service()
+        result = _run(restore_settings_endpoint(file=_FakeUploadFile(b"{not json"), container=container, _user={}))
         assert result.status_code == 422
 
-    def test_rejects_non_dict_yaml(self):
-        container = _make_container()
-        file = _FakeUploadFile(b"- just\n- a\n- list\n")
-        result = _run(restore_settings_endpoint(file=file, container=container, _user={}))
+    def test_rejects_the_old_yaml_format(self):
+        container = self._with_service()
+        result = _run(restore_settings_endpoint(file=_FakeUploadFile(b"auto_cleanup_enabled: true\nreconnect:\n  periodic: {}\n"), container=container, _user={}))
         assert result.status_code == 422
+        assert container.settings_service._repository.writes == []
 
-    def test_success_normalizes_reloads_and_restarts(self):
-        container = _make_container()
-        file = _FakeUploadFile(b"{}\n")  # empty dict — normalizer fills in every default section
+    def test_rejects_a_dump_with_unknown_keys_and_writes_nothing(self):
+        container = self._with_service({"logging.level": "INFO"})
+        result = _run(restore_settings_endpoint(file=_FakeUploadFile(_dump({"logging.level": "DEBUG", "nope.key": 1})), container=container, _user={}))
+        assert result.status_code == 422 and "nope.key" in _body(result)["detail"]
+        assert container.settings_service._repository.replaced == []
 
-        result = _run(restore_settings_endpoint(file=file, container=container, _user={}))
-
+    def test_success_applies_the_dump_and_restarts_only_when_needed(self):
+        container = self._with_service()
+        file = _FakeUploadFile(_dump({"logging.level": "WARNING"}))
+        result = _run(restore_settings_endpoint(file=file, container=container, _user={"id": 4}))
         assert result.status_code == 200
-        assert _body(result)["status"] == "ok"
-        container.settings._repo.save.assert_called_once()
-        container.settings.refresh.assert_called_once()
-        container.refresh_storage_clients.assert_called_once()
+        body = _body(result)
+        assert body["status"] == "ok" and body["restored_keys"] == 1 and body["requires_restart"] == []
+        assert container.settings_service._repository.replaced == [({"logging.level": "WARNING"}, 4)]
+        container.logging_applier.apply.assert_called_once()
+        container.processor.update_reconnect_settings.assert_called_once()
+        container.restart_processor_for_settings.assert_not_called()
+
+    def test_a_restart_key_triggers_exactly_one_processor_restart(self):
+        container = self._with_service()
+        result = _run(restore_settings_endpoint(file=_FakeUploadFile(_dump({"plates.enabled_countries": ["RU"]})), container=container, _user={}))
+        assert _body(result)["requires_restart"] == ["plates.enabled_countries"]
         container.restart_processor_for_settings.assert_called_once()
 
-    def test_lock_released_when_normalization_raises(self, monkeypatch):
-        # Distinct from the validate_settings_yaml checks above: this fails
-        # one step later, inside restore_settings() itself.
-        def _raise(repo, normalizer_class, data):
+    def test_the_file_system_is_not_touched(self, monkeypatch):
+        def boom(*a, **k):
+            raise AssertionError("settings restore must not use the file system")
+
+        monkeypatch.setattr("builtins.open", boom)
+        container = self._with_service()
+        result = _run(restore_settings_endpoint(file=_FakeUploadFile(_dump({"logging.level": "ERROR"})), container=container, _user={}))
+        assert result.status_code == 200
+
+    def test_lock_released_when_restore_raises(self, monkeypatch):
+        def _raise(service, data, updated_by=None):
             raise ValueError("bad settings")
         monkeypatch.setattr(data_router, "restore_settings", _raise)
-        container = _make_container()
-        file = _FakeUploadFile(b"{}\n")
-
-        result = _run(restore_settings_endpoint(file=file, container=container, _user={}))
-
+        container = self._with_service()
+        result = _run(restore_settings_endpoint(file=_FakeUploadFile(_dump({})), container=container, _user={}))
         assert result.status_code == 422
         assert get_restore_lock().acquire("post_failure_probe")
         get_restore_lock().release()

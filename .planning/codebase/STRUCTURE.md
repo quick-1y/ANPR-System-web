@@ -73,11 +73,12 @@ ANPR-System-web/
 │   ├── base.py                 # Base adapter interface
 │   └── __init__.py
 ├── config/                     # Configuration management and validation
-│   ├── settings_manager.py     # SettingsManager: load/validate/cache settings
-│   ├── settings_normalizer.py  # Apply defaults and normalize field values
-│   ├── settings_repository.py  # Database access for persistent settings
-│   ├── settings_schema.py      # Schema definitions and validators
-│   ├── settings.yaml           # YAML configuration file
+│   ├── env_settings.py         # EnvConfig: the only place that reads the environment
+│   ├── registry.py             # Configuration registry (classes, defaults, bounds)
+│   ├── settings_service.py     # SettingsService over app_settings (revision-invalidated cache)
+│   ├── preferences.py          # Personal preferences (class U)
+│   ├── logging_setup.py        # Bootstrap logging from env, then from app_settings
+│   ├── settings_schema.py      # Code defaults and normalizers
 │   └── __init__.py
 ├── common/                     # Shared utilities
 │   ├── logging.py              # Logger setup, context injection
@@ -182,12 +183,12 @@ ANPR-System-web/
 
 **config/:**
 - Purpose: Settings management with schema validation
-- Contains: YAML loading, field normalization, database persistence
+- Contains: environment layer, configuration registry, settings service, preferences, code defaults
 - Key files:
-  - `settings_manager.py`: `SettingsManager` singleton (load YAML, merge DB settings)
-  - `settings_schema.py`: Schema and validator definitions
-  - `settings_normalizer.py`: Apply defaults and validate field types
-  - `settings.yaml`: YAML config with all tunable parameters
+  - `registry.py`: every setting with class, type, default, bounds, restart flag
+  - `settings_service.py`: read/write of operational settings (`app_settings`)
+  - `env_settings.py`: deployment values from the environment
+  - `settings_schema.py`: code defaults and normalizers (channels, controllers, ROI, hotkeys)
 
 **controllers/:**
 - Purpose: External relay controller integration for gate automation
@@ -210,11 +211,11 @@ ANPR-System-web/
 
 **Entry Points:**
 - `app/api/main.py`: FastAPI application initialization (lines 1-70)
-- `config/settings_manager.py`: Configuration loading on startup
+- `config/env_settings.py`: environment loading and secret checks on startup
 
 **Configuration:**
-- `config/settings.yaml`: Main configuration file (YAML format)
-- `config/settings_schema.py`: Schema definitions (Pydantic-like)
+- `config/registry.py`: configuration registry (no settings file exists)
+- `config/settings_schema.py`: code defaults and normalizers
 - `pyproject.toml`: Dependencies and project metadata
 
 **Core Logic:**

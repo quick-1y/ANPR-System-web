@@ -2,6 +2,9 @@
 import { api, getToken, showLoginOverlay } from './api.js';
 import { showToast, openModal, closeModal } from './ui.js';
 import { loadGlobalSettings } from './settings.js';
+import { appearance } from './appearance.js';
+import { syncServerTime } from './datetime.js';
+import { fetchServerTime } from './server-time.js';
 
 let _backupBusy = false;
 
@@ -41,7 +44,7 @@ async function downloadBackup(url, fallbackName) {
 
 export function initBackupBindings() {
   document.getElementById("dbBackupBtn").onclick = () => downloadBackup("/api/data/backup/database", "anpr_db_backup.zip");
-  document.getElementById("settingsBackupBtn").onclick = () => downloadBackup("/api/data/backup/settings", "settings.yaml");
+  document.getElementById("settingsBackupBtn").onclick = () => downloadBackup("/api/data/backup/settings", "settings.json");
 
   // DB restore
   let _pendingDbFile = null;
@@ -94,7 +97,7 @@ export function initBackupBindings() {
       const resp = await fetch(api("/api/data/backup/settings/restore"), { method: "POST", headers, body: formData });
       if (resp.status === 401) { showLoginOverlay(() => location.reload()); return; }
       const result = await resp.json();
-      if (resp.ok && result.status === "ok") { showToast("Настройки восстановлены и применены", 3000); await loadGlobalSettings(); }
+      if (resp.ok && result.status === "ok") { showToast("Настройки восстановлены и применены", 3000); await loadGlobalSettings(); await appearance.refreshUser(); await appearance.refreshInstance(); await syncServerTime(fetchServerTime); }
       else { showToast(result.detail || "Ошибка восстановления настроек", 5000); }
     } catch (err) { showToast("Ошибка: " + err.message, 5000); }
     finally { _pendingSettingsFile = null; confirmBtn.disabled = false; setBackupBusy(false); }

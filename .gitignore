@@ -1,0 +1,14 @@
+# Секреты и локальное окружение (шаблон — .env.example)
+.env
+
+# IDE
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Runtime-артефакты (скриншоты, экспорт, логи)
+data/
+logs/
