@@ -78,7 +78,7 @@
 
 **Configuration Files:**
 - `.env` / `.env.example` - Environment variables (stored in `.env.example` for safe default values)
-- There is no settings file. Operational settings live in PostgreSQL (`app_settings`, declared in `config/registry.py`, served by `SettingsService`); personal preferences in `users.preferences`; deployment values (paths, DSN, secrets, device, pool limits) in environment variables read only by `config/env_settings.py`. See `docs/technical/configuration.md`.
+- There is no settings file. Operational settings live in PostgreSQL (`app_settings`, declared in `config/registry.py`, served by `SettingsService`); personal UI state (theme, style, sidebar pin, debug panel, channel metrics) has no server owner and lives entirely in the browser's `localStorage`; deployment values (paths, DSN, secrets, device, pool limits) in environment variables read only by `config/env_settings.py`. See `docs/technical/configuration.md`.
 
 **Build Configuration:**
 - `Dockerfile` - Multi-stage Docker image definition
