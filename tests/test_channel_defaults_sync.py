@@ -107,12 +107,9 @@ def test_registry_bounds_are_enforced_by_pydantic():
         ChannelConfigPayload(name="c", source="s", detection_mode="bogus")
 
 
-def test_personal_debug_flags_default_to_off_and_are_not_server_settings():
+def test_personal_debug_flags_are_not_server_settings():
     from app.api.schemas import DebugPayload
-    from config.registry import get_spec
 
-    assert get_spec("channel_metrics_visible").default is False
-    assert get_spec("debug_panel_enabled").default is False
     assert set(DebugPayload.model_fields) == {"video_output_enabled"}
     assert set(DebugSettings.from_dict({}).to_dict()) == {"video_output_enabled"}
     assert DebugSettings().video_output_enabled is True

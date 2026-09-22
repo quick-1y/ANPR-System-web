@@ -135,7 +135,7 @@ If documentation and code disagree, prefer code and mention the mismatch in your
 - Put channel orchestration in `runtime/`, not in `app/api/` routers.
 - Keep `config/` independent from domain logic (known coupling with `controllers/` for `SUPPORTED_CONTROLLER_TYPES` exists as tech debt).
 - New API endpoints must go through `AppContainer` for dependency access.
-- New operational settings are declared once in `config/registry.py` (class, type, default, bounds, `requires_restart`, owner) and read/written only through `SettingsService`. Deployment values go to `config/env_settings.py` (`EnvConfig`) and `.env.example`; personal preferences are class U keys in the registry.
+- New operational settings are declared once in `config/registry.py` (class, type, default, bounds, `requires_restart`, owner) and read/written only through `SettingsService`. Deployment values go to `config/env_settings.py` (`EnvConfig`) and `.env.example`; personal UI state (theme, style, sidebar pin, debug panel, channel metrics) has no server owner and lives entirely in the browser's `localStorage` (class L) — see `app/web/js/appearance.js` and `app/web/js/device-prefs.js`.
 - There is no settings file: do not add one, and do not read the environment outside `config/env_settings.py`.
 
 ---
@@ -173,7 +173,6 @@ ANPR-System-v0.8_web/
 │   ├── env_settings.py         # EnvConfig, the only place that reads the environment
 │   ├── registry.py             # Configuration registry (classes, defaults, bounds)
 │   ├── settings_service.py     # SettingsService over app_settings
-│   ├── preferences.py          # Personal preferences (class U)
 │   └── settings_schema.py      # Code defaults, normalizers
 ├── controllers/                # Physical gate/barrier controller integration
 │   ├── adapters/               # Controller protocol adapters
@@ -222,7 +221,7 @@ ANPR-System-v0.8_web/
 - New ANPR processing steps: add module in `anpr/preprocessing/` or `anpr/postprocessing/`, wire into `ANPRPipeline`.
 - New country plate formats: add YAML config in `anpr/countries/`.
 - New controller adapters: create in `controllers/adapters/`, register in `controllers/registry.py`.
-- New settings: add a spec to `config/registry.py` (and its default source if it is not a literal), expose it through `PUT /api/settings` or `/api/me/preferences`; no per-section accessors.
+- New settings: add a spec to `config/registry.py` (and its default source if it is not a literal), expose it through `PUT /api/settings`; no per-section accessors. Personal UI state with no server owner does not go through the registry or any API at all — it is a plain `localStorage` key, documented in the registry's class L section for inventory purposes only (see `app/web/js/appearance.js`/`device-prefs.js` for the pattern).
 - New DB tables: add DDL to `database/postgres/schema.sql`, create repository in `database/`.
 - New tests: add `test_*.py` in `tests/`.
 - New shared utilities: add to `common/`.
@@ -471,7 +470,7 @@ Rules to follow in the meantime:
 - **Do not copy these patterns into new code**, and do not add new `require_permission("tab:settings")` call sites — the count is fixed at 18 and is a tracked invariant.
 - **Pick an endpoint's protection from who owns the data**, not from which UI screen calls it. Do not widen an administrative endpoint so a non-administrative feature can read one field from it — add or use the endpoint that owns that field.
 - New endpoints declare an **access level** (`public`, `self`, `admin-config`, `admin-data`, `admin-users`, `admin-debug`, `admin-devices`) through an adapter dependency in `app/api/deps.py`, rather than naming a permission directly. The adapters currently resolve to whatever the existing mechanism does for that area; phase 11 re-points them once. See section 4.11 of the roadmap.
-- **User preferences** (theme, style, sidebar state, timezone, later locale) are level `self` and require **no permission at all** — identity is the authorization. A user with an empty permission set must still be able to change their own theme. This holds regardless of which model phase 11 picks.
+- **A genuinely personal, per-account server value** (not yet any exist — theme, style, sidebar pin, debug panel and channel metrics all moved to device-local `localStorage` with no server owner and no API at all) would be level `self` and require **no permission at all** — identity is the authorization, not a `tab:*` or role check. This holds regardless of which model phase 11 picks.
 
 ### Human Approval Required Before
 

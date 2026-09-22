@@ -320,8 +320,8 @@ class StoragePayload(BaseModel):
 class InterfacePayload(BaseModel):
     """Instance display zone (app_settings). `None` = leave unchanged.
 
-    Theme and style are personal preferences (`/api/me/preferences`) and have
-    no instance-level counterpart.
+    Theme and style are not settings at all: they live in the browser's
+    localStorage (class L, no server owner) — see `app/web/js/appearance.js`.
     """
 
     #: IANA zone of the instance. `None` keeps an untouched setting distinguishable

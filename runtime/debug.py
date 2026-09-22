@@ -13,8 +13,9 @@ from typing import Any, Deque, Dict, List, Optional
 class DebugSettings:
     """Server-side debug switches only.
 
-    Personal display flags (metrics overlay, log panel) are user preferences
-    (`users.preferences`) and have no server effect, so they do not live here.
+    Personal display flags (metrics overlay, log panel) live in the browser's
+    localStorage (class L, no server owner — see `app/web/js/device-prefs.js`)
+    and have no server effect, so they do not live here.
     """
 
     video_output_enabled: bool = True

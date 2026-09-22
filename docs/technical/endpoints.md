@@ -40,14 +40,9 @@
 - `POST /api/auth/logout` — требует токен; фиксирует выход в аудит-лог.
 - Аутентификация только через JWT. Статические API-ключи не поддерживаются.
 
-### Личные предпочтения *(любой аутентифицированный пользователь, права не нужны)*
+### Личные предпочтения
 
-| Метод | Путь | Описание |
-|---|---|---|
-| `GET` | `/api/me/preferences` | Разрешённые значения предпочтений вызывающего: `{preferences: {ключ: {value, source}}, display_timezone}`. `source`: `user` — личное значение; `instance` — администратор явно задал дефолт инстанса; `default` — константа реестра |
-| `PATCH` | `/api/me/preferences` | Частичное обновление своих предпочтений (`theme`, `style`, `sidebar_locked`, `debug_panel_enabled`, `channel_metrics_visible`; личной зоны времени нет). `null` сбрасывает значение к унаследованному. Недопустимое значение и неизвестное поле — `422`; идентификатор пользователя не принимается, чужие предпочтения изменить нельзя |
-
-Предпочтения хранятся в `users.preferences` (JSONB). Колонка попадает в резервную копию БД автоматически, но копия нового формата не восстанавливается в базу старой схемы — без колонки `preferences`.
+Эндпоинта нет. Тема, стиль, закрепление левой панели, debug-панель и метрики каналов — состояние конкретного браузера (`localStorage`, класс L): `anpr_theme`, `anpr_style`, `anpr_sidebar_locked`, `anpr_debug_panel_enabled`, `anpr_channel_metrics_visible` (`app/web/js/appearance.js`, `app/web/js/device-prefs.js`). Ни сервера, ни `users.preferences`, ни `/api/me/preferences` больше нет — решение и причина в [`docs/roadmap/configuration-architecture.md`](../roadmap/configuration-architecture.md).
 
 ### Users *(требует tab:settings)*
 
@@ -144,7 +139,7 @@
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/api/settings/schema` | Допустимые значения перечислений и список зон отображения (любой аутентифицированный пользователь) |
-| `GET` | `/api/settings` | Глобальные настройки; секция `interface` содержит только `display_timezone` (зона, выбранная администратором, либо `null`) и `timezone_configured`; тема и стиль в настройках инстанса отсутствуют — они личные; `reconnect`, `storage` (retention), `logging`, `plates`, `detection`, `auth` (срок токена и лимиты попыток входа) и (для superadmin) `debug.video_output_enabled` читаются из `app_settings`. Личные флаги (`sidebar_locked`, метрики, панель логов) в этот ответ не входят — они в `/api/me/preferences` |
+| `GET` | `/api/settings` | Глобальные настройки; секция `interface` содержит только `display_timezone` (зона, выбранная администратором, либо `null`) и `timezone_configured`; тема и стиль в настройках инстанса отсутствуют — они состояние браузера (localStorage); `reconnect`, `storage` (retention), `logging`, `plates`, `detection`, `auth` (срок токена и лимиты попыток входа) и (для superadmin) `debug.video_output_enabled` читаются из `app_settings`. Личные флаги (`sidebar_locked`, метрики, панель логов) в этот ответ не входят — они состояние браузера (localStorage, см. раздел «Личные предпочтения») |
 | `PUT` | `/api/settings` | Обновить настройки; ключи класса A пишутся в `app_settings` одной транзакцией. Ответ содержит `requires_restart` — ключи, изменение которых потребовало перезапуска обработчика (сейчас `plates.enabled_countries`; перезапуск выполняется один раз). В секции `interface` поле `display_timezone` необязательно (`null` = не менять; зона передаётся только при явном выборе) |
 | `GET` | `/api/countries` | Список доступных конфигураций стран |
 
@@ -176,7 +171,7 @@
 | Метод | Путь | Описание |
 |---|---|---|
 | `GET` | `/api/debug/settings` | Серверный debug-флаг `video_output_enabled` |
-| `PUT` | `/api/debug/settings` | Изменить `video_output_enabled` (пишется в `app_settings`, применяется без перезапуска). Личные debug-флаги (`debug_panel_enabled`, `channel_metrics_visible`) сюда не относятся — они в `/api/me/preferences` |
+| `PUT` | `/api/debug/settings` | Изменить `video_output_enabled` (пишется в `app_settings`, применяется без перезапуска). Личные debug-флаги (`debug_panel_enabled`, `channel_metrics_visible`) сюда не относятся — они состояние браузера (localStorage, см. раздел «Личные предпочтения») |
 | `GET` | `/api/debug/channels` | Метрики + debug state каналов |
 | `GET` | `/api/debug/state` | Агрегированный debug state (overlay: bbox, OCR, direction) |
 | `GET` | `/api/debug/logs` | Последние логи (snapshot) |

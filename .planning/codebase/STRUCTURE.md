@@ -76,7 +76,6 @@ ANPR-System-web/
 │   ├── env_settings.py         # EnvConfig: the only place that reads the environment
 │   ├── registry.py             # Configuration registry (classes, defaults, bounds)
 │   ├── settings_service.py     # SettingsService over app_settings (revision-invalidated cache)
-│   ├── preferences.py          # Personal preferences (class U)
 │   ├── logging_setup.py        # Bootstrap logging from env, then from app_settings
 │   ├── settings_schema.py      # Code defaults and normalizers
 │   └── __init__.py
@@ -183,7 +182,7 @@ ANPR-System-web/
 
 **config/:**
 - Purpose: Settings management with schema validation
-- Contains: environment layer, configuration registry, settings service, preferences, code defaults
+- Contains: environment layer, configuration registry, settings service, code defaults. Personal UI state (theme, style, sidebar pin, debug panel, channel metrics) is not here — it lives entirely in browser `localStorage`, see `app/web/js/appearance.js` and `app/web/js/device-prefs.js`
 - Key files:
   - `registry.py`: every setting with class, type, default, bounds, restart flag
   - `settings_service.py`: read/write of operational settings (`app_settings`)

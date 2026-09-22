@@ -1,21 +1,20 @@
-"""Personal appearance, sidebar pin and client-time default in the interface.
+"""Personal appearance/UI preferences and client-time default in the
+interface.
 
-Theme and style exist only as personal preferences: there is no instance
-default, no public appearance endpoint and no Settings control for them. The
-sidebar pin is a control inside the sidebar; the timezone is configured only in
-Settings → Time (there is no personal timezone)."""
+Theme, style, sidebar pin, the debug panel flag and the channel-metrics flag
+are all device-local (localStorage, class L): there is no server owner, no
+`users.preferences`, no `/api/me/preferences` and no per-user identity for
+any of them (see the module docstring of `config/registry.py`). The timezone
+is configured only in Settings -> Time (there is no personal timezone)."""
 from __future__ import annotations
 
 from html.parser import HTMLParser
 from pathlib import Path
 
-from app.api.routers import preferences as prefs_router
 from app.api.routers import settings as settings_router
 from app.api.routers.system import system_time
 from app.api.schemas import InterfacePayload
-from config.preferences import known_keys, resolve
-from config.registry import ConfigClass, REGISTRY, specs
-from tests.test_preferences import NO_PERMISSIONS, OTHER_USER, _patch, _with_user_db
+from config.registry import REGISTRY, ConfigClass
 from tests.test_reconnect_settings import USER, _container, _payload
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -62,10 +61,25 @@ def _inside(container_id: str) -> set[str]:
     return {ident for ident, parents in _tree().ancestors.items() if container_id in parents}
 
 
-class TestPersonalAppearanceOnly:
-    def test_there_is_no_instance_default_anywhere_in_the_registry(self):
-        assert not [k for k in REGISTRY if k.startswith("interface.default_") and k != "interface.default_locale"]
-        assert {"theme", "style"} <= {s.key for s in specs(ConfigClass.U)}
+class TestPersonalUIPreferencesAreDeviceLocal:
+    """Theme, style, sidebar_locked, debug_panel_enabled and
+    channel_metrics_visible all moved from `users.preferences` (the former
+    class U) to plain localStorage keys, unscoped and shared by whoever is
+    using that browser — the same rule grid layout already followed."""
+
+    def test_the_personal_settings_class_is_gone_from_the_registry(self):
+        assert not hasattr(ConfigClass, "U")
+        assert {"theme", "style", "sidebar_locked", "debug_panel_enabled", "channel_metrics_visible"}.isdisjoint(REGISTRY)
+
+    def test_the_localstorage_successors_are_registered_as_class_l(self):
+        for key in ("anpr_theme", "anpr_style", "anpr_sidebar_locked", "anpr_debug_panel_enabled", "anpr_channel_metrics_visible"):
+            assert REGISTRY[key].cls is ConfigClass.L
+
+    def test_the_preferences_api_is_gone(self):
+        assert not (ROOT / "app" / "api" / "routers" / "preferences.py").exists()
+        assert not (ROOT / "config" / "preferences.py").exists()
+        assert "preferences_router" not in (ROOT / "app" / "api" / "main.py").read_text(encoding="utf-8")
+        assert "api/me/preferences" not in _all_js()
 
     def test_the_public_appearance_endpoint_is_gone(self):
         assert not (ROOT / "app" / "api" / "routers" / "public.py").exists()
@@ -78,44 +92,38 @@ class TestPersonalAppearanceOnly:
         body = settings_router.get_global_settings(container=container, current_user=USER)
         assert set(body["interface"]) == {"display_timezone", "timezone_configured"}
 
-    def test_the_theme_belongs_to_the_user_not_to_the_instance(self):
-        container = _with_user_db()
-        _patch(container, NO_PERMISSIONS, theme="dark", style="aurora")
-        mine = prefs_router.get_my_preferences(container=container, user=NO_PERMISSIONS)["preferences"]
-        theirs = prefs_router.get_my_preferences(container=container, user=OTHER_USER)["preferences"]
-        assert (mine["theme"], mine["style"]) == ({"value": "dark", "source": "user"}, {"value": "aurora", "source": "user"})
-        assert (theirs["theme"], theirs["style"]) == ({"value": "light", "source": "default"}, {"value": "graphite-minimal", "source": "default"})
-
-    def test_a_user_without_a_choice_gets_the_code_default_and_a_reset_returns_to_it(self):
-        container = _with_user_db()
-        assert resolve({})["theme"] == {"value": "light", "source": "default"}
-        assert _patch(container, NO_PERMISSIONS, theme="dark")["preferences"]["theme"]["source"] == "user"
-        assert _patch(container, NO_PERMISSIONS, theme=None)["preferences"]["theme"] == {"value": "light", "source": "default"}
-
     def test_the_settings_page_has_no_theme_or_style_controls(self):
         assert 'id="g_theme"' not in (WEB / "index.html").read_text(encoding="utf-8")
         assert 'id="g_style"' not in (WEB / "index.html").read_text(encoding="utf-8")
         settings = _js("settings.js")
-        assert "default_theme" not in settings and "default_style" not in settings and "appearance" not in settings
+        assert "default_theme" not in settings and "default_style" not in settings
 
-    def test_appearance_is_resolved_before_the_settings_page_and_without_a_public_call(self):
+    def test_appearance_boots_synchronously_before_auth_and_never_touches_the_network(self):
         app = _js("app.js")
-        assert app.index("appearance.signIn(") < app.index('hasPermission("tab:settings")')
-        assert "fetchPublic" not in _js("appearance-core.js") + _js("appearance.js")
-        assert "anpr_appearance_instance" not in _all_js()
+        assert app.index("appearance.boot()") < app.index('hasPermission("tab:settings")')
+        core = _js("appearance-core.js")
+        wiring = _js("appearance.js")
+        assert "fetch(" not in core and "fetch(" not in wiring
+        assert "async" not in core  # boot()/set() are plain synchronous functions
 
 
 class TestMyPreferencesContents:
     def test_the_modal_holds_only_theme_and_style(self):
         controls = {i for i in _inside("prefsModal") if i.startswith("p_")}
-        assert controls == {"p_theme", "p_style", "p_theme_source", "p_style_source"}
+        assert controls == {"p_theme", "p_style"}
 
     def test_no_timezone_or_pin_control_is_left_in_it(self):
         assert not {"p_timezone", "p_sidebar_locked"} & _inside("prefsModal")
 
-    def test_the_preference_api_has_no_timezone(self):
-        assert "timezone" not in known_keys()
-        assert set(known_keys()) == {"theme", "style", "sidebar_locked", "debug_panel_enabled", "channel_metrics_visible"}
+    def test_theme_and_style_options_are_plain_static_html_not_schema_driven(self):
+        # Unlike the schema-bound selects, theme/style are no longer validated
+        # server-side (see registry.py), so their options live directly in the
+        # page, the same way the grid-size select's do.
+        html = (WEB / "index.html").read_text(encoding="utf-8")
+        assert 'id="p_theme"' in html and "<option" in html.split('id="p_theme"')[1].split("</select>")[0]
+        assert 'id="p_style"' in html and "<option" in html.split('id="p_style"')[1].split("</select>")[0]
+        schema = _js("schema.js")
+        assert '"theme"' not in schema and '"style"' not in schema
 
     def test_the_personal_controls_live_outside_the_settings_tab(self):
         tree = _tree()
@@ -123,9 +131,8 @@ class TestMyPreferencesContents:
             assert control in tree.ancestors, control
             assert "tab-settings" not in tree.ancestors[control], control
 
-    def test_no_personal_timezone_code_remains(self):
-        assert "p_timezone" not in _all_js() and "personalZone" not in _all_js()
-        assert "effective_timezone" not in (ROOT / "config" / "preferences.py").read_text(encoding="utf-8")
+    def test_the_debug_and_metrics_checkboxes_live_inside_the_settings_tab(self):
+        assert {"d_metrics", "d_log"} <= _inside("tab-settings")
 
 
 class TestSidebarPin:
@@ -133,22 +140,18 @@ class TestSidebarPin:
         assert "leftRail" in _tree().ancestors["railPinBtn"]
         assert 'aria-pressed="false"' in (WEB / "index.html").read_text(encoding="utf-8")
 
-    def test_it_toggles_the_same_personal_preference_and_the_same_rail_behaviour(self):
-        prefs = _js("preferences.js")
+    def test_it_toggles_the_same_device_preference_and_the_same_rail_behaviour(self):
+        prefs = _js("device-prefs.js")
         block = prefs[prefs.index("export function bindSidebarPin"):]
-        assert 'savePreference("sidebar_locked", wanted)' in block and "afterChange(wanted)" in block
+        assert 'setPreference("sidebar_locked", wanted)' in block and "afterChange(wanted)" in block
         app = _js("app.js")
         assert "bindSidebarPin((pinned) => applySidebarLocked(pinned))" in app and "syncSidebarPin()" in app
         assert "if (sidebarLocked) return;" in _js("ui.js")  # a pinned rail does not expand on hover
 
-    def test_a_failed_save_leaves_the_pin_unchanged(self):
-        prefs = _js("preferences.js")
-        block = prefs[prefs.index("export function bindSidebarPin"):]
-        assert block.index("catch") < block.index("syncSidebarPin()")
-
-    def test_the_old_checkbox_preference_control_is_gone(self):
+    def test_the_old_server_backed_control_is_gone(self):
         assert "g_sidebar_locked" not in (WEB / "index.html").read_text(encoding="utf-8") + _all_js()
-        assert '"p_sidebar_locked"' not in _js("preferences.js")
+        assert '"p_sidebar_locked"' not in _js("device-prefs.js")
+        assert "savePreference" not in _all_js()  # the async server-save helper no longer exists
 
 
 class TestClientTimeDefault:

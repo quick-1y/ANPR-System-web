@@ -52,10 +52,9 @@ class TestCompleteness:
     def test_removed_keys_are_not_also_registered(self):
         assert not [key for key in REMOVED if key in REGISTRY]
 
-    def test_every_class_a_and_u_key_has_a_default(self):
-        for cls in (ConfigClass.A, ConfigClass.U):
-            for spec in specs(cls):
-                assert spec.default is not None, spec.key
+    def test_every_class_a_key_has_a_default(self):
+        for spec in specs(ConfigClass.A):
+            assert spec.default is not None, spec.key
 
     def test_every_entry_has_a_description_and_a_known_class(self):
         for spec in REGISTRY.values():
@@ -66,7 +65,7 @@ class TestCompleteness:
 class TestReservedKeys:
     def test_reserved_keys_are_exactly_the_locale_keys(self):
         reserved = sorted(spec.key for spec in REGISTRY.values() if spec.reserved)
-        assert reserved == ["interface.default_locale", "locale"]
+        assert reserved == ["interface.default_locale"]
 
     def test_every_reserved_key_states_its_reason(self):
         for spec in REGISTRY.values():
@@ -94,9 +93,6 @@ class TestResolvedDefaults:
 
     def test_display_timezone_default_is_static_utc(self):
         assert get_spec("interface.display_timezone").default == "UTC"
-
-    def test_channel_metrics_are_hidden_by_default(self):
-        assert get_spec("channel_metrics_visible").default is False
 
     def test_retention_defaults_are_unchanged(self):
         retention = {k: v for k, v in defaults(ConfigClass.A).items() if k.startswith("retention.")}
@@ -138,7 +134,7 @@ class TestValidation:
 
     def test_value_outside_choices_is_rejected(self):
         with pytest.raises(SettingValidationError):
-            get_spec("theme").validate("purple")
+            get_spec("logging.level").validate("purple")
 
     def test_value_below_minimum_is_rejected(self):
         with pytest.raises(SettingValidationError):
@@ -237,7 +233,7 @@ class TestArchitectureInvariants:
     def test_every_registry_key_has_class_type_default_and_description(self):
         for spec in REGISTRY.values():
             assert isinstance(spec.cls, ConfigClass) and spec.type and spec.description.strip(), spec.key
-            if spec.cls in (ConfigClass.A, ConfigClass.U):
+            if spec.cls is ConfigClass.A:
                 assert spec.default is not None, f"{spec.key}: class {spec.cls.value} needs a registry default"
 
     # (c) .env.example covers class D
@@ -267,8 +263,8 @@ class TestArchitectureInvariants:
             for second in classes[i + 1:]:
                 assert not (by_class[first] & by_class[second]), (first, second)
         assert not (set(REMOVED) & set(REGISTRY)), "a key cannot be both removed and current"
-        assert all("." in k for k in by_class[ConfigClass.A]) and not any("." in k for k in by_class[ConfigClass.U])
-        assert not (by_class[ConfigClass.D] & (by_class[ConfigClass.A] | by_class[ConfigClass.U]))
+        assert all("." in k for k in by_class[ConfigClass.A])
+        assert not (by_class[ConfigClass.D] & by_class[ConfigClass.A])
 
     # (f) a class A key is consumed or reserved
     def test_every_class_a_key_has_a_consumer_or_is_reserved(self):
@@ -297,7 +293,7 @@ class TestArchitectureInvariants:
         assert not naive_clock_reads("from datetime import datetime, timezone\ndatetime.now(timezone.utc)")
 
     # (h) localStorage only in the modules that own device or cache state
-    LOCAL_STORAGE_OWNERS = {"api.js", "appearance.js", "appearance-core.js", "video-grid.js"}
+    LOCAL_STORAGE_OWNERS = {"api.js", "appearance.js", "appearance-core.js", "video-grid.js", "device-prefs.js"}
 
     def test_local_storage_is_confined_to_its_owner_modules(self):
         offenders = [p.name for p in (_ROOT / "app" / "web" / "js").glob("*.js") if p.name not in self.LOCAL_STORAGE_OWNERS and local_storage_uses(p.read_text(encoding="utf-8"))]
@@ -328,10 +324,9 @@ class TestArchitectureInvariants:
     def test_new_endpoints_use_the_adapter_not_tab_settings(self):
         import inspect
 
-        from app.api.routers import preferences, settings, system
+        from app.api.routers import settings, system
 
-        for function in (preferences.get_my_preferences, preferences.patch_my_preferences,
-                         system.system_time, settings.get_settings_schema):
+        for function in (system.system_time, settings.get_settings_schema):
             source = inspect.getsource(function)
             assert "require_access(" in source, function.__name__
             assert "tab:settings" not in source and "require_permission(" not in source, function.__name__

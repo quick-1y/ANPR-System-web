@@ -95,7 +95,6 @@
 | `config/env_settings.py` | Класс D: `EnvConfig`, единственная точка чтения окружения, проверки секретов и файлов весов |
 | `config/registry.py` | Реестр конфигурации: классы, типы, дефолты, границы, домены перечислений |
 | `config/settings_service.py` | `SettingsService`: чтение и запись класса A (`app_settings`) с кэшем по ревизии |
-| `config/preferences.py` | Личные предпочтения (класс U): валидация патча и разрешение значений |
 | `config/logging_setup.py` | Bootstrap логирования из env и переключение на настройки из БД |
 | `config/settings_schema.py` | Код-дефолты и нормализаторы (каналы, контроллеры, ROI, hotkey) |
 

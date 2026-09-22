@@ -1272,14 +1272,20 @@
           <button class="modal-close" id="prefsModalClose">✕</button>
         </div>
         <div class="modal-body">
-          <p class="s-note">Тема и стиль действуют только для вашей учётной записи на любом рабочем месте.</p>
+          <p class="s-note">Тема и стиль хранятся только в этом браузере и не переносятся на другое рабочее место.</p>
           <div class="s-row">
-            <div class="s-row-label"><div class="s-row-name">Тема</div><div class="s-note" id="p_theme_source"></div></div>
-            <select class="input input--md s-input input--select" id="p_theme"></select>
+            <div class="s-row-label"><div class="s-row-name">Тема</div></div>
+            <select class="input input--md s-input input--select" id="p_theme">
+              <option value="light">Светлая</option>
+              <option value="dark">Тёмная</option>
+            </select>
           </div>
           <div class="s-row">
-            <div class="s-row-label"><div class="s-row-name">Стиль</div><div class="s-note" id="p_style_source"></div></div>
-            <select class="input input--md s-input input--select" id="p_style"></select>
+            <div class="s-row-label"><div class="s-row-name">Стиль</div></div>
+            <select class="input input--md s-input input--select" id="p_style">
+              <option value="graphite-minimal">Graphite Minimal</option>
+              <option value="aurora">Aurora</option>
+            </select>
           </div>
         </div>
       </div>

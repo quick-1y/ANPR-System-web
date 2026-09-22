@@ -1,15 +1,16 @@
 // Settings schema: allowed enum values come from GET /api/settings/schema
 // (config/registry.py is the single owner). <select> elements listed in
-// BINDINGS are filled from it, so a new theme, style or log level needs a
+// BINDINGS are filled from it, so a new log level or detection mode needs a
 // change in the registry only; the RU labels below are presentation.
+// Theme and style are not here: they moved device-local (appearance.js,
+// class L) and the registry no longer validates them, so their <select>
+// options are plain static HTML (app/web/index.html, #p_theme/#p_style).
 import { api, jfetch } from './api.js';
 
 let schema = null;
 
 // [select element id, registry enum name]
 const BINDINGS = [
-  ["p_style", "style"],
-  ["p_theme", "theme"],
   ["g_log_level", "log_level"],
   ["c_detection_mode", "detection_mode"],
   ["c_controller_direction_filter", "controller_direction_filter"],
@@ -21,8 +22,6 @@ const BINDINGS = [
 ];
 
 const LABELS = {
-  theme: { light: "Светлая", dark: "Тёмная" },
-  style: { "graphite-minimal": "Graphite Minimal", aurora: "Aurora" },
   controller_direction_filter: { both: "Оба направления", approaching: "Приближение", receding: "Удаление" },
   list_filter_mode: { all: "Все", whitelist: "Белые списки", custom: "Свои списки" },
   zone_channel_type: { entry: "Въезд", exit: "Выезд" },

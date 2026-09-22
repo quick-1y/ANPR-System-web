@@ -1,6 +1,6 @@
 // Application entry point — initialization, DOM bindings, timers
 import { eventSource, debugLogSource, overlayRefreshTimer, eventFeedRenderFrame, eventFeedRenderScheduled, setEventFeedRenderScheduled, setEventFeedRenderFrame } from './state.js';
-import { api, getToken, setToken, isTokenExpired, getTokenUserId, getCurrentUser, showLoginOverlay, logoutRequest } from './api.js';
+import { api, getToken, setToken, isTokenExpired, getCurrentUser, showLoginOverlay, logoutRequest } from './api.js';
 import { switchTab, switchSettings, updateTopbarTitle, updateTopbarDateTime, updateZoneLabels, val, setVal, openModal, closeModal, applySidebarLocked, initSidebarHover, applyTabVisibility, showToast, getCurrentTheme } from './ui.js';
 import { refreshChannels, renderVideoGrid, scheduleVideoGridLayout, setupVideoGridLayoutGuards, setupVideoGridDragDrop, setupVisionCanvas, setupPlateSizeInputListeners, switchChannelSettingsTab, syncChannelConfigVisibility, syncControllerConfigVisibility, fillChannelFilter, syncOverlayPolling, refreshOverlayStates, hotkeyMap, hotkeyFromEvent, isEditingTarget, triggerHotkey, updateRelayTimerState, updateChannelControllerBindingState, updateCustomListsVisibility, selectedChannelId, refreshPreviewSnapshot, defaultROIPointsForCanvas, drawPreview, renderROIPointsList, roiPoints, resetPlateSizeBoxes, resetROIPoints, saveChannel, createChannel, _doCreateChannel, deleteChannel, _doDeleteChannel, defaultPlateSizeOverlay, updateChannelLastPlate, clearExpandMode, updateZoneChannelTypeState } from './channels.js';
 import { renderEventFeed, scheduleEventFeedRender, setupEventFeedLayoutGuards, hydrateChannelLastPlates, loadEventFeedHistory, closeEventModal, pushEvent } from './events.js';
@@ -13,12 +13,12 @@ import { restoreGridSize, saveGridSize } from './video-grid.js';
 import { appearance } from './appearance.js';
 import { onZoneChange, startServerTimeSync, syncServerTime } from './datetime.js';
 import { fetchServerTime } from './server-time.js';
-import { loadPreferences, syncPreferenceControls, bindPreferenceControls, syncSidebarPin, bindSidebarPin } from './preferences.js';
+import { getPreference, syncPreferenceControls, bindPreferenceControls, syncSidebarPin, bindSidebarPin } from './device-prefs.js';
 import { loadControllers, createController, _doCreateController, deleteController, _doDeleteController, saveController, testController } from './controllers.js';
 import { applyDebugPanelVisibility, loadDebugLogHistory, setupDebugLogStream, setupStream } from './debug.js';
 import { initHelpSystem } from './help.js';
 import { initBackupBindings } from './backup.js';
-import { state, setCurrentUser, hasPermission, getPreference } from './state.js';
+import { state, setCurrentUser, hasPermission } from './state.js';
 import { initUsersPane } from './users.js';
 import { loadZones, initZonesTab } from './zones.js';
 import { initSystemPolling, refreshSystemResources, checkServerHealth } from './system.js';
@@ -234,15 +234,15 @@ document.getElementById("ctrlR1Mode").onchange = () => updateRelayTimerState(1);
 document.getElementById("c_controller_id").onchange = updateChannelControllerBindingState;
 document.getElementById("c_list_filter_mode").onchange = updateCustomListsVisibility;
 document.getElementById("saveDebugBtn").onclick = saveGeneral;
-// Personal look: available to everyone, whatever tabs they can see. The change
-// is saved on the server (users.preferences); the screen reverts if that fails.
+// Personal look: available to everyone, whatever tabs they can see. Device-
+// local only (class L) — no server round trip, nothing to revert.
 document.getElementById("themeToggleBtn").onclick = () => {
-  appearance.setPersonal({ theme: getCurrentTheme() === "light" ? "dark" : "light" });
+  appearance.set({ theme: getCurrentTheme() === "light" ? "dark" : "light" });
 };
-document.getElementById("prefsBtn").onclick = () => { syncPreferenceControls(); openModal("prefsModal"); };
+document.getElementById("prefsBtn").onclick = () => openModal("prefsModal");
 document.getElementById("prefsModalClose").onclick = () => closeModal("prefsModal");
-document.getElementById("p_theme").onchange = (e) => appearance.setPersonal({ theme: e.target.value }).then(syncPreferenceControls);
-document.getElementById("p_style").onchange = (e) => appearance.setPersonal({ style: e.target.value }).then(syncPreferenceControls);
+document.getElementById("p_theme").onchange = (e) => appearance.set({ theme: e.target.value });
+document.getElementById("p_style").onchange = (e) => appearance.set({ style: e.target.value });
 document.getElementById("plateSizeResetBtn").onclick = resetPlateSizeBoxes;
 document.getElementById("roiRefreshBtn").onclick = refreshPreviewSnapshot;
 document.getElementById("roiClearBtn").onclick = resetROIPoints;
@@ -308,10 +308,10 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
 (async function init() {
   const apiBaseEl = document.getElementById("apiBase");
   if (apiBaseEl) apiBaseEl.value = window.location.origin;
-  // Look before anything else: the token's user cache (if any), else the code
-  // defaults. The server then confirms and overwrites the cache.
-  appearance.boot(getTokenUserId());
-  restoreGridSize();   // device state (class L): this screen's grid size
+  // Device-local UI state (class L): applies before anything else, whether
+  // or not the user ends up authenticated.
+  appearance.boot();
+  restoreGridSize();   // this screen's grid size
   await _inlineThemeableIcons();
 
   const startLoginFlow = () => {
@@ -326,7 +326,6 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
   const token = getToken();
   if (!token || isTokenExpired()) {
     setToken(null);
-    appearance.signOut();
     startLoginFlow();
     return;
   }
@@ -337,21 +336,15 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
   } catch (_e) {
     // Token expired or invalid — clear it and re-authenticate
     setToken(null);
-    appearance.signOut();
     startLoginFlow();
     return;
   }
   _applyUserUI(currentUser);
   startServerTimeSync(fetchServerTime);
-  // Personal preferences apply to every user, whatever their permissions.
-  try {
-    await appearance.signIn(currentUser.id);   // loads preferences, applies + caches the look
-    syncPreferenceControls();
-    syncSidebarPin();
-    applySidebarLocked(Boolean(getPreference("sidebar_locked")));
-  } catch (_e) {
-    showToast("Не удалось загрузить личные настройки", 4000);
-  }
+  // Personal UI preferences (device-local, class L): nothing here can fail.
+  syncPreferenceControls();
+  syncSidebarPin();
+  applySidebarLocked(getPreference("sidebar_locked"));
   bindSidebarPin((pinned) => applySidebarLocked(pinned));
   bindPreferenceControls((key) => {
     if (key === "channel_metrics_visible") { syncOverlayPolling(); scheduleVideoGridLayout(true); }
@@ -375,7 +368,6 @@ if (_zoneAfterEl) _zoneAfterEl.onchange = updateZoneChannelTypeState;
   if (logoutBtn) logoutBtn.onclick = async () => {
     await logoutRequest();
     setToken(null);
-    appearance.signOut();   // drops every per-user appearance cache key
     location.reload();
   };
 

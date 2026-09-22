@@ -7,7 +7,6 @@ from app.api.auth_utils import hash_password
 
 from common.logging import get_logger
 from config.env_settings import bootstrap_superadmin_password
-from config.preferences import clean_stored, known_keys
 from database.base import PooledDatabase
 
 logger = get_logger(__name__)
@@ -20,18 +19,8 @@ _DEFAULT_SUPERADMIN_LOGIN = "superadmin"
 
 _USER_COLUMNS = (
     "id, login, password, role, permissions, is_active, created_at, updated_at, "
-    "password_changed_at, preferences"
+    "password_changed_at"
 )
-
-
-def _load_preferences(value: Any) -> Dict[str, Any]:
-    if isinstance(value, dict):
-        return value
-    try:
-        loaded = json.loads(value or "{}")
-    except (TypeError, ValueError):
-        return {}
-    return loaded if isinstance(loaded, dict) else {}
 
 
 def _row_to_dict(row: Any) -> Dict[str, Any]:
@@ -46,7 +35,6 @@ def _row_to_dict(row: Any) -> Dict[str, Any]:
         "created_at": row[6],
         "updated_at": row[7],
         "password_changed_at": row[8],
-        "preferences": _load_preferences(row[9]),
     }
 
 
@@ -66,7 +54,6 @@ class UserDatabase(PooledDatabase):
         password_changed_at TIMESTAMPTZ DEFAULT NULL
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON users(login);
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
     """
 
 
@@ -214,49 +201,6 @@ class UserDatabase(PooledDatabase):
                 )
                 conn.commit()
                 return cur.rowcount > 0
-
-    # ── Preferences (class U) ─────────────────────────────────────────
-
-    _MERGE_PREFERENCES = (
-        "UPDATE users SET preferences = jsonb_strip_nulls(preferences || %s::jsonb) "
-        "WHERE id = %s RETURNING preferences"
-    )
-
-    def get_preferences(self, user_id: int) -> Optional[Dict[str, Any]]:
-        """Personal preferences of one user (known keys only), or `None` if no such user."""
-        self._ensure_schema()
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT preferences FROM users WHERE id = %s", (user_id,))
-                row = cur.fetchone()
-                return clean_stored(_load_preferences(row[0])) if row else None
-
-    def merge_preferences(self, user_id: int, patch: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Merge *patch* into the user's preferences in one atomic statement.
-
-        Keys outside the registry are dropped; a `None` value removes the key
-        (the user inherits the instance default again). Other keys are left
-        untouched. Value validation is the caller's job (`config.preferences`).
-        Returns the stored preferences, or `None` if no such user.
-        """
-        self._ensure_schema()
-        allowed = set(known_keys())
-        cleaned = {key: value for key, value in patch.items() if key in allowed}
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                # A single `||` cannot delete keys, so nulls are applied as
-                # explicit removals first: the merge itself stays one statement.
-                removals = [key for key, value in cleaned.items() if value is None]
-                document = json.dumps({key: value for key, value in cleaned.items() if value is not None})
-                if removals:
-                    cur.execute(
-                        "UPDATE users SET preferences = preferences - %s::text[] WHERE id = %s",
-                        (removals, user_id),
-                    )
-                cur.execute(self._MERGE_PREFERENCES, (document, user_id))
-                row = cur.fetchone()
-                conn.commit()
-                return clean_stored(_load_preferences(row[0])) if row else None
 
     def count_active_superadmins(self) -> int:
         self._ensure_schema()

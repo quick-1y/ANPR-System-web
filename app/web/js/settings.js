@@ -1,6 +1,6 @@
 // Global settings panel, country toggles
 import { setDebugSettingsCache, isSuperAdmin, isVideoOutputDisabled } from './state.js';
-import { syncPreferenceControls } from './preferences.js';
+import { syncPreferenceControls } from './device-prefs.js';
 import { api, jfetch } from './api.js';
 import { val, setVal, setChk, showToast } from './ui.js';
 import { syncServerTime } from './datetime.js';
@@ -96,7 +96,8 @@ export async function saveGeneral() {
     auth: { token_ttl_minutes: Number(val("g_token_ttl")), login_rate_limit_attempts: Number(val("g_rl_attempts")), login_rate_limit_window_seconds: Number(val("g_rl_window")) },
   };
   // Server-side debug flag: superadmin only. Personal display flags (sidebar,
-  // metrics overlay, log panel) are saved on toggle via /api/me/preferences.
+  // metrics overlay, log panel) are device-local (class L) and save on
+  // toggle themselves — see device-prefs.js.
   if (isSuperAdmin()) payload.debug = { video_output_enabled: !document.getElementById("d_video_off").checked };
   const updated = await jfetch(api("/api/settings"), "PUT", payload);
   if (isSuperAdmin()) {

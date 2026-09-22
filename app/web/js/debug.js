@@ -1,9 +1,10 @@
 // Debug panels, log stream
-import { debugLogSource, debugLogReconnectTimer, lastDebugLogId, getPreference, setDebugLogSource, setDebugLogReconnectTimer, setLastDebugLogId, streamReconnectTimer, eventSource, setStreamReconnectTimer, setEventSource, isSuperAdmin } from './state.js';
+import { debugLogSource, debugLogReconnectTimer, lastDebugLogId, setDebugLogSource, setDebugLogReconnectTimer, setLastDebugLogId, streamReconnectTimer, eventSource, setStreamReconnectTimer, setEventSource, isSuperAdmin } from './state.js';
 import { api, apiUrl, jfetch } from './api.js';
 import { scheduleVideoGridLayout } from './channels.js';
 import { pushEvent } from './events.js';
 import { formatTime, serverNow } from './datetime.js';
+import { getPreference } from './device-prefs.js';
 
 function mapLogClass(level) {
   const v = String(level || "INFO").toUpperCase();
@@ -34,7 +35,7 @@ export function applyDebugPanelVisibility() {
     return;
   }
   const btn = document.getElementById("toggleDebugPanelBtn");
-  const enabled = Boolean(getPreference("debug_panel_enabled"));
+  const enabled = getPreference("debug_panel_enabled");
   panel.style.display = enabled ? "flex" : "none";
   scheduleVideoGridLayout(true);
   if (!enabled) return;

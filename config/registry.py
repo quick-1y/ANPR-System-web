@@ -2,15 +2,20 @@
 
 Единый машинночитаемый источник для всей инвентаризации roadmap'а
 (`docs/roadmap/configuration-architecture.md`, задача 1.1): для каждого
-значения — класс (D/A/U/C/L), тип, дефолт, домен, требование перезапуска,
+значения — класс (D/A/C/L), тип, дефолт, домен, требование перезапуска,
 владелец и описание.
+
+Личных серверных предпочтений (прежний класс U, `users.preferences`) в
+проекте больше нет: тема, стиль, закрепление панели, debug-панель и метрики
+каналов — исключительно `localStorage` (класс L); см. записи `anpr_theme` и
+соседние ниже. Решение и причина — в `docs/roadmap/configuration-architecture.md`
+(раздел о развороте личных предпочтений).
 
 Дефолты берутся из `config/settings_schema.py` с применением решений 4.10;
 значения каналов (`CHANNEL_SPECS`) реестр дополняет типами и границами, по
 которым строятся pydantic-схемы. Класс C (константы кода) в реестр
-записями не входит — он владеет лишь доменами перечислений (`THEMES`, `STYLES`,
-`COUNTRIES`, `LOG_LEVELS`) и дефолтами ключей классов A и U, которые заданы
-ниже.
+записями не входит — он владеет лишь доменами перечислений (`COUNTRIES`,
+`LOG_LEVELS`) и дефолтами ключей класса A, которые заданы ниже.
 
 Модуль не имеет побочных эффектов при импорте и не обращается к БД.
 """
@@ -43,8 +48,6 @@ from config.settings_schema import (
     retention_defaults,
 )
 
-THEMES = ("light", "dark")
-STYLES = ("graphite-minimal", "aurora")
 #: Коды стран, для которых есть конфигурации в `anpr/countries/`.
 COUNTRIES = ("RU", "UA", "BY", "KZ")
 
@@ -69,10 +72,11 @@ TIMEZONES = (
     "Asia/Tbilisi", "Asia/Yerevan", "Asia/Baku",
 )
 
-#: Все домены для `GET /api/settings/schema` и генерации паттернов.
+#: Все домены для `GET /api/settings/schema` и генерации паттернов. Тема и
+#: стиль сюда не входят: с разворота личных предпочтений в localStorage (см.
+#: модульный docstring) их допустимые значения — забота исключительно
+#: фронтенда (`app/web/js/schema.js`), сервер их не валидирует.
 ENUMS: Dict[str, Tuple[str, ...]] = {
-    "theme": THEMES,
-    "style": STYLES,
     "log_level": tuple(LOG_LEVELS),
     "country": COUNTRIES,
     "detection_mode": DETECTION_MODES,
@@ -117,9 +121,8 @@ _TYPES = ("bool", "int", "float", "str", "str_list")
 class ConfigClass(str, Enum):
     D = "D"  # .env — развёртывание и инфраструктура
     A = "A"  # app_settings — операционные настройки инстанса
-    U = "U"  # users.preferences — личные предпочтения
     C = "C"  # константы кода
-    L = "L"  # localStorage — состояние устройства и кэш
+    L = "L"  # localStorage — состояние устройства и личные UI-предпочтения
 
 
 class SettingValidationError(ValueError):
@@ -218,18 +221,11 @@ def _valid_zone(value: str) -> str:
 _RECONNECT = reconnect_defaults()
 _RETENTION = retention_defaults()
 _LOGGING = logging_defaults()
-#: Код-дефолты личного внешнего вида: глобального дефолта инстанса нет, действуют они.
-DEFAULT_THEME = "light"
-DEFAULT_STYLE = "graphite-minimal"
 _PLATES = plate_defaults()
 
 
 def _a(key: str, type_: str, default: Any, description: str, *, owner: str = "admin-config", **kwargs: Any) -> SettingSpec:
     return SettingSpec(key=key, cls=ConfigClass.A, type=type_, default=default, owner=owner, description=description, **kwargs)
-
-
-def _u(key: str, type_: str, default: Any, description: str, **kwargs: Any) -> SettingSpec:
-    return SettingSpec(key=key, cls=ConfigClass.U, type=type_, default=default, owner="self", description=description, **kwargs)
 
 
 def _d(key: str, type_: str, default: Any, description: str, **kwargs: Any) -> SettingSpec:
@@ -283,18 +279,6 @@ _SPECS: Tuple[SettingSpec, ...] = (
         "Порог уверенности детектора номеров; совпадает с DETECTION_CONFIDENCE_THRESHOLD в anpr/model_config.py",
         minimum=0.0, maximum=1.0, requires_restart=True,
     ),
-    # ── Класс U — users.preferences ──────────────────────────────────────
-    _u("theme", "str", DEFAULT_THEME, "Личная тема; единственный источник — предпочтение пользователя, без дефолта инстанса", choices=THEMES),
-    _u("style", "str", DEFAULT_STYLE, "Личный стиль; единственный источник — предпочтение пользователя, без дефолта инстанса", choices=STYLES),
-    _u("sidebar_locked", "bool", False, "Фиксация левой панели в свёрнутом виде"),
-    _u("debug_panel_enabled", "bool", False, "Показывать панель debug-логов"),
-    # Решение 4.10 №3: дефолт False (debug-функция выключена, пока её не включили).
-    _u("channel_metrics_visible", "bool", False, "Показывать метрики каналов"),
-    _u(
-        "locale", "str", "ru",
-        "Зарезервирован: нет слоя локализации (P15); место выбора языка — рядом с переключателем темы, а не в настройках",
-        choices=("ru",), reserved=True,
-    ),
     # ── Класс D — .env ───────────────────────────────────────────────────
     _d("JWT_SECRET_KEY", "str", DEFAULT_JWT_SECRET_KEY, "Секрет подписи JWT; дефолт пригоден только для разработки, в production запуск с ним запрещён"),
     _d("POSTGRES_DSN", "str", "postgresql://anpr:anpr@postgres:5432/anpr", "DSN подключения приложения к PostgreSQL"),
@@ -323,7 +307,15 @@ _SPECS: Tuple[SettingSpec, ...] = (
     _l("anpr_token", "JWT сессии"),
     _l("anpr_channel_order", "Порядок плиток видеосетки на конкретном экране — серверного владельца нет"),
     _l("anpr_grid_size", "Размер видеосетки на конкретном экране — серверного владельца нет"),
-    _l("anpr_appearance_user:<user_id>", "Кэш личного внешнего вида пользователя; источник — users.preferences; удаляется при выходе"),
+    # Личные UI-предпочтения (прежний класс U) переведены на localStorage:
+    # не переезжают между рабочими местами, не нужны для оператора без учётной
+    # записи в БД (будущий технический суперадмин из .env) — сознательный
+    # разворот прежнего решения, серверного владельца больше нет.
+    _l("anpr_theme", "Тема оформления на конкретном устройстве — серверного владельца нет"),
+    _l("anpr_style", "Визуальный стиль на конкретном устройстве — серверного владельца нет"),
+    _l("anpr_sidebar_locked", "Фиксация левой панели на конкретном устройстве — серверного владельца нет"),
+    _l("anpr_debug_panel_enabled", "Показ панели debug-логов на конкретном устройстве — серверного владельца нет"),
+    _l("anpr_channel_metrics_visible", "Показ метрик каналов на конкретном устройстве — серверного владельца нет"),
 )
 
 REGISTRY: Dict[str, SettingSpec] = {spec.key: spec for spec in _SPECS}
@@ -345,21 +337,28 @@ REMOVED: Dict[str, str] = {
     "storage.events_retention_days": "retention.events_retention_days",
     "storage.media_retention_days": "retention.media_retention_days",
     "storage.max_screenshots_mb": "retention.max_screenshots_mb",
-    "debug.show_channel_metrics": "channel_metrics_visible",
-    "debug.log_panel_enabled": "debug_panel_enabled",
+    "debug.show_channel_metrics": "anpr_channel_metrics_visible (localStorage, класс L)",
+    "debug.log_panel_enabled": "anpr_debug_panel_enabled (localStorage, класс L)",
     "debug.disable_video_output": "debug.video_output_enabled (инвертируется)",
-    "interface.style": "style (только личное предпочтение)",
-    "interface.theme": "theme (только личное предпочтение)",
+    "interface.style": "anpr_style (localStorage, класс L)",
+    "interface.theme": "anpr_theme (localStorage, класс L)",
     "interface.default_style": "удалён: дефолта инстанса нет, действует код-дефолт",
     "interface.default_theme": "удалён: дефолта инстанса нет, действует код-дефолт",
-    "interface.sidebar_locked": "sidebar_locked",
+    "interface.sidebar_locked": "anpr_sidebar_locked (localStorage, класс L)",
     "timezone (личная)": "удалена: остаётся только interface.display_timezone",
     "time.timezone": "interface.display_timezone (домен меняется на IANA)",
     "JWT_EXPIRATION_MINUTES": "auth.token_ttl_minutes",
     "SETTINGS_PATH": "удаляется вместе с settings.yaml (фаза 9)",
     "DEBUG": "удаляется: дублирует класс A (фаза 9)",
-    "anpr_theme": "users.preferences.theme (ключ localStorage удаляется в фазе 7)",
-    "anpr_style": "users.preferences.style (ключ localStorage удаляется в фазе 7)",
+    # Личные предпочтения (users.preferences, класс U) удалены целиком: тема,
+    # стиль, закрепление панели, debug-панель и метрики каналов вернулись на
+    # localStorage (см. модульный docstring) — прямой преемник каждого ключа
+    # ниже сейчас в REGISTRY под соответствующим именем `anpr_*` (класс L).
+    "theme": "anpr_theme",
+    "style": "anpr_style",
+    "sidebar_locked": "anpr_sidebar_locked",
+    "debug_panel_enabled": "anpr_debug_panel_enabled",
+    "channel_metrics_visible": "anpr_channel_metrics_visible",
 }
 
 
@@ -450,10 +449,8 @@ __all__ = [
     "OWNERS",
     "REGISTRY",
     "REMOVED",
-    "STYLES",
     "SettingSpec",
     "SettingValidationError",
-    "THEMES",
     "defaults",
     "get_spec",
     "specs",

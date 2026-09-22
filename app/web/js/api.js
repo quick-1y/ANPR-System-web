@@ -25,20 +25,6 @@ export function isTokenExpired() {
   }
 }
 
-/**
- * User id from the JWT `sub` claim, decoded client-side WITHOUT verification.
- * Used only to pick the appearance cache key before the network answers; the
- * server's answer always overwrites what the cache showed.
- */
-export function getTokenUserId() {
-  try {
-    const sub = JSON.parse(atob(getToken().split(".")[1])).sub;
-    return sub === undefined || sub === null ? null : String(sub);
-  } catch (_e) {
-    return null;
-  }
-}
-
 /** Append ?token=<jwt> when a token is configured (for EventSource / MJPEG URLs). */
 export function apiUrl(path) {
   const t = getToken();

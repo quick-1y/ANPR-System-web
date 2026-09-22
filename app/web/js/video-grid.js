@@ -1,7 +1,8 @@
 // Video grid rendering, preview lifecycle, overlays, metrics
-import { state, getPreference, isVideoOutputDisabled, overlayRefreshTimer, setOverlayRefreshTimer } from './state.js';
+import { state, isVideoOutputDisabled, overlayRefreshTimer, setOverlayRefreshTimer } from './state.js';
 import { api, apiUrl, jfetch } from './api.js';
 import { normalizeDirectionCode, formatDirection } from './ui.js';
+import { getPreference } from './device-prefs.js';
 
 function gridConfig(v) {
   if (v === "1x1") return [1, 1];
@@ -321,7 +322,7 @@ function renderDebugOverlay(cell, ch) {
   const dirEl = overlayLayer.querySelector(".cam-direction-label");
   if (!box || !ocrEl || !dirEl) return;
 
-  const showMetrics = Boolean(getPreference("channel_metrics_visible"));
+  const showMetrics = getPreference("channel_metrics_visible");
   const displayRect = getPreviewDisplayRect(cell, overlayData);
   if (!bbox || bbox.length < 4 || !displayRect || !showMetrics) {
     box.style.display = "none";
@@ -431,7 +432,7 @@ function refreshVideoCellOverlayState(cell, ch) {
 }
 
 export function syncOverlayPolling() {
-  const shouldPoll = Boolean(getPreference("channel_metrics_visible"));
+  const shouldPoll = getPreference("channel_metrics_visible");
   if (shouldPoll && !overlayRefreshTimer) {
     refreshOverlayStates();
     setOverlayRefreshTimer(setInterval(refreshOverlayStates, 700));

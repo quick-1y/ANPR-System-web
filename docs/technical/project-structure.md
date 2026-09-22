@@ -60,7 +60,6 @@ ANPR-System-v0.8_web/
 ├── config/                        # Управление настройками
 │   ├── env_settings.py
 │   ├── logging_setup.py
-│   ├── preferences.py
 │   ├── registry.py
 │   ├── settings_schema.py
 │   └── settings_service.py

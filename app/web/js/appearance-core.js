@@ -1,15 +1,15 @@
-// Appearance resolution (personal theme and style only) — the logic, with every
-// side effect injected so it can be tested without a browser.
+// Theme and style resolution — the logic, with every side effect injected so
+// it can be tested without a browser.
 //
-// Order:  personal preference -> code default (there is no instance default).
-// The server is the source of truth. localStorage is only a fast-load cache:
-//   * anpr_appearance_user:<user id>  — that user's resolved look
-// Every server answer overwrites the cache; user keys are removed on logout and
-// when another user signs in, so a look never leaks between people (P17).
-// Storage that is missing or throws only costs the flash-suppression.
+// Device-local only (class L): `anpr_theme` / `anpr_style` in localStorage,
+// shared by whoever is using this browser — the same rule grid layout
+// already follows in video-grid.js. There is no server, no per-user
+// identity and no cross-workstation sync; a shared security-post PC shows
+// one look to every operator, same as it already shows one grid layout.
+// Storage that is missing or throws just means the code defaults apply.
 
-export const USER_PREFIX = "anpr_appearance_user:";
 export const CODE_DEFAULTS = Object.freeze({ theme: "light", style: "graphite-minimal" });
+const KEYS = { theme: "anpr_theme", style: "anpr_style" };
 
 function pick(source) {
   const out = {};
@@ -18,89 +18,38 @@ function pick(source) {
   return out;
 }
 
-export function createAppearance({ storage, fetchPreferences, patchPreferences, apply, notify = () => {} }) {
-  let userId = null;
+export function createAppearance({ storage, apply }) {
   let current = { ...CODE_DEFAULTS };
 
-  const readJson = (key) => {
-    try { const raw = storage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (_e) { return null; }
-  };
-  const writeJson = (key, value) => { try { storage.setItem(key, JSON.stringify(value)); } catch (_e) { /* cache only */ } };
-  const userKeys = () => {
-    const keys = [];
-    try {
-      for (let i = 0; i < storage.length; i++) {
-        const key = storage.key(i);
-        if (key && key.startsWith(USER_PREFIX)) keys.push(key);
-      }
-    } catch (_e) { /* ignore */ }
-    return keys;
-  };
-  const dropUserKeys = (except = null) => {
-    for (const key of userKeys()) {
-      if (key === except) continue;
-      try { storage.removeItem(key); } catch (_e) { /* ignore */ }
-    }
+  const readStored = () => {
+    const out = {};
+    try { const theme = storage.getItem(KEYS.theme); if (theme) out.theme = theme; } catch (_e) { /* device state only */ }
+    try { const style = storage.getItem(KEYS.style); if (style) out.style = style; } catch (_e) { /* device state only */ }
+    return pick(out);
   };
   const show = (values) => {
     current = { ...current, ...pick(values) };
     apply({ ...current });
   };
-  const fromPreferences = (body) => {
-    const prefs = (body && body.preferences) || {};
-    return pick({ theme: prefs.theme && prefs.theme.value, style: prefs.style && prefs.style.value });
-  };
 
   return {
-    // Synchronous, before any network: cached look of the token's user if there
-    // is one, else the code defaults (nobody is known before sign-in).
-    boot(tokenUserId = null) {
-      userId = tokenUserId === null || tokenUserId === undefined ? null : String(tokenUserId);
-      const cachedUser = userId === null ? {} : pick(readJson(USER_PREFIX + userId));
+    // Synchronous, no network involved: whatever this browser has stored, or
+    // the code defaults.
+    boot() {
       current = { ...CODE_DEFAULTS };
-      show({ ...CODE_DEFAULTS, ...cachedUser });
+      show(readStored());
     },
 
-    async signIn(id) {
-      userId = String(id);
-      dropUserKeys(USER_PREFIX + userId);
-      await this.refreshUser();
-    },
-
-    async refreshUser() {
-      if (userId === null) return;
-      try {
-        const values = fromPreferences(await fetchPreferences());
-        writeJson(USER_PREFIX + userId, values);
-        show({ ...CODE_DEFAULTS, ...values });
-      } catch (_e) { /* offline: the cached look stays */ }
-    },
-
-    // Optimistic on screen, authoritative on the server. The cache changes only
-    // after a successful answer; on failure the previous look returns.
-    async setPersonal(patch) {
-      if (userId === null) return false;
-      const previous = { ...current };
-      show(patch);
-      try {
-        const values = fromPreferences(await patchPreferences(pick(patch)));
-        writeJson(USER_PREFIX + userId, values);
-        show(values);
-        return true;
-      } catch (_e) {
-        show(previous);
-        notify("Не удалось сохранить оформление — сервер недоступен");
-        return false;
-      }
-    },
-
-    signOut() {
-      dropUserKeys();
-      userId = null;
-      show(CODE_DEFAULTS);
+    // Applied immediately and persisted immediately — nothing can fail short
+    // of a blocked/full localStorage, which just means the choice does not
+    // survive a reload.
+    set(patch) {
+      const values = pick(patch);
+      if (values.theme) { try { storage.setItem(KEYS.theme, values.theme); } catch (_e) { /* device state only */ } }
+      if (values.style) { try { storage.setItem(KEYS.style, values.style); } catch (_e) { /* device state only */ } }
+      show(values);
     },
 
     current: () => ({ ...current }),
-    userId: () => userId,
   };
 }

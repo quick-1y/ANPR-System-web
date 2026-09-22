@@ -129,7 +129,6 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON users(login);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 -- ── Application settings (class A, roadmap 4.6) ──────────────────────
 -- One row per leaf key. A missing key means "registry default", so the
