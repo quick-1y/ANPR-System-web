@@ -38,8 +38,8 @@ def _enforce_secret_policy_on_startup() -> None:
 
     Called at import time, like _configure_thread_limits() above: with
     APP_ENV=production a default or too-short JWT_SECRET_KEY (or a missing
-    BOOTSTRAP_SUPERADMIN_PASSWORD) must abort the process, not start
-    serving requests signed with a publicly known secret.
+    SUPERADMIN_PASSWORD) must abort the process, not start serving requests
+    signed with a publicly known secret.
     """
     enforce_secret_policy()
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import time
 from collections import defaultdict
 from threading import Lock
@@ -11,8 +12,10 @@ from app.api.auth_utils import create_access_token, verify_password
 from app.api.container import AppContainer
 from app.api.deps import get_container, get_current_user, require_permission
 from app.api.schemas import LoginRequest, LoginResponse, UserOut
+from app.api.superadmin import SUPERADMIN_LOGIN, synthetic_superadmin
 
 from common.logging import get_logger
+from config.env_settings import superadmin_password, superadmin_password_is_default
 
 logger = get_logger(__name__)
 
@@ -90,6 +93,30 @@ def _reset_attempts(ip: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _login_superadmin(body: LoginRequest, container: AppContainer, ip: str) -> LoginResponse:
+    """Verify the technical superadmin against `SUPERADMIN_PASSWORD` — no DB row
+    to read, so this never touches `container.user_db` (roadmap section 14)."""
+    expected = superadmin_password()
+    if not hmac.compare_digest(body.password, expected):
+        _record_failed_attempt(ip)
+        logger.warning("login_failed login='%s' ip='%s' reason='wrong_password'", body.login, ip)
+        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+
+    _reset_attempts(ip)
+    user = synthetic_superadmin()
+    token = create_access_token(
+        user_id=user["id"],
+        role=user["role"],
+        exp_minutes=container.settings_service.get("auth.token_ttl_minutes"),
+    )
+    logger.info("login login='%s' id=%s ip='%s'", user["login"], user["id"], ip)
+    return LoginResponse(
+        access_token=token,
+        user=UserOut(**user),
+        warn_default_password=superadmin_password_is_default(),
+    )
+
+
 @router.post("/api/auth/login", response_model=LoginResponse)
 def login(
     body: LoginRequest,
@@ -100,6 +127,9 @@ def login(
     ip = (request.client.host if request.client else "unknown") or "unknown"
 
     _check_rate_limit(ip, *_rate_policy(container))
+
+    if body.login == SUPERADMIN_LOGIN:
+        return _login_superadmin(body, container, ip)
 
     user = container.user_db.find_by_login(body.login)
     if not user:

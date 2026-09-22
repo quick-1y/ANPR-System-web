@@ -99,8 +99,12 @@ class UserUpdate(BaseModel):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in ("superadmin", "admin", "operator"):
-            raise ValueError("Роль должна быть 'superadmin', 'admin' или 'operator'")
+        # 'superadmin' is deliberately not assignable here, same as in
+        # UserCreate: it is a technical account defined only through
+        # SUPERADMIN_PASSWORD (config/env_settings.py) and never a DB row
+        # (roadmap, docs/roadmap/configuration-architecture.md section 14).
+        if v is not None and v not in ("admin", "operator"):
+            raise ValueError("Роль должна быть 'admin' или 'operator'")
         return v
 
 

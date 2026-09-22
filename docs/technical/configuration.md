@@ -109,7 +109,7 @@
 | `ANPR_YOLO_MODEL_PATH` | str | `anpr/models/yolo/best.pt` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `AnprModelConfig` |
 | `ANPR_OCR_MODEL_PATH` | str | `anpr/models/ocr_crnn/crnn_ocr_model_int8_fx.pth` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `AnprModelConfig` |
 | `ANPR_DEVICE` | str | `cpu` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `AnprModelConfig` |
-| `BOOTSTRAP_SUPERADMIN_PASSWORD` | str | — | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | seed в `UserDatabase` |
+| `SUPERADMIN_PASSWORD` | str | — | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `_login_superadmin` в `app/api/routers/auth.py`; у суперадмина нет строки в `users` |
 | `LOG_LEVEL` | str; одно из: ALL, DEBUG, INFO, WARNING, ERROR, CRITICAL | `INFO` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `bootstrap_logging` |
 | `POSTGRES_POOL_MIN` | int; 1… | `2` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `database/base.py` |
 | `POSTGRES_POOL_MAX` | int; 1… | `10` | инженер развёртывания | перезапуск контейнера | `.env` (шаблон `.env.example`) | `database/base.py` |

@@ -148,6 +148,19 @@ class TestGetCurrentUser:
         result = get_current_user(request, container)
         assert result["id"] == 10
 
+    def test_superadmin_sentinel_id_never_touches_the_database(self):
+        """sub=0 is the technical superadmin (roadmap section 14) — resolved
+        entirely from the token, without a find_by_id call."""
+        token = create_access_token(user_id=0, role="superadmin", exp_minutes=480)
+        request = _make_request(auth_header=f"Bearer {token}")
+        container = _make_container(user=None)  # find_by_id would 401 if called
+
+        result = get_current_user(request, container)
+        assert result["id"] == 0
+        assert result["role"] == "superadmin"
+        assert result["is_active"] is True
+        container.user_db.find_by_id.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # require_role

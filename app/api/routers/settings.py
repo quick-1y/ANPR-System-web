@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.container import AppContainer
 from app.api.deps import get_container, require_access, require_permission
 from app.api.schemas import GlobalSettingsPayload
+from app.api.superadmin import audit_user_id
 from anpr.postprocessing.country_config import CountryConfigLoader
 from common.logging import get_logger
 from config.registry import SettingValidationError, schema_document
@@ -93,7 +94,7 @@ def put_global_settings(payload: GlobalSettingsPayload, container: AppContainer 
     if payload.interface.display_timezone is not None:
         settings_mapping["interface.display_timezone"] = payload.interface.display_timezone
     try:
-        requires_restart = container.settings_service.update(settings_mapping, updated_by=current_user.get("id"))
+        requires_restart = container.settings_service.update(settings_mapping, updated_by=audit_user_id(current_user))
     except SettingValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except StorageUnavailableError as exc:

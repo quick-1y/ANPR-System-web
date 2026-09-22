@@ -449,7 +449,7 @@ See `docs/roadmap/configuration-architecture.md` (section 5) for how this policy
 - Redact sensitive values in logs and examples.
 - Validate and sanitize untrusted input at the proper boundary.
 - Secrets are split by scope, and the split is deliberate:
-  - **Infrastructure secrets** (`JWT_SECRET_KEY`, PostgreSQL DSN and password, bootstrap superadmin password) belong in `.env`. They are needed before the app can read anything from the database.
+  - **Infrastructure secrets** (`JWT_SECRET_KEY`, PostgreSQL DSN and password, `SUPERADMIN_PASSWORD`) belong in `.env`. They are needed before the app can read anything from the database. Superadmin itself is a technical account defined only by `SUPERADMIN_PASSWORD` — it has no row in `users` and is read fresh from the environment on every login, not seeded once (`app/api/superadmin.py`).
   - **Per-object credentials** belong in PostgreSQL with the object they describe: RTSP credentials embedded in `channels.source`, controller passwords in `controllers.password`. Operators add and change these at runtime through the UI — do not move them to `.env`, that would make adding a camera a redeployment.
 - Treat database dumps and settings backups as sensitive: they contain per-object credentials. Keep the `tab:settings` permission requirement on backup endpoints.
 - Never log or return a full `channels.source` URL or `controllers.password` in API responses.

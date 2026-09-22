@@ -5,12 +5,13 @@ Covers logic that can be verified without a live PostgreSQL connection:
   - schema SQL shape
   - _row_to_dict conversion
   - repository methods via psycopg mocks
-  - default superadmin seeding logic
+  - the legacy-superadmin-row startup warning (roadmap section 14: superadmin
+    is a technical account defined only through SUPERADMIN_PASSWORD, never a
+    row in `users` — there is no seeding to test anymore)
 """
 from __future__ import annotations
 
 import json
-import os
 import threading
 from unittest.mock import MagicMock, patch, call
 
@@ -18,7 +19,6 @@ import bcrypt
 import pytest
 
 from app.api.auth_utils import hash_password
-from config.env_settings import DEV_BOOTSTRAP_SUPERADMIN_PASSWORD
 from database.user_repository import UserDatabase, _row_to_dict
 
 
@@ -315,65 +315,31 @@ class TestDeactivate:
 
 
 # ---------------------------------------------------------------------------
-# count_active_superadmins
+# _warn_if_legacy_superadmin_row_exists
 # ---------------------------------------------------------------------------
 
-class TestCountActiveSuperadmins:
-    def test_returns_count(self):
+class TestWarnIfLegacySuperadminRow:
+    def test_logs_a_warning_when_a_legacy_row_exists(self, caplog):
         db = _make_db()
-        conn, cursor = _mock_conn(fetchone=(2,))
+        conn, cursor = _mock_conn(fetchone=(1,))
         with patch.object(db, "_connect", return_value=conn):
-            assert db.count_active_superadmins() == 2
+            with caplog.at_level("WARNING"):
+                db._warn_if_legacy_superadmin_row_exists()
+        sql = cursor.execute.call_args[0][0]
+        params = cursor.execute.call_args[0][1]
+        assert "login = %s" in sql and params == ("superadmin",)
+        assert any("superadmin" in record.message for record in caplog.records)
 
-
-# ---------------------------------------------------------------------------
-# Default superadmin seeding
-# ---------------------------------------------------------------------------
-
-class TestSeedDefaultSuperadmin:
-    def test_seeds_superadmin_when_table_empty(self):
+    def test_no_warning_when_no_such_row(self, caplog):
         db = _make_db()
-        # First query: count(*) returns 0
         conn, cursor = _mock_conn(fetchone=(0,))
         with patch.object(db, "_connect", return_value=conn):
-            db._seed_default_superadmin()
-        calls = cursor.execute.call_args_list
-        # Should have 2 calls: SELECT count(*) and INSERT
-        assert len(calls) == 2
-        insert_sql = calls[1][0][0]
-        assert "INSERT INTO users" in insert_sql
-        insert_params = calls[1][0][1]
-        assert insert_params[0] == "superadmin"  # login
-        assert insert_params[1].startswith("$2")  # bcrypt hash
+            with caplog.at_level("WARNING"):
+                db._warn_if_legacy_superadmin_row_exists()
+        assert not caplog.records
 
-    def test_skips_seed_when_table_not_empty(self):
+    def test_a_db_error_is_swallowed_not_raised(self):
+        """This check must never block startup — it is purely informational."""
         db = _make_db()
-        conn, cursor = _mock_conn(fetchone=(3,))
-        with patch.object(db, "_connect", return_value=conn):
-            db._seed_default_superadmin()
-        calls = cursor.execute.call_args_list
-        # Only the count query, no INSERT
-        assert len(calls) == 1
-        assert "count" in calls[0][0][0].lower()
-
-    def test_seeds_password_from_environment(self):
-        """The bootstrap password is an infrastructure secret from
-        BOOTSTRAP_SUPERADMIN_PASSWORD, not a constant in the repository."""
-        db = _make_db()
-        conn, cursor = _mock_conn(fetchone=(0,))
-        with patch.dict(os.environ, {"BOOTSTRAP_SUPERADMIN_PASSWORD": "from-env-secret"}):
-            with patch.object(db, "_connect", return_value=conn):
-                db._seed_default_superadmin()
-        hashed = cursor.execute.call_args_list[1][0][1][1]
-        assert bcrypt.checkpw(b"from-env-secret", hashed.encode("utf-8"))
-
-    def test_seeds_dev_password_when_environment_unset(self):
-        db = _make_db()
-        conn, cursor = _mock_conn(fetchone=(0,))
-        with patch.dict(os.environ, {"BOOTSTRAP_SUPERADMIN_PASSWORD": ""}):
-            with patch.object(db, "_connect", return_value=conn):
-                db._seed_default_superadmin()
-        hashed = cursor.execute.call_args_list[1][0][1][1]
-        assert bcrypt.checkpw(
-            DEV_BOOTSTRAP_SUPERADMIN_PASSWORD.encode("utf-8"), hashed.encode("utf-8")
-        )
+        with patch.object(db, "_connect", side_effect=RuntimeError("no db")):
+            db._warn_if_legacy_superadmin_row_exists()  # does not raise

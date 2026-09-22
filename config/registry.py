@@ -296,7 +296,7 @@ _SPECS: Tuple[SettingSpec, ...] = (
     _d("ANPR_YOLO_MODEL_PATH", "str", DEFAULT_YOLO_MODEL_PATH, "Путь к весам YOLO внутри образа"),
     _d("ANPR_OCR_MODEL_PATH", "str", DEFAULT_OCR_MODEL_PATH, "Путь к весам OCR внутри образа"),
     _d("ANPR_DEVICE", "str", DEFAULT_DEVICE, "Устройство инференса"),
-    _d("BOOTSTRAP_SUPERADMIN_PASSWORD", "str", None, "Пароль первичного суперадмина; используется при пустой таблице users, обязателен в production"),
+    _d("SUPERADMIN_PASSWORD", "str", None, "Пароль технического суперадмина (нет строки в users, читается при каждом входе), обязателен в production"),
     _d("LOG_LEVEL", "str", "INFO", "Bootstrap-уровень логирования до первого чтения app_settings; далее владелец logging.level", choices=LOG_LEVELS),
     _d("POSTGRES_POOL_MIN", "int", DEFAULT_POOL_MIN, "Нижняя граница пула соединений PostgreSQL", minimum=1),
     _d("POSTGRES_POOL_MAX", "int", DEFAULT_POOL_MAX, "Верхняя граница пула соединений PostgreSQL", minimum=1),

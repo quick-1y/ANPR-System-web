@@ -32,8 +32,17 @@ _RATE_WINDOW_SECONDS = get_spec("auth.login_rate_limit_window_seconds").default
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_user(user_id=1, login="superadmin", role="superadmin", is_active=True,
+def _make_user(user_id=1, login="legacy_superadmin", role="superadmin", is_active=True,
                permissions=None, password="1234", password_changed_at=None):
+    """A DB-row user for the generic `find_by_login`/`find_by_id` path.
+
+    Login defaults to "legacy_superadmin", not "superadmin": the literal
+    login "superadmin" is now the technical, env-only account (roadmap
+    section 14) and is intercepted by `login()` before it ever reaches the
+    database — see `TestSuperadminLogin` below for that path. A DB row can
+    still carry `role="superadmin"` (e.g. a pre-existing row from before this
+    change, under a different login) and is handled exactly as before.
+    """
     return {
         "id": user_id,
         "login": login,
@@ -73,20 +82,20 @@ class TestLogin:
     def test_valid_credentials(self):
         user = _make_user(password="1234")
         container = _make_container(user=user)
-        body = LoginRequest(login="superadmin", password="1234")
+        body = LoginRequest(login="legacy_superadmin", password="1234")
 
         result = login(body, _make_request(), container)
 
         assert result.access_token
         assert result.token_type == "bearer"
-        assert result.user.login == "superadmin"
+        assert result.user.login == "legacy_superadmin"
         assert result.user.role == "superadmin"
-        container.user_db.find_by_login.assert_called_once_with("superadmin")
+        container.user_db.find_by_login.assert_called_once_with("legacy_superadmin")
 
     def test_wrong_password(self):
         user = _make_user(password="1234")
         container = _make_container(user=user)
-        body = LoginRequest(login="superadmin", password="wrong")
+        body = LoginRequest(login="legacy_superadmin", password="wrong")
 
         with pytest.raises(HTTPException) as exc_info:
             login(body, _make_request(), container)
@@ -103,7 +112,7 @@ class TestLogin:
     def test_inactive_user(self):
         user = _make_user(is_active=False, password="1234")
         container = _make_container(user=user)
-        body = LoginRequest(login="superadmin", password="1234")
+        body = LoginRequest(login="legacy_superadmin", password="1234")
 
         with pytest.raises(HTTPException) as exc_info:
             login(body, _make_request(), container)
@@ -113,10 +122,70 @@ class TestLogin:
     def test_login_response_excludes_password(self):
         user = _make_user(password="1234")
         container = _make_container(user=user)
-        body = LoginRequest(login="superadmin", password="1234")
+        body = LoginRequest(login="legacy_superadmin", password="1234")
 
         result = login(body, _make_request(), container)
         assert not hasattr(result.user, "password")
+
+
+# ---------------------------------------------------------------------------
+# POST /api/auth/login — the technical superadmin (roadmap section 14):
+# no DB row, login intercepted before container.user_db is ever touched.
+# ---------------------------------------------------------------------------
+
+class TestSuperadminLogin:
+    def setup_method(self):
+        _failed_attempts.clear()
+
+    def _container(self):
+        # No user= passed: find_by_login would return None if it were ever
+        # called — the assertions below confirm it never is.
+        return _make_container()
+
+    def test_correct_password_returns_the_synthetic_account(self, monkeypatch):
+        monkeypatch.setenv("SUPERADMIN_PASSWORD", "a-real-password")
+        container = self._container()
+        result = login(LoginRequest(login="superadmin", password="a-real-password"), _make_request(), container)
+        assert result.user.login == "superadmin"
+        assert result.user.id == 0
+        assert result.user.role == "superadmin"
+        assert result.user.permissions == []
+        assert result.access_token
+        container.user_db.find_by_login.assert_not_called()
+
+    def test_wrong_password_is_401_and_never_touches_the_database(self, monkeypatch):
+        monkeypatch.setenv("SUPERADMIN_PASSWORD", "a-real-password")
+        container = self._container()
+        with pytest.raises(HTTPException) as exc_info:
+            login(LoginRequest(login="superadmin", password="wrong"), _make_request(), container)
+        assert exc_info.value.status_code == 401
+        container.user_db.find_by_login.assert_not_called()
+
+    def test_unset_env_falls_back_to_the_dev_password(self, monkeypatch):
+        monkeypatch.delenv("SUPERADMIN_PASSWORD", raising=False)
+        container = self._container()
+        result = login(LoginRequest(login="superadmin", password="1234"), _make_request(), container)
+        assert result.user.role == "superadmin"
+        assert result.warn_default_password is True
+
+    def test_configured_password_does_not_warn(self, monkeypatch):
+        monkeypatch.setenv("SUPERADMIN_PASSWORD", "a-real-password")
+        container = self._container()
+        result = login(LoginRequest(login="superadmin", password="a-real-password"), _make_request(), container)
+        assert result.warn_default_password is False
+
+    def test_wrong_password_still_counts_against_the_rate_limiter(self, monkeypatch):
+        monkeypatch.setenv("SUPERADMIN_PASSWORD", "a-real-password")
+        ip = "10.0.3.1"
+        container = self._container()
+        for _ in range(_MAX_FAILED_ATTEMPTS):
+            try:
+                login(LoginRequest(login="superadmin", password="wrong"), _make_request(ip), container)
+            except HTTPException:
+                pass
+        with pytest.raises(HTTPException) as exc_info:
+            login(LoginRequest(login="superadmin", password="a-real-password"), _make_request(ip), container)
+        assert exc_info.value.status_code == 429
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +267,7 @@ class TestLoginResponseContract:
 
     def test_login_response_has_access_token(self):
         user = _make_user(password="secret")
-        result = login(LoginRequest(login="superadmin", password="secret"), _make_request(), _make_container(user=user))
+        result = login(LoginRequest(login="legacy_superadmin", password="secret"), _make_request(), _make_container(user=user))
         assert isinstance(result.access_token, str)
         assert len(result.access_token) > 0
 
@@ -215,7 +284,7 @@ class TestLoginResponseContract:
     def test_login_response_superadmin_has_empty_permissions_array(self):
         """Superadmin permissions array is empty by convention; superadmin access is implied by role."""
         user = _make_user(role="superadmin", permissions=[], password="pw")
-        result = login(LoginRequest(login="superadmin", password="pw"), _make_request(), _make_container(user=user))
+        result = login(LoginRequest(login="legacy_superadmin", password="pw"), _make_request(), _make_container(user=user))
         assert result.user.permissions == []
         assert result.user.role == "superadmin"
 
@@ -276,7 +345,7 @@ class TestRateLimiter:
         user = _make_user(password="correct")
         container = _make_container(user=user)
         try:
-            login(LoginRequest(login="superadmin", password="wrong"), _make_request(ip), container)
+            login(LoginRequest(login="legacy_superadmin", password="wrong"), _make_request(ip), container)
         except HTTPException:
             pass
         assert len(_failed_attempts[ip]) == 1
@@ -287,7 +356,7 @@ class TestRateLimiter:
             _record_failed_attempt(ip)
         user = _make_user(password="1234")
         container = _make_container(user=user)
-        login(LoginRequest(login="superadmin", password="1234"), _make_request(ip), container)
+        login(LoginRequest(login="legacy_superadmin", password="1234"), _make_request(ip), container)
         assert ip not in _failed_attempts
 
     def test_login_raises_429_when_rate_limited(self):
@@ -297,7 +366,7 @@ class TestRateLimiter:
         user = _make_user(password="1234")
         container = _make_container(user=user)
         with pytest.raises(HTTPException) as exc_info:
-            login(LoginRequest(login="superadmin", password="1234"), _make_request(ip), container)
+            login(LoginRequest(login="legacy_superadmin", password="1234"), _make_request(ip), container)
         assert exc_info.value.status_code == 429
 
     def test_different_ips_are_tracked_independently(self):
@@ -340,7 +409,7 @@ class TestWarnDefaultPassword:
         """Superadmin who has never changed password → warn_default_password=True."""
         user = _make_user(role="superadmin", password="1234", password_changed_at=None)
         container = _make_container(user=user)
-        result = login(LoginRequest(login="superadmin", password="1234"), _make_request(), container)
+        result = login(LoginRequest(login="legacy_superadmin", password="1234"), _make_request(), container)
         assert result.warn_default_password is True
 
     def test_warn_flag_false_after_password_changed(self):
@@ -348,7 +417,7 @@ class TestWarnDefaultPassword:
         changed_at = datetime.now(timezone.utc)
         user = _make_user(role="superadmin", password="newpassword", password_changed_at=changed_at)
         container = _make_container(user=user)
-        result = login(LoginRequest(login="superadmin", password="newpassword"), _make_request(), container)
+        result = login(LoginRequest(login="legacy_superadmin", password="newpassword"), _make_request(), container)
         assert result.warn_default_password is False
 
     def test_warn_flag_false_for_operator(self):
@@ -362,6 +431,6 @@ class TestWarnDefaultPassword:
         """LoginResponse always contains the warn_default_password field."""
         user = _make_user(password="pw")
         container = _make_container(user=user)
-        result = login(LoginRequest(login="superadmin", password="pw"), _make_request(), container)
+        result = login(LoginRequest(login="legacy_superadmin", password="pw"), _make_request(), container)
         assert hasattr(result, "warn_default_password")
         assert isinstance(result.warn_default_password, bool)

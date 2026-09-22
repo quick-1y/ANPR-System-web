@@ -31,9 +31,9 @@ DEFAULT_JWT_SECRET_KEY = "anpr-default-secret-change-me"
 #: Минимальная длина секрета подписи JWT в байтах.
 MIN_JWT_SECRET_BYTES = 32
 
-#: Пароль суперадмина для dev-установок, когда `BOOTSTRAP_SUPERADMIN_PASSWORD`
+#: Пароль суперадмина для dev-установок, когда `SUPERADMIN_PASSWORD`
 #: не задан. В production незаданный пароль прерывает запуск.
-DEV_BOOTSTRAP_SUPERADMIN_PASSWORD = "1234"
+DEV_SUPERADMIN_PASSWORD = "1234"
 
 
 #: DSN по умолчанию — совпадает с `.env.example` и docker-compose.
@@ -98,7 +98,7 @@ class EnvConfig:
     postgres_dsn: str
     cors_allowed_origins: tuple[str, ...]
     omp_num_threads: int
-    bootstrap_superadmin_password: str | None
+    superadmin_password: str | None
     #: Bootstrap log level: valid from process start until the first read of
     #: `logging.level` from app_settings (the one documented env -> DB case).
     log_level: str
@@ -125,7 +125,7 @@ def load_env_config(env: Mapping[str, str] | None = None) -> EnvConfig:
     `enforce_secret_policy`), а лишь приводятся типы.
     """
     source = _env(env)
-    password = source.get("BOOTSTRAP_SUPERADMIN_PASSWORD") or ""
+    password = source.get("SUPERADMIN_PASSWORD") or ""
     pool_min = _int_var("POSTGRES_POOL_MIN", source.get("POSTGRES_POOL_MIN"), DEFAULT_POOL_MIN)
     pool_max = _int_var("POSTGRES_POOL_MAX", source.get("POSTGRES_POOL_MAX"), DEFAULT_POOL_MAX)
     if pool_max < pool_min:
@@ -140,7 +140,7 @@ def load_env_config(env: Mapping[str, str] | None = None) -> EnvConfig:
         omp_num_threads=_int_var(
             "OMP_NUM_THREADS", source.get("OMP_NUM_THREADS"), DEFAULT_OMP_NUM_THREADS
         ),
-        bootstrap_superadmin_password=password if password.strip() else None,
+        superadmin_password=password if password.strip() else None,
         log_level=_log_level(source.get("LOG_LEVEL")),
         logs_dir=(source.get("ANPR_LOGS_DIR") or "").strip() or DEFAULT_LOGS_DIR,
         media_dir=(source.get("ANPR_MEDIA_DIR") or "").strip() or DEFAULT_MEDIA_DIR,
@@ -183,22 +183,30 @@ def jwt_secret_key(env: Mapping[str, str] | None = None) -> str:
     return _env(env).get("JWT_SECRET_KEY") or DEFAULT_JWT_SECRET_KEY
 
 
-def bootstrap_superadmin_password(env: Mapping[str, str] | None = None) -> str:
-    """Пароль первичного суперадмина из `BOOTSTRAP_SUPERADMIN_PASSWORD`.
+def superadmin_password(env: Mapping[str, str] | None = None) -> str:
+    """Пароль технического суперадмина из `SUPERADMIN_PASSWORD`.
 
+    Суперадмин не имеет строки в `users` (roadmap, раздел 14): это значение
+    читается заново при каждом входе, а не один раз при заполнении БД.
     Значение не обрезается: пробелы могут быть частью пароля. Пустое или
     состоящее только из пробелов значение считается незаданным — в dev
-    возвращается `DEV_BOOTSTRAP_SUPERADMIN_PASSWORD`, в production такой
-    запуск уже прерван `enforce_secret_policy()`.
+    возвращается `DEV_SUPERADMIN_PASSWORD`, в production такой запуск уже
+    прерван `enforce_secret_policy()`.
     """
-    raw = _env(env).get("BOOTSTRAP_SUPERADMIN_PASSWORD") or ""
+    raw = _env(env).get("SUPERADMIN_PASSWORD") or ""
     if not raw.strip():
         logger.warning(
-            "BOOTSTRAP_SUPERADMIN_PASSWORD не задан: суперадмин будет создан "
-            "с паролем по умолчанию — смените его сразу после первого входа"
+            "SUPERADMIN_PASSWORD не задан: суперадмин использует пароль "
+            "по умолчанию — смените его как можно скорее"
         )
-        return DEV_BOOTSTRAP_SUPERADMIN_PASSWORD
+        return DEV_SUPERADMIN_PASSWORD
     return raw
+
+
+def superadmin_password_is_default(env: Mapping[str, str] | None = None) -> bool:
+    """`True` when `SUPERADMIN_PASSWORD` is unset/blank, i.e. the insecure
+    dev fallback (`DEV_SUPERADMIN_PASSWORD`) is the effective password."""
+    return not (_env(env).get("SUPERADMIN_PASSWORD") or "").strip()
 
 
 def secret_problems(env: Mapping[str, str] | None = None) -> list[str]:
@@ -218,11 +226,10 @@ def secret_problems(env: Mapping[str, str] | None = None) -> list[str]:
             f"({len(secret.encode('utf-8'))}) — секрет подписи слишком слаб"
         )
 
-    if not (source.get("BOOTSTRAP_SUPERADMIN_PASSWORD") or "").strip():
+    if not (source.get("SUPERADMIN_PASSWORD") or "").strip():
         problems.append(
-            "BOOTSTRAP_SUPERADMIN_PASSWORD не задан — первичный суперадмин "
-            f"будет создан с паролем {DEV_BOOTSTRAP_SUPERADMIN_PASSWORD!r}, "
-            "одинаковым во всех установках"
+            "SUPERADMIN_PASSWORD не задан — суперадмин использует пароль "
+            f"{DEV_SUPERADMIN_PASSWORD!r}, одинаковый во всех установках"
         )
 
     return problems

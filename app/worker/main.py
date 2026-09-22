@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 # Fail-fast on weak infrastructure secrets before the worker starts: with
 # APP_ENV=production a default JWT_SECRET_KEY or a missing
-# BOOTSTRAP_SUPERADMIN_PASSWORD aborts the process (roadmap task 0.4).
+# SUPERADMIN_PASSWORD aborts the process (roadmap task 0.4).
 enforce_secret_policy()
 
 

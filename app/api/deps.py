@@ -7,6 +7,7 @@ from fastapi import Depends, HTTPException, Request
 
 from app.api.auth_utils import decode_access_token
 from app.api.container import AppContainer
+from app.api.superadmin import is_superadmin_id, synthetic_superadmin
 
 from common.logging import get_logger
 
@@ -35,9 +36,12 @@ def get_current_user(request: Request, container: AppContainer = Depends(get_con
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Недействительный токен авторизации")
 
-    user_id = int(payload.get("sub", 0))
-    if not user_id:
+    user_id = int(payload.get("sub", -1))
+    if user_id < 0:
         raise HTTPException(status_code=401, detail="Недействительный токен авторизации")
+
+    if is_superadmin_id(user_id):
+        return synthetic_superadmin()
 
     user = container.user_db.find_by_id(user_id)
     if not user:

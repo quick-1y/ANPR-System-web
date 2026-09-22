@@ -50,7 +50,6 @@ def _make_container(
     users=None,
     find_by_id=None,
     find_by_login=None,
-    active_admin_count=2,
 ):
     container = MagicMock()
     _users = users or []
@@ -66,7 +65,6 @@ def _make_container(
         if find_by_login is not None
         else lambda login: next((u for u in _users if u["login"] == login), None)
     )
-    container.user_db.count_active_superadmins.return_value = active_admin_count
     container.user_db.create_user.side_effect = (
         lambda login, pw, role, perms: _make_user(user_id=99, login=login, role=role, permissions=perms)
     )
@@ -160,12 +158,18 @@ class TestGetUser:
 
 class TestUpdateUser:
     def test_update_role(self):
-        users = [_make_user(user_id=1, role="superadmin"), _make_user(user_id=2, login="op1", role="operator")]
+        users = [_SUPERADMIN, _make_user(user_id=2, login="op1", role="operator")]
         container = _make_container(users=users)
-        container.user_db.update_user.return_value = {**users[1], "role": "superadmin"}
-        body = UserUpdate(role="superadmin")
+        container.user_db.update_user.return_value = {**users[1], "role": "admin"}
+        body = UserUpdate(role="admin")
         result = update_user(user_id=2, body=body, current_user=users[0], container=container)
-        assert result.role == "superadmin"
+        assert result.role == "admin"
+
+    def test_role_cannot_be_set_to_superadmin(self):
+        """superadmin is a technical account (SUPERADMIN_PASSWORD, no DB row,
+        roadmap section 14) — never assignable through this endpoint."""
+        with pytest.raises(ValueError):
+            UserUpdate(role="superadmin")
 
     def test_update_permissions(self):
         users = [_SUPERADMIN, _OPERATOR]
@@ -189,23 +193,16 @@ class TestUpdateUser:
             update_user(user_id=1, body=body, current_user=_SUPERADMIN, container=container)
         assert exc.value.status_code == 400
 
-    def test_last_superadmin_role_removal_blocked(self):
-        """Removing superadmin role from yourself when you're the only active superadmin must fail."""
-        container = _make_container(users=[_SUPERADMIN], active_admin_count=1)
-        body = UserUpdate(role="operator")
-        with pytest.raises(HTTPException) as exc:
-            update_user(user_id=1, body=body, current_user=_SUPERADMIN, container=container)
-        assert exc.value.status_code == 400
-
-    def test_superadmin_role_removal_allowed_when_multiple_superadmins(self):
-        """Can remove superadmin role from self when there are other active superadmins."""
-        admin2 = _make_user(user_id=3, login="superadmin2", role="superadmin")
-        users = [_SUPERADMIN, admin2]
-        container = _make_container(users=users, active_admin_count=2)
-        container.user_db.update_user.return_value = {**_SUPERADMIN, "role": "operator"}
-        body = UserUpdate(role="operator")
-        result = update_user(user_id=1, body=body, current_user=_SUPERADMIN, container=container)
-        assert result.role == "operator"
+    def test_self_role_change_is_not_specially_restricted(self):
+        """No "last superadmin" rule exists any more — superadmin is never a
+        DB row this endpoint can reach at all (roadmap section 14). The only
+        remaining self-lock rule is "can't deactivate yourself", tested
+        separately above."""
+        container = _make_container(users=[_OPERATOR])
+        container.user_db.update_user.return_value = {**_OPERATOR, "role": "admin"}
+        body = UserUpdate(role="admin")
+        result = update_user(user_id=2, body=body, current_user=_OPERATOR, container=container)
+        assert result.role == "admin"
 
 
 # ---------------------------------------------------------------------------

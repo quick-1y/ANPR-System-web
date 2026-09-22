@@ -11,14 +11,15 @@ import pytest
 
 from config.env_settings import (
     DEFAULT_JWT_SECRET_KEY,
-    DEV_BOOTSTRAP_SUPERADMIN_PASSWORD,
+    DEV_SUPERADMIN_PASSWORD,
     MIN_JWT_SECRET_BYTES,
     app_env,
-    bootstrap_superadmin_password,
+    superadmin_password,
     enforce_secret_policy,
     is_production,
     jwt_secret_key,
     secret_problems,
+    superadmin_password_is_default,
 )
 
 STRONG_SECRET = "s" * MIN_JWT_SECRET_BYTES
@@ -29,7 +30,7 @@ def _env(**overrides: str) -> dict[str, str]:
     base = {
         "APP_ENV": "production",
         "JWT_SECRET_KEY": STRONG_SECRET,
-        "BOOTSTRAP_SUPERADMIN_PASSWORD": "a-real-password",
+        "SUPERADMIN_PASSWORD": "a-real-password",
     }
     base.update(overrides)
     return base
@@ -63,21 +64,32 @@ class TestJwtSecretKey:
         assert jwt_secret_key({"JWT_SECRET_KEY": STRONG_SECRET}) == STRONG_SECRET
 
 
-class TestBootstrapSuperadminPassword:
+class TestSuperadminPassword:
     def test_reads_the_configured_value(self):
-        env = {"BOOTSTRAP_SUPERADMIN_PASSWORD": "from-env"}
-        assert bootstrap_superadmin_password(env) == "from-env"
+        env = {"SUPERADMIN_PASSWORD": "from-env"}
+        assert superadmin_password(env) == "from-env"
 
     def test_whitespace_inside_the_password_is_preserved(self):
-        env = {"BOOTSTRAP_SUPERADMIN_PASSWORD": "two words"}
-        assert bootstrap_superadmin_password(env) == "two words"
+        env = {"SUPERADMIN_PASSWORD": "two words"}
+        assert superadmin_password(env) == "two words"
 
     def test_unset_falls_back_to_the_dev_password(self):
-        assert bootstrap_superadmin_password({}) == DEV_BOOTSTRAP_SUPERADMIN_PASSWORD
+        assert superadmin_password({}) == DEV_SUPERADMIN_PASSWORD
 
     def test_blank_counts_as_unset(self):
-        env = {"BOOTSTRAP_SUPERADMIN_PASSWORD": "   "}
-        assert bootstrap_superadmin_password(env) == DEV_BOOTSTRAP_SUPERADMIN_PASSWORD
+        env = {"SUPERADMIN_PASSWORD": "   "}
+        assert superadmin_password(env) == DEV_SUPERADMIN_PASSWORD
+
+
+class TestSuperadminPasswordIsDefault:
+    def test_true_when_unset(self):
+        assert superadmin_password_is_default({}) is True
+
+    def test_true_when_blank(self):
+        assert superadmin_password_is_default({"SUPERADMIN_PASSWORD": "   "}) is True
+
+    def test_false_when_configured(self):
+        assert superadmin_password_is_default({"SUPERADMIN_PASSWORD": "a-real-password"}) is False
 
 
 # ---------------------------------------------------------------------------
@@ -114,15 +126,15 @@ class TestSecretProblems:
 
     def test_missing_bootstrap_password_is_reported(self):
         env = _env()
-        del env["BOOTSTRAP_SUPERADMIN_PASSWORD"]
+        del env["SUPERADMIN_PASSWORD"]
         problems = secret_problems(env)
         assert len(problems) == 1
-        assert "BOOTSTRAP_SUPERADMIN_PASSWORD" in problems[0]
+        assert "SUPERADMIN_PASSWORD" in problems[0]
 
     def test_blank_bootstrap_password_is_reported(self):
-        problems = secret_problems(_env(BOOTSTRAP_SUPERADMIN_PASSWORD="  "))
+        problems = secret_problems(_env(SUPERADMIN_PASSWORD="  "))
         assert len(problems) == 1
-        assert "BOOTSTRAP_SUPERADMIN_PASSWORD" in problems[0]
+        assert "SUPERADMIN_PASSWORD" in problems[0]
 
     def test_several_problems_are_all_reported(self):
         problems = secret_problems(
@@ -147,10 +159,10 @@ class TestEnforceSecretPolicy:
 
     def test_production_without_bootstrap_password_aborts_startup(self):
         env = _env()
-        del env["BOOTSTRAP_SUPERADMIN_PASSWORD"]
+        del env["SUPERADMIN_PASSWORD"]
         with pytest.raises(SystemExit) as exc:
             enforce_secret_policy(env)
-        assert "BOOTSTRAP_SUPERADMIN_PASSWORD" in str(exc.value)
+        assert "SUPERADMIN_PASSWORD" in str(exc.value)
 
     def test_production_with_strong_secrets_starts(self):
         assert enforce_secret_policy(_env()) == []
@@ -180,7 +192,7 @@ class TestEnvConfig:
         assert cfg.postgres_dsn == DEFAULT_POSTGRES_DSN
         assert cfg.cors_allowed_origins == ()
         assert cfg.omp_num_threads == DEFAULT_OMP_NUM_THREADS
-        assert cfg.bootstrap_superadmin_password is None
+        assert cfg.superadmin_password is None
         assert cfg.is_production is False
 
     def test_values_are_read_and_typed(self):
@@ -192,14 +204,14 @@ class TestEnvConfig:
                 "POSTGRES_DSN": " postgresql://u:p@h:5432/d ",
                 "CORS_ALLOWED_ORIGINS": "https://a.example, https://b.example,",
                 "OMP_NUM_THREADS": "4",
-                "BOOTSTRAP_SUPERADMIN_PASSWORD": "  pw ",
+                "SUPERADMIN_PASSWORD": "  pw ",
             }
         )
         assert cfg.is_production is True
         assert cfg.postgres_dsn == "postgresql://u:p@h:5432/d"
         assert cfg.cors_allowed_origins == ("https://a.example", "https://b.example")
         assert cfg.omp_num_threads == 4
-        assert cfg.bootstrap_superadmin_password == "  pw "
+        assert cfg.superadmin_password == "  pw "
 
     def test_blank_values_fall_back_to_defaults(self):
         from config.env_settings import DEFAULT_OMP_NUM_THREADS, load_env_config

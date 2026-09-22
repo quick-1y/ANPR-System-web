@@ -88,26 +88,21 @@ def update_user(
 ):
     """Update user role, permissions, or active state (admin only).
 
-    Admin self-lock rules:
-    - Cannot remove admin role from yourself if you are the last active admin.
-    - Cannot deactivate yourself.
+    Admin self-lock rule: cannot deactivate yourself. There is no "last
+    superadmin" rule to protect here — superadmin is a technical account
+    defined only through SUPERADMIN_PASSWORD, never a row this endpoint can
+    reach (`user_id` addresses `users`, and `UserUpdate.role` no longer
+    accepts 'superadmin' — see roadmap section 14).
     """
     user = container.user_db.find_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
 
-    if user_id == current_user["id"]:
-        if body.is_active is False:
-            raise HTTPException(
-                status_code=400,
-                detail="Невозможно деактивировать собственную учётную запись",
-            )
-        if body.role is not None and body.role != "superadmin" and current_user["role"] == "superadmin":
-            if container.user_db.count_active_superadmins() <= 1:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Невозможно снять роль супер администратора: вы единственный активный супер администратор",
-                )
+    if user_id == current_user["id"] and body.is_active is False:
+        raise HTTPException(
+            status_code=400,
+            detail="Невозможно деактивировать собственную учётную запись",
+        )
 
     effective_role = body.role if body.role is not None else user["role"]
     permissions = (

@@ -3,18 +3,17 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from app.api.auth_utils import hash_password
-
 from common.logging import get_logger
-from config.env_settings import bootstrap_superadmin_password
 from database.base import PooledDatabase
 
 logger = get_logger(__name__)
 
-# Login of the superadmin created on first startup. The password comes from
-# BOOTSTRAP_SUPERADMIN_PASSWORD (config/env_settings.py) — it is an
-# infrastructure secret and must not live as a constant here.
-_DEFAULT_SUPERADMIN_LOGIN = "superadmin"
+# Same value as app.api.superadmin.SUPERADMIN_LOGIN, kept as a local literal
+# rather than imported: database/ must not depend on app/api/ (AGENTS.md
+# directory rules). Used only to detect a pre-existing row left over from
+# before superadmin became a technical, env-only account (roadmap section 14)
+# — never to authenticate one.
+_LEGACY_SUPERADMIN_LOGIN = "superadmin"
 
 
 _USER_COLUMNS = (
@@ -56,37 +55,35 @@ class UserDatabase(PooledDatabase):
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON users(login);
     """
 
-
-    _SEED_SUPERADMIN = """
-    INSERT INTO users (login, password, role, permissions, is_active)
-    VALUES (%s, %s, 'superadmin', '[]'::jsonb, true)
-    ON CONFLICT (login) DO NOTHING;
-    """
-
     def _schema_sql(self) -> str:
         return self._SCHEMA
 
     def _ensure_schema(self) -> None:
-        """Create table and seed default superadmin if the table is empty."""
+        """Create the table; nothing is seeded — superadmin is a technical
+        account defined only by SUPERADMIN_PASSWORD (roadmap section 14),
+        never a row here."""
         super()._ensure_schema()
-        self._seed_default_superadmin()
+        self._warn_if_legacy_superadmin_row_exists()
 
-    def _seed_default_superadmin(self) -> None:
-        """Insert the default superadmin user when the users table is empty."""
+    def _warn_if_legacy_superadmin_row_exists(self) -> None:
+        """A `login='superadmin'` row from before superadmin became an
+        env-only account is now permanently unreachable — the login flow
+        recognizes that login before ever querying this table. Its data is
+        left untouched (no destructive migration, per project policy); this
+        only logs so the fact isn't silently invisible to whoever deployed
+        this change on an existing database."""
         try:
             with self._connect() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("SELECT count(*) FROM users")
-                    count = cur.fetchone()[0]
-                    if count == 0:
-                        hashed = hash_password(bootstrap_superadmin_password())
-                        cur.execute(self._SEED_SUPERADMIN, (_DEFAULT_SUPERADMIN_LOGIN, hashed))
-                        conn.commit()
-                        logger.info("Создан пользователь по умолчанию: superadmin")
-                    else:
-                        conn.rollback()
+                    cur.execute("SELECT count(*) FROM users WHERE login = %s", (_LEGACY_SUPERADMIN_LOGIN,))
+                    if cur.fetchone()[0] > 0:
+                        logger.warning(
+                            "В таблице users осталась строка login='superadmin' из прежней "
+                            "версии — вход через неё больше не работает (суперадмин теперь "
+                            "только из SUPERADMIN_PASSWORD), данные строки не удалены"
+                        )
         except Exception:
-            logger.exception("Ошибка при создании пользователя по умолчанию")
+            logger.exception("Не удалось проверить устаревшую строку суперадмина")
 
     # ── Read ──────────────────────────────────────────────────────────
 
@@ -201,10 +198,3 @@ class UserDatabase(PooledDatabase):
                 )
                 conn.commit()
                 return cur.rowcount > 0
-
-    def count_active_superadmins(self) -> int:
-        self._ensure_schema()
-        with self._connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT count(*) FROM users WHERE role = 'superadmin' AND is_active = true")
-                return cur.fetchone()[0]

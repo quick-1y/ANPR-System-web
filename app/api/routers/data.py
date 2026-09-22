@@ -12,6 +12,7 @@ from database.errors import StorageUnavailableError
 from app.api.container import AppContainer
 from app.api.deps import get_container, require_permission
 from app.api.schemas import ExportBundlePayload
+from app.api.superadmin import audit_user_id
 from app.shared.data_lifecycle import RetentionPolicy
 from app.shared.backup_service import (
     export_database_backup,
@@ -245,7 +246,7 @@ async def restore_settings_endpoint(
             return JSONResponse(status_code=422, content={"status": "error", "detail": str(exc)})
 
         try:
-            result = restore_settings(container.settings_service, data, updated_by=_user.get("id"))
+            result = restore_settings(container.settings_service, data, updated_by=audit_user_id(_user))
         except ValueError as exc:
             return JSONResponse(status_code=422, content={"status": "error", "detail": str(exc)})
         except StorageUnavailableError as exc:

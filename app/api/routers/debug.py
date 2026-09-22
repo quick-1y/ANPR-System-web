@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from app.api.container import AppContainer
 from app.api.deps import get_container, require_role
 from app.api.schemas import DebugPayload
+from app.api.superadmin import audit_user_id
 from database.errors import StorageUnavailableError
 
 router = APIRouter()
@@ -23,7 +24,7 @@ def get_debug_settings(container: AppContainer = Depends(get_container), _user: 
 @router.put("/api/debug/settings")
 def put_debug_settings(payload: DebugPayload, container: AppContainer = Depends(get_container), user: Dict[str, Any] = Depends(require_role("superadmin"))) -> Dict[str, Any]:
     try:
-        container.settings_service.update({"debug.video_output_enabled": payload.video_output_enabled}, updated_by=user.get("id"))
+        container.settings_service.update({"debug.video_output_enabled": payload.video_output_enabled}, updated_by=audit_user_id(user))
     except StorageUnavailableError as exc:
         raise container.storage_503(exc) from exc
     return container.processor.update_debug_settings(payload.model_dump())
