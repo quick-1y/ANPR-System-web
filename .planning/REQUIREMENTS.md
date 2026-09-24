@@ -107,12 +107,53 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| PERM-01 | Phase 1 | Pending |
+| PERM-02 | Phase 4 | Pending |
+| PERM-03 | Phase 4 | Pending |
+| PERM-04 | Phase 4 | Pending |
+| PERM-05 | Phase 4 | Pending |
+| PERM-06 | Phase 5 | Pending |
+| PERM-07 | Phase 3 | Pending |
+| PERM-08 | Phase 1 | Pending |
+| PERM-09 | Phase 1 | Pending |
+| ROLE-01 | Phase 2 | Pending |
+| ROLE-02 | Phase 2 | Pending |
+| ROLE-03 | Phase 2 | Pending |
+| ROLE-04 | Phase 2 | Pending |
+| ROLE-05 | Phase 2 | Pending |
+| USER-01 | Phase 3 | Pending |
+| USER-02 | Phase 3 | Pending |
+| USER-03 | Phase 3 | Pending |
+| USER-04 | Phase 3 | Pending |
+| USER-05 | Phase 3 | Pending |
+| USER-06 | Phase 3 | Pending |
+| USER-07 | Phase 6 | Pending |
+| BOOT-01 | Phase 1 | Pending |
+| BOOT-02 | Phase 1 | Pending |
+| BOOT-03 | Phase 1 | Pending |
+| BOOT-04 | Phase 7 | Pending |
+| AUDIT-01 | Phase 8 | Pending |
+| AUDIT-02 | Phase 7 | Pending |
+| AUDIT-03 | Phase 8 | Pending |
+| AUDIT-04 | Phase 7 | Pending |
+| AUDIT-05 | Phase 8 | Pending |
+| AUDIT-06 | Phase 7 | Pending |
+| STRM-01 | Phase 6 | Pending |
+| STRM-02 | Phase 6 | Pending |
+| STRM-03 | Phase 6 | Pending |
+| UI-01 | Phase 2 | Pending |
+| UI-02 | Phase 3 | Pending |
+| UI-03 | Phase 4 | Pending |
+| UI-04 | Phase 5 | Pending |
+| UI-05 | Phase 7 | Pending |
+| UI-06 | Phase 6 | Pending |
+| DOC-01 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 41 total
-- Mapped to phases: 0
-- Unmapped: 41 ⚠️
+- Mapped to phases: 41
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-09-24*
-*Last updated: 2026-09-24 after initial definition*
+*Last updated: 2026-09-24 after roadmap creation (traceability filled)*
