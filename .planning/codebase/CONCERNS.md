@@ -1,590 +1,358 @@
+---
+last_mapped_commit: 9cfd79b3a864f23127a46c35300f838c212d0007
+last_mapped_at: 2026-09-24
+---
 # Codebase Concerns
 
-**Analysis Date:** 2026-09-18
+**Analysis Date:** 2026-09-24
 
-## SQL Injection via Table/Column Names (Medium Risk)
+## Tech Debt
 
-**Issue:** SQL queries constructed with f-strings containing table and column names.
+### Settings Normalizer Imports Controllers
 
-**Files:**
-- `app/shared/backup_service.py` (lines 78, 148, 175, 184-186)
+**Issue:** `config/settings_schema.py` imports `SUPPORTED_CONTROLLER_TYPES` from `controllers/` module, creating a unidirectional coupling from configuration to domain logic.
 
-**Current mitigation:** Table names are hardcoded to known values in `_BACKUP_TABLES` constant, limiting attack surface.
+**Files:** `config/settings_schema.py`, `config/registry.py`, `controllers/__init__.py`
 
-**Fix approach:** 
-- Use `psycopg.sql.Identifier()` for safe table/column name quoting
-- Replace f-string SQL with parameterized identifiers:
-  ```python
-  from psycopg import sql
-  cur.execute(sql.SQL("SELECT {cols} FROM {table}").format(
-      cols=sql.SQL(", ").join(sql.Identifier(c) for c in columns),
-      table=sql.Identifier(table)
-  ), values)
-  ```
+**Impact:** Configuration layer should be independent. Adding a new controller type requires changes in both `controllers/` and `config/`. Cross-domain imports violate layering rules documented in AGENTS.md.
 
-**Impact:** Potential data exfiltration or corruption if backup logic is modified to accept dynamic table names. Currently low risk due to static enumeration.
+**Fix approach:** Move `SUPPORTED_CONTROLLER_TYPES` definition to a shared location (`common/` or dedicated types module) that both `config/` and `controllers/` can import without creating coupling.
 
----
+### Dead Environment Variables
 
-## Unsafe Process Termination (High Risk)
+**Issue:** Three environment variables are declared in `.env.example` and read by Docker/docker-compose, but never consumed by Python code.
 
-**Issue:** `os._exit(0)` used in database restore procedure without proper shutdown sequence.
+**Files:** `.env.example`, `docker-compose.yml`, `Dockerfile`
 
-**Files:**
-- `app/api/routers/data.py` (lines 162-168)
+- `APP_ENV`: Passed to container, used nowhere in code
+- `DEBUG`: formerly duplicated the `debug` section of `config/settings.yaml`; that file has been removed — verify whether this is still a concern
+- `LOG_LEVEL`: Duplicates `logging.level` in settings (now removed)
 
-**Problem:** 
-- Skips cleanup handlers and context managers
-- Thread running `_delayed_exit()` may interrupt ongoing operations
-- No graceful shutdown of FastAPI, database connections, or worker processes
-- Inconsistent state if called during active requests
+**Impact:** Operator confusion about whether setting these env vars has any effect. Dead code blocks future refactoring clarity.
 
-**Fix approach:**
-- Use standard shutdown mechanism: `sys.exit(0)` instead of `os._exit()`
-- Allow FastAPI lifespan handlers to run
-- Or use signal handlers: `signal.raise_signal(signal.SIGTERM)`
-- Document that restore requires manual restart after completion
+**Fix approach:** Remove these three variables from `.env.example`, `docker-compose.yml`, and `Dockerfile` ENV declarations.
 
-**Impact:** Risk of data corruption, lost connections, or hanging processes.
+### Environment Variable Drift
 
----
+**Issue:** `.env.example` does not list all environment variables actually read by code.
 
-## Broad Exception Handling Without Context
+**Files:** `.env.example`, `config/env_settings.py`, `app/api/main.py`
 
-**Issue:** Some endpoints catch generic `Exception` without distinguishing error types.
+- `CORS_ALLOWED_ORIGINS`: Documented in schema but missing from `.env.example`
+- `POSTGRES_PORT`: Used in docker-compose.yml but not documented anywhere
+- `TZ`: Timezone is not exposed as an environment variable, but container behavior depends on it implicitly
 
-**Files:**
-- `app/api/routers/data.py` (lines 107-109, 146-148, 158-160)
-- Multiple routers catch `Exception` and return HTTP 500
+**Impact:** Deployment documentation incomplete. Operators cannot reliably understand what env vars they must configure.
 
-**Problem:**
-- Swallows unexpected errors that should surface
-- Makes debugging difficult
-- Can hide security-relevant failures
+**Fix approach:** Audit all env var reads in `config/env_settings.py`, `app/api/main.py`, and list every one in `.env.example` with explanatory comments.
 
-**Fix approach:**
-- Catch specific exception types: `ValueError`, `OSError`, `StorageUnavailableError`
-- Let uncaught exceptions bubble for monitoring
-- Add structured logging with full context
+### Validation Missing on Channel Update Endpoint
 
-**Impact:** Operational difficulty; errors hidden from error tracking/monitoring.
+**Issue:** `PUT /api/channels/{channel_id}` at `app/api/routers/channels.py:144` accepts a raw `Dict[str, Any]` payload without Pydantic validation.
 
----
+**Files:** `app/api/routers/channels.py:144-150`
 
-## Incomplete JWT Validation
-
-**Issue:** Client-side JWT decoding in `app/web/js/api.js:16-26` without server verification of claims.
-
-**Files:**
-- `app/web/js/api.js` (lines 16-26)
-- `app/api/deps.py` handles server validation, but relies on client-side checks first
-
-**Current state:** Server-side validation exists (`decode_access_token` in deps.py), but frontend performs client-side expiry check.
-
-**Risk:** 
-- Frontend shows false positive about token validity
-- Expired tokens sent to server (caught by server, but bad UX)
-
-**Improvement:** Trust server-side validation only; remove client-side exp checks or use as UI hint only.
-
----
-
-## Missing CSRF Protection
-
-**Issue:** POST/PUT/DELETE endpoints lack CSRF tokens.
-
-**Files:**
-- All router files in `app/api/routers/`
-
-**Problem:**
-- Cross-site request forgery possible from forms/scripts
-- No CSRF token validation on state-changing endpoints
-
-**Current mitigation:** FastAPI's default CORS policy is restrictive (only same-origin).
-
-**Fix approach:**
-- Add `fastapi-csrf-protect` or similar
-- Implement CSRF token middleware
-- OR use SameSite cookie policy (recommended)
-
-**Impact:** Medium risk if users authenticated to ANPR UI visit malicious sites simultaneously.
-
----
-
-## Rate Limiting State Leakage
-
-**Issue:** In-memory rate limiting dict accumulates entries indefinitely without pruning.
-
-**Files:**
-- `app/api/routers/auth.py` (lines 37-46)
-
-**Problem:**
-- `_failed_attempts` dictionary retains entries for all IPs
-- Memory grows unbounded if many unique IPs attempt login
-- On system restart, all rate limits are reset
-
-**Fix approach:**
-- Implement age-based pruning (remove entries older than 2 × `_RATE_WINDOW_SECONDS`)
-- Or use Redis for persistent, memory-efficient rate limiting
-- Call `_evict_old_attempts()` on each check
-
-**Impact:** Memory leak under brute-force attack; potential DoS.
-
----
-
-## Validation Gaps in Backup/Export Endpoints
-
-**Issue:** Limited validation of user-provided dates and channel IDs in export operations.
-
-**Files:**
-- `app/api/routers/data.py` (lines 53-88)
-- `app/shared/data_lifecycle.py` (lines 120-143)
-
-**Problem:**
-- `start` and `end` parameters passed directly to database queries without format validation
-- No bounds checking on channel_id
-- Large exports can consume excessive memory/disk
-
-**Fix approach:**
-- Validate `start`/`end` as ISO-8601 strings: `datetime.fromisoformat(start)`
-- Limit export size (max rows, max date range)
-- Add timeout to export operations
-- Validate channel_id exists before querying
-
-**Impact:** Potential DoS through large exports; invalid dates could cause database errors.
-
----
-
-## Media File Path Traversal Risk (Low)
-
-**Issue:** Media file names from database written to ZIP without path validation.
-
-**Files:**
-- `app/shared/data_lifecycle.py` (lines 158-163)
-
-**Current state:** Uses `media_path.name` only (filename without directory), limiting traversal risk.
-
-**Residual risk:** If database paths can be manipulated externally, could write outside intended directory.
-
-**Fix approach:**
-- Validate that resolved path is within `screenshots_dir`: 
-  ```python
-  if not str(media_path.resolve()).startswith(str(self.screenshots_dir)):
-      continue  # Skip
-  ```
-
----
-
-## No Input Validation on Zone/Channel Binding
-
-**Issue:** Payload validation in container methods is minimal.
-
-**Files:**
-- `app/api/container.py` (lines 187-200)
-
-**Problem:**
-- `validate_channel_controller_binding()` checks if controller exists, but no type validation
-- Zone binding allows None on both fields (valid) but no mutual exclusivity enforcement
-- No validation of payload structure/types
-
-**Fix approach:**
-- Move validation to Pydantic schemas
-- Enforce invariants (e.g., zone XOR controller, not both)
-- Use explicit validation functions
-
----
-
-## Tracker State Not Reset on Size Change (Low)
-
-**Issue:** YOLO detector may retain stale tracking state if input frame size changes mid-stream.
-
-**Files:**
-- `anpr/detection/yolo_detector.py` (lines 94-102)
-
-**Current mitigation:** `_maybe_reset_tracker()` resets tracker when frame shape changes.
-
-**Residual risk:** If shape change occurs between frames, one frame may use mismatched state.
-
-**Recommendation:** Current approach is sound; monitor logs for "Сбрасываем состояние YOLO-трекера".
-
----
-
-## Large File Upload Without Timeout
-
-**Issue:** Database backup restoration accepts uploaded files without size/timeout limits.
-
-**Files:**
-- `app/api/routers/data.py` (lines 112-177, specifically line 125: `await file.read()`)
-
-**Problem:**
-- No `max_size` on UploadFile; attacker can upload 1GB+ files
-- `await file.read()` loads entire file into memory
-- No timeout on operation
-
-**Fix approach:**
 ```python
-from fastapi import UploadFile, HTTPException
-
-MAX_BACKUP_SIZE = 100 * 1024 * 1024  # 100MB
-file_size = 0
-chunks = []
-async for chunk in file.file:
-    file_size += len(chunk)
-    if file_size > MAX_BACKUP_SIZE:
-        raise HTTPException(status_code=413, detail="File too large")
-    chunks.append(chunk)
-data = b"".join(chunks)
+def update_channel(channel_id: int, payload: Dict[str, Any], ...):
+    updated = container.channel_db.update_channel(channel_id, payload)
 ```
 
-**Impact:** Memory exhaustion DoS; delayed restore operations.
+**Impact:** Any invalid field name or type passed in the dict is silently accepted or causes a database error. Inconsistent with other endpoints that use `ChannelPayload` or other Pydantic models. Schema contract is undefined for clients.
+
+**Fix approach:** Create a `ChannelUpdatePayload` Pydantic model, validate input against it. Reference AGENTS.md "Patterns To Avoid Copying" which flags this pattern.
 
 ---
 
-## Race Condition in Container Processor Replacement
+## Known Bugs
 
-**Issue:** Processor replaced without synchronization during concurrent requests.
+### Theme and Style Persist Inconsistently
 
-**Files:**
-- `app/api/container.py` (lines 157-171)
+**Issue:** Personal UI settings (theme, style, sidebar state, grid size) have conflicting sources of truth.
 
-**Problem:**
-- `restart_processor_for_settings()` stops old processor and creates new one
-- Other threads may be using old processor during replacement
-- No lock preventing concurrent modifications
+**Files:** `app/web/js/app.js:297-299`, `app/web/js/settings.js:50-54`, `app/web/index.html:93`, `config/settings_schema.py`
 
-**Risk:** Untracked detections, missed events during settings update.
+**Symptoms:**
 
-**Fix approach:**
-- Add `asyncio.Lock` to container
-- Hold lock during processor replacement
-- Queue processor operations instead of immediate replacement
+- Before login: theme/style read from `localStorage` (defaults: `graphite-minimal`, `light`)
+- After login: theme/style fetched from API `/api/settings`, overwriting localStorage with server values (defaults: `aurora`, `dark`)
+- Theme toggle in topbar writes to localStorage but not to server
+- Next page reload ignores user's toggle choice and reverts to server value
 
----
+**Trigger:** (1) Open app before login, set theme in topbar. (2) Log in. (3) Observe theme resets to server default. (4) Toggle theme. (5) Reload page. (6) Observe toggle is lost.
 
-## Database Connection Error Not Surfaced Consistently
+**Workaround:** None. User must accept the configured server theme or repeatedly toggle after each reload.
 
-**Issue:** Some paths catch `StorageUnavailableError`, others don't.
+**Root cause:** Three independent sources (localStorage before auth, server config after auth, frontend toggle) without a reconciliation strategy. See roadmap P1 for full analysis.
 
-**Files:**
-- `app/api/routers/data.py` (lines 70, 88)
-- `app/api/routers/events.py` (likely similar pattern)
+### Timezone Model Inexpressible for DST Zones
 
-**Problem:**
-- Inconsistent error handling across routers
-- Database connection failures may be logged but not returned to client
-- Client cannot distinguish temporary vs permanent failures
+**Issue:** The `interface.display_timezone` setting (formerly `time.timezone`) stores timezone as a fixed UTC offset (e.g., `UTC+03:00`), which cannot represent daylight-saving-time transitions.
 
-**Fix approach:**
-- Create error handling middleware that catches all `StorageUnavailableError` globally
-- Return consistent HTTP 503 with detail
-- Log all storage failures
+**Files:** `config/registry.py`, `config/settings_schema.py`, roadmap section 2.6
 
----
+**Impact:** For countries with DST (Ukraine, Belarus) that are in the plate recognition whitelist, time display is offset by 1 hour for half the year.
 
-## Missing Content-Type Validation on Settings Restore
+**Fix approach:** Change `interface.display_timezone` domain from fixed offsets to IANA timezone identifiers (`Europe/Kyiv`, `Europe/Minsk`, etc.). Default to `UTC`. Per project policy, no settings migration: change the registry domain directly and re-enter the value through the UI.
 
-**Issue (resolved 2026-09-21):** settings restore used to accept any YAML. It now accepts only a JSON dump of `app_settings`, validated against the registry (format, version, unknown keys, value bounds) before anything is written.
+### Inconsistent CSV Export Timezone Labels
 
-**Files:**
-- `app/api/routers/data.py` (lines 198-228)
+**Issue:** Data exported as CSV includes timestamps in UTC but does not label them as UTC in the file.
 
-**Current mitigation:** `validate_settings_dump()` in `app/shared/backup_service.py`.
+**Files:** `app/shared/data_lifecycle.py:127-136`
 
-**Residual risk:** 
-- None for settings: unknown keys and out-of-range values are rejected
-- No validation of actual setting values (ranges, formats)
+**Impact:** Operator importing exported data into a spreadsheet cannot determine which timezone the times are in. If importing multiple exports from different systems (e.g., another ANPR installation in a different timezone), times appear to overlap or be out of order.
 
-**Fix approach:**
-- Use Pydantic model for settings schema
-- Validate each setting's type and range
-- Reject unknown keys
+**Fix approach:** (1) Add a header row or comment in CSV file stating "All times in UTC". (2) Or: include timezone offset in each timestamp column (`2026-09-24T14:30:00+00:00`).
 
 ---
 
-## AsyncIO Event Loop Not Null-Checked in publish_event_sync
+## Security Considerations
 
-**Issue:** Unsafe access to `main_loop` without full guards.
+### Authorization Model Undecided and Partially Broken
 
-**Files:**
-- `app/api/container.py` (lines 151-155)
+**Risk:** The authorization model is documented as "pending redesign" (AGENTS.md section "Authorization Model — UNDECIDED"). Current implementation has known defects documented in roadmap section 2.7 (problems P2, P18, P19).
+
+**Files:** `app/api/deps.py`, `app/api/routers/auth.py`, `app/api/routers/users.py:147`, roadmap section 2.7
+
+**Current state:**
+
+- `tab:settings` permission guards 18 unrelated operations (export, backup, database restore, retention runs, user management, settings read) that have nothing to do with "Настройки tab visibility"
+- 46 endpoints are protected only by `get_current_user()` with no authorization check
+- Four tab permissions (`tab:obs`, `tab:journal`, `tab:clients`, `tab:zones`) are checked only on frontend; backend endpoints are unprotected
+- Destructive operations (`DELETE /api/channels/{id}`, `DELETE /api/zones/{id}`, `DELETE /api/lists/{id}`) have no permission guard beyond "you must be logged in"
+
+**Recommendations:**
+
+1. **Do not extend `tab:*` permission guards** to new endpoints. The tab permission system is known to be incorrect and will be redesigned in phase 11.
+2. **Do not add new permission names** without consulting phase 11 roadmap. All new authorization decisions should route through the adapter layer in `app/api/deps.py`.
+3. **Do not rely on current permission names** as the final authority model. Code defensively with the assumption that the model will change.
+
+See roadmap section 4.11 for the access-level adapter pattern (`public`, `self`, `admin-*`) that phase 11 will use to point permissions to a proper model, once chosen.
+
+### Destructive Operations Unprotected
+
+**Risk:** Resource-destroying endpoints (`DELETE /api/channels/{channel_id}`, `DELETE /api/zones/{zone_id}`, `DELETE /api/lists/{list_id}`, `DELETE /api/clients/{client_id}`) are guarded only by `get_current_user`, with no additional authorization.
+
+**Files:** `app/api/routers/channels.py`, `app/api/routers/zones.py`, `app/api/routers/lists.py`, `app/api/routers/clients.py`, `app/api/routers/users.py`
+
+**Impact:** An operator with only `tab:obs` (observation/monitoring) permission can delete channels by calling the API directly (`curl -H "Authorization: Bearer $TOKEN" -X DELETE http://host/api/channels/1`). There is no server-side check preventing this.
+
+**Current mitigation:** Frontend UI does not expose delete buttons to non-superadmin users. But this is a UI-level control, not a server-level enforcement.
+
+**Recommendations:** Pause adding new destructive endpoints until phase 11 redesigns authorization. For existing destructive endpoints, implement server-side guards (either `require_role("superadmin")` or a dedicated `admin-data` access level per section 4.11 of the roadmap).
+
+### Frontend XSS Risk in innerHTML Assignments
+
+**Risk:** 46 uses of `innerHTML =` in frontend modules, some of which interpolate untrusted content.
+
+**Files:** `app/web/js/*.js` (app.js, channels.js, clients.js, controllers.js, debug.js, events.js, journal.js, lists.js, users.js, zones.js, video-grid.js, ui.js, roi-editor.js)
+
+**Examples of risk:**
+
+- `app/web/js/debug.js`: Log messages interpolated into HTML: `line.innerHTML = ``<span>${ts}</span>${meta} ${text}```
+- `app/web/js/events.js`: Dynamic flag HTML: `flagContainer.innerHTML = flagHtml(item.country)`
+
+**Mitigation:** Most uses are safe (setting static control structure or known-safe enum values like country codes). But audit needed to identify if any user input or external data is interpolated without escaping.
+
+**Fix approach:** For any dynamic content, use `textContent` instead of `innerHTML`, or use `createElement` and `appendChild` to construct elements programmatically. See AGENTS.md "Patterns To Avoid Copying" note on `innerHTML` XSS risks.
+
+### Credential Exposure in Logs
+
+**Risk:** Channel source URLs (RTSP credentials embedded in `channels.source`) and controller passwords (in `controllers.password`) must not be logged in full.
+
+**Files:** Any logging in pipeline that references channel or controller objects
+
+**Current state:** Code does not appear to log full credentials intentionally, but breadth of logging in `anpr/pipeline/anpr_pipeline.py` with channel context should be audited.
+
+**Recommendation:** Before logging any channel or controller object, redact sensitive fields:
+
+- `channels.source`: Redact credentials in RTSP URL
+- `controllers.password`: Never log this field
+- API responses: Never return full `channels.source` or `controllers.password` in responses (document in API schema)
+
+---
+
+## Performance Bottlenecks
+
+### YOLO Detector Depends on Internal Ultralytics API
+
+**Problem:** License plate detection uses internal attributes of the ultralytics YOLO library that are not part of the public API and may change without notice.
+
+**Files:** `anpr/detection/yolo_detector.py:55-68`
+
+```python
+predictor = getattr(self.model, "predictor", None)  # Internal API
+trackers = getattr(predictor, "trackers", None)     # Internal API
+predictor.vid_path = [None] * len(trackers)         # Internal API
+```
+
+**Cause:** The ultralytics library does not expose a public tracker reset interface. To reset tracking state on frame size change, the code accesses `model.predictor.trackers` and `predictor.vid_path` directly.
+
+**Impact:** Upgrading `ultralytics` beyond 8.3.20 (currently pinned in `pyproject.toml`) may break frame resizing or tracking state management silently — detection will still work, but tracking IDs may become inconsistent.
+
+**Improvement path:**
+
+1. Do not upgrade `ultralytics` version without testing frame-size transitions in a multi-resolution RTSP source scenario
+2. Monitor ultralytics releases for public tracker reset API
+3. If API is added, refactor to use it instead of internal attributes
+
+---
+
+## Fragile Areas
+
+### Connection Pool Not Updated in refresh_storage_clients()
+
+**Files:** `app/api/container.py:264-284`
+
+**Why fragile:** When the DSN (PostgreSQL connection string) changes, `refresh_storage_clients()` recreates most database instances but **does not update `self.settings_service._repository`**. 
 
 **Current code:**
+
 ```python
-if self.main_loop and self.main_loop.is_running():
-    self.main_loop.call_soon_threadsafe(...)
+def refresh_storage_clients(self) -> None:
+    ...
+    self.events_db = PostgresEventDatabase(dsn)
+    self.lists_db = ListDatabase(dsn)
+    ...
+    # But NOT: self.settings_service._repository = AppSettingsRepository(dsn)
 ```
 
-**Risk:** Race condition between None check and `is_running()` call if event loop stops.
+**What breaks:** If the DSN is changed at runtime and the new database has different settings values, `SettingsService` will continue to read from the old database's connection pool. The new pool is closed, but the settings service still references the old one.
 
-**Fix approach:**
+**Safe modification:** Add `self.settings_service._repository = AppSettingsRepository(dsn)` after line 270 in `refresh_storage_clients()`. Verify that `SettingsService._refresh_if_stale()` will properly reload from the new repository on next access.
+
+**Test coverage:** No test exists for `refresh_storage_clients()` behavior when the DSN changes. Current tests mock this method.
+
+### Daemon Channel Threads with 3-Second Join Timeout
+
+**Files:** `runtime/channel_runtime.py:213-222` (stop method)
+
+**Why fragile:** Channel processing threads are daemon threads with a hard 3-second join timeout. If the thread is blocked in OpenCV's `cap.read()` call waiting for an RTSP frame, `stop()` returns immediately without waiting for the thread to exit. The thread continues running in the background.
+
 ```python
-if self.main_loop is not None:
-    try:
-        if self.main_loop.is_running():
-            self.main_loop.call_soon_threadsafe(...)
-    except RuntimeError:  # Loop closed
-        pass
+if thread and thread.is_alive():
+    thread.join(timeout=3)  # Returns after 3 seconds even if thread still running
 ```
 
----
+**Impact:** Rapid stop-start cycles on a channel can leave orphaned threads consuming resources and hogging the video stream. Shutdown during an RTSP timeout may not cleanly release the TCP connection.
 
-## Tests Missing for Critical Paths
+**Safe modification:** Consider a longer timeout or a more sophisticated shutdown protocol (e.g., event-driven wait with exponential backoff). Alternatively, use a non-daemon thread and ensure graceful shutdown before process exit.
 
-**Issue:** No test files found for some critical modules.
+### Settings Changes Require Channel Restart
 
-**Files without tests:**
-- `app/api/routers/channels.py`
-- `app/api/routers/clients.py`
-- `app/api/routers/zones.py`
-- `app/api/routers/settings.py`
-- `app/shared/data_lifecycle.py`
-- `anpr/detection/yolo_detector.py`
-- Database restore functions
+**Files:** `app/api/routers/settings.py` (PUT endpoint), `runtime/channel_runtime.py`
 
-**Impact:** High-risk paths (backup/restore, zone configuration) lack regression test coverage.
+**Why fragile:** Changing most operational settings (plate countries, detection confidence, motion thresholds) does not automatically update running channels. The setting is stored and applied to newly-created channels, but existing channels ignore it until manually restarted.
 
-**Fix approach:** Add test suite for all routers and lifecycle operations.
+**Current state:** This is by design (documented in AGENTS.md "Known Pitfalls"). But it creates a support burden: operators must remember to restart channels after changing settings, or see inconsistent behavior across channels.
+
+**Safe modification:** None needed — behavior is intentional. Document clearly in UI and API responses which settings require channel restart.
 
 ---
 
-## No Timeout on External Stream Connections
+## Scaling Limits
 
-**Issue:** Stream connections to channels may hang indefinitely.
+### Single Shared OCR Recognizer
 
-**Files:**
-- `app/api/routers/channels.py` (likely uses EventSource or similar)
+**Current capacity:** One CRNN OCR model instance is shared across all channel threads. OCR inference runs sequentially on one GPU or CPU core.
 
-**Problem:**
-- Network partitions/slow clients can exhaust connection pool
-- No idle timeout on streaming endpoints
+**Limit:** If multiple channels have plates to recognize simultaneously, only one can process at a time. The other threads block waiting for the recognizer lock (`anpr/pipeline/factory.py:18`).
 
-**Fix approach:**
-- Set `timeout` parameter on `response_streaming()`
-- Implement heartbeat/keepalive messages
-- Add client timeout in frontend (SSE reconnection policy)
+**Scaling path:** For systems with 20+ channels running in parallel:
 
-**Impact:** Connection leak under poor network conditions.
+1. Profile OCR latency under concurrent load to identify bottleneck
+2. Consider multi-instance OCR pool with round-robin work distribution
+3. Evaluate multi-GPU setup if available
+4. Alternatively, offload OCR to a separate service and call via HTTP
 
----
+### Connection Pool Size
 
-## Logging May Expose Sensitive Data
+**Current capacity:** PostgreSQL connection pool min=2, max=10 (hardcoded in `database/base.py:26`)
 
-**Issue:** Logs include user passwords or tokens in some debug paths.
+**Limit:** With 10 channels, each potentially holding a connection for screenshot upload or event logging, all 10 connections can be exhausted. A 11th concurrent DB operation waits for a connection to be released.
 
-**Files:**
-- All routers log request/response data
-- Debug logs may include plate numbers, channel credentials
-
-**Risk:** Log files committed to disk without encryption could expose sensitive data.
-
-**Fix approach:**
-- Sanitize auth headers before logging
-- Implement log redaction for PII fields
-- Use structured logging with explicit field filtering
+**Scaling path:** Make pool size configurable via environment variables or settings. Adjust min/max based on channel count and load testing.
 
 ---
 
-## YOLO Model Loading Blocks Startup
+## Dependencies at Risk
 
-**Issue:** Model loading is synchronous and blocks application startup.
+### PyTorch CPU Wheels from Non-Standard Source
 
-**Files:**
-- `app/api/container.py` (lines 106-107)
-- `anpr/detection/yolo_detector.py` (line 40: `YOLO(model_path)`)
+**Risk:** PyTorch CPU wheels are installed from `download.pytorch.org/whl/cpu` (custom Poetry source), not PyPI.
 
-**Problem:**
-- If model file is missing or corrupted, entire application fails to start
-- Large model (100MB+) can cause 30+ second startup delay
+**Files:** `pyproject.toml` (Poetry configuration with explicit source)
 
-**Fix approach:**
-- Lazy load model on first use
-- Load model in background task during lifespan
-- Return degraded service (detect-only, no OCR) if model fails
+**Impact:** If `download.pytorch.org` becomes unavailable or is compromised, builds will fail or pull malicious wheels. The build is not reproducible from pypi.org alone.
 
-**Impact:** Deployment issues; increased startup time.
+**Migration plan:** Monitor PyTorch availability on PyPI. Once CPU wheels are available on standard PyPI (they may be now), remove the custom source and use `pip install torch==2.8.0` for CPU. Verify no security regression.
 
 ---
 
-## Cleanup of Stale Tracks Has No Metrics
+## Test Coverage Gaps
 
-**Issue:** Evicted tracks are removed silently with no observability.
+### Destructive Operations Not Tested for Authorization
 
-**Files:**
-- `anpr/pipeline/anpr_pipeline.py` (lines 84-90, 320-324)
+**What's not tested:** Delete endpoints (`DELETE /api/channels`, `DELETE /api/zones`, `DELETE /api/lists`, `DELETE /api/users`) are not tested with different user roles/permissions. Tests do not verify that a non-admin user cannot delete resources.
 
-**Problem:**
-- Impossible to detect if eviction is dropping valid tracks
-- No alerting if eviction happens frequently (indicates misconfiguration)
+**Files:** `tests/test_container_validation.py`, `tests/test_users_router.py`, `tests/test_permission_guards.py` (do not cover destructive operations on all resources)
 
-**Fix approach:**
-- Emit metrics: `tracks_evicted_total`, `tracks_active_gauge`
-- Log eviction when it happens (INFO level)
-- Alert if eviction rate exceeds threshold
+**Risk:** Authorization bypass on delete endpoints would go undetected by test suite.
 
----
+**Priority:** High
 
-## Exception Type Confusion in Restore Backup
+### Connection Pool Refresh Behavior Not Tested
 
-**Issue:** Both `ValueError` and generic `Exception` caught for restore operations.
+**What's not tested:** `refresh_storage_clients()` method is mocked in tests but never actually exercised with a real pool and DSN change.
 
-**Files:**
-- `app/api/routers/data.py` (lines 129-130, 144-148)
+**Files:** `tests/test_data_router.py`, `tests/test_reconnect_settings.py` (mock the method)
 
-**Problem:**
-- Unclear which errors are expected vs unexpected
-- May mask underlying bugs
+**Risk:** Pool cleanup logic or settings repository update could silently fail.
 
-**Fix approach:**
-- Define custom exceptions: `InvalidBackupError`, `BackupRestoreError`
-- Catch specific types
-- Log unexpected errors as WARNING/ERROR
+**Priority:** Medium
 
----
+### YOLO Detector Frame Size Transition Not Tested
 
-## Zone TTL Not Synchronized with Retention
+**What's not tested:** Detector's tracker state reset behavior when frame resolution changes during playback.
 
-**Issue:** Stale zone tracking may outlive event retention.
+**Files:** `anpr/detection/yolo_detector.py:_maybe_reset_tracker()` (method exists, no tests)
 
-**Files:**
-- Event zones stored in database with indefinite TTL
-- Events deleted by retention policy, but zone associations persist
+**Risk:** Frame size change (e.g., RTSP reconnect at different resolution) could corrupt tracking state.
 
-**Risk:** Orphaned zone records accumulate over time.
+**Priority:** Medium
 
-**Fix approach:**
-- Delete zone associations when parent event is deleted
-- Or implement zone TTL matching event TTL
-- Add cleanup job for orphaned zones
+### Frontend innerHTML Content Not Audited for XSS
 
----
+**What's not tested:** No automated check for dynamic content in `innerHTML` assignments. Manual audit required to identify untrusted interpolations.
 
-## No Backpressure on Event Publishing
+**Files:** `app/web/js/*.js` (46 uses of `innerHTML =`)
 
-**Issue:** Event publishing is fire-and-forget; no flow control.
+**Risk:** Unescaped user input or enum values could be injected into DOM.
 
-**Files:**
-- `app/api/container.py` (lines 151-155)
-- `runtime/event_bus.py` (likely buffered without limits)
+**Priority:** Medium
 
-**Problem:**
-- High-throughput scenarios may overflow event bus
-- No indication to caller if event was actually delivered
+### Superadmin Endpoint Not Tested with Invalid/Missing Password
 
-**Fix approach:**
-- Add bounded queue to event bus
-- Return `Future` from publish; caller can await
-- Drop oldest events if queue full (with logging)
+**What's not tested:** `PUT /api/settings/superadmin-password` and login path do not test behavior when `SUPERADMIN_PASSWORD` env var is missing or unset.
+
+**Files:** `tests/test_superadmin.py`, `app/api/routers/auth.py`, `app/api/superadmin.py`
+
+**Risk:** If env var is not set, superadmin login either silently fails or accepts empty password.
+
+**Priority:** Low
 
 ---
 
-## Plate Cooldown May Suppress Valid Detections
+## Missing Critical Features
 
-**Issue:** Duplicate plate suppression uses simple time-based cooldown.
+### No Audit Trail for Settings Changes
 
-**Files:**
-- `anpr/pipeline/anpr_pipeline.py` (lines 401-414)
+**Problem:** When an operator changes a setting (e.g., detection confidence, enabled countries), there is no permanent record of who changed what and when.
 
-**Problem:**
-- Same plate number reported legitimately at different times may be suppressed
-- Cooldown reset on system restart
-- No per-lane tracking (same plate on different lane suppressed incorrectly)
+**Impact:** Compliance/forensics challenge. Cannot trace why detection behavior changed on a given date.
 
-**Fix approach:**
-- Use (plate, zone) tuple for cooldown key
-- Implement per-channel cooldown
-- Log suppressed events for audit
-
-**Impact:** May miss legitimate duplicate plates at busy intersections.
+**Workaround:** None. Review PostgreSQL `app_settings` table revision history (if kept).
 
 ---
 
-## Symlink Handling in Media Cleanup
-
-**Issue:** File cleanup uses `Path.unlink()` without checking for symlinks.
-
-**Files:**
-- `app/shared/data_lifecycle.py` (lines 80, 106)
-
-**Problem:**
-- Following symlinks could delete files outside screenshots_dir
-- Malicious administrator could create symlinks to system files
-
-**Fix approach:**
-```python
-if media_path.is_symlink():
-    logger.warning("Skipping symlink: %s", media_path)
-    continue
-```
-
-**Impact:** Low if file permissions are correct; high if compromised admin account.
-
----
-
-## No Graceful Degradation if CRNN Model Unavailable
-
-**Issue:** CRNN recognizer required; no fallback if model fails to load.
-
-**Files:**
-- `app/api/container.py` (lines 102-117)
-
-**Problem:**
-- Missing model file causes complete application failure
-- No way to run detection-only mode (without OCR)
-
-**Fix approach:**
-- Load model lazily
-- Detect availability and return empty recognizer if unavailable
-- Log warnings, continue with degraded functionality
-
----
-
-## Connection Pool May Not Reconnect After Extended Outage
-
-**Issue:** Database connection pool configured without reconnection strategy.
-
-**Files:**
-- `database/base.py` (pool initialization, not shown but likely issue)
-
-**Risk:** If PostgreSQL down for > timeout, connection pool remains unusable until restart.
-
-**Fix approach:**
-- Implement exponential backoff reconnection
-- Validate connections before use
-- Add circuit breaker pattern
-
----
-
-## No Audit Log for Sensitive Operations
-
-**Issue:** Settings changes, user management, permission changes not logged comprehensively.
-
-**Files:**
-- `app/api/routers/settings.py`
-- `app/api/routers/users.py`
-
-**Problem:**
-- Regulatory/compliance issue; cannot trace who changed what and when
-- No way to detect unauthorized changes
-
-**Fix approach:**
-- Log all mutations: {user, timestamp, operation, before, after}
-- Store audit log in database (immutable)
-- Provide audit log query endpoint
-
----
-
-Summary Statistics:
-- **High Risk:** 2 (unsafe exit, large file upload)
-- **Medium Risk:** 4 (SQL injection, missing CSRF, rate limit leak, restore validation)
-- **Low Risk:** 8+ (various improvements and observability gaps)
-
-**Recommendation Priority:**
-1. Fix unsafe process termination (data corruption risk)
-2. Implement large file upload limits
-3. Add CSRF protection
-4. Refactor SQL queries to use parameterized identifiers
-5. Expand test coverage for critical paths
-
----
-
-*Concerns audit: 2026-09-18*
+*Concerns audit: 2026-09-24*

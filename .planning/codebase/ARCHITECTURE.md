@@ -1,190 +1,338 @@
+---
+last_mapped_commit: 9cfd79b3a864f23127a46c35300f838c212d0007
+last_mapped_at: 2026-09-24
+---
+<!-- refreshed: 2026-09-24 -->
+
 # Architecture
 
-**Analysis Date:** 2026-09-18
+**Analysis Date:** 2026-09-24
+
+## System Overview
+
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         Frontend (Browser)                              │
+│  `app/web/index.html` + ES modules under `app/web/js/app.js`           │
+└────────────────────┬────────────────────────────────────────────────────┘
+                     │ HTTP/SSE
+         ┌───────────┴────────────────┐
+         │                            │
+┌────────▼──────────────┐    ┌────────▼──────────────┐
+│   FastAPI API Server  │    │  Nginx Reverse Proxy  │
+│ `app/api/main.py`     │    │  `nginx/default.conf` │
+│  (AppContainer)       │    │                       │
+└────────┬──────────────┘    └─────────────────────┘
+         │                              │
+         │ Per-channel                  │ MJPEG/SSE
+         │ processing threads           │
+         │                              │
+┌────────▼──────────────────────────────┐
+│  ChannelProcessor Runtime             │
+│  `runtime/channel_runtime.py`         │
+│  - Per-channel ChannelContext          │
+│  - Threading RLock protection          │
+│  - RTSP capture + motion detection     │
+│  - YOLO object detection               │
+│  - CRNN OCR recognition                │
+│  - Event publishing                    │
+└────────┬───────────────────────────────┘
+         │
+         │ Events via EventBus
+         │ + Controller automation
+         │
+┌────────▼──────────────────────────────┐
+│  PostgreSQL Database                   │
+│  `database/postgres/schema.sql`        │
+│  - Events, channels, users             │
+│  - Settings (app_settings)             │
+│  - Lists, clients, controllers         │
+└─────────────────────────────────────────┘
+```
+
+## Component Responsibilities
+
+| Component | Responsibility | File |
+|-----------|----------------|------|
+| AppContainer | Dependency injection, lifecycle, channel state | `app/api/container.py` |
+| ChannelProcessor | Multi-threaded per-channel processing orchestration | `runtime/channel_runtime.py` |
+| ChannelContext | Per-channel state, metrics, stop signal, preview | `runtime/channel_runtime.py` |
+| ANPRPipeline | YOLO detection → ROI → CRNN OCR chain | `anpr/pipeline/anpr_pipeline.py` |
+| TrackAggregator | OCR consensus, budget tracking per track | `anpr/pipeline/anpr_pipeline.py` |
+| PlatePostProcessor | Country-specific plate validation/formatting | `anpr/postprocessing/validator.py` |
+| EventBus | In-memory pub/sub for SSE broadcast | `runtime/event_bus.py` |
+| SettingsService | Settings read/write via `app_settings` table | `config/settings_service.py` |
+| PostgresEventDatabase | Event CRUD, psycopg_pool + connection pooling | `database/postgres_event_repository.py` |
+| ControllerAutomationService | Event → controller relay dispatch logic | `controllers/service.py` |
+| RetentionScheduler | Cleanup policy polling, lifecycle management | `app/worker/main.py` |
 
 ## Pattern Overview
 
-**Overall:** Layered architecture with real-time video processing, multi-threaded channel management, and REST API orchestration.
+**Overall:** Layered monolith with multi-threaded channel isolation
 
 **Key Characteristics:**
-- Multi-layer design: API → Services → Data Access → Video Processing
-- Dependency injection via AppContainer for centralized service management
-- Multi-threaded channel processors for concurrent video stream handling
-- Event-driven communication between video processing and API layers
-- PostgreSQL persistence with connection pooling
-- Separation of concerns: ANPR pipeline (detection/recognition) isolated from API logic
+
+- Two FastAPI services: API server + retention worker (separate processes)
+- Dependency injection via container pattern (`AppContainer`, `WorkerContainer`)
+- Per-channel video processing runs in dedicated daemon threads, isolated by `ChannelContext`
+- Thread-safe state management with `threading.RLock` (ChannelProcessor._lock, ChannelContext.stop_event)
+- Shared singleton ML recognizers (YOLO detector, CRNN OCR) to save memory
+- In-memory event bus with SSE streaming for real-time plate updates
+- PostgreSQL as the only persistent backend; no file-based settings, no SQLite fallback
+- Nginx reverse proxy for SSL termination, request routing, SSE/MJPEG support
 
 ## Layers
 
-**API Layer:**
-- Purpose: HTTP request handling, user authentication, schema validation
-- Location: `app/api/routers/` and `app/api/main.py`
-- Contains: FastAPI routers (`auth`, `channels`, `events`, `users`, `controllers`, `lists`, `zones`, `clients`, `settings`, `system`, `debug`, `data`)
-- Depends on: AppContainer, authentication, request validation
-- Used by: Web UI (`app/web/`), external integrations
+**Presentation (Browser/SSE):**
 
-**Business Logic Layer:**
-- Purpose: Coordinate domain operations, enforce business rules
-- Location: `controllers/` (relay automation), `app/shared/` (data lifecycle), runtime services
-- Contains: `ControllerService` (relay control), `ControllerAutomationService` (plate-triggered actions), `DataLifecycleService` (retention policies)
-- Depends on: Database repositories, ANPR pipeline, event bus
-- Used by: API routers, configuration services
+- Purpose: Real-time plate updates, channel monitoring, configuration UI
+- Location: `app/web/` (HTML + ES modules)
+- Contains: SVG icons, CSS themes, JS modules with imports from state/api/ui
+- Depends on: REST API + EventSource (SSE) from FastAPI
+- Used by: End operators/administrators
 
-**Channel Processing Layer:**
-- Purpose: Real-time video capture, frame processing, ANPR pipeline execution
-- Location: `runtime/channel_runtime.py`, `anpr/pipeline/`
-- Contains: `ChannelProcessor` (thread pool management), `ChannelContext` (per-channel state), `ChannelMetrics` (health tracking)
-- Depends on: Video capture (OpenCV), ANPR models, database for results
-- Used by: API layer (metrics, preview streams), configuration management
+**API Gateway (FastAPI + Nginx):**
 
-**ANPR Pipeline Layer:**
-- Purpose: Convert frames to license plates through detection, recognition, validation
-- Location: `anpr/detection/`, `anpr/recognition/`, `anpr/postprocessing/`, `anpr/preprocessing/`
-- Contains: Plate detection (YOLOv8), OCR recognition (CRNN), motion detection, post-validation
-- Depends on: PyTorch, OpenCV, model files
-- Used by: ChannelProcessor
+- Purpose: HTTP request routing, authentication, SSE streaming, MJPEG proxy
+- Location: `app/api/main.py` (FastAPI), `nginx/default.conf`
+- Contains: Route handlers in `app/api/routers/`, Pydantic schemas, auth utilities, DI setup
+- Depends on: PostgreSQL, ChannelProcessor (via AppContainer)
+- Used by: Frontend, external integrations, webhooks
 
-**Data Access Layer:**
-- Purpose: PostgreSQL operations with connection pooling and schema management
-- Location: `database/`
-- Contains: `PooledDatabase` base class, repository classes (`EventDatabase`, `ChannelDatabase`, `UserDatabase`, `ControllerDatabase`, etc.)
-- Depends on: psycopg (PostgreSQL driver)
-- Used by: Business logic layer, configuration services
+**Application/Domain Logic:**
 
-**Configuration Layer:**
-- Purpose: Settings management, schema validation, defaults
-- Location: `config/`
-- Contains: `EnvConfig` (environment), the registry, `SettingsService` (`app_settings`), preferences, code defaults
-- Depends on: PostgreSQL
-- Used by: AppContainer during initialization
+- Purpose: ANPR pipeline, track aggregation, plate validation, event persistence, automation
+- Location: `anpr/pipeline/`, `app/api/routers/`, `config/`, `controllers/`
+- Contains: ANPRPipeline, TrackAggregator, PlatePostProcessor, SettingsService, ControllerAutomationService
+- Depends on: ANPR models, country configs, database repositories
+- Used by: ChannelProcessor, API handlers, retention worker
+
+**Channel Runtime (Threading):**
+
+- Purpose: Orchestrate per-channel video processing with isolation and metrics
+- Location: `runtime/channel_runtime.py`
+- Contains: ChannelProcessor, ChannelContext, ChannelMetrics, ReconnectConfig
+- Depends on: ANPRPipeline, EventBus, PostgreSQL (events, lists), ControllerAutomationService
+- Used by: AppContainer.startup(), AppContainer.sync_channel_runtime()
+
+**Persistence (PostgreSQL):**
+
+- Purpose: Events, channels, users, settings, lists, clients, zones, controllers
+- Location: `database/`, `database/postgres/schema.sql`
+- Contains: Repository classes (PostgresEventDatabase, ListDatabase, ChannelDatabase, etc.) with psycopg_pool
+- Depends on: PostgreSQL 16 driver (psycopg[binary])
+- Used by: All layers (API, runtime, worker)
+
+**Retention Worker (Scheduled Cleanup):**
+
+- Purpose: Automated data lifecycle management (screenshots, events)
+- Location: `app/worker/main.py`
+- Contains: WorkerContainer, RetentionScheduler, DataLifecycleService
+- Depends on: SettingsService (policy from `app_settings`), PostgreSQL
+- Used by: Cron/Docker-scheduled process (separate from API server)
 
 ## Data Flow
 
-**Video Processing Pipeline:**
+### Primary Request Path: Video Capture → Event Persistence → SSE Broadcast
 
-1. **Capture Phase** → `ChannelProcessor.start(channel_id)` spawns thread with reconnection logic
-2. **Read Phase** → OpenCV `VideoCapture.read()` with timeout/retry handling
-3. **Motion Detection** → Optional motion detection to skip frames without activity
-4. **Plate Detection** → YOLOv8 model detects plate regions in frame
-5. **Track Aggregation** → `TrackAggregator` collects detections across frames
-6. **Plate Recognition** → CRNN OCR recognizes text from best shots
-7. **Validation** → Post-processor validates format by country/region
-8. **Result Emission** → Event callback publishes to EventBus and database
-9. **Controller Automation** → If plate matches list, `ControllerAutomationService` triggers relay
-10. **Frame Storage** → Screenshot saved to filesystem (if configured)
+1. **ChannelProcessor._run_channel() thread** (`runtime/channel_runtime.py:_run_channel()`)
+   - Opens RTSP source via OpenCV
+   - Reads frames in a loop, handling reconnect
+   
+2. **Motion Detection** (`anpr/detection/motion_detector.py`)
+   - Detects foreground motion if enabled; skips frame if no motion
+   
+3. **YOLO Detection** (`anpr/detection/yolo_detector.py`)
+   - Runs YOLO detector on frame
+   - Extracts license plate bounding boxes (ROI)
+   
+4. **ROI Filtering** (`anpr/pipeline/anpr_pipeline.py`)
+   - Filters detections by ROI bounds (user-defined region or plate size)
+   
+5. **CRNN OCR Recognition** (`anpr/recognition/crnn_recognizer.py`)
+   - Preprocesses plate image (`anpr/preprocessing/plate_preprocessor.py`)
+   - Runs CRNN OCR recognizer; returns (text, confidence)
+   
+6. **Track Aggregation** (`anpr/pipeline/anpr_pipeline.py:TrackAggregator`)
+   - Groups OCR results per track ID
+   - Achieves consensus with quorum or returns best candidate when budget exhausted
+   - Updates `_track_states` (OCR attempt count, consecutive failures)
+   
+7. **Plate Validation** (`anpr/postprocessing/validator.py:PlatePostProcessor`)
+   - Loads country-specific regex config from `anpr/countries/*.yaml`
+   - Validates plate format (RU/UA/BY/KZ patterns)
+   - Normalizes format (uppercase, spacing)
+   
+8. **Event Creation & Persistence**
+   - ChannelProcessor publishes event to PostgreSQL via `events_db.write()`
+   - Event captured: plate, confidence, timestamp, screenshot path, track ID, zone info
+   
+9. **Event Broadcasting** (`runtime/event_bus.py`)
+   - ChannelProcessor calls `event_callback()` (AppContainer.publish_event_sync)
+   - publish_event_sync() schedules async task: EventBus.publish() to all SSE subscribers
+   
+10. **SSE Streaming** (`app/api/routers/events.py` via `/api/events/stream`)
+    - Browser SSE client receives event in real-time
+    - Frontend (`app/web/js/events.js`) renders plate in event feed
+    
+11. **Controller Automation** (optional)
+    - ControllerAutomationService.dispatch_event() checks if event matches automation rules
+    - Sends HTTP request to controller relay (gate, barrier)
 
-**API Request Flow:**
+### Settings and Configuration Flow
 
-1. Request arrives at FastAPI endpoint (e.g., `GET /api/channels`)
-2. Authentication: `get_current_user()` dependency extracts JWT from header/query
-3. User lookup: JWT sub claims → `UserDatabase.find_by_id()`
-4. Container injection: `get_container()` dependency retrieves `AppContainer`
-5. Business logic: Router calls service methods on container entities
-6. Data access: Repositories execute SQL via shared connection pool
-7. Response: Pydantic schema serialization to JSON
-8. Error handling: `HTTPException` for API errors, `StorageUnavailableError` for DB failures
+1. **Environment Load** (`config/env_settings.py`)
+   - Reads `.env` file (secrets, DSN, model paths, thread limits)
+   - Only place the environment is read
+   
+2. **Settings Registry** (`config/registry.py`)
+   - Declares all operational settings: class (D/A/C/L), type, bounds, default
+   - ENUMS for domains (COUNTRIES, DETECTION_MODES, etc.)
+   
+3. **Settings Schema** (`config/settings_schema.py`)
+   - Code defaults for every setting (channel_defaults, logging_defaults, etc.)
+   - Value normalizers (no version migrations — project policy)
+   
+4. **SettingsService** (`config/settings_service.py`)
+   - Reads/writes `app_settings` JSON table in PostgreSQL
+   - Caches settings in memory
+   - Called by: AppContainer, routers, ChannelProcessor
+   
+5. **API Settings Endpoint** (`app/api/routers/settings.py`)
+   - GET /api/settings/schema → registry enums + timezone list
+   - GET /api/settings/{section} → SettingsService.get_section()
+   - PUT /api/settings/{section} → SettingsService.update_section()
+   - Triggers AppContainer.restart_processor_for_settings() if needed
 
-**Event Publishing:**
+### Personal UI State (Browser Only)
 
-1. ANPR pipeline emits event via `event_callback(dict)` from worker thread
-2. `AppContainer.publish_event_sync()` bridges thread-safe event to main event loop
-3. `EventBus.publish()` notifies all SSE subscribers
-4. `ControllerAutomationService.dispatch_event()` checks automation rules (plate in list → trigger relay)
-5. Event stored in PostgreSQL via `EventDatabase`
+- **Theme, style, grid layout, sidebar pin, debug panel, channel metrics**
+- Stored in: Browser `localStorage` (`app/web/js/appearance.js`, `app/web/js/device-prefs.js`)
+- No server persistence, no `users.preferences` table
+- Synced per-device, not per-account
 
 **State Management:**
 
-- **Channel State**: Per-channel metrics, capture handle, latest JPEG frame in `ChannelContext`
-- **Track State**: OCR attempt budget, finalization status per detection track in `TrackAggregator._track_states`
-- **User State**: JWT claims include role, permissions; validated per request
-- **Configuration State**: environment read once at startup (`EnvConfig`); operational settings cached by `SettingsService` and invalidated by the `app_settings_revision` counter, so API and worker see changes without restart
+- Channel context: `Dict[int, ChannelContext]` protected by `threading.RLock()` in ChannelProcessor
+- Event backlog: `asyncio.Queue(maxsize=512)` per SSE subscriber (dropped if full)
+- Settings cache: In-memory dict in SettingsService, reloaded on DB read
+- Logging config: Applied per-service on startup, re-read on settings change
 
 ## Key Abstractions
 
-**AppContainer:**
-- Purpose: Dependency injection container and service orchestrator
-- Examples: `app/api/container.py` (lines 31-245)
-- Pattern: Dataclass with factory method (`build()`) initializing all services at startup; lifespan management with FastAPI
-- Usage: Injected into every API route via `get_container()` dependency
+**ChannelContext:**
 
-**ChannelProcessor:**
-- Purpose: Manages concurrent video capture and processing across channels
-- Examples: `runtime/channel_runtime.py` (lines 69-100+)
-- Pattern: Thread pool executor with per-channel context dictionaries; reconnection logic with exponential backoff
-- Usage: Started at app startup, stopped at shutdown; called by API for metrics/preview
+- Purpose: Encapsulates per-channel state (thread, stop signal, metrics, preview frame)
+- Examples: `runtime/channel_runtime.py:ChannelContext`
+- Pattern: Dataclass with default_factory fields for thread-safe access
 
 **TrackAggregator:**
-- Purpose: Accumulates ANPR results for a single plate detection across multiple frames
-- Examples: `anpr/pipeline/anpr_pipeline.py` (lines 45-100+)
-- Pattern: Consensus voting with OCR budget; emits plate number when quorum reached or budget exhausted
-- Usage: One per channel, receives OCR results, tracks finalization state
 
-**Database Repositories:**
-- Purpose: Database abstraction with pooled connections
-- Examples: `database/channel_repository.py`, `database/postgres_event_repository.py`, `database/user_repository.py`
-- Pattern: `PooledDatabase` base class with lazy schema initialization; methods return Dict[str, Any] for flexibility
-- Usage: CRUD operations for domain entities (channels, events, users, controllers, zones)
+- Purpose: Manages OCR budget and consensus per video track
+- Examples: `anpr/pipeline/anpr_pipeline.py:TrackAggregator`
+- Pattern: Maintains state dicts by track_id; emits consensus or best-effort when finalizing
 
-**ChannelMetrics:**
-- Purpose: Runtime health snapshot for a channel
-- Examples: `runtime/channel_runtime.py` (lines 25-43)
-- Pattern: Dataclass with mutable state fields (FPS, latency, error counts)
-- Usage: Queried by API for `/api/channels` endpoint; updated by processor threads
+**PlatePostProcessor:**
+
+- Purpose: Country-specific validation and normalization
+- Examples: `anpr/postprocessing/validator.py:PlatePostProcessor`
+- Pattern: Loads YAML config, applies regex/format rules
+
+**SettingsService:**
+
+- Purpose: Single interface for all settings read/write
+- Examples: `config/settings_service.py:SettingsService`
+- Pattern: Wraps AppSettingsRepository; manages cache lifecycle
+
+**ControllerAutomationService:**
+
+- Purpose: Rules-based dispatch of events to physical relays
+- Examples: `controllers/service.py:ControllerAutomationService`
+- Pattern: Checks event against lists/rules; sends HTTP to controller
 
 ## Entry Points
 
-**FastAPI Application:**
+**API Server:**
+
 - Location: `app/api/main.py`
-- Triggers: Server startup (e.g., `uvicorn app.api.main:app`)
-- Responsibilities: Configure CORS, mount static files, register routers, manage lifespan
+- Triggers: Docker run, or `uvicorn app.api.main:app --host 0.0.0.0 --port 8000`
+- Responsibilities: 
+  - Build AppContainer (DI, channel processor, DB connections)
+  - Mount static web UI (`app/web/`)
+  - Start ChannelProcessor threads for enabled channels
+  - Register FastAPI routers (auth, events, channels, settings, etc.)
+  - Handle shutdown: stop threads, close DB pools
 
-**ChannelProcessor Worker:**
-- Location: `runtime/channel_runtime.py`
-- Triggers: `AppContainer.startup()` on app launch
-- Responsibilities: Spawn per-channel threads, coordinate frame capture/processing
+**Retention Worker:**
 
-**Configuration Loader:**
-- Location: `config/env_settings.py`, `config/settings_service.py`
-- Triggers: `AppContainer.build()` during initialization
-- Responsibilities: read the environment, fail fast on missing weights or weak secrets, serve operational settings with registry defaults
+- Location: `app/worker/main.py`
+- Triggers: Docker run (separate service in docker-compose.yml)
+- Responsibilities:
+  - Build WorkerContainer (SettingsService, DataLifecycleService, RetentionScheduler)
+  - Poll settings.cleanup_interval_minutes every POLICY_POLL_SECONDS
+  - Run retention cycle: delete old events/screenshots per policy
+
+**Frontend Entry:**
+
+- Location: `app/web/index.html` → `app/web/js/app.js`
+- Triggers: Browser GET /web/
+- Responsibilities:
+  - Initialize authentication (login form or token from localStorage)
+  - Load settings schema, channels, users, lists, zones
+  - Render UI tabs (obs/events/journal/lists/clients/controllers/settings)
+  - Open EventSource (SSE) for real-time plate events
+  - Handle user actions: create/edit/delete, run retention, import/export
+
+## Architectural Constraints
+
+- **Threading:** Daemon threads per channel (1 thread per enabled video stream); ChannelProcessor._lock protects _contexts dict; no async video I/O (cv2.VideoCapture is blocking)
+- **Global state:** ChannelProcessor._contexts (Dict[int, ChannelContext]) is the single source of truth for channel runtime state; AppContainer.processor is the singleton instance
+- **Circular imports:** Avoid importing `controllers/` in `config/` (existing coupling is tech debt per AGENTS.md; do not add more)
+- **Model sharing:** YOLO detector and CRNN recognizer are singletons, created once in `anpr/pipeline/factory.py` and shared across all channels to save GPU/CPU memory
+- **Database:** Two separate psycopg_pool.ConnectionPool instances (min=2, max=10): one for events, one for lists; no dual-write, no fallback storage
+- **Settings loading:** SettingsService reads from `app_settings` JSON table on first access; defaults from `config/settings_schema.py` if table is empty; no file-based settings
+- **Authorization (currently UNDECIDED — redesign pending):** Current state: `tab:*` permissions are navigation visibility only; no endpoint-level enforcement except `tab:settings` on 18 endpoints; phase 11 of roadmap will redesign this; do not treat current model as target
+
+## Anti-Patterns
+
+### Synchronous Channel Startup (Long Block)
+
+**What happens:** AppContainer.startup() calls processor.ensure_channel() + processor.start() in a loop; if RTSP connect hangs, the entire API startup blocks.
+**Why it's wrong:** Causes slow deployment, blocks subsequent routes, no timeout protection.
+**Do this instead:** Refactor startup to spawn channel threads asynchronously; add per-channel connect timeouts in _open_capture().
+
+### Missing Reconnect Cache Invalidation
+
+**What happens:** ChannelProcessor.get_reconnect_config() caches for 30 seconds; if admin changes reconnect.signal_loss.enabled, channels don't respect it until 30s pass.
+**Why it's wrong:** Settings changes should take effect immediately for critical settings.
+**Do this instead:** Invalidate cache on every PUT /api/settings; restart_processor_for_settings() already does this for some settings, extend to reconnect.
+
+### Broad Exception Catch in Database Layer
+
+**What happens:** `database/postgres_event_repository.py` catches `StorageUnavailableError` broadly; does not distinguish between connection pool exhaustion vs. query timeout vs. schema error.
+**Why it's wrong:** Hides root cause; makes debugging production issues harder.
+**Do this instead:** Catch specific psycopg3 exceptions; re-wrap only connection/transport errors as StorageUnavailableError.
 
 ## Error Handling
 
-**Strategy:** Layered validation with graceful degradation.
+**Strategy:** HTTP 503 Service Unavailable for DB errors; HTTP 422 Validation Error for bad input; HTTP 401 Unauthorized for auth failures.
 
 **Patterns:**
 
-- **HTTP Exceptions**: API routers raise `HTTPException` for user-facing errors (400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, 503 Service Unavailable)
-- **Storage Unavailable**: Database failures caught as `StorageUnavailableError`, wrapped in 503 response via `container.storage_503()`
-- **Reconnection Logic**: Video capture failures trigger reconnect with configurable backoff (signal-loss timeout, retry interval)
-- **Thread Safety**: Database operations protected by connection pool; channel state accessed via `threading.RLock()`
-- **Validation**: Pydantic schemas validate on API input; normalizers apply business rules before storage
-- **Logging**: All errors logged to configurable level (DEBUG, INFO, WARNING, ERROR, CRITICAL) with context
+- `StorageUnavailableError` propagates from repositories; caught in routers, re-raised as HTTP 503
+- Validation errors in Pydantic schemas raise ValueError; FastAPI converts to HTTP 422
+- Authentication failures in `get_current_user()` raise HTTP 401
+- Channel not found in runtime: HTTP 404 (channel exists but not running, or never existed)
+- Invalid settings update: HTTP 400 (constraint violation, e.g. max > min) or HTTP 422 (schema mismatch)
 
 ## Cross-Cutting Concerns
 
-**Logging:** 
-- Framework: `common/logging.py` with context injection (service name, channel ID)
-- Pattern: bootstrap from `LOG_LEVEL`, then reconfigured from `app_settings` (`config/logging_setup.py`)
-- Output: File and stderr with rotation
+**Logging:** Python `logging` module via `common/logging.py`; `get_logger(__name__)` at module level; Russian messages for business logic in `anpr/`, English for tests; `%s`/`%d` lazy formatting (never f-strings in log calls); channel context prefix (`Канал {name} (id={id})`) in pipeline logs.
 
-**Validation:** 
-- Pydantic schemas in `app/api/schemas.py` for HTTP payloads
-- Normalizers in `config/settings_normalizer.py` for configuration defaults
-- Business logic validation in service methods and `AppContainer` helpers (e.g., `validate_global_hotkeys()`)
+**Validation:** Pydantic schemas in `app/api/schemas.py` for request/response; country regex validation in PlatePostProcessor; ROI bounds clamping in ChannelProcessor; settings type/bound checking in registry.
 
-**Authentication:** 
-- JWT tokens issued by `/api/auth/login` endpoint
-- Token extraction from Authorization header or query parameter in `get_current_user()`
-- User lookup from PostgreSQL on each request
-- Role-based access control via `require_role()` and `require_permission()` dependencies
-
-**Metrics & Observability:**
-- Channel metrics (FPS, latency, errors) tracked in `ChannelMetrics`
-- Debug registry in `runtime/debug.py` for feature flags and debug settings
-- Live log bus in `runtime/debug_log_bus.py` for streaming logs to UI
-- Event history stored in PostgreSQL (configurable retention)
+**Authentication:** JWT in Authorization header; token issued by `app/api/auth_utils.py:issue_token()` (HS256, signed with JWT_SECRET_KEY); verified by `get_current_user()` dependency; superadmin is a technical account read fresh from SUPERADMIN_PASSWORD env var on every login (`app/api/superadmin.py`).
 
 ---
 
-*Architecture analysis: 2026-09-18*
+*Architecture analysis: 2026-09-24*
