@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// gsd-hook-version: 1.30.0
+// gsd-hook-version: 1.14.0
 // Check for GSD updates in background, write result to cache
 // Called by SessionStart hook - runs once per session
 
@@ -8,19 +8,39 @@ const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
 
+// #3582: gsd-core/bin/lib/package-identity.cjs is a tsc build artifact
+// (ADR-457), gitignored and absent on a raw plugin-marketplace / git-clone
+// install that never ran `npm run build:lib`. This SessionStart hook must
+// DEGRADE (fall back to a generic cache filename) rather than crash session
+// start. gsd-check-update-worker.js — the process this hook spawns — degrades
+// identically and independently, so the shared fallback literal keeps the
+// cache path consistent between writer and reader even in the (rare)
+// doubly-degraded case. This try/require/ensureRuntimeBuild/require/catch
+// shape is deliberately duplicated (not extracted to hooks/lib/) — see
+// gsd-check-update-worker.js's identical #3582 comment for why.
+let updateCacheFileName = 'gsd-update-check.json';
+try {
+  const { ensureRuntimeBuild } = require('../gsd-core/bin/ensure-runtime-build.cjs');
+  ensureRuntimeBuild();
+  ({ updateCacheFileName } = require('../gsd-core/bin/lib/package-identity.cjs'));
+} catch (e) {
+  // Runtime library missing/broken and could not self-build — degrade to the
+  // fallback filename above rather than crash the SessionStart hook.
+}
+
 const homeDir = os.homedir();
 const cwd = process.cwd();
 
-// Detect runtime config directory (supports Claude, OpenCode, Gemini)
+// Detect runtime config directory (supports Claude, OpenCode, Kilo, Gemini)
 // Respects CLAUDE_CONFIG_DIR for custom config directory setups
 function detectConfigDir(baseDir) {
   // Check env override first (supports multi-account setups)
   const envDir = process.env.CLAUDE_CONFIG_DIR;
-  if (envDir && fs.existsSync(path.join(envDir, 'get-shit-done', 'VERSION'))) {
+  if (envDir && fs.existsSync(path.join(envDir, 'gsd-core', 'VERSION'))) {
     return envDir;
   }
-  for (const dir of ['.config/opencode', '.opencode', '.gemini', '.claude']) {
-    if (fs.existsSync(path.join(baseDir, dir, 'get-shit-done', 'VERSION'))) {
+  for (const dir of ['.claude', '.gemini', '.config/kilo', '.kilo', '.config/opencode', '.opencode']) {
+    if (fs.existsSync(path.join(baseDir, dir, 'gsd-core', 'VERSION'))) {
       return path.join(baseDir, dir);
     }
   }
@@ -29,86 +49,36 @@ function detectConfigDir(baseDir) {
 
 const globalConfigDir = detectConfigDir(homeDir);
 const projectConfigDir = detectConfigDir(cwd);
-const cacheDir = path.join(globalConfigDir, 'cache');
-const cacheFile = path.join(cacheDir, 'gsd-update-check.json');
+// Use a shared, tool-agnostic cache directory to avoid multi-runtime
+// resolution mismatches where check-update writes to one runtime's cache
+// but statusline reads from another (#1421).
+const cacheDir = path.join(homeDir, '.cache', 'gsd');
+const cacheFile = path.join(cacheDir, updateCacheFileName);
 
 // VERSION file locations (check project first, then global)
-const projectVersionFile = path.join(projectConfigDir, 'get-shit-done', 'VERSION');
-const globalVersionFile = path.join(globalConfigDir, 'get-shit-done', 'VERSION');
+const projectVersionFile = path.join(projectConfigDir, 'gsd-core', 'VERSION');
+const globalVersionFile = path.join(globalConfigDir, 'gsd-core', 'VERSION');
 
 // Ensure cache directory exists
 if (!fs.existsSync(cacheDir)) {
   fs.mkdirSync(cacheDir, { recursive: true });
 }
 
-// Run check in background (spawn background process, windowsHide prevents console flash)
-const child = spawn(process.execPath, ['-e', `
-  const fs = require('fs');
-  const path = require('path');
-  const { execSync } = require('child_process');
-
-  const cacheFile = ${JSON.stringify(cacheFile)};
-  const projectVersionFile = ${JSON.stringify(projectVersionFile)};
-  const globalVersionFile = ${JSON.stringify(globalVersionFile)};
-
-  // Check project directory first (local install), then global
-  let installed = '0.0.0';
-  let configDir = '';
-  try {
-    if (fs.existsSync(projectVersionFile)) {
-      installed = fs.readFileSync(projectVersionFile, 'utf8').trim();
-      configDir = path.dirname(path.dirname(projectVersionFile));
-    } else if (fs.existsSync(globalVersionFile)) {
-      installed = fs.readFileSync(globalVersionFile, 'utf8').trim();
-      configDir = path.dirname(path.dirname(globalVersionFile));
-    }
-  } catch (e) {}
-
-  // Check for stale hooks — compare hook version headers against installed VERSION
-  // Hooks live inside get-shit-done/hooks/, not configDir/hooks/
-  let staleHooks = [];
-  if (configDir) {
-    const hooksDir = path.join(configDir, 'get-shit-done', 'hooks');
-    try {
-      if (fs.existsSync(hooksDir)) {
-        const hookFiles = fs.readdirSync(hooksDir).filter(f => f.startsWith('gsd-') && f.endsWith('.js'));
-        for (const hookFile of hookFiles) {
-          try {
-            const content = fs.readFileSync(path.join(hooksDir, hookFile), 'utf8');
-            const versionMatch = content.match(/\\/\\/ gsd-hook-version:\\s*(.+)/);
-            if (versionMatch) {
-              const hookVersion = versionMatch[1].trim();
-              if (hookVersion !== installed && !hookVersion.includes('{{')) {
-                staleHooks.push({ file: hookFile, hookVersion, installedVersion: installed });
-              }
-            } else {
-              // No version header at all — definitely stale (pre-version-tracking)
-              staleHooks.push({ file: hookFile, hookVersion: 'unknown', installedVersion: installed });
-            }
-          } catch (e) {}
-        }
-      }
-    } catch (e) {}
-  }
-
-  let latest = null;
-  try {
-    latest = execSync('npm view get-shit-done-cc version', { encoding: 'utf8', timeout: 10000, windowsHide: true }).trim();
-  } catch (e) {}
-
-  const result = {
-    update_available: latest && installed !== latest,
-    installed,
-    latest: latest || 'unknown',
-    checked: Math.floor(Date.now() / 1000),
-    stale_hooks: staleHooks.length > 0 ? staleHooks : undefined
-  };
-
-  fs.writeFileSync(cacheFile, JSON.stringify(result));
-`], {
+// Run check in background via a dedicated worker script.
+// Spawning a file (rather than node -e '<inline code>') keeps the worker logic
+// in plain JS with no template-literal regex-escaping concerns, and makes the
+// worker independently testable.
+const workerPath = path.join(__dirname, 'gsd-check-update-worker.js');
+const child = spawn(process.execPath, [workerPath], {
   stdio: 'ignore',
   windowsHide: true,
-  detached: true  // Required on Windows for proper process detachment
+  detached: true,  // Required on Windows for proper process detachment
+  env: {
+    ...process.env,
+    GSD_CACHE_FILE: cacheFile,
+    GSD_PROJECT_VERSION_FILE: projectVersionFile,
+    GSD_GLOBAL_VERSION_FILE: globalVersionFile,
+  },
 });
 
 child.unref();

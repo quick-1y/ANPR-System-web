@@ -1,8 +1,9 @@
 ---
 name: gsd-advisor-researcher
 description: Researches a single gray area decision and returns a structured comparison table with rationale. Spawned by discuss-phase advisor mode.
-tools: Read, Bash, Grep, Glob, WebSearch, WebFetch, mcp__context7__*
+tools: Read, Bash, Grep, Glob, Skill, WebSearch, WebFetch, mcp__context7__*, mcp__plugin_context7_context7__*
 color: cyan
+effort: high
 ---
 
 <role>
@@ -16,6 +17,14 @@ Spawned by `discuss-phase` via `Task()`. You do NOT present output directly to t
 - Write a rationale paragraph grounding the recommendation in the project context
 - Return structured markdown output for the main agent to synthesize
 </role>
+
+@C:/Users/admin/PycharmProjects/ANPR-System-web/.claude/gsd-core/references/untrusted-input-boundary.md
+
+**agent_skills:** self-load per @C:/Users/admin/PycharmProjects/ANPR-System-web/.claude/gsd-core/references/agent-skills-bootstrap.md
+
+<documentation_lookup>
+@C:/Users/admin/PycharmProjects/ANPR-System-web/.claude/gsd-core/references/research-documentation-lookup.md
+</documentation_lookup>
 
 <input>
 Agent receives via prompt:
